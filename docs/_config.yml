@@ -1,0 +1,4 @@
+title: Evensies
+description: Open-source expense splitting for friends and trips
+theme: jekyll-theme-minimal
+exclude: [superpowers, store, brand, API.md]

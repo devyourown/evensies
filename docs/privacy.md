@@ -1,3 +1,7 @@
+---
+title: Privacy Policy
+permalink: /privacy
+---
 # Privacy Policy (draft — review before store submission)
 
 **Who:** Nari Information (Hyojun Lee), Republic of Korea. Contact: hyojoon56@gmail.com

@@ -48,6 +48,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
+        debugShowCheckedModeBanner: false,
         title: 'Evensies',
         theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
         darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),
