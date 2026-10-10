@@ -1,3 +1,5 @@
+import 'dart:math';
+
 class ExpenseLine {
   final String paidBy;
   final int amount;
@@ -29,7 +31,8 @@ class Transfer {
 /// 멤버별 잔액. 양수 = 받을 돈(채권자), 음수 = 줄 돈(채무자).
 ///
 /// TODO(효준): 본문 구현. 규칙(shared/settlement-cases.json이 검증):
-/// - 잔액 = 낸 돈(paidBy인 지출의 amount 합) − 부담 몫(shares[me] 합) + 받은 송금(to==me) − 보낸 송금(from==me).
+/// - 잔액 = 낸 돈(paidBy인 지출의 amount 합) − 부담 몫(shares[me] 합) + 보낸 송금(from==me) − 받은 송금(to==me).
+///   (송금은 from이 낸 돈을 to가 전부 부담한 지출과 같다. 받으면 받을 돈이 줄고, 보내면 줄 돈이 준다.)
 /// - 결과 맵은 [members] 전부를 키로 가진다(활동 없으면 0).
 /// - 합계는 항상 0 (shares 합 == amount이므로).
 Map<String, int> computeBalances(
@@ -37,7 +40,21 @@ Map<String, int> computeBalances(
   List<ExpenseLine> expenses,
   List<PaymentLine> payments,
 ) {
-  throw UnimplementedError('TODO(효준)');
+  final result = <String, int> {};
+  for (final member in members) {
+    result.putIfAbsent(member, () => 0);
+  }
+  for (final expense in expenses) {
+    result.update(expense.paidBy, (v) => v+expense.amount);
+    for (final (member) in expense.shares.keys) {
+      result.update(member, (v) => v-(expense.shares[member]??0));
+    }
+  }
+  for (final payment in payments) {
+    result.update(payment.from, (v) => v+payment.amount);
+    result.update(payment.to, (v) => v-payment.amount);
+  }
+  return result;
 }
 
 /// 잔액을 0으로 만드는 송금 목록(탐욕법).
@@ -49,5 +66,26 @@ Map<String, int> computeBalances(
 /// - 잔액 0인 멤버는 송금에 등장하지 않는다. 결과 수 ≤ n−1.
 /// - 같은 입력 → 같은 출력(결정적). 결과 송금을 모두 적용하면 모든 잔액이 0.
 List<Transfer> simplifyDebts(Map<String, int> balances) {
-  throw UnimplementedError('TODO(효준)');
+  final result = <Transfer>[];
+  final creditor = <(String, int)>[];
+  final debtor = <(String, int)>[];
+  for (final member in balances.keys) {
+    final amount = balances[member] ?? 0;
+    if (amount < 0) {
+      debtor.add((member, amount));
+    } else if (amount > 0) {
+      creditor.add((member, amount));
+    }
+  }
+  while (debtor.isNotEmpty && creditor.isNotEmpty) {
+    debtor.sort((a, b) => a.$2 == b.$2 ? b.$1.compareTo(a.$1) : b.$2.compareTo(a.$2));
+    creditor.sort((a, b) => a.$2 == b.$2 ? b.$1.compareTo(a.$1) : a.$2.compareTo(b.$2));
+    final debt = debtor.removeLast();
+    final cred = creditor.removeLast();
+    final amount = min(-(debt.$2), cred.$2);
+    if (debt.$2 + amount != 0) debtor.add((debt.$1, debt.$2 + amount));
+    if (cred.$2 - amount != 0) creditor.add((cred.$1, cred.$2 - amount));
+    result.add(Transfer(from: debt.$1, to: cred.$1, amount: amount));
+  }
+  return result;
 }

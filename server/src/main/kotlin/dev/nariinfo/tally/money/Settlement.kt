@@ -9,7 +9,7 @@ object Settlement {
      * TODO(효준): 멤버별 잔액. 테스트: shared/settlement-cases.json (SettlementTest).
      *
      * 잔액 = 낸 돈(paidBy로 낸 expense.amount 합) − 부담 몫(shares[me] 합)
-     *        + 받은 송금(to == me) − 보낸 송금(from == me)
+     *        + 보낸 송금(from == me) − 받은 송금(to == me)
      * 모든 members가 결과에 들어간다(활동 없으면 0). shares에만 등장하고 members에 없는 ID는 없다고 가정한다.
      * 불변식: 결과 값의 합 == 0.
      */
