@@ -30,7 +30,7 @@ class Transfer {
 
 /// 멤버별 잔액. 양수 = 받을 돈(채권자), 음수 = 줄 돈(채무자).
 ///
-/// TODO(효준): 본문 구현. 규칙(shared/settlement-cases.json이 검증):
+/// 규칙(shared/settlement-cases.json이 검증):
 /// - 잔액 = 낸 돈(paidBy인 지출의 amount 합) − 부담 몫(shares[me] 합) + 보낸 송금(from==me) − 받은 송금(to==me).
 ///   (송금은 from이 낸 돈을 to가 전부 부담한 지출과 같다. 받으면 받을 돈이 줄고, 보내면 줄 돈이 준다.)
 /// - 결과 맵은 [members] 전부를 키로 가진다(활동 없으면 0).
@@ -59,7 +59,7 @@ Map<String, int> computeBalances(
 
 /// 잔액을 0으로 만드는 송금 목록(탐욕법).
 ///
-/// TODO(효준): 본문 구현. 규칙:
+/// 규칙:
 /// - 채권자(>0)와 채무자(<0)를 각각 절댓값 큰 순으로 정렬. 동률이면 memberId 오름차순.
 /// - 가장 큰 채권자 c와 가장 큰 채무자 d를 맞붙여 min(c.balance, -d.balance)만큼 Transfer(from: d, to: c).
 ///   0이 된 쪽을 빼고 반복(남은 쪽은 재정렬 후 다시 최대값 선택).

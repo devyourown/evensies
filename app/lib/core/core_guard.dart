@@ -1,4 +1,4 @@
-/// Runs one of the TODO(효준) core functions; null while it is still unimplemented.
+/// Runs a core function; null if it throws UnimplementedError (defensive, all core functions are implemented).
 T? tryCore<T>(T Function() f) {
   try {
     return f();

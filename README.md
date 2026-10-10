@@ -45,12 +45,12 @@ Caddy obtains TLS automatically for `TALLY_DOMAIN`. In the app, open Settings �
 ```bash
 # database
 docker compose -f deploy/docker-compose.dev.yml up -d
-# server (dev profile enables /auth/dev and naive sync)
+# server (dev profile enables /auth/dev)
 cd server && ./gradlew bootRun --args='--spring.profiles.active=dev'
 # app (iOS simulator)
 cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=TALLY_SERVER_URL=http://localhost:8080
 ```
-Tests: `cd server && ./gradlew test` · `cd app && flutter test --exclude-tags hyojun`.
+Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 
 ## Design
 - Money is stored as integers in the currency's minor unit; splits are stored as final per-member amounts.

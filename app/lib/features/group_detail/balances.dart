@@ -7,7 +7,7 @@ import '../../domain/settlement.dart';
 import '../../providers.dart';
 
 class BalanceResult {
-  /// null while computeBalances is TODO(효준).
+  /// null only if computeBalances throws UnimplementedError (defensive).
   final Map<String, int>? balances;
   /// Expenses in a foreign currency with no fx rate; excluded from [balances].
   final int missingFx;

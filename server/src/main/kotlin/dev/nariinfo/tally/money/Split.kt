@@ -10,7 +10,7 @@ class SplitException(val code: String) : RuntimeException(code)
 
 object Split {
     /**
-     * TODO(효준): 분할 계산. 테스트: shared/split-cases.json (SplitTest, `./gradlew test -PincludeHyojun`).
+     * 분할 계산. 테스트: shared/split-cases.json (SplitTest).
      *
      * 입력
      *  - amount: 최소 단위 정수 (EUR 1234 = €12.34). 음수면 SplitException("NEGATIVE_AMOUNT").

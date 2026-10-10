@@ -10,7 +10,7 @@ class SplitException implements Exception {
 
 /// 지출 [amount](최소 단위 정수)를 [members]에게 나눈다. 결과는 memberId → 몫.
 ///
-/// TODO(효준): 본문 구현. 규칙(shared/split-cases.json이 검증):
+/// 규칙(shared/split-cases.json이 검증):
 /// - amount < 0 → SplitException('NEGATIVE_AMOUNT'), members 비어 있음 → 'NO_MEMBERS'.
 /// - equal: amount ~/ n 씩 주고, 나머지(amount % n)는 memberId **오름차순**으로 앞에서부터 1씩 더한다
 ///   (members 입력 순서가 아님: ["c","a","b"], 1001 → a 334, b 334, c 333).

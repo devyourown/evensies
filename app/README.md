@@ -18,24 +18,21 @@ Offline-first expense splitting client for the Tally server. Contract: `../docs/
 ## Tests
 
 ```sh
-flutter test --exclude-tags hyojun   # what CI runs: must be green
-flutter test test/hyojun             # the three TODO(효준) suites; red until the assertions are written
+flutter test                         # all suites, including test/hyojun (split, settlement, event applier)
 dart run build_runner build --delete-conflicting-outputs   # after changing lib/data/db/database.dart
 ```
 
 Tests read `../shared/*.json` relative to this `app/` directory, so run them from here.
 
-## TODO(효준) — the only places you write
+## Core logic
 
-| # | file:line | what |
+The domain logic lives in three small, pure files, each checked against the JSON fixtures shared with the server:
+
+| file | what | fixture |
 |---|---|---|
-| 1 | `lib/domain/split.dart:28` | `computeSplit` body (equal / exact / percent, remainder by memberId ascending) |
-| 2 | `lib/domain/settlement.dart:40` and `:52` | `computeBalances`, `simplifyDebts` bodies |
-| 3 | `lib/data/sync/apply_event.dart:25` | `applyEvent` body (API.md apply rules 1–5) |
-| 4 | `test/hyojun/split_test.dart`, `test/hyojun/settlement_test.dart`, `test/hyojun/apply_event_test.dart` | replace every `fail('TODO(효준)')` with the `expect` in the comment above it |
-
-
-Until then the UI shows a "정산 로직 미구현 / not implemented" chip wherever one of those functions is needed (`lib/core/core_guard.dart`).
+| `lib/domain/split.dart` | equal / exact / percent split, remainder by memberId ascending | `shared/split-cases.json` |
+| `lib/domain/settlement.dart` | balances and greedy debt simplification | `shared/settlement-cases.json` |
+| `lib/data/sync/apply_event.dart` | event applier (API.md rules 1–5) | `shared/sync-cases.json` |
 
 ## Layout
 
