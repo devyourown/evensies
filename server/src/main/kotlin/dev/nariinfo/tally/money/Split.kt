@@ -1,5 +1,8 @@
 package dev.nariinfo.tally.money
 
+import kotlin.math.abs
+import kotlin.math.floor
+
 enum class SplitMode { EQUAL, EXACT, PERCENT }
 
 /** code: SUM_MISMATCH | NEGATIVE_AMOUNT | NO_MEMBERS */
@@ -23,6 +26,33 @@ object Split {
      * 불변식: 결정적(같은 입력 → 같은 출력), 합 == amount, 각 몫 >= 0.
      */
     fun compute(amount: Long, mode: SplitMode, members: List<String>, input: Map<String, Double>?): Map<String, Long> {
-        TODO("TODO(효준)")
+        if (amount < 0) throw SplitException("NEGATIVE_AMOUNT")
+        if (members.isEmpty()) throw SplitException("NO_MEMBERS")
+        val sorted = members.sorted()
+        val result = LinkedHashMap<String, Long>()
+        when (mode) {
+            SplitMode.EQUAL -> {
+                val quotient = amount / members.size
+                val remainder = amount % members.size
+                for (member in sorted) result[member] = quotient
+                giveRemainder(result, sorted, remainder)
+            }
+            SplitMode.EXACT -> {
+                for (member in sorted) result[member] = input?.get(member)?.toLong() ?: 0L
+                if (result.values.sum() != amount) throw SplitException("SUM_MISMATCH")
+            }
+            SplitMode.PERCENT -> {
+                val totalPercent = input?.values?.sum() ?: 0.0
+                if (abs(totalPercent - 100.0) >= 0.001) throw SplitException("SUM_MISMATCH")
+                for (member in sorted) result[member] = floor(amount * (input?.get(member) ?: 0.0) / 100).toLong()
+                giveRemainder(result, sorted, amount - result.values.sum())
+            }
+        }
+        return result
+    }
+
+    /** Adds 1 to the first [k] members of [sorted] (member ids ascending). Same rule as the Dart `_giveRemainder`. */
+    private fun giveRemainder(result: MutableMap<String, Long>, sorted: List<String>, k: Long) {
+        sorted.forEachIndexed { index, member -> if (index < k) result[member] = result.getValue(member) + 1 }
     }
 }

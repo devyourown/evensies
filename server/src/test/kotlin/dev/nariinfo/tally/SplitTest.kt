@@ -8,7 +8,10 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import kotlin.test.fail
+import kotlin.random.Random
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /** Runs with `./gradlew test -PincludeHyojun`. */
 @Tag("hyojun")
@@ -25,18 +28,36 @@ class SplitTest {
 
             val result: Result<Map<String, Long>> = runCatching { Split.compute(amount, mode, members, input) }
 
-            // TODO(효준): 단언.
-            //  - expectedError != null 이면 result.exceptionOrNull()이 SplitException이고 code == expectedError.
-            //  - 아니면 result.getOrThrow() == expected (Map 비교) 이고 값의 합 == amount.
-            fail("TODO(효준)")
+            if (expectedError != null) {
+                val e = result.exceptionOrNull()
+                assertIs<SplitException>(e, "expected SplitException($expectedError) but got $result")
+                assertEquals(expectedError, e.code)
+            } else {
+                val shares = result.getOrThrow()
+                assertEquals(expected, shares)
+                assertEquals(amount, shares.values.sum())
+            }
         }
     }
 
     @Test
     fun remainderDistributionIsDeterministic() {
-        // TODO(효준): 성질 테스트. 임의의 amount(0..10_000)와 멤버 목록(1..7명, 섞인 순서)에 대해
-        //  compute(EQUAL)의 합 == amount, 각 몫은 floor(amount/n) 또는 그보다 1 큼,
-        //  같은 입력(멤버 순서만 바꿔도)에 같은 출력.
-        TODO("TODO(효준)")
+        val rnd = Random(42)
+        repeat(500) {
+            val n = rnd.nextInt(1, 8)
+            val members = (0 until n).map { "m$it" }.shuffled(rnd)
+            val amount = rnd.nextLong(0, 10_001)
+            val shares = Split.compute(amount, SplitMode.EQUAL, members, null)
+            assertEquals(amount, shares.values.sum(), "sum for amount=$amount members=$members")
+            val base = amount / n
+            assertTrue(shares.values.all { it == base || it == base + 1 }, "shares=$shares amount=$amount")
+            assertEquals(shares, Split.compute(amount, SplitMode.EQUAL, members.sorted(), null), "order independence")
+        }
+    }
+
+    @Test
+    fun remainderGoesToLowestMemberIdsFirst() {
+        assertEquals(mapOf("a" to 334L, "b" to 334L, "c" to 334L), Split.compute(1002, SplitMode.EQUAL, listOf("b", "c", "a"), null))
+        assertEquals(mapOf("a" to 334L, "b" to 334L, "c" to 333L), Split.compute(1001, SplitMode.EQUAL, listOf("b", "c", "a"), null))
     }
 }
