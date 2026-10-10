@@ -33,12 +33,12 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="evensies" android:host="j"/>
             </intent-filter>
-            <!-- App Links https://<host>/j/<code>: replace YOUR_HOST and publish /.well-known/assetlinks.json on the server. -->
+            <!-- App Links https://evensies.nariinfo.dev/j/<code> (verified via /.well-known/assetlinks.json). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="YOUR_HOST" android:pathPrefix="/j/"/>
+                <data android:scheme="https" android:host="evensies.nariinfo.dev" android:pathPrefix="/j/"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
