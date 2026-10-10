@@ -5,7 +5,7 @@ import 'dart:io';
 Map<String, dynamic> loadShared(String name) {
   final f = File('../shared/$name');
   if (!f.existsSync()) {
-    throw StateError('Missing ${f.absolute.path}. Run `flutter test` from the app/ directory of the tally repo.');
+    throw StateError('Missing ${f.absolute.path}. Run `flutter test` from the app/ directory of the evensies repo.');
   }
   return jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
 }

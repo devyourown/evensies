@@ -1,4 +1,4 @@
-# Tally API·동기화 계약 (출시 1)
+# Evensies API·동기화 계약 (출시 1)
 
 서버(Spring Boot)와 앱(Flutter)이 공유하는 계약. 양쪽 구현은 이 문서를 따른다. 바꾸려면 이 문서부터 고친다.
 
@@ -13,13 +13,13 @@
 |---|---|---|---|
 | POST | `/auth/apple` | `{"idToken": "..."}` | `{"accessToken","refreshToken","user":{"id","displayName"}}` |
 | POST | `/auth/google` | `{"idToken": "..."}` | 위와 같음 |
-| POST | `/auth/dev` | `{"name": "Anna"}` — **`tally.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
+| POST | `/auth/dev` | `{"name": "Anna"}` — **`evensies.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
 | GET | `/me` | | `{"id","displayName"}` |
 | DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
 | POST | `/devices` | `{"deviceId","fcmToken"}` | 204 |
 
-access 15분, refresh 30일. JWT HS256, 비밀은 `TALLY_JWT_SECRET`.
+access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 
 ## 그룹
 | 메서드 | 경로 | 요청 | 응답 |
@@ -90,16 +90,16 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 - `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
 
 ## 푸시
-push가 성공하면 그룹의 다른 기기(FCM 토큰 있는)에 데이터 메시지 `{"type":"sync","groupId":"..."}`를 보낸다. FCM 자격 증명(`TALLY_FCM_CREDENTIALS_FILE`)이 없으면 조용히 건너뛴다.
+push가 성공하면 그룹의 다른 기기(FCM 토큰 있는)에 데이터 메시지 `{"type":"sync","groupId":"..."}`를 보낸다. FCM 자격 증명(`EVENSIES_FCM_CREDENTIALS_FILE`)이 없으면 조용히 건너뛴다.
 
 ## 환경 변수 (서버)
 | 변수 | 기본 | 설명 |
 |---|---|---|
-| `TALLY_DB_URL` | `jdbc:postgresql://localhost:5432/tally` | |
-| `TALLY_DB_USER` / `TALLY_DB_PASSWORD` | `tally` / `tally` | |
-| `TALLY_JWT_SECRET` | (필수, 32자 이상) | |
-| `TALLY_AUTH_DEV_LOGIN` | `false` | `true`면 `/auth/dev` 활성 (개발 전용) |
-| `TALLY_APPLE_CLIENT_ID` | | Apple 서비스 ID (앱 번들 ID) |
-| `TALLY_GOOGLE_CLIENT_IDS` | | 쉼표 구분 |
-| `TALLY_FCM_CREDENTIALS_FILE` | | 없으면 푸시 비활성 |
-| `TALLY_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |
+| `EVENSIES_DB_URL` | `jdbc:postgresql://localhost:5432/evensies` | |
+| `EVENSIES_DB_USER` / `EVENSIES_DB_PASSWORD` | `evensies` / `evensies` | |
+| `EVENSIES_JWT_SECRET` | (필수, 32자 이상) | |
+| `EVENSIES_AUTH_DEV_LOGIN` | `false` | `true`면 `/auth/dev` 활성 (개발 전용) |
+| `EVENSIES_APPLE_CLIENT_ID` | | Apple 서비스 ID (앱 번들 ID) |
+| `EVENSIES_GOOGLE_CLIENT_IDS` | | 쉼표 구분 |
+| `EVENSIES_FCM_CREDENTIALS_FILE` | | 없으면 푸시 비활성 |
+| `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |

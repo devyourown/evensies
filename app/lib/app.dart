@@ -7,13 +7,13 @@ import 'providers.dart';
 import 'push.dart';
 import 'router.dart';
 
-class TallyApp extends ConsumerStatefulWidget {
-  const TallyApp({super.key});
+class EvensiesApp extends ConsumerStatefulWidget {
+  const EvensiesApp({super.key});
   @override
-  ConsumerState<TallyApp> createState() => _TallyAppState();
+  ConsumerState<EvensiesApp> createState() => _EvensiesAppState();
 }
 
-class _TallyAppState extends ConsumerState<TallyApp> with WidgetsBindingObserver {
+class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -48,7 +48,7 @@ class _TallyAppState extends ConsumerState<TallyApp> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Tally',
+        title: 'Evensies',
         theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
         darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),
         routerConfig: ref.watch(routerProvider),

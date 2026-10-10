@@ -100,7 +100,7 @@ class Session extends Table {
 @DriftDatabase(tables: [Groups, Members, Expenses, ExpenseShares, Payments, Outbox, SyncState, Session])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
-  AppDatabase.open() : super(driftDatabase(name: 'tally'));
+  AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
   int get schemaVersion => 1;

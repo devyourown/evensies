@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tally/core/money.dart';
+import 'package:evensies/core/money.dart';
 
 void main() {
   setUpAll(() => Money.loadFromJson(File('../shared/currencies.json').readAsStringSync()));

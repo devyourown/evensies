@@ -3,10 +3,10 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tally/core/money.dart';
-import 'package:tally/data/db/database.dart';
-import 'package:tally/features/expense_form/expense_form_screen.dart';
-import 'package:tally/providers.dart';
+import 'package:evensies/core/money.dart';
+import 'package:evensies/data/db/database.dart';
+import 'package:evensies/features/expense_form/expense_form_screen.dart';
+import 'package:evensies/providers.dart';
 
 import 'shared_json.dart';
 

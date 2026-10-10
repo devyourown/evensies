@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="tally"
+        android:label="evensies"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
@@ -26,12 +26,12 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- tally://j/<code> -->
+            <!-- evensies://j/<code> -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="tally" android:host="j"/>
+                <data android:scheme="evensies" android:host="j"/>
             </intent-filter>
             <!-- App Links https://<host>/j/<code>: replace YOUR_HOST and publish /.well-known/assetlinks.json on the server. -->
             <intent-filter android:autoVerify="true">

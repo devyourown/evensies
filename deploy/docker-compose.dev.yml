@@ -3,12 +3,12 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: tally
-      POSTGRES_PASSWORD: tally
-      POSTGRES_DB: tally
+      POSTGRES_USER: evensies
+      POSTGRES_PASSWORD: evensies
+      POSTGRES_DB: evensies
     ports:
       - "5432:5432"
     volumes:
-      - tally-pg-dev:/var/lib/postgresql/data
+      - evensies-pg-dev:/var/lib/postgresql/data
 volumes:
-  tally-pg-dev:
+  evensies-pg-dev:

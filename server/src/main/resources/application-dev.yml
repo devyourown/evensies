@@ -1,9 +1,9 @@
 # Local development only. Never run production with this profile.
 spring:
   datasource:
-    url: ${TALLY_DB_URL:jdbc:postgresql://localhost:5432/tally}
+    url: ${EVENSIES_DB_URL:jdbc:postgresql://localhost:5432/evensies}
 
-tally:
+evensies:
   jwt-secret: dev-only-secret-do-not-use-in-production-0123456789
   auth:
     dev-login: true

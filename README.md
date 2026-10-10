@@ -1,11 +1,11 @@
-# Tally
+# Evensies
 
 Open-source expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**. Native iOS/Android app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL) you can self-host with one command.
 
-> Status: pre-release. Working name "Tally"; the store name will be decided before launch.
+> Status: pre-release. The product name is Evensies.
 
 ## Why
-Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Open-source alternatives are mostly web apps. Tally is a native app with offline-first sync, and the server is yours if you want it.
+Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Open-source alternatives are mostly web apps. Evensies is a native app with offline-first sync, and the server is yours if you want it.
 
 ## Promises (sustainability rules)
 These are commitments, written down so they can't quietly change later:
@@ -35,11 +35,11 @@ docs/     API contract (docs/API.md), design spec, plans
 
 ## Self-host
 ```bash
-git clone https://github.com/devyourown/tally && cd tally/deploy
-cp .env.example .env     # set TALLY_DOMAIN, TALLY_JWT_SECRET, DB password, Apple/Google client ids
+git clone https://github.com/devyourown/evensies && cd evensies/deploy
+cp .env.example .env     # set EVENSIES_DOMAIN, EVENSIES_JWT_SECRET, DB password, Apple/Google client ids
 docker compose up -d
 ```
-Caddy obtains TLS automatically for `TALLY_DOMAIN`. In the app, open Settings → Server URL and point it at your domain. See [docs/API.md](docs/API.md) for environment variables.
+Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. In the app, open Settings → Server URL and point it at your domain. See [docs/API.md](docs/API.md) for environment variables.
 
 ## Develop
 ```bash
@@ -48,7 +48,7 @@ docker compose -f deploy/docker-compose.dev.yml up -d
 # server (dev profile enables /auth/dev)
 cd server && ./gradlew bootRun --args='--spring.profiles.active=dev'
 # app (iOS simulator)
-cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=TALLY_SERVER_URL=http://localhost:8080
+cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
 Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 
@@ -59,4 +59,4 @@ Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 - Contract: [docs/API.md](docs/API.md). Spec: [docs/superpowers/specs](docs/superpowers/specs).
 
 ## License
-[AGPL-3.0](LICENSE). You can run, modify and redistribute Tally; if you offer a modified server to others over a network, you must publish your changes.
+[AGPL-3.0](LICENSE). You can run, modify and redistribute Evensies; if you offer a modified server to others over a network, you must publish your changes.

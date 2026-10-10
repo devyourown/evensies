@@ -1,4 +1,4 @@
-# Tally server
+# Evensies server
 
 Spring Boot 4.1 / Kotlin 2.3 / PostgreSQL 16 / Flyway. The API and sync contract is `../docs/API.md`; this code follows it.
 
@@ -14,7 +14,7 @@ Tests load the fixtures shared with the app from `../shared/*.json`, so run Grad
 ## Run locally
 
 ```sh
-docker run -d --name tally-pg -e POSTGRES_USER=tally -e POSTGRES_PASSWORD=tally -e POSTGRES_DB=tally -p 5432:5432 postgres:16-alpine
+docker run -d --name evensies-pg -e POSTGRES_USER=evensies -e POSTGRES_PASSWORD=evensies -e POSTGRES_DB=evensies -p 5432:5432 postgres:16-alpine
 ./gradlew --no-daemon bootRun --args='--spring.profiles.active=dev'
 ```
 
@@ -31,14 +31,14 @@ curl -s localhost:8080/groups/<groupId>/snapshot -H "Authorization: Bearer $TOKE
 
 | Variable | Default | Notes |
 |---|---|---|
-| `TALLY_DB_URL` | `jdbc:postgresql://localhost:5432/tally` | |
-| `TALLY_DB_USER` / `TALLY_DB_PASSWORD` | `tally` / `tally` | |
-| `TALLY_JWT_SECRET` | (required, >= 32 chars; the dev profile has one) | HS256 secret for access tokens |
-| `TALLY_AUTH_DEV_LOGIN` | `false` | `true` enables `POST /auth/dev` |
-| `TALLY_APPLE_CLIENT_ID` | | audience for Apple id tokens (`/auth/apple` answers `AUTH_NOT_CONFIGURED` when empty) |
-| `TALLY_GOOGLE_CLIENT_IDS` | | comma separated audiences for Google id tokens |
-| `TALLY_FCM_CREDENTIALS_FILE` | | Firebase service-account JSON; empty = push disabled (logged at startup) |
-| `TALLY_PUBLIC_URL` | `http://localhost:8080` | used in the `/j/{code}` invite page |
+| `EVENSIES_DB_URL` | `jdbc:postgresql://localhost:5432/evensies` | |
+| `EVENSIES_DB_USER` / `EVENSIES_DB_PASSWORD` | `evensies` / `evensies` | |
+| `EVENSIES_JWT_SECRET` | (required, >= 32 chars; the dev profile has one) | HS256 secret for access tokens |
+| `EVENSIES_AUTH_DEV_LOGIN` | `false` | `true` enables `POST /auth/dev` |
+| `EVENSIES_APPLE_CLIENT_ID` | | audience for Apple id tokens (`/auth/apple` answers `AUTH_NOT_CONFIGURED` when empty) |
+| `EVENSIES_GOOGLE_CLIENT_IDS` | | comma separated audiences for Google id tokens |
+| `EVENSIES_FCM_CREDENTIALS_FILE` | | Firebase service-account JSON; empty = push disabled (logged at startup) |
+| `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | used in the `/j/{code}` invite page |
 
 `/actuator/health` is public.
 

@@ -28,14 +28,14 @@ cd server && export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/C
 ./gradlew --no-daemon bootRun --args='--spring.profiles.active=dev'
 # 3) 앱 (iPhone 16 Pro 시뮬레이터, 영어 키보드로 설정돼 있음)
 cd app && flutter run -d 82A31F6F-D3CC-44C1-8EBF-47ACA260BA2D \
-  --dart-define=DEV_LOGIN=true --dart-define=TALLY_SERVER_URL=http://localhost:8080
+  --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
 dev 프로필은 `/auth/dev`(이름만으로 로그인)를 켭니다. 운영에서는 절대 쓰지 않습니다.
 
 ## 남은 설정 (효준님만 할 수 있는 것)
-1. **GitHub 공개 저장소** `devyourown/tally` 만들고 push. CI는 `.github/workflows/ci.yml`에 있음.
-2. **Apple**: App ID `dev.nariinfo.tally`에 Sign in with Apple 활성화, Xcode에서 capability 추가. 서버 `TALLY_APPLE_CLIENT_ID`.
-3. **Google**: Firebase 프로젝트 → iOS/Android 앱 등록 → `GoogleService-Info.plist`·`google-services.json` 넣기(둘 다 .gitignore 대상으로 두세요). OAuth 클라이언트 ID → 서버 `TALLY_GOOGLE_CLIENT_IDS`. FCM 서비스 계정 JSON → `deploy/secrets/fcm.json`.
+1. **GitHub 공개 저장소** `devyourown/evensies` 만들고 push. CI는 `.github/workflows/ci.yml`에 있음.
+2. **Apple**: App ID `dev.nariinfo.evensies`에 Sign in with Apple 활성화, Xcode에서 capability 추가. 서버 `EVENSIES_APPLE_CLIENT_ID`.
+3. **Google**: Firebase 프로젝트 → iOS/Android 앱 등록 → `GoogleService-Info.plist`·`google-services.json` 넣기(둘 다 .gitignore 대상으로 두세요). OAuth 클라이언트 ID → 서버 `EVENSIES_GOOGLE_CLIENT_IDS`. FCM 서비스 계정 JSON → `deploy/secrets/fcm.json`.
 4. **도메인·호스팅**: Hetzner CX22 생성 → `deploy/.env` 채우기 → `docker compose up -d`. 딥링크용 `apple-app-site-association`·`assetlinks.json`은 출시 직전에(앱 `README.md` 참고).
 5. **제품명·스토어**: 이름 결정 → 번들 ID 유지 가능. 개인정보 처리방침 `docs/PRIVACY.md`를 웹에 올리고 스토어에 링크.
 

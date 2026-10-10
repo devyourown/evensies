@@ -1,18 +1,18 @@
-# Tally app (Flutter)
+# Evensies app (Flutter)
 
-Offline-first expense splitting client for the Tally server. Contract: `../docs/API.md`.
+Offline-first expense splitting client for the Evensies server. Contract: `../docs/API.md`.
 
 ## Run (iOS simulator, local server, dev login)
 
 ```sh
 /Users/hyojun/flutter/bin/flutter run -d <simulator-id> \
   --dart-define=DEV_LOGIN=true \
-  --dart-define=TALLY_SERVER_URL=http://localhost:8080
+  --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
 
 | dart-define | default | effect |
 |---|---|---|
-| `TALLY_SERVER_URL` | `http://localhost:8080` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
+| `EVENSIES_SERVER_URL` | `http://localhost:8080` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
 | `DEV_LOGIN` | `false` | shows a "Dev login" button that calls `POST /auth/dev {name}` |
 
 ## Tests
@@ -49,9 +49,9 @@ lib/features/    auth groups group_detail expense_form settle members settings
 
 ## Platform setup still needed (before TestFlight / Play)
 
-- **Bundle id / application id**: currently `dev.nariinfo.tally` (ios `PRODUCT_BUNDLE_IDENTIFIER`, android `applicationId`).
-- **Sign in with Apple**: enable the capability on the App ID and in Xcode (Runner → Signing & Capabilities). Server env `TALLY_APPLE_CLIENT_ID` = bundle id.
-- **Google Sign-In**: create iOS + Android OAuth clients; add the iOS client's reversed id as a URL scheme in `Info.plist` (`GIDClientID` key too); server env `TALLY_GOOGLE_CLIENT_IDS`.
+- **Bundle id / application id**: currently `dev.nariinfo.evensies` (ios `PRODUCT_BUNDLE_IDENTIFIER`, android `applicationId`).
+- **Sign in with Apple**: enable the capability on the App ID and in Xcode (Runner → Signing & Capabilities). Server env `EVENSIES_APPLE_CLIENT_ID` = bundle id.
+- **Google Sign-In**: create iOS + Android OAuth clients; add the iOS client's reversed id as a URL scheme in `Info.plist` (`GIDClientID` key too); server env `EVENSIES_GOOGLE_CLIENT_IDS`.
 - **Firebase (push)**: add `ios/Runner/GoogleService-Info.plist` and `android/app/google-services.json` (+ the google-services Gradle plugin). Without them the app runs and just logs "Firebase not configured, push disabled".
-- **Deep links**: iOS Associated Domains `applinks:<host>` + `/.well-known/apple-app-site-association` on the server; Android replace `YOUR_HOST` in `AndroidManifest.xml` + `/.well-known/assetlinks.json`. The custom scheme `tally://j/<code>` already works on both.
+- **Deep links**: iOS Associated Domains `applinks:<host>` + `/.well-known/apple-app-site-association` on the server; Android replace `YOUR_HOST` in `AndroidManifest.xml` + `/.well-known/assetlinks.json`. The custom scheme `evensies://j/<code>` already works on both.
 - **Release networking**: `NSAllowsLocalNetworking` (iOS) and `usesCleartextTraffic` (Android) are for `http://localhost`; drop them if the production server is HTTPS-only.

@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 abstract final class Env {
   static const defaultServerUrl =
-      String.fromEnvironment('TALLY_SERVER_URL', defaultValue: 'http://localhost:8080');
+      String.fromEnvironment('EVENSIES_SERVER_URL', defaultValue: 'http://localhost:8080');
   static const devLogin = bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
 }
 

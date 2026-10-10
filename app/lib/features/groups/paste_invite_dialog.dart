@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-/// `https://host/j/CODE` or `tally://j/CODE` → CODE. Also accepts a bare code.
+/// `https://host/j/CODE` or `evensies://j/CODE` → CODE. Also accepts a bare code.
 String? inviteCodeFrom(String text) {
   final t = text.trim();
   if (t.isEmpty) return null;

@@ -3,8 +3,8 @@ library;
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tally/data/sync/apply_event.dart';
-import 'package:tally/domain/models.dart';
+import 'package:evensies/data/sync/apply_event.dart';
+import 'package:evensies/domain/models.dart';
 
 import '../shared_json.dart';
 

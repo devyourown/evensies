@@ -1,3 +1,5 @@
+> 2026-10-11: product renamed Tally → Evensies; code identifiers below use the old name.
+
 # Tally 출시 1 설계: 오픈소스 더치페이 앱
 
 - 작성일: 2026-10-10

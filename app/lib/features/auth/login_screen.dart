@@ -44,7 +44,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Icon(Icons.savings_outlined, size: 72, color: cs.primary),
                   const SizedBox(height: 16),
-                  Text('Tally',
+                  Text('Evensies',
                       style: text.displayMedium?.copyWith(fontWeight: FontWeight.w700, color: cs.primary),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 8),

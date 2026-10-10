@@ -87,7 +87,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Licenses'),
-            onTap: () => showLicensePage(context: context, applicationName: 'Tally'),
+            onTap: () => showLicensePage(context: context, applicationName: 'Evensies'),
           ),
           ListTile(
             leading: const Icon(Icons.logout),

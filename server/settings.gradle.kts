@@ -1,1 +1,1 @@
-rootProject.name = "tally-server"
+rootProject.name = "evensies-server"

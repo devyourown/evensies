@@ -62,7 +62,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => SharePlus.instance.share(ShareParams(text: 'Join my Tally group: $link')),
+                        onPressed: () => SharePlus.instance.share(ShareParams(text: 'Join my Evensies group: $link')),
                         icon: const Icon(Icons.share, size: 18),
                         label: const Text('Share'),
                       ),

@@ -2,8 +2,8 @@ library;
 
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tally/domain/settlement.dart';
-import 'package:tally/domain/split.dart';
+import 'package:evensies/domain/settlement.dart';
+import 'package:evensies/domain/split.dart';
 
 import '../shared_json.dart';
 

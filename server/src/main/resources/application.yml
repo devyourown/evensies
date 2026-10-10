@@ -1,10 +1,10 @@
 spring:
   application:
-    name: tally-server
+    name: evensies-server
   datasource:
-    url: ${TALLY_DB_URL:jdbc:postgresql://localhost:5432/tally}
-    username: ${TALLY_DB_USER:tally}
-    password: ${TALLY_DB_PASSWORD:tally}
+    url: ${EVENSIES_DB_URL:jdbc:postgresql://localhost:5432/evensies}
+    username: ${EVENSIES_DB_USER:evensies}
+    password: ${EVENSIES_DB_PASSWORD:evensies}
   servlet:
     multipart:
       max-file-size: 5MB
@@ -16,12 +16,12 @@ management:
       exposure:
         include: health
 
-tally:
-  jwt-secret: ${TALLY_JWT_SECRET:}
-  public-url: ${TALLY_PUBLIC_URL:http://localhost:8080}
+evensies:
+  jwt-secret: ${EVENSIES_JWT_SECRET:}
+  public-url: ${EVENSIES_PUBLIC_URL:http://localhost:8080}
   auth:
-    dev-login: ${TALLY_AUTH_DEV_LOGIN:false}
-    apple-client-id: ${TALLY_APPLE_CLIENT_ID:}
-    google-client-ids: ${TALLY_GOOGLE_CLIENT_IDS:}
+    dev-login: ${EVENSIES_AUTH_DEV_LOGIN:false}
+    apple-client-id: ${EVENSIES_APPLE_CLIENT_ID:}
+    google-client-ids: ${EVENSIES_GOOGLE_CLIENT_IDS:}
   fcm:
-    credentials-file: ${TALLY_FCM_CREDENTIALS_FILE:}
+    credentials-file: ${EVENSIES_FCM_CREDENTIALS_FILE:}
