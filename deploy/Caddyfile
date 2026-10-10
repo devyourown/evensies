@@ -12,6 +12,7 @@
 	}
 	handle /.well-known/assetlinks.json {
 		header Content-Type application/json
+		rewrite * /assetlinks.json
 		root * /well-known
 		file_server
 	}
