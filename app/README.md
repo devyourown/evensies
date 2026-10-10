@@ -12,7 +12,7 @@ Offline-first expense splitting client for the Evensies server. Contract: `../do
 
 | dart-define | default | effect |
 |---|---|---|
-| `EVENSIES_SERVER_URL` | `http://localhost:8080` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
+| `EVENSIES_SERVER_URL` | `https://evensies.nariinfo.dev` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
 | `DEV_LOGIN` | `false` | shows a "Dev login" button that calls `POST /auth/dev {name}` |
 
 ## Tests
