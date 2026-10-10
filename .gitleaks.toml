@@ -1,0 +1,4 @@
+# Dev-only placeholder values that are intentionally in the repo.
+[allowlist]
+  paths = ['''deploy/\.env\.example''']
+  regexes = ['''dev-only-secret-do-not-use-in-production''', '''test-only-secret''']

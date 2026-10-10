@@ -1,6 +1,36 @@
 .DS_Store
+
+# Secrets and local config — never commit
 .env
-deploy/backups/*
-!deploy/backups/.gitkeep
+*.env
+!*.env.example
+deploy/.env
 deploy/secrets/*
 !deploy/secrets/.gitkeep
+deploy/backups/*
+!deploy/backups/.gitkeep
+
+# Firebase / Google
+**/GoogleService-Info.plist
+**/google-services.json
+**/firebase_options.dart
+**/firebase-adminsdk*.json
+**/fcm*.json
+
+# Apple / Android signing
+*.p8
+*.p12
+*.pem
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*.jks
+*.keystore
+**/key.properties
+**/upload-keystore*
+**/ExportOptions.plist
+
+# Local overrides
+**/application-local.yml
+**/application-local.properties
+**/*.local.yml

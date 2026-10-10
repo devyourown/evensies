@@ -35,3 +35,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate shared JSON
         run: for f in shared/*.json; do python3 -m json.tool "$f" > /dev/null && echo "ok $f"; done
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Gitleaks (fails the build if a secret is committed)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
