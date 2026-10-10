@@ -31,7 +31,7 @@ cd server && export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/C
 ./gradlew --no-daemon bootRun --args='--spring.profiles.active=dev'
 # 3) 앱 (iPhone 16 Pro 시뮬레이터, 영어 키보드로 설정돼 있음)
 cd app && flutter run -d 82A31F6F-D3CC-44C1-8EBF-47ACA260BA2D \
-  --dart-define=DEV_LOGIN=true --dart-define=NAIVE_APPLY=true --dart-define=TALLY_SERVER_URL=http://localhost:8080
+  --dart-define=DEV_LOGIN=true --dart-define=TALLY_SERVER_URL=http://localhost:8080
 ```
 dev 프로필은 `/auth/dev`(이름만으로 로그인)와 naive sync를 켭니다. 운영에서는 절대 쓰지 않습니다.
 

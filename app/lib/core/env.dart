@@ -5,7 +5,6 @@ abstract final class Env {
   static const defaultServerUrl =
       String.fromEnvironment('TALLY_SERVER_URL', defaultValue: 'http://localhost:8080');
   static const devLogin = bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
-  static const naiveApply = bool.fromEnvironment('NAIVE_APPLY', defaultValue: false);
 }
 
 /// Overridden in main() with the real instance.

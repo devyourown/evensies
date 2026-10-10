@@ -2,14 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../domain/models.dart';
 import '../api/api_client.dart';
 import '../api/dto.dart';
 import '../db/database.dart';
 import 'apply_event.dart';
-import 'apply_event_naive.dart';
 import 'group_state_store.dart';
 
 /// push unsent outbox → pull after lastSeq → fold through applyEvent → save.
@@ -23,8 +21,7 @@ class SyncService {
   final offline = ValueNotifier<bool>(false);
   final _inFlight = <String>{};
 
-  static GroupState _apply(GroupState s, SyncEvent e) =>
-      Env.naiveApply ? applyEventNaive(s, e) : applyEvent(s, e);
+  static GroupState _apply(GroupState s, SyncEvent e) => applyEvent(s, e);
 
   Future<void> sync(String groupId) async {
     if (!_inFlight.add(groupId)) return;

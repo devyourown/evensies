@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/core_guard.dart';
-import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
-import '../../data/sync/apply_event_naive.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
@@ -208,12 +205,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     }
     try {
       return computeSplit(amount: amount, mode: _mode, members: memberIds, input: input);
-    } on UnimplementedError {
-      if (!Env.naiveApply) {
-        showInfo(context, 'computeSplit: $notImplementedLabel');
-        return null;
-      }
-      return naiveSplit(amount: amount, mode: _mode, members: memberIds, input: input);
     } on SplitException catch (e) {
       showInfo(context, 'Split error: ${e.code}');
       return null;
