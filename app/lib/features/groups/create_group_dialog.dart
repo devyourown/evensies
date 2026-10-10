@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,7 +53,8 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         latestSeq: dto.latestSeq,
         myMemberId: dto.myMemberId,
       ));
-      await db.into(db.members).insert(MembersCompanion.insert(id: memberId, groupId: id, name: _me.text.trim()));
+      await db.into(db.members).insert(MembersCompanion.insert(
+          id: memberId, groupId: id, name: _me.text.trim(), userId: Value(ref.read(sessionProvider).value?.userId)));
       // group.created + member.added are already reflected locally; start pulling after them.
       await db.setLastSeq(id, dto.latestSeq);
       if (!mounted) return;
@@ -74,8 +76,8 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _name, autofocus: true, decoration: const InputDecoration(labelText: 'Group name')),
-            TextField(controller: _me, decoration: const InputDecoration(labelText: 'Your name in this group')),
+            TextField(controller: _name, autofocus: true, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Group name')),
+            TextField(controller: _me, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Your name in this group')),
             DropdownButtonFormField<String>(
               initialValue: _currency,
               decoration: const InputDecoration(labelText: 'Default currency'),
