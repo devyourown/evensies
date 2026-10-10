@@ -73,7 +73,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _busy || (_memberId == _newMember && _name.text.trim().isEmpty) ? null : _join,
-                  child: const Text('Join'),
+                  child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Join'),
                 ),
               ],
             );

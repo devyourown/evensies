@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/core_guard.dart';
 import '../../core/money.dart';
+import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart';
@@ -16,27 +17,37 @@ class GroupsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groups = ref.watch(groupsProvider).value ?? const <GroupRow>[];
-    final offline = ref.watch(offlineProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
-          if (offline) const Padding(padding: EdgeInsets.only(right: 8), child: Chip(label: Text('offline'))),
-          IconButton(onPressed: () => context.push('/settings'), icon: const Icon(Icons.settings)),
+          IconButton(onPressed: () => context.push('/settings'), icon: const Icon(Icons.settings_outlined)),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(syncProvider).syncAll(),
-        child: groups.isEmpty
-            ? ListView(children: [_Empty(onCreate: () => showCreateGroupDialog(context), onPaste: () => showPasteInviteDialog(context))])
-            : ListView.builder(
-                itemCount: groups.length,
-                itemBuilder: (_, i) => _GroupTile(group: groups[i]),
-              ),
-      ),
+      body: Column(children: [
+        const OfflineBanner(),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(syncProvider).syncAll(),
+            child: groups.isEmpty
+                ? ListView(children: [
+                    _Empty(onCreate: () => showCreateGroupDialog(context), onPaste: () => showPasteInviteDialog(context))
+                  ])
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                    itemCount: groups.length,
+                    itemBuilder: (_, i) => _GroupCard(group: groups[i]),
+                  ),
+          ),
+        ),
+      ]),
       floatingActionButton: groups.isEmpty
           ? null
-          : FloatingActionButton(onPressed: () => showCreateGroupDialog(context), child: const Icon(Icons.add)),
+          : FloatingActionButton.extended(
+              onPressed: () => showCreateGroupDialog(context),
+              icon: const Icon(Icons.add),
+              label: const Text('New group'),
+            ),
     );
   }
 }
@@ -46,49 +57,75 @@ class _Empty extends StatelessWidget {
   final VoidCallback onPaste;
   const _Empty({required this.onCreate, required this.onPaste});
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const SizedBox(height: 80),
-            const Icon(Icons.group_outlined, size: 64),
-            const SizedBox(height: 16),
-            const Text('No groups yet'),
-            const SizedBox(height: 24),
-            FilledButton(onPressed: onCreate, child: const Text('Create group')),
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: onPaste, child: const Text('Paste invite link')),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 96, 32, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(Icons.group_outlined, size: 72, color: cs.primary),
+          const SizedBox(height: 16),
+          Text('No groups yet', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Text('Create one for a trip or a flat, or join a friend\'s group with their invite link.',
+              textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onCreate, child: const Text('Create group')),
+          const SizedBox(height: 12),
+          OutlinedButton(onPressed: onPaste, child: const Text('Paste invite link')),
+        ],
+      ),
+    );
+  }
 }
 
-class _GroupTile extends ConsumerWidget {
+class _GroupCard extends ConsumerWidget {
   final GroupRow group;
-  const _GroupTile({required this.group});
+  const _GroupCard({required this.group});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final res = ref.watch(balancesProvider(group.id)).value;
-    Widget subtitle;
+    final memberCount =
+        (ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[]).where((m) => !m.removed).length;
+    String status;
+    Color color = cs.onSurfaceVariant;
     if (res == null) {
-      subtitle = const Text('…');
+      status = '…';
     } else if (res.balances == null) {
-      subtitle = const Text(notImplementedLabel);
+      status = notImplementedLabel;
     } else {
       final mine = res.balances![group.myMemberId] ?? 0;
       final cur = group.defaultCurrency;
-      subtitle = Text(mine == 0
-          ? 'Settled up'
-          : mine > 0
-              ? 'You are owed ${formatMoney(mine, cur)}'
-              : 'You owe ${formatMoney(-mine, cur)}');
+      if (mine == 0) {
+        status = 'Settled up';
+      } else if (mine > 0) {
+        status = 'You are owed ${formatMoney(mine, cur)}';
+        color = cs.primary;
+      } else {
+        status = 'You owe ${formatMoney(-mine, cur)}';
+        color = cs.error;
+      }
     }
-    return ListTile(
-      title: Text(group.name),
-      subtitle: subtitle,
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => context.push('/groups/${group.id}'),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(child: Text(group.name.isEmpty ? '?' : group.name[0].toUpperCase())),
+        title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text.rich(
+          TextSpan(children: [
+            TextSpan(text: '$memberCount ${memberCount == 1 ? 'member' : 'members'} · '),
+            TextSpan(text: status, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
+          ]),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/groups/${group.id}'),
+      ),
     );
   }
 }

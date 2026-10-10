@@ -90,7 +90,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: _busy || _name.text.trim().isEmpty || _me.text.trim().isEmpty ? null : _create,
-            child: const Text('Create'),
+            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create'),
           ),
         ],
       );

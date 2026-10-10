@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/confirm.dart';
 import '../../core/env.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
@@ -27,32 +28,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider).value;
     final groups = ref.watch(groupsProvider).value ?? const <GroupRow>[];
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    Widget header(String s) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+          child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+        );
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          ListTile(title: const Text('Signed in as'), subtitle: Text(session?.displayName ?? '-')),
-          const Divider(),
-          const ListTile(title: Text('Export'), subtitle: Text('Per group, via the server')),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(session?.displayName ?? '-'),
+            subtitle: const Text('Signed in'),
+          ),
+          header('Export & import'),
+          if (groups.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('No groups to export.', style: TextStyle(color: cs.onSurfaceVariant)),
+            ),
           for (final g in groups)
             ListTile(
               title: Text(g.name),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                TextButton(onPressed: () => _export(g, 'json'), child: const Text('JSON')),
-                TextButton(onPressed: () => _export(g, 'csv'), child: const Text('CSV')),
-                TextButton(onPressed: () => _import(g), child: const Text('Import Splitwise')),
-              ]),
+              trailing: PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (v) => v == 'import' ? _import(g) : _export(g, v),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'json', child: Text('Export JSON')),
+                  PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+                  PopupMenuItem(value: 'import', child: Text('Import Splitwise CSV')),
+                ],
+              ),
             ),
-          const Divider(),
+          header('Server'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               controller: _url,
+              keyboardType: TextInputType.url,
               decoration: InputDecoration(
                 labelText: 'Server URL',
                 helperText: 'Default: ${Env.defaultServerUrl}',
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.save),
+                  tooltip: 'Save',
+                  icon: const Icon(Icons.save_outlined),
                   onPressed: () async {
                     await ref.read(serverUrlProvider.notifier).set(_url.text);
                     if (context.mounted) showInfo(context, 'Server URL saved');
@@ -61,7 +83,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
-          const Divider(),
+          header('Account'),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Licenses'),
@@ -70,19 +92,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Sign out'),
-            onTap: () async {
-              await ref.read(authServiceProvider).logout();
-              if (context.mounted) context.go('/login');
-            },
+            onTap: _signOut,
           ),
           ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Delete account', style: TextStyle(color: Colors.red)),
+            leading: Icon(Icons.delete_forever_outlined, color: cs.error),
+            title: Text('Delete account', style: TextStyle(color: cs.error)),
             onTap: _deleteAccount,
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _signOut() async {
+    final ok = await confirm(context,
+        title: 'Sign out?',
+        message: 'Local data on this device is removed. Changes that have not synced yet will be lost.',
+        confirmLabel: 'Sign out',
+        destructive: false);
+    if (!ok) return;
+    await ref.read(authServiceProvider).logout();
+    if (mounted) context.go('/login');
   }
 
   Future<void> _export(GroupRow g, String format) async {
@@ -111,18 +141,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: const Text('Your memberships become placeholders. Group data stays with the other members. This cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
-        ],
-      ),
-    );
-    if (ok != true) return;
+    final ok = await confirm(context,
+        title: 'Delete account?',
+        message: 'Your memberships become placeholders. Group data stays with the other members. This cannot be undone.');
+    if (!ok) return;
     try {
       await ref.read(authServiceProvider).deleteAccount();
       if (mounted) context.go('/login');
