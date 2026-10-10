@@ -1,0 +1,110 @@
+import 'package:drift/drift.dart';
+
+import '../../domain/models.dart';
+import '../db/database.dart';
+
+/// GroupState ⇄ drift rows. `save` rewrites the group's rows wholesale.
+/// ponytail: full rewrite per sync; diff rows if groups get thousands of expenses.
+class GroupStateStore {
+  final AppDatabase db;
+  GroupStateStore(this.db);
+
+  Future<GroupState> load(String groupId) async {
+    final g = await db.getGroup(groupId);
+    final ms = await (db.select(db.members)..where((m) => m.groupId.equals(groupId))).get();
+    final xs = await (db.select(db.expenses)..where((e) => e.groupId.equals(groupId))).get();
+    final shares = await (db.select(db.expenseShares)..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))).get();
+    final ps = await (db.select(db.payments)..where((p) => p.groupId.equals(groupId))).get();
+    return GroupState(
+      name: g?.name,
+      defaultCurrency: g?.defaultCurrency,
+      members: [for (final m in ms) Member(id: m.id, name: m.name, userId: m.userId, removed: m.removed)],
+      expenses: [
+        for (final e in xs)
+          Expense(
+            id: e.id,
+            description: e.description,
+            amount: e.amount,
+            currency: e.currency,
+            fxRateToDefault: e.fxRateToDefault,
+            paidBy: e.paidBy,
+            date: e.date,
+            category: e.category,
+            deleted: e.deleted,
+            shares: [
+              for (final s in shares.where((s) => s.expenseId == e.id)) Share(memberId: s.memberId, amount: s.amount)
+            ],
+          ),
+      ],
+      payments: [
+        for (final p in ps)
+          Payment(
+            id: p.id,
+            fromMember: p.fromMember,
+            toMember: p.toMember,
+            amount: p.amount,
+            currency: p.currency,
+            date: p.date,
+            deleted: p.deleted,
+          ),
+      ],
+    );
+  }
+
+  Future<void> save(String groupId, GroupState s, int latestSeq) => db.transaction(() async {
+        final g = await db.getGroup(groupId);
+        if (g != null) {
+          await db.upsertGroup(g.copyWith(
+            name: s.name ?? g.name,
+            defaultCurrency: s.defaultCurrency ?? g.defaultCurrency,
+            latestSeq: latestSeq,
+          ));
+        }
+        final oldExps = await (db.select(db.expenses)..where((e) => e.groupId.equals(groupId))).get();
+        await (db.delete(db.expenseShares)..where((x) => x.expenseId.isIn(oldExps.map((e) => e.id)))).go();
+        await (db.delete(db.expenses)..where((e) => e.groupId.equals(groupId))).go();
+        await (db.delete(db.payments)..where((p) => p.groupId.equals(groupId))).go();
+        await (db.delete(db.members)..where((m) => m.groupId.equals(groupId))).go();
+        await db.batch((b) {
+          b.insertAll(db.members, [
+            for (final m in s.members)
+              MembersCompanion.insert(
+                  id: m.id, groupId: groupId, name: m.name, userId: Value(m.userId), removed: Value(m.removed)),
+          ]);
+          b.insertAll(db.expenses, [
+            for (final e in s.expenses)
+              ExpensesCompanion.insert(
+                id: e.id,
+                groupId: groupId,
+                description: e.description,
+                amount: e.amount,
+                currency: e.currency,
+                fxRateToDefault: Value(e.fxRateToDefault),
+                paidBy: e.paidBy,
+                date: e.date,
+                category: Value(e.category),
+                deleted: Value(e.deleted),
+              ),
+          ]);
+          b.insertAll(db.expenseShares, [
+            for (final e in s.expenses)
+              for (final sh in e.shares)
+                ExpenseSharesCompanion.insert(expenseId: e.id, memberId: sh.memberId, amount: sh.amount),
+          ]);
+          b.insertAll(db.payments, [
+            for (final p in s.payments)
+              PaymentsCompanion.insert(
+                id: p.id,
+                groupId: groupId,
+                fromMember: p.fromMember,
+                toMember: p.toMember,
+                amount: p.amount,
+                currency: p.currency,
+                date: p.date,
+                deleted: Value(p.deleted),
+              ),
+          ]);
+        });
+        await db.setLastSeq(groupId, latestSeq);
+      });
+}
