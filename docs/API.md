@@ -1,0 +1,105 @@
+# Tally API·동기화 계약 (출시 1)
+
+서버(Spring Boot)와 앱(Flutter)이 공유하는 계약. 양쪽 구현은 이 문서를 따른다. 바꾸려면 이 문서부터 고친다.
+
+## 공통 규칙
+- 모든 ID는 UUID 문자열(앱이 생성). 금액은 정수(최소 단위, `shared/currencies.json`). 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC.
+- JSON 키는 camelCase. null 허용 필드는 명시적으로 `null`로 보낸다.
+- 인증: `Authorization: Bearer <access>`. 미인증 → 401. 그룹 멤버가 아님 → 403. 없음 → 404.
+- 오류 본문: `{"code": "SUM_MISMATCH", "message": "..."}`. 검증 오류는 400.
+
+## 인증
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/auth/apple` | `{"idToken": "..."}` | `{"accessToken","refreshToken","user":{"id","displayName"}}` |
+| POST | `/auth/google` | `{"idToken": "..."}` | 위와 같음 |
+| POST | `/auth/dev` | `{"name": "Anna"}` — **`tally.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
+| POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
+| GET | `/me` | | `{"id","displayName"}` |
+| DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
+| POST | `/devices` | `{"deviceId","fcmToken"}` | 204 |
+
+access 15분, refresh 30일. JWT HS256, 비밀은 `TALLY_JWT_SECRET`.
+
+## 그룹
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/groups` | `{"id","name","defaultCurrency","memberId","memberName"}` — id·memberId는 앱이 생성 | `GroupDto` (seq 1·2에 `group.created`, `member.added` 이벤트가 기록됨) |
+| GET | `/groups` | | `[GroupSummaryDto]` |
+| GET | `/groups/{id}` | | `GroupDto` |
+| POST | `/groups/{id}/invite/rotate` | | `{"inviteCode"}` |
+| GET | `/invites/{code}` | 인증 불필요 | `{"groupId","name","memberCount","members":[{"id","name","linked":bool}]}` |
+| POST | `/invites/{code}/join` | `{"memberId": "<기존 자리표시 멤버>"}` 또는 `{"newMemberId","name"}` | `GroupDto`. `member.linked` 또는 `member.added`(userId 포함) 이벤트 기록 |
+
+```
+GroupDto        {"id","name","defaultCurrency","inviteCode","createdAt","latestSeq","myMemberId"}
+GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
+```
+상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`.
+
+## 이벤트 (동기화)
+### push
+`POST /groups/{id}/events`
+```
+요청: [{"clientId":"uuid","type":"expense.created","payload":{...},"createdAt":"2026-10-10T09:00:00Z"}]
+응답: {"results":[{"clientId":"uuid","seq":12}], "latestSeq": 12}
+```
+- 배열 전체가 한 트랜잭션. 그룹 행 `SELECT ... FOR UPDATE`로 잠근 뒤 seq 부여.
+- `(group_id, client_id)` UNIQUE. 중복은 기존 seq를 돌려준다(오류 아님).
+- 서버는 같은 트랜잭션에서 이벤트를 테이블(member/expense/expense_share/payment)에 반영한다.
+- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수)는 배열 전체 거부 400. 속도 제한: 사용자당 분당 120 이벤트 → 429.
+
+### pull
+`GET /groups/{id}/events?after=<seq>&limit=500`
+```
+응답: {"events":[{"seq","clientId","type","payload","actorUserId","createdAt"}], "latestSeq": 57}
+```
+### snapshot
+`GET /groups/{id}/snapshot`
+```
+{"group": GroupDto,
+ "members":  [{"id","name","userId","removed":bool}],
+ "expenses": [{"id","description","amount","currency","fxRateToDefault","paidBy","date","category","deleted":bool,"shares":[{"memberId","amount"}]}],
+ "payments": [{"id","fromMember","toMember","amount","currency","date","deleted":bool}],
+ "latestSeq": 57}
+```
+
+### 이벤트 종류와 payload
+| type | payload |
+|---|---|
+| `group.created` | `{"name","defaultCurrency"}` (서버가 POST /groups에서 생성) |
+| `group.updated` | `{"name"?: string, "defaultCurrency"?: string}` |
+| `member.added` | `{"memberId","name","userId": string|null}` |
+| `member.linked` | `{"memberId","userId"}` |
+| `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님) |
+| `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","date","category": string|null,"shares":[{"memberId","amount"}]}` |
+| `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares 포함 가능}}` |
+| `expense.deleted` | `{"expenseId"}` |
+| `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date"}` |
+| `payment.deleted` | `{"paymentId"}` |
+
+### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
+1. `applyEvent(state, event)`는 순수 함수. 같은 이벤트 두 번 적용 = 한 번 적용.
+2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다(순서대로 적용하면 자연히 성립).
+3. 삭제 vs 수정: `deleted=true`인 지출·송금에 오는 `updated`는 무시한다(삭제가 이김).
+4. 없는 대상에 오는 `updated`·`deleted`·`linked`·`removed`는 무시한다.
+5. `member.removed`는 `removed=true`만 표시한다. 잔액 계산에는 계속 포함된다.
+
+## 내보내기·가져오기
+- `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON. `format=csv` → 지출 CSV (`date,description,amount,currency,paidBy,<멤버이름별 share>...`).
+- `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
+
+## 푸시
+push가 성공하면 그룹의 다른 기기(FCM 토큰 있는)에 데이터 메시지 `{"type":"sync","groupId":"..."}`를 보낸다. FCM 자격 증명(`TALLY_FCM_CREDENTIALS_FILE`)이 없으면 조용히 건너뛴다.
+
+## 환경 변수 (서버)
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `TALLY_DB_URL` | `jdbc:postgresql://localhost:5432/tally` | |
+| `TALLY_DB_USER` / `TALLY_DB_PASSWORD` | `tally` / `tally` | |
+| `TALLY_JWT_SECRET` | (필수, 32자 이상) | |
+| `TALLY_AUTH_DEV_LOGIN` | `false` | `true`면 `/auth/dev` 활성 (개발 전용) |
+| `TALLY_APPLE_CLIENT_ID` | | Apple 서비스 ID (앱 번들 ID) |
+| `TALLY_GOOGLE_CLIENT_IDS` | | 쉼표 구분 |
+| `TALLY_FCM_CREDENTIALS_FILE` | | 없으면 푸시 비활성 |
+| `TALLY_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |

@@ -1,0 +1,45 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test (Hyojun-owned tests excluded until implemented)
+        working-directory: server
+        run: ./gradlew test --no-daemon
+      - name: Test including Hyojun-owned tests
+        if: ${{ vars.TALLY_INCLUDE_HYOJUN == 'true' }}
+        working-directory: server
+        run: ./gradlew test --no-daemon -PincludeHyojun
+
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - working-directory: app
+        run: |
+          flutter pub get
+          dart run build_runner build --delete-conflicting-outputs
+          flutter analyze
+          flutter test --exclude-tags hyojun
+      - name: Test including Hyojun-owned tests
+        if: ${{ vars.TALLY_INCLUDE_HYOJUN == 'true' }}
+        working-directory: app
+        run: flutter test
+
+  shared-json:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shared JSON
+        run: for f in shared/*.json; do python3 -m json.tool "$f" > /dev/null && echo "ok $f"; done

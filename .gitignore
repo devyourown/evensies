@@ -1,2 +1,6 @@
 .DS_Store
 .env
+deploy/backups/*
+!deploy/backups/.gitkeep
+deploy/secrets/*
+!deploy/secrets/.gitkeep

@@ -1,0 +1,86 @@
+{
+  "_doc": "잔액·부채 단순화 테스트 케이스. 모든 금액은 그룹 기본 통화의 최소 단위 정수. balances: 낸 돈 − 부담 몫 + 받은 송금 − 보낸 송금. transfers: 탐욕법(절댓값 큰 채권자·채무자부터, 동률은 memberId 오름차순). 양쪽 구현이 이 파일을 읽는다.",
+  "cases": [
+    {
+      "name": "two members simple",
+      "members": ["a", "b"],
+      "expenses": [{"paidBy": "a", "amount": 1000, "shares": {"a": 500, "b": 500}}],
+      "payments": [],
+      "expectedBalances": {"a": 500, "b": -500},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 500}]
+    },
+    {
+      "name": "three members one payer",
+      "members": ["a", "b", "c"],
+      "expenses": [{"paidBy": "a", "amount": 3000, "shares": {"a": 1000, "b": 1000, "c": 1000}}],
+      "payments": [],
+      "expectedBalances": {"a": 2000, "b": -1000, "c": -1000},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 1000}, {"from": "c", "to": "a", "amount": 1000}]
+    },
+    {
+      "name": "payment reduces debt",
+      "members": ["a", "b"],
+      "expenses": [{"paidBy": "a", "amount": 1000, "shares": {"a": 500, "b": 500}}],
+      "payments": [{"from": "b", "to": "a", "amount": 200}],
+      "expectedBalances": {"a": 300, "b": -300},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 300}]
+    },
+    {
+      "name": "all settled",
+      "members": ["a", "b"],
+      "expenses": [{"paidBy": "a", "amount": 1000, "shares": {"a": 500, "b": 500}}],
+      "payments": [{"from": "b", "to": "a", "amount": 500}],
+      "expectedBalances": {"a": 0, "b": 0},
+      "expectedTransfers": []
+    },
+    {
+      "name": "chain collapses: b owes a, c owes b",
+      "members": ["a", "b", "c"],
+      "expenses": [
+        {"paidBy": "a", "amount": 1000, "shares": {"b": 1000}},
+        {"paidBy": "b", "amount": 1000, "shares": {"c": 1000}}
+      ],
+      "payments": [],
+      "expectedBalances": {"a": 1000, "b": 0, "c": -1000},
+      "expectedTransfers": [{"from": "c", "to": "a", "amount": 1000}]
+    },
+    {
+      "name": "greedy picks largest first",
+      "members": ["a", "b", "c", "d"],
+      "expenses": [
+        {"paidBy": "a", "amount": 4000, "shares": {"a": 1000, "b": 1000, "c": 1000, "d": 1000}},
+        {"paidBy": "b", "amount": 2000, "shares": {"a": 500, "b": 500, "c": 500, "d": 500}}
+      ],
+      "payments": [],
+      "expectedBalances": {"a": 2500, "b": 500, "c": -1500, "d": -1500},
+      "expectedTransfers": [{"from": "c", "to": "a", "amount": 1500}, {"from": "d", "to": "a", "amount": 1000}, {"from": "d", "to": "b", "amount": 500}]
+    },
+    {
+      "name": "tie broken by member id",
+      "members": ["x", "y", "z"],
+      "expenses": [
+        {"paidBy": "y", "amount": 300, "shares": {"x": 300}},
+        {"paidBy": "z", "amount": 300, "shares": {"x": 300}}
+      ],
+      "payments": [],
+      "expectedBalances": {"x": -600, "y": 300, "z": 300},
+      "expectedTransfers": [{"from": "x", "to": "y", "amount": 300}, {"from": "x", "to": "z", "amount": 300}]
+    },
+    {
+      "name": "member with no activity has zero balance and no transfers",
+      "members": ["a", "b", "c"],
+      "expenses": [{"paidBy": "a", "amount": 100, "shares": {"b": 100}}],
+      "payments": [],
+      "expectedBalances": {"a": 100, "b": -100, "c": 0},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 100}]
+    },
+    {
+      "name": "empty group",
+      "members": ["a", "b"],
+      "expenses": [],
+      "payments": [],
+      "expectedBalances": {"a": 0, "b": 0},
+      "expectedTransfers": []
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+# 운영·셀프호스팅 공용. `cp .env.example .env` 후 값을 채우고 `docker compose up -d`.
+services:
+  server:
+    image: ghcr.io/devyourown/tally-server:latest
+    build:
+      context: ../server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TALLY_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-tally}
+      TALLY_DB_USER: ${POSTGRES_USER:-tally}
+      TALLY_DB_PASSWORD: ${POSTGRES_PASSWORD:-tally}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./secrets:/secrets:ro   # TALLY_FCM_CREDENTIALS_FILE=/secrets/fcm.json (선택)
+    expose:
+      - "8080"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tally}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tally}
+      POSTGRES_DB: ${POSTGRES_DB:-tally}
+    volumes:
+      - tally-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tally}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TALLY_DOMAIN: ${TALLY_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - server
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-tally}
+    entrypoint: ["/bin/sh", "-c"]
+    # 매일 03:00 pg_dump → ./backups (R2 업로드는 호스트 cron에서 rclone으로; 셀프호스팅은 로컬 보관만)
+    command:
+      - |
+        while true; do
+          sleep $$(( ( 3*3600 - ( $$(date +%s) % 86400 ) + 86400 ) % 86400 ));
+          pg_dump -h postgres -U ${POSTGRES_USER:-tally} ${POSTGRES_DB:-tally} | gzip > /backups/tally-$$(date +%F).sql.gz;
+          find /backups -name 'tally-*.sql.gz' -mtime +14 -delete;
+        done
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  tally-pg:
+  caddy-data:

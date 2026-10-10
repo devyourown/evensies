@@ -1,0 +1,17 @@
+{
+  "_doc": "분할 계산 테스트 케이스. amount는 최소 단위 정수. mode: equal | exact | percent. members는 ID 오름차순이 아닐 수 있다 — 나머지 배분은 memberId 오름차순으로 앞에서부터 1씩. 양쪽(Dart·Kotlin) 구현이 이 파일을 읽는다.",
+  "cases": [
+    {"name": "equal 3 ways no remainder", "amount": 3000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 1000, "b": 1000, "c": 1000}},
+    {"name": "equal 3 ways remainder 1", "amount": 1000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 334, "b": 333, "c": 333}},
+    {"name": "equal 3 ways remainder 2, unsorted input", "amount": 1001, "mode": "equal", "members": ["c", "a", "b"], "expected": {"a": 334, "b": 334, "c": 333}},
+    {"name": "equal 1 member", "amount": 777, "mode": "equal", "members": ["z"], "expected": {"z": 777}},
+    {"name": "equal zero amount", "amount": 0, "mode": "equal", "members": ["a", "b"], "expected": {"a": 0, "b": 0}},
+    {"name": "exact amounts pass through", "amount": 5000, "mode": "exact", "members": ["a", "b"], "input": {"a": 1200, "b": 3800}, "expected": {"a": 1200, "b": 3800}},
+    {"name": "exact amounts must sum to total", "amount": 5000, "mode": "exact", "members": ["a", "b"], "input": {"a": 1200, "b": 3000}, "error": "SUM_MISMATCH"},
+    {"name": "percent 50/30/20", "amount": 10000, "mode": "percent", "members": ["a", "b", "c"], "input": {"a": 50, "b": 30, "c": 20}, "expected": {"a": 5000, "b": 3000, "c": 2000}},
+    {"name": "percent with rounding remainder", "amount": 100, "mode": "percent", "members": ["a", "b", "c"], "input": {"a": 33.33, "b": 33.33, "c": 33.34}, "expected": {"a": 34, "b": 33, "c": 33}},
+    {"name": "percent must sum to 100", "amount": 100, "mode": "percent", "members": ["a", "b"], "input": {"a": 60, "b": 50}, "error": "SUM_MISMATCH"},
+    {"name": "negative amount rejected", "amount": -5, "mode": "equal", "members": ["a"], "error": "NEGATIVE_AMOUNT"},
+    {"name": "no members rejected", "amount": 100, "mode": "equal", "members": [], "error": "NO_MEMBERS"}
+  ]
+}

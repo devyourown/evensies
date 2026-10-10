@@ -1,0 +1,14 @@
+# 개발용: PostgreSQL만 띄운다. 서버는 IDE나 ./gradlew bootRun 으로 로컬에서 실행.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tally
+      POSTGRES_PASSWORD: tally
+      POSTGRES_DB: tally
+    ports:
+      - "5432:5432"
+    volumes:
+      - tally-pg-dev:/var/lib/postgresql/data
+volumes:
+  tally-pg-dev:
