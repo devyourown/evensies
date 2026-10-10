@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "dev.nariinfo.evensies",
-    "sha256_cert_fingerprints": ["REPLACE_WITH_RELEASE_SIGNING_CERT_SHA256"]
+    "sha256_cert_fingerprints": ["9D:B2:F7:01:74:3F:D0:40:18:CF:4E:5D:0C:20:1A:64:25:1C:94:02:01:07:68:44:EA:B9:08:39:DD:CD:EA:A2"]
   }
 }]
