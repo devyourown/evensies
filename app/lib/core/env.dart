@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 abstract final class Env {
   static const defaultServerUrl =
       String.fromEnvironment('EVENSIES_SERVER_URL', defaultValue: 'https://evensies.nariinfo.dev');
+  // OAuth client ids are public (they ship inside every app binary), not secrets.
+  static const googleServerClientId =
+      String.fromEnvironment('EVENSIES_GOOGLE_SERVER_CLIENT_ID', defaultValue: '735984614718-p2ga7bem68i1tbs6se9tmfrcrepfnggt.apps.googleusercontent.com');
   static const devLogin = bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
 }
 

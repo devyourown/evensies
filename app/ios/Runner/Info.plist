@@ -22,16 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- Dev only: lets the simulator talk to http://localhost:8080. Remove for release if the server is HTTPS-only. -->
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<!-- Universal Links (https://<host>/j/<code>): add the "Associated Domains" capability in Xcode with
-	     applinks:<your-host>, and serve /.well-known/apple-app-site-association from the server. -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -42,11 +32,23 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>evensies</string>
+				<string>com.googleusercontent.apps.735984614718-5np5bviai5o8f3is4hgoddorqrdph2l2</string>
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GIDClientID</key>
+	<string>735984614718-5np5bviai5o8f3is4hgoddorqrdph2l2.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>735984614718-p2ga7bem68i1tbs6se9tmfrcrepfnggt.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
