@@ -1,5 +1,3 @@
-import 'package:tally/data/sync/event_types.dart';
-
 import '../../domain/models.dart';
 import 'event_types.dart';
 
