@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: tally-server
+  datasource:
+    url: ${TALLY_DB_URL:jdbc:postgresql://localhost:5432/tally}
+    username: ${TALLY_DB_USER:tally}
+    password: ${TALLY_DB_PASSWORD:tally}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+tally:
+  jwt-secret: ${TALLY_JWT_SECRET:}
+  public-url: ${TALLY_PUBLIC_URL:http://localhost:8080}
+  auth:
+    dev-login: ${TALLY_AUTH_DEV_LOGIN:false}
+    apple-client-id: ${TALLY_APPLE_CLIENT_ID:}
+    google-client-ids: ${TALLY_GOOGLE_CLIENT_IDS:}
+  fcm:
+    credentials-file: ${TALLY_FCM_CREDENTIALS_FILE:}
+  sync:
+    naive: false
