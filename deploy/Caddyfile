@@ -1,4 +1,20 @@
 {$EVENSIES_DOMAIN} {
 	encode gzip
+
+	# Universal Links (iOS) and App Links (Android) manifests
+	handle /.well-known/apple-app-site-association {
+		header Content-Type application/json
+		file_server {
+			root /well-known
+			index apple-app-site-association
+		}
+		rewrite * /apple-app-site-association
+	}
+	handle /.well-known/assetlinks.json {
+		header Content-Type application/json
+		root * /well-known
+		file_server
+	}
+
 	reverse_proxy server:8080
 }

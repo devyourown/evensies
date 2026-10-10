@@ -44,6 +44,7 @@ services:
       EVENSIES_DOMAIN: ${EVENSIES_DOMAIN:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./well-known:/well-known:ro
       - caddy-data:/data
     depends_on:
       - server
