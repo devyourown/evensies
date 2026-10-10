@@ -9,7 +9,11 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import kotlin.test.fail
+import dev.nariinfo.tally.money.Split
+import dev.nariinfo.tally.money.SplitMode
+import kotlin.random.Random
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Runs with `./gradlew test -PincludeHyojun`. */
 @Tag("hyojun")
@@ -28,34 +32,62 @@ class SettlementTest {
             val balances = Settlement.balances(members, expenses, payments)
             val transfers = Settlement.simplify(balances)
 
-            // TODO(효준): 단언. balances == expectedBalances, transfers == expectedTransfers (순서 포함).
-            fail("TODO(효준)")
+            assertEquals(expectedBalances, balances)
+            assertEquals(expectedTransfers, transfers)
         }
     }
 
+    // Random members (3..8), expenses (0..20, shares from Split so they sum to amount) and payments (0..20).
+    private val rnd = Random(42)
+
+    private data class Case(val members: List<String>, val expenses: List<ExpenseLine>, val payments: List<PaymentLine>)
+
+    private fun randomCase(): Case {
+        val n = rnd.nextInt(3, 9)
+        val members = (0 until n).map { "m$it" }
+        val expenses = List(rnd.nextInt(0, 21)) {
+            val amount = rnd.nextLong(0, 10_000)
+            ExpenseLine(members[rnd.nextInt(n)], amount, Split.compute(amount, SplitMode.EQUAL, members, null))
+        }
+        val payments = List(rnd.nextInt(0, 21)) {
+            val i = rnd.nextInt(n)
+            val j = (i + 1 + rnd.nextInt(n - 1)) % n // never equal to i
+            PaymentLine(members[i], members[j], rnd.nextLong(0, 5_000))
+        }
+        return Case(members, expenses, payments)
+    }
+
+    private fun forEachCase(body: (members: List<String>, balances: Map<String, Long>) -> Unit) =
+        repeat(200) { randomCase().let { c -> body(c.members, Settlement.balances(c.members, c.expenses, c.payments)) } }
+
     @Test
-    fun balancesSumToZero() {
-        // TODO(효준): 성질 테스트. 임의의 멤버·지출·송금(지출 shares 합 == amount)을 만들어
-        //  Settlement.balances(...).values.sum() == 0.
-        TODO("TODO(효준)")
+    fun balancesSumToZero() = forEachCase { _, balances -> assertEquals(0L, balances.values.sum(), "$balances") }
+
+    @Test
+    fun transfersSettleAllBalances() = forEachCase { _, balances ->
+        val left = balances.toMutableMap()
+        for (t in Settlement.simplify(balances)) {
+            left[t.from] = left.getValue(t.from) + t.amount
+            left[t.to] = left.getValue(t.to) - t.amount
+        }
+        assertTrue(left.values.all { it == 0L }, "$balances -> $left")
     }
 
     @Test
-    fun transfersSettleAllBalances() {
-        // TODO(효준): 성질 테스트. 임의의 잔액(합 0)에 대해 simplify 결과를 적용하면
-        //  (from은 amount만큼 더하고 to는 빼면) 모든 잔액이 0.
-        TODO("TODO(효준)")
+    fun transferCountIsAtMostMembersMinusOne() = forEachCase { members, balances ->
+        assertTrue(Settlement.simplify(balances).size <= members.size - 1, "$balances")
     }
 
     @Test
-    fun transferCountIsAtMostMembersMinusOne() {
-        // TODO(효준): 성질 테스트. 임의의 잔액(합 0, n명)에 대해 simplify(...).size <= n - 1.
-        TODO("TODO(효준)")
+    fun simplifyIsDeterministic() = forEachCase { _, balances ->
+        val reversed = LinkedHashMap<String, Long>().also { m -> balances.entries.reversed().forEach { m[it.key] = it.value } }
+        assertEquals(Settlement.simplify(balances), Settlement.simplify(reversed))
     }
 
     @Test
-    fun simplifyIsDeterministic() {
-        // TODO(효준): 성질 테스트. 같은 잔액 맵을 키 순서만 바꿔 두 번 넣어도 simplify 결과가 같다.
-        TODO("TODO(효준)")
+    fun noTransferInvolvesZeroBalanceMember() = forEachCase { _, balances ->
+        for (t in Settlement.simplify(balances)) {
+            assertTrue(balances.getValue(t.from) != 0L && balances.getValue(t.to) != 0L && t.amount > 0, "$t in $balances")
+        }
     }
 }
