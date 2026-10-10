@@ -68,8 +68,8 @@ test/      split_test.dart settlement_test.dart apply_event_test.dart (shared JS
 
 ## 작업 (실행 순서)
 - [x] T0 스펙·계약·공유 JSON (`docs/API.md`, `shared/*.json`)
-- [ ] T1 서버 (서브에이전트 A): Flyway 스키마, 인증(dev/apple/google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·가져오기, FCM no-op, 테스트 전부. 효준님 몫: `Split.kt`·`Settlement.kt` 본문, `EventService.push` 트랜잭션 본문, 테스트 단언.
-- [ ] T2 앱 (서브에이전트 B): drift DB, API 클라이언트, 동기화 서비스, 화면 7개, dev 로그인 버튼, 테스트 뼈대. 효준님 몫: `split.dart`·`settlement.dart`·`apply_event.dart` 본문, 테스트 단언.
-- [ ] T3 deploy/ (Docker Compose, Caddy, Dockerfile), CI, README(지속 가능 규칙), LICENSE, 개인정보 처리방침 초안
-- [ ] T4 통합: Docker PostgreSQL → 서버 기동(dev-login) → iOS 시뮬레이터에서 앱 → 그룹 생성·멤버 추가·지출 입력·동기화 확인(핵심 로직이 비어 있는 곳은 "미구현" 배너)
-- [ ] T5 HANDOFF.md: 효준님이 할 일 순서(파일·줄·검증 명령), 시뮬레이터 실행법, 남은 설정(Apple/Google/FCM/도메인)
+- [x] T1 서버 (서브에이전트 A): Flyway 스키마, 인증(dev/apple/google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·가져오기, FCM no-op, 테스트 전부. 효준님 몫: `Split.kt`·`Settlement.kt` 본문, `EventService.push` 트랜잭션 본문, 테스트 단언.
+- [x] T2 앱 (서브에이전트 B): drift DB, API 클라이언트, 동기화 서비스, 화면 7개, dev 로그인 버튼, 테스트 뼈대. 효준님 몫: `split.dart`·`settlement.dart`·`apply_event.dart` 본문, 테스트 단언.
+- [x] T3 deploy/ (Docker Compose, Caddy, Dockerfile), CI, README(지속 가능 규칙), LICENSE, 개인정보 처리방침 초안
+- [x] T4 통합: Docker PostgreSQL → 서버 기동(dev-login) → iOS 시뮬레이터에서 앱 → 그룹 생성·멤버 추가·지출 입력·동기화 확인(핵심 로직이 비어 있는 곳은 "미구현" 배너)
+- [x] T5 HANDOFF.md: 효준님이 할 일 순서(파일·줄·검증 명령), 시뮬레이터 실행법, 남은 설정(Apple/Google/FCM/도메인)
