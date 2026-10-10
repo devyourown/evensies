@@ -25,5 +25,39 @@ Map<String, int> computeSplit({
   required List<String> members,
   Map<String, double>? input,
 }) {
-  throw UnimplementedError('TODO(효준)');
+  if (amount < 0) throw SplitException('NEGATIVE_AMOUNT');
+  if (members.isEmpty) throw SplitException('NO_MEMBERS');
+  Map<String, int> result =  <String, int>{};
+  if (SplitMode.equal == mode) {
+    int quotient =  amount ~/ members.length;
+    int remainder = amount % members.length;
+    List<String> sorted = [...members]..sort();
+    for (final member in sorted) {
+      result.putIfAbsent(member, () => (quotient));
+    }
+    _giveRemainder(result, sorted, remainder);
+  } else if (SplitMode.exact == mode) {
+    for (final memberId in members) {
+      result.putIfAbsent(memberId, () => input?[memberId]?.toInt() ?? 0);
+    }
+    final total = result.values.reduce((value, element) => value + element);
+    if (amount != total) throw SplitException('SUM_MISMATCH');
+  } else if (SplitMode.percent == mode) {
+    final totalPercent = input?.values.fold(0.0, (value, element) => value + element) ?? 0;
+    if ((totalPercent - 100).abs() >= 0.001) throw SplitException('SUM_MISMATCH');
+    final sorted = [...members]..sort();
+    for (final member in sorted) {
+      int quotient = (amount * (input?[member] ?? 0) / 100).floor();
+      result.putIfAbsent(member, () => quotient);
+    }
+    final k = amount - result.values.reduce((value, element) => value + element);
+    _giveRemainder(result, sorted, k);
+  }
+  return result;
+}
+
+void _giveRemainder(Map<String,int> result, List<String> sorted, int k) {
+  for (final (index, member) in sorted.indexed) {
+    result.update(member, (v) => index < k ? v+1 : v);
+  }
 }

@@ -17,11 +17,9 @@ void main() {
       Map<String, int> run() => computeSplit(amount: c['amount'] as int, mode: mode, members: members, input: input);
 
       if (c['error'] != null) {
-        // TODO(효준): expect(run, throwsA(isA<SplitException>().having((e) => e.code, 'code', c['error'])));
-        fail('TODO(효준)');
+        expect(run, throwsA(isA<SplitException>().having((e) => e.code, 'code', c['error'])));
       } else {
-        // TODO(효준): expect(run(), (c['expected'] as Map).cast<String, int>());
-        fail('TODO(효준)');
+        expect(run(), (c['expected'] as Map).cast<String, int>());
       }
     });
   }
@@ -29,15 +27,27 @@ void main() {
   group('properties', () {
     test('shares always sum to amount (equal)', () {
       // TODO(효준): for amount in 0..1000, members ['c','a','b'] → computeSplit(...).values.sum == amount
-      fail('TODO(효준)');
+      final members = ['c', 'a', 'b'];
+      for (var amount = 0; amount <= 1000; amount++) {
+        expect(computeSplit(amount: amount, mode: SplitMode.equal, members: members).values.reduce((value, element) => value + element), amount);
+      }
     });
     test('remainder goes to lowest member ids first', () {
       // TODO(효준): amount 1002, members ['b','c','a'] → a 334, b 334, c 334 / amount 1001 → a 334, b 334, c 333
-      fail('TODO(효준)');
+      final result = computeSplit(amount: 1002, mode: SplitMode.equal, members: ['b', 'c', 'a']);
+      expect(result['a'], 334);
+      expect(result['b'], 334);
+      expect(result['c'], 334);
+      final second = computeSplit(amount: 1001, mode: SplitMode.equal, members: ['b', 'c', 'a']);
+      expect(second['a'], 334);
+      expect(second['b'], 334);
+      expect(second['c'], 333);
     });
     test('deterministic: same input twice gives same output', () {
       // TODO(효준): call twice with members in different order, expect equal maps
-      fail('TODO(효준)');
+      final first = computeSplit(amount: 1002, mode: SplitMode.equal, members: ['b', 'c', 'a']);
+      final second = computeSplit(amount: 1002, mode: SplitMode.equal, members: ['a', 'b', 'c']);
+      expect(first, second);
     });
   });
 }
