@@ -8,7 +8,6 @@ data class AppProperties(
     val publicUrl: String = "http://localhost:8080",
     val auth: Auth = Auth(),
     val fcm: Fcm = Fcm(),
-    val sync: Sync = Sync(),
 ) {
     data class Auth(
         val devLogin: Boolean = false,
@@ -18,6 +17,4 @@ data class AppProperties(
 
     data class Fcm(val credentialsFile: String = "")
 
-    /** naive=true routes push through EventService.pushNaive (no lock, no dedupe). Dev only. */
-    data class Sync(val naive: Boolean = false)
 }

@@ -2,7 +2,6 @@ package dev.nariinfo.tally
 
 import dev.nariinfo.tally.sync.EventApplier
 import dev.nariinfo.tally.sync.GroupState
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -69,7 +68,6 @@ class EventSyncTest : IntegrationTestBase() {
     }
 
     @Test
-    @Tag("hyojun") // dedupe lives in EventService.push (TODO(효준)); pushNaive has no dedupe
     fun duplicatePushReturnsSameSeq() {
         val token = login("Dup")
         val group = createGroup(token)

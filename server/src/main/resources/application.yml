@@ -25,5 +25,3 @@ tally:
     google-client-ids: ${TALLY_GOOGLE_CLIENT_IDS:}
   fcm:
     credentials-file: ${TALLY_FCM_CREDENTIALS_FILE:}
-  sync:
-    naive: false

@@ -5,7 +5,6 @@ import dev.nariinfo.tally.money.SplitException
 import dev.nariinfo.tally.money.SplitMode
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import kotlin.random.Random
@@ -13,8 +12,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-/** Runs with `./gradlew test -PincludeHyojun`. */
-@Tag("hyojun")
 class SplitTest {
     @TestFactory
     fun sharedSplitCases(): List<DynamicTest> = SharedJson.load("split-cases.json")["cases"].values().map { case ->

@@ -7,5 +7,3 @@ tally:
   jwt-secret: dev-only-secret-do-not-use-in-production-0123456789
   auth:
     dev-login: true
-  sync:
-    naive: true   # uses EventService.pushNaive until TODO(효준) push() is implemented

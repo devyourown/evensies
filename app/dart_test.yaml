@@ -1,3 +1,0 @@
-tags:
-  hyojun:
-    description: "Tests whose assertions are TODO(효준). Run with `flutter test test/hyojun`; CI excludes them with --exclude-tags hyojun."

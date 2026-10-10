@@ -6,7 +6,6 @@ import dev.nariinfo.tally.money.Settlement
 import dev.nariinfo.tally.money.Transfer
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import dev.nariinfo.tally.money.Split
@@ -15,8 +14,6 @@ import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Runs with `./gradlew test -PincludeHyojun`. */
-@Tag("hyojun")
 class SettlementTest {
     @TestFactory
     fun sharedSettlementCases(): List<DynamicTest> = SharedJson.load("settlement-cases.json")["cases"].values().map { case ->

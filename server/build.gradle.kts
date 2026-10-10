@@ -53,9 +53,5 @@ kotlin {
 }
 
 tasks.withType<Test> {
-	useJUnitPlatform {
-		// Tests tagged "hyojun" assert against logic Hyojun still has to write.
-		// Run them with: ./gradlew test -PincludeHyojun
-		if (!project.hasProperty("includeHyojun")) excludeTags("hyojun")
-	}
+	useJUnitPlatform()
 }

@@ -13,7 +13,6 @@ import java.util.UUID
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "tally.auth.dev-login=true",
-        "tally.sync.naive=true", // push() is TODO(효준); tests exercise pushNaive until then
         "tally.jwt-secret=test-only-secret-0123456789-0123456789",
     ],
 )
