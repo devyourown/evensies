@@ -338,12 +338,13 @@ void main() {
       expect(fx(t), '0.00563349');
       expect(helper(t), '1 JPY = 0.00563349 EUR (1 EUR = 177.51 JPY) · rate of 10 Oct');
       expect(find.byKey(const Key('fx-auto')), findsNothing);
-      expect(find.byKey(const Key('fx-approx')), fxReady ? findsOneWidget : findsNothing); // ≈ waits for convertAmount
+      expect(find.byKey(const Key('fx-approx')), findsNothing); // no amount yet
       expect(api.fxCalls, [todayIso()]);
 
       await t.enterText(find.byKey(const Key('amount')), '12345');
       await t.enterText(find.byKey(const Key('description')), 'Ramen');
       await t.pump();
+      expect(find.text('≈ €69.55'), findsOneWidget); // shared/fx-cases.json: 12345 JPY at 0.00563349 → 6955
       expect(saveEnabled(t), isTrue);
       await t.enterText(find.byKey(const Key('fx')), '0');
       await t.pump();

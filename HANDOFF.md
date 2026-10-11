@@ -1,7 +1,7 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (HEAD 기준, 줄 번호는 지금 작업 트리. fx.dart는 효준님 작업 중 본문 기준. 단계가 끝날 때마다 갱신)
+## 효준님 차례 — Splitwise parity (3·4단계 몫 전부 완료, 2026-10-11. 새 몫이 생기면 이 표에 추가)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/fx_test.dart test/balances_test.dart`
 5단계(분류·검색·인사이트·수정 기록·상세 화면)는 효준님 몫이 없습니다. 남은 것은 4단계 환산 두 함수(6–7)와 끝난 TODO 문구 정리(8)뿐입니다.
 
@@ -12,9 +12,9 @@
 | 3 | `app/lib/domain/split.dart:38` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
 | 4 | `app/lib/domain/settlement.dart:52` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과. 5단계 `test/insights_test.dart:63`의 "올타임 잔액 변화 = 내 잔액" 검사도 `shared/totals-cases.json` 4케이스 전부(환불 3·4번 포함) 이 함수로 돌아갑니다 |
 | 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
-| 6 | `app/lib/domain/fx.dart:47-52` (HEAD 스텁은 28–29줄) | `convertAmount` (Phase 4) | R = `rate.toString()`이 찍는 십진수(`7e-7` 같은 지수형 포함)를 정확히, 값 = amount×R×10^(**to−from**), 가장 가까운 정수로, 딱 .5는 0에서 먼 쪽. double 곱셈 금지(100×0.285 → 29). rate가 무한·NaN·≤ 0 → `FxException('BAD_RATE')` (doc comment 36–46줄). 같은 파일 24–34줄의 `exactValue`가 이 값을 분수 (n, d)로 정확히 돌려주므로 남은 일은 n/d 반올림뿐입니다. **지금 작업 중인 본문**은 BAD_RATE 검사(48줄)는 맞지만 `getNumbers`(54–63줄)가 `rate.toString()`의 `.`·`e`까지 `int.parse`해서 모든 rate에서 `FormatException`을 던집니다(59줄). 고쳐도 지수 부호가 반대(`from − to`)이고 `pow(10, 음수)`가 double이라 double 곱셈입니다. `FormatException`은 `UnimplementedError`가 아니라서 `fxReady`가 예외를 던지고, 지금 작업 트리에서 앱 테스트 10개가 실패합니다(`convert_test` 2, `group_detail_test` 2, `settings_notifications_test` 3, `expense_form_test` 1, `fx_rates_test` 1, `balances_test` 로딩) | `shared/fx-cases.json` 4–13줄(케이스 1–10, fn "amount") |
-| 7 | `app/lib/domain/fx.dart:101-104` (함수 86–105줄, HEAD 스텁은 43–50줄) | `convertExpense` (Phase 4) | 검사 순서(93–95줄), total(96줄), 각 part의 정확한 값 `exact`(97–100줄)는 이미 들어가 있습니다. 101–104줄의 `throw` 자리에: 각 part = n ~/ d(내림), leftover = total − Σ part(0..part 수), `n.remainder(d)`가 큰 part부터 +1(같으면 memberId 오름차순, 0인 part는 +1 없음), `ConvertedExpense(amount: total, parts: parts와 같은 키)` 반환 (doc comment 74–85줄) | `shared/fx-cases.json` 14–23줄(케이스 11–20, fn "expense"), `test/balances_test.dart:88` ("a rated JPY expense lands in EUR", skip은 `:94`). 5단계 인사이트 합계도 이 함수를 씁니다: `insights.dart:125` `insightBuckets` → `balances.dart:82` `convertToDefault`, 그래서 환율 있는 외화 지출이 그룹 통화 합계로 들어가고 "Not converted" 카드에서 빠집니다. `fxReady`로 기대값이 갈리는 테스트(`balances_test.dart:131`·`:175`, `group_detail_test.dart:191`·`:197`·`:229`, `expense_form_test.dart:341`, `fx_rates_test.dart:89`, `settings_notifications_test.dart:99`·`:109`)는 손댈 것 없이 바뀐 쪽으로 검사합니다 |
-| 8 | `app/lib/domain/split.dart:23`, `app/lib/domain/settlement.dart:45` | doc comment | "Phase 3 — TODO(효준) … pending" 문구가 끝난 일을 아직 할 일로 적고 있습니다. 효준님 파일이라 Claude는 손대지 않았습니다. 지우거나 "Phase 3 (효준)"으로 바꾸면 됩니다 | 없음 (`grep -rn "TODO(효준)" app server`에서 빠짐) |
+| 6 | `app/lib/domain/fx.dart` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 케이스 1–10 통과 |
+| 7 | `app/lib/domain/fx.dart` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | 케이스 11–20 통과 |
+| 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
 
 끝나면 통과한 케이스의 `"pending": "hyojun"`를 `shared/fx-cases.json`에서 지우세요. Kotlin 이식(`server/src/main/kotlin/dev/nariinfo/evensies/money/Fx.kt:22-23`·`:31-32`의 `TODO(...)`, 서버 `FxCasesTest` 20개가 지금 skip)은 Claude가 같은 push에 넣고, 효준님은 검토만 합니다.
 6–7이 들어가면 따로 켤 것 없이(`fxReady`) 환율 있는 외화 지출이 그룹 통화 잔액·인사이트 합계에 합쳐지고("Not converted" 카드에서 빠짐), Convert 시트와 "≈" 줄이 보입니다. 그때 Claude가 시뮬레이터에서 Convert 합치기, 홈 통화 "≈ $", 로그인 화면의 홈 통화 단계, 인사이트 합계를 다시 확인합니다.
@@ -34,7 +34,7 @@
 | 3 | 잔액·부채 단순화 Dart `app/lib/domain/settlement.dart` | 효준님 | 23개 통과 |
 | 4 | `app/lib/domain/settlement.dart` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 |
 | 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
-| 6 | push 트랜잭션 Kotlin `sync/EventService.push` | 효준님 | `EventSyncTest` 통과 |
+| 6 | `app/lib/domain/fx.dart` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 케이스 1–10 통과 |
 
 임시 경로(`NAIVE_APPLY`, `pushNaive`, `tally.sync.naive`, hyojun 태그)는 전부 제거됐고 CI는 모든 테스트를 기본으로 돌립니다.
 면접에서 설명할 부분: 1·3·6과 `docs/API.md`의 적용 규칙 1~5(왜 삭제가 이기나, 왜 seq 순서인가).

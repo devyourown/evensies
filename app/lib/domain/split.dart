@@ -16,25 +16,15 @@ class SplitException implements Exception {
 ///   (members 입력 순서가 아님: ["c","a","b"], 1001 → a 334, b 334, c 333).
 /// - exact: input[memberId]를 정수 몫으로 그대로 쓴다. 합이 amount와 다르면 'SUM_MISMATCH'.
 /// - percent: input[memberId]는 퍼센트(double). 합이 100(±0.001)이 아니면 'SUM_MISMATCH'.
-///   각 몫 = (amount * pct / 100).floor(), 남는 최소 단위는 equal과 같은 규칙으로 memberId 오름차순 +1씩.
-///   (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
-/// - 결과의 합은 항상 amount. 결과 맵은 모든 member를 키로 가진다(0 포함).
-///
-/// Phase 3 — TODO(효준) (docs/API.md "SplitSpec", cases marked "pending": "hyojun" in shared/split-cases.json):
-/// - percent: unchanged, except that leftover minor units go only to members whose percent is > 0
-///   (memberId ascending). A 0% member always gets 0. Today a 0% member can be charged 1 cent.
-/// - shares: input[memberId] is a share count (>= 0, may be fractional, missing = 0).
-///   Negative, NaN or infinite → 'INVALID_INPUT'. Weights w = (count * 100).round(), W = Σ w over [members].
-///   W == 0 → 'NO_MEMBERS'. Each share = amount * w ~/ W (integer math, no doubles).
-///   Leftover = amount − Σ shares: +1 each to members with w > 0, memberId ascending (always fewer than them).
-///   (1000, {a:2, b:1, c:0} → a 667, b 333, c 0)
-/// - adjustment: input[memberId] is an adjustment in minor units (may be negative, missing = 0).
-///   Not a whole number, NaN or infinite → 'INVALID_INPUT'. base = amount − Σ adj over [members].
-///   base < 0 → 'NEGATIVE_SHARE'. Split base exactly like equal over all [members], then add each member's adj.
-///   Any result < 0 → 'NEGATIVE_SHARE'. (1000, {b:-100} → a 367, b 267, c 366)
-/// - shares/adjustment: input keys not in [members] are ignored.
-/// - Always: the result has every member as a key (0 included) and sums to amount.
-/// Until then shares/adjustment throw UnimplementedError; callers go through tryCore/implemented (core/core_guard.dart).
+///   각 몫 = (amount * pct / 100).floor(), 남는 최소 단위는 percent > 0인 멤버에게만 memberId 오름차순 +1씩
+///   (0% 멤버는 항상 0). (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
+/// - shares: input[memberId]는 몫 개수(>= 0, 소수 가능, 없으면 0). 음수·NaN·무한 → 'INVALID_INPUT'.
+///   가중치 w = (개수 × 100).round(), W = Σ w. W == 0 → 'NO_MEMBERS'. 각 몫 = amount × w ~/ W (정수 계산),
+///   남는 최소 단위는 w > 0인 멤버에게 memberId 오름차순 +1씩. (1000, {a:2, b:1, c:0} → a 667, b 333, c 0)
+/// - adjustment: input[memberId]는 최소 단위 조정액(음수 가능, 없으면 0). 정수가 아니거나 NaN·무한 → 'INVALID_INPUT'.
+///   base = amount − Σ 조정액. base < 0 → 'NEGATIVE_SHARE'. base를 equal처럼 나눈 뒤 각자 조정액을 더하고,
+///   결과가 음수인 멤버가 있으면 'NEGATIVE_SHARE'. (1000, {b:-100} → a 367, b 267, c 366)
+/// - [members]에 없는 input 키는 무시한다. 결과의 합은 항상 amount, 결과 맵은 모든 member를 키로 가진다(0 포함).
 Map<String, int> computeSplit({
   required int amount,
   required SplitMode mode,
@@ -43,83 +33,69 @@ Map<String, int> computeSplit({
 }) {
   if (amount < 0) throw SplitException('NEGATIVE_AMOUNT');
   if (members.isEmpty) throw SplitException('NO_MEMBERS');
-  Map<String, int> result =  <String, int>{};
-  if (SplitMode.equal == mode) {
-    int quotient =  amount ~/ members.length;
-    int remainder = amount % members.length;
-    List<String> sorted = [...members]..sort();
-    for (final (index, member) in sorted.indexed) {
-      result.putIfAbsent(member, () => index < remainder ? (quotient+1) : quotient);
-    }
-  } else if (SplitMode.exact == mode) {
-    for (final memberId in members) {
-      result.putIfAbsent(memberId, () => input?[memberId]?.toInt() ?? 0);
-    }
-    final total = result.values.reduce((value, element) => value + element);
-    if (amount != total) throw SplitException('SUM_MISMATCH');
-  } else if (SplitMode.percent == mode) {
-    final totalPercent = input?.values.fold(0.0, (value, element) => value + element) ?? 0;
-    if ((totalPercent - 100).abs() >= 0.001) throw SplitException('SUM_MISMATCH');
-    final sorted = [...members]..sort();
-    for (final member in sorted) {
-      int quotient = (amount * (input?[member] ?? 0) / 100).floor();
-      result.putIfAbsent(member, () => quotient);
-    }
-    int k = amount - result.values.reduce((value, element) => value + element);
-    for (final member in sorted) {
-      if (input?[member] == null || input?[member] == 0) continue;
-      if (k == 0) break;
-      result.update(member, (v) => v + 1);
-      k -= 1;
-    }
-  } else if (SplitMode.shares == mode) {
-    int totalWeights = 0;
-    for (final memberId in members) {
-      if (input?[memberId] == null) continue; 
-      if (input![memberId]!.isNaN || input[memberId]!.isNegative || input[memberId]!.isInfinite) {
-        throw SplitException("INVALID_INPUT");
-      }
-      totalWeights += (input[memberId]! * 100).round();
-    }
-    if (totalWeights == 0) throw SplitException("NO_MEMBERS");
-    int totalShare = 0;
-    for (final memberId in members) {
-      final share = amount * ((input?[memberId] ?? 0) * 100).round() ~/ totalWeights;
-      totalShare += share;
-      result.putIfAbsent(memberId, () => share);
-    }
-    int leftover = amount - totalShare;
-    if (leftover > 0) {
-      final sorted = [...members]..sort();
+  final sorted = [...members]..sort();
+  double valueOf(String member) => input?[member] ?? 0;
+
+  switch (mode) {
+    case SplitMode.equal:
+      return _splitEqually(amount, sorted);
+
+    case SplitMode.exact:
+      final result = {for (final member in sorted) member: valueOf(member).toInt()};
+      if (_sum(result) != amount) throw SplitException('SUM_MISMATCH');
+      return result;
+
+    case SplitMode.percent:
+      final totalPercent = sorted.fold(0.0, (total, member) => total + valueOf(member));
+      if ((totalPercent - 100).abs() >= 0.001) throw SplitException('SUM_MISMATCH');
+      final result = {for (final member in sorted) member: (amount * valueOf(member) / 100).floor()};
+      _addOneEach(result, sorted.where((member) => valueOf(member) > 0), amount - _sum(result));
+      return result;
+
+    case SplitMode.shares:
+      final weights = <String, int>{};
       for (final member in sorted) {
-        final w = input?[member] ?? 0.0;
-        if (leftover <= 0) break;
-        if (w > 0) {
-          result.update(member, (v) => v + 1);
-          leftover -= 1;
-        }
+        final count = valueOf(member);
+        if (!count.isFinite || count.isNegative) throw SplitException('INVALID_INPUT');
+        weights[member] = (count * 100).round();
       }
-    }
-  } else if (SplitMode.adjustment == mode) {
-    int totalAdjustment = 0;
-    for (final memberId in members) {
-      if (input?[memberId] == null) continue;
-      final x = input?[memberId] ?? 0;
-      if (x != x.truncateToDouble() || x.isNaN || x.isInfinite) throw SplitException("INVALID_INPUT");
-      totalAdjustment += x.toInt();
-    }
-    final base = amount - totalAdjustment;
-    if (base < 0) throw SplitException("NEGATIVE_SHARE");
-    int quotient =  base ~/ members.length;
-    int remainder = base % members.length;
-    List<String> sorted = [...members]..sort();
-    for (final (index, member) in sorted.indexed) {
-      final x = input?[member]?.toInt() ?? 0;
-      int ret = quotient + x;
-      if (index < remainder) ret += 1;
-      if (ret < 0) throw SplitException("NEGATIVE_SHARE");
-      result.putIfAbsent(member, () => ret);
-    }
+      final totalWeight = _sum(weights);
+      if (totalWeight == 0) throw SplitException('NO_MEMBERS');
+      final result = {for (final member in sorted) member: amount * weights[member]! ~/ totalWeight};
+      _addOneEach(result, sorted.where((member) => weights[member]! > 0), amount - _sum(result));
+      return result;
+
+    case SplitMode.adjustment:
+      final adjustments = <String, int>{};
+      for (final member in sorted) {
+        final adjustment = valueOf(member);
+        if (!adjustment.isFinite || adjustment != adjustment.truncateToDouble()) throw SplitException('INVALID_INPUT');
+        adjustments[member] = adjustment.toInt();
+      }
+      final base = amount - _sum(adjustments);
+      if (base < 0) throw SplitException('NEGATIVE_SHARE');
+      final result = _splitEqually(base, sorted);
+      for (final member in sorted) {
+        result[member] = result[member]! + adjustments[member]!;
+        if (result[member]! < 0) throw SplitException('NEGATIVE_SHARE');
+      }
+      return result;
   }
+}
+
+/// [amount] ~/ n each, the remainder +1 each in [sorted] order (memberId ascending).
+Map<String, int> _splitEqually(int amount, List<String> sorted) {
+  final result = {for (final member in sorted) member: amount ~/ sorted.length};
+  _addOneEach(result, sorted, amount % sorted.length);
   return result;
 }
+
+/// Adds 1 to the first [count] of [members] (already in memberId order).
+void _addOneEach(Map<String, int> result, Iterable<String> members, int count) {
+  if (count <= 0) return;
+  for (final member in members.take(count)) {
+    result[member] = result[member]! + 1;
+  }
+}
+
+int _sum(Map<String, int> values) => values.values.fold(0, (total, value) => total + value);
