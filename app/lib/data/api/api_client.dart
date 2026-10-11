@@ -58,8 +58,7 @@ class ApiClient {
     try {
       final r = await _dio.post<Map<String, dynamic>>('/auth/refresh',
           data: {'refreshToken': s.refreshToken}, options: Options(extra: {'noAuth': true}));
-      await db.saveSession(s.copyWith(
-          accessToken: r.data!['accessToken'] as String, refreshToken: r.data!['refreshToken'] as String));
+      await db.saveTokens(s.userId, r.data!['accessToken'] as String, r.data!['refreshToken'] as String);
       return true;
     } on DioException catch (x) {
       if (x.response?.statusCode == 401 && (await db.getSession())?.refreshToken == s.refreshToken) {
@@ -130,9 +129,11 @@ class ApiClient {
   }
 
   /// One group's feed ([before] = seq), or every group of mine when [groupId] is null ([before] = feedId).
-  Future<ActivityPage> activity({String? groupId, int? before, int limit = 50}) => _call(
+  /// [expenseId] keeps one expense's events (its history, Phase 5); a server before Phase 5 ignores it, so callers
+  /// filter the items too.
+  Future<ActivityPage> activity({String? groupId, int? before, int limit = 50, String? expenseId}) => _call(
       () => _dio.get(groupId == null ? '/activity' : '/groups/$groupId/activity',
-          queryParameters: {'before': ?before, 'limit': limit}),
+          queryParameters: {'before': ?before, 'limit': limit, 'expenseId': ?expenseId?.toLowerCase()}),
       _page);
 
   // --- payment methods

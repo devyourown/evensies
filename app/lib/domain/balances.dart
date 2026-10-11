@@ -41,7 +41,8 @@ class BalanceResult {
   /// used yet (convertExpense is a TODO(효준) stub, or it refused).
   final Map<String, int> unrated;
 
-  /// Expenses with several payers or a refund while computeBalances can't count them yet (TODO(효준)); left out.
+  /// Expenses with several payers or a refund that computeBalances refused as unimplemented; left out (0 since it
+  /// counts them).
   final int unsupported;
   final List<String> members;
   const BalanceResult({
@@ -68,7 +69,7 @@ class BalanceResult {
       };
 
   /// What Settle up shows, per bucket: fewest payments, or debts as recorded when the group turned simplifying off.
-  /// A bucket whose transfers can't be computed yet (a TODO(효준) stub) is left out.
+  /// A bucket whose transfers can't be computed (a stub that throws UnimplementedError) is left out.
   Map<String, List<Transfer>> transfers({required bool simplify}) => {
         for (final MapEntry(key: cur, value: b) in byCurrency.entries)
           cur: ?tryCore(() =>
@@ -197,4 +198,16 @@ String? leaveBlocker(BalanceResult? res, String? me) {
     return mine < 0 ? 'You owe $m · $tail' : 'You are owed $m · $tail';
   }
   return null;
+}
+
+/// Who should pay next (docs/API.md 인사이트): the active member with the most negative balance in [defaultBucket],
+/// the lowest memberId on a tie; null when nobody owes.
+String? whoPaysNext(Map<String, int> defaultBucket, Set<String> activeMemberIds) {
+  String? who;
+  for (final MapEntry(key: m, value: v) in defaultBucket.entries) {
+    if (v >= 0 || !activeMemberIds.contains(m)) continue;
+    final w = defaultBucket[who] ?? 0;
+    if (who == null || v < w || (v == w && m.compareTo(who) < 0)) who = m;
+  }
+  return who;
 }

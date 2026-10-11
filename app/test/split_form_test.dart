@@ -348,7 +348,7 @@ void main() {
   });
 
   testWidgets('a stored split the editor reopens as exact is kept unless the shares change', (t) async {
-    // Shares (a TODO(효준) stub today) and a percent that no longer gives the stored shares both open as exact.
+    // A shares split saved as it is sends nothing; a percent that no longer gives the stored shares opens as exact.
     await seed(
       t,
       hotel(

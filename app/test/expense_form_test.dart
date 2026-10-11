@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -10,6 +11,7 @@ import 'package:evensies/core/ids.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
+import 'package:evensies/domain/categories.dart';
 import 'package:evensies/domain/fx.dart';
 import 'package:evensies/features/expense_form/expense_form_screen.dart';
 import 'package:evensies/core/env.dart';
@@ -24,7 +26,10 @@ void main() {
   late FakeApi api;
   late SharedPreferences prefs;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0,"JPY":0}}'));
+  setUpAll(() {
+    Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0,"JPY":0}}');
+    Categories.loadFromJson(File('../shared/categories.json').readAsStringSync());
+  });
 
   setUp(() async {
     loadShared('currencies.json'); // fail loudly if the shared dir is missing
@@ -142,14 +147,14 @@ void main() {
         date: '2026-10-10',
         notes: const Value('Pistachio'),
         deleted: const Value(true)));
-    t.view.physicalSize = const Size(800, 2400); // whole form incl. comments on screen
+    t.view.physicalSize = const Size(800, 2400); // the whole form on screen
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.pumpWidget(app(expenseId: 'x1'));
     await t.pumpAndSettle();
     expect(find.text('Deleted expense'), findsOneWidget);
     expect(find.text('Pistachio'), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Comments'), findsNothing); // on the read-only expense screen now
     expect(saveEnabled(t), isFalse);
     expect(find.byTooltip('Delete'), findsNothing);
     bool paidBy(String name) => t.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, name)).selected;
@@ -176,31 +181,126 @@ void main() {
     await unmount(t);
   });
 
-  testWidgets('the software keyboard does not cover the comment composer', (t) async {
-    await db.into(db.expenses).insert(ExpensesCompanion.insert(
-        id: 'x1', groupId: 'g1', description: 'Hotel', amount: 600, currency: 'EUR', paidBy: 'm1', date: '2026-10-10'));
-    t.view.physicalSize = const Size(390, 844); // iPhone 13–16 in points
-    t.view.devicePixelRatio = 1;
-    addTearDown(t.view.reset);
-    await t.pumpWidget(app(expenseId: 'x1'));
-    await t.pumpAndSettle();
-    final input = find.byKey(const Key('comment-input'));
-    await t.scrollUntilVisible(input, 200, scrollable: find.byType(Scrollable).first);
-    await t.ensureVisible(input);
-    await t.pumpAndSettle();
-    await t.tap(input);
-    await t.pumpAndSettle();
+  group('categories', () {
+    Future<void> guess(WidgetTester t) async {
+      await t.pump(const Duration(milliseconds: 350)); // the 300 ms debounce
+      await t.pumpAndSettle();
+    }
 
-    const keyboard = 336.0; // iPhone portrait keyboard with the suggestion bar
-    t.view.viewInsets = const FakeViewPadding(bottom: keyboard);
-    addTearDown(t.view.resetViewInsets);
-    await t.pumpAndSettle();
-    expect(t.getRect(input).bottom, lessThanOrEqualTo(844 - keyboard));
-    expect(t.getRect(find.byTooltip('Send')).bottom, lessThanOrEqualTo(844 - keyboard));
-    await t.enterText(input, 'Breakfast included');
-    await t.pumpAndSettle();
-    expect(t.getRect(input).bottom, lessThanOrEqualTo(844 - keyboard));
-    await unmount(t);
+    Map<String, dynamic> sentPayload(List<OutboxRow> rows) => (jsonDecode(rows.single.payloadJson) as Map).cast();
+    bool auto() => find.byKey(const Key('category-auto')).evaluate().isNotEmpty;
+
+    testWidgets('typing "Pizza" guesses Dining out, marked auto, and saves its key', (t) async {
+      tall(t);
+      await t.pumpWidget(app());
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const Key('amount')), '20');
+      await t.enterText(find.byKey(const Key('description')), 'Pizza at Luigi');
+      await guess(t);
+      expect(find.text('Dining out'), findsOneWidget);
+      expect(auto(), isTrue);
+
+      // Clearing the description clears the guess.
+      await t.enterText(find.byKey(const Key('description')), '');
+      await guess(t);
+      expect(find.text('Dining out'), findsNothing);
+      expect(auto(), isFalse);
+
+      await t.enterText(find.byKey(const Key('description')), 'Pizza');
+      await guess(t);
+      await t.tap(find.widgetWithText(FilledButton, 'Save'));
+      await t.pumpAndSettle();
+      expect(sentPayload((await t.runAsync(() => db.select(db.outbox).get()))!)['category'], 'food.dining_out');
+      await unmount(t);
+    });
+
+    testWidgets('at the largest text size the guessed category keeps its label; Refund wraps', (t) async {
+      t.view.physicalSize = const Size(402, 874); // iPhone 16 Pro in points
+      t.view.devicePixelRatio = 1;
+      t.platformDispatcher.textScaleFactorTestValue = 3.12; // iOS accessibility XXXL body text
+      addTearDown(t.view.reset);
+      addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+      await t.pumpWidget(app());
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const Key('description')), 'Uber');
+      await guess(t); // an overflow fails the test
+      expect(auto(), isTrue);
+      expect(t.getSize(find.text('Taxi')).width, greaterThan(100));
+      await unmount(t);
+    });
+
+    testWidgets('a picked category stays when the description changes afterwards', (t) async {
+      tall(t);
+      await t.pumpWidget(app());
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const Key('description')), 'Uber');
+      await guess(t);
+      expect(find.text('Taxi'), findsOneWidget);
+      await t.tap(find.byKey(const Key('category')));
+      await t.pumpAndSettle();
+      await t.scrollUntilVisible(find.byKey(const Key('category-transportation.hotel')), 100,
+          scrollable: find.byType(Scrollable).last);
+      await t.tap(find.byKey(const Key('category-transportation.hotel')));
+      await t.pumpAndSettle();
+      expect(find.text('Hotel'), findsOneWidget);
+      expect(auto(), isFalse);
+
+      await t.enterText(find.byKey(const Key('description')), 'Pizza');
+      await guess(t);
+      expect(find.text('Hotel'), findsOneWidget);
+      expect(find.text('Dining out'), findsNothing);
+      await unmount(t);
+    });
+
+    testWidgets("the group's history wins over keywords", (t) async {
+      tall(t);
+      await db.into(db.expenses).insert(ExpensesCompanion.insert(
+          id: 'x0', groupId: 'g1', description: 'Netflix', amount: 1299, currency: 'EUR', paidBy: 'm1',
+          date: '2026-09-01', category: const Value('utilities.tv_phone_internet')));
+      await t.pumpWidget(app());
+      await t.pumpAndSettle();
+      await t.enterText(find.byKey(const Key('description')), 'netflix ');
+      await guess(t);
+      expect(find.text('TV/Phone/Internet'), findsOneWidget);
+      await unmount(t);
+    });
+
+    testWidgets('a legacy "Food" shows as General, is not guessed over and saves without a category field', (t) async {
+      tall(t);
+      await db.into(db.expenses).insert(ExpensesCompanion.insert(
+          id: 'x1', groupId: 'g1', description: 'Snacks', amount: 600, currency: 'EUR', paidBy: 'm1',
+          date: '2026-10-10', category: const Value('Food')));
+      await db.into(db.expenseShares).insert(ExpenseSharesCompanion.insert(expenseId: 'x1', memberId: 'm1', amount: 600));
+      await t.pumpWidget(app(expenseId: 'x1'));
+      await t.pumpAndSettle();
+      expect(find.text('General'), findsOneWidget);
+      await t.enterText(find.byKey(const Key('description')), 'Pizza');
+      await guess(t);
+      expect(find.text('Dining out'), findsNothing);
+      await t.tap(find.widgetWithText(FilledButton, 'Save'));
+      await t.pumpAndSettle();
+      expect(sentPayload((await t.runAsync(() => db.select(db.outbox).get()))!)['fields'], {'description': 'Pizza'});
+      expect((await t.runAsync(() => db.getExpense('x1')))!.category, 'Food');
+      await unmount(t);
+    });
+
+    testWidgets('an expense stored without a category is guessed when its description changes', (t) async {
+      tall(t);
+      await db.into(db.expenses).insert(ExpensesCompanion.insert(
+          id: 'x1', groupId: 'g1', description: 'Stuff', amount: 600, currency: 'EUR', paidBy: 'm1',
+          date: '2026-10-10'));
+      await db.into(db.expenseShares).insert(ExpenseSharesCompanion.insert(expenseId: 'x1', memberId: 'm1', amount: 600));
+      await t.pumpWidget(app(expenseId: 'x1'));
+      await t.pumpAndSettle();
+      expect(find.text('Category'), findsOneWidget); // nothing guessed on open
+      await t.enterText(find.byKey(const Key('description')), 'Train to Rome');
+      await guess(t);
+      await t.tap(find.widgetWithText(FilledButton, 'Save'));
+      await t.pumpAndSettle();
+      expect(sentPayload((await t.runAsync(() => db.select(db.outbox).get()))!)['fields'],
+          {'description': 'Train to Rome', 'category': 'transportation.bus_train'});
+      await unmount(t);
+    });
   });
 
   group('currencies', () {

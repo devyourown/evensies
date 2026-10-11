@@ -11,14 +11,16 @@ class FakeApi extends ApiClient {
 
   static const offline = ApiException(code: 'NETWORK', message: 'offline');
 
-  /// (groupId, before) → page. Calls are recorded in [activityCalls].
+  /// (groupId, before) → page. Calls are recorded in [activityCalls], their expenseId in [activityExpenseIds].
   ActivityPage Function(String? groupId, int? before)? onActivity;
   final activityCalls = <(String?, int?)>[];
+  final activityExpenseIds = <String?>[];
   List<SyncEvent> events = const [];
 
   @override
-  Future<ActivityPage> activity({String? groupId, int? before, int limit = 50}) async {
+  Future<ActivityPage> activity({String? groupId, int? before, int limit = 50, String? expenseId}) async {
     activityCalls.add((groupId, before));
+    activityExpenseIds.add(expenseId);
     final f = onActivity;
     if (f == null) throw offline;
     return f(groupId, before);
@@ -82,6 +84,12 @@ class FakeApi extends ApiClient {
 
   @override
   Future<AuthResponse> authDev(String name) async => AuthResponse(accessToken: 'a', refreshToken: 'r', user: signInAs);
+
+  /// GET /me; null = unreachable.
+  UserDto? meUser;
+
+  @override
+  Future<UserDto> me() async => meUser ?? (throw offline);
 
   /// PATCH /me bodies; [meOffline] makes it unreachable.
   final meUpdates = <({String? displayName, String? homeCurrency})>[];

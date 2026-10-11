@@ -314,4 +314,63 @@ class ActivityFeedTest : IntegrationTestBase() {
         backfill.run(DefaultApplicationArguments())
         assertEquals(SharedJson.canon(feed), SharedJson.canon(feed(anna, "/groups/$id/activity").body), "replayed from the log")
     }
+
+    /**
+     * Phase 5 `expenseId` filter (an expense's edit history): only events whose payload names the expense — its
+     * expense.* and comment.added events, not another expense's, not payments, not comment.deleted (no expenseId) —
+     * with the usual hiding, the same items as the full feed, and `limit` counting the filtered events.
+     */
+    @Test
+    fun expenseHistoryFilter() {
+        val s = setup("history")
+        val y = UUID.randomUUID().toString()
+        check(push(s.anna, s.id,
+            expenseCreated(s.annaMember, 500, mapOf(s.benMember to 500), expenseId = y, description = "Taxi"),   // 15
+            expenseUpdated(y, "amount" to 600, "shares" to lines(mapOf(s.benMember to 600))),                   // 16
+            event("comment.added", mapOf("commentId" to UUID.randomUUID().toString(), "expenseId" to y,
+                "authorMemberId" to s.annaMember, "text" to "Late night", "createdAt" to at(20))),                // 17
+        ).status == 200)
+        val path = "/groups/${s.id}/activity?expenseId="
+        val page = feed(s.ben, path + s.x).body
+        // seq 6 (no-op update) and 9 (the deleted comment) are hidden as in the full feed
+        assertEquals(listOf(12L, 11, 8, 7, 5), page["items"].values().map { it["seq"].asLong() })
+        assertTrue(page["nextBefore"].isNull)
+        val full = items(s.ben, s.id).filter { it["expenseId"]?.takeUnless(JsonNode::isNull)?.asString() == s.x }
+        assertEquals(SharedJson.canon(full), SharedJson.canon(page["items"]), "same per-viewer items as the full feed")
+        assertEquals(listOf(17L, 16, 15), feed(s.anna, path + y).body["items"].values().map { it["seq"].asLong() })
+        assertEquals(SharedJson.canon(page), SharedJson.canon(feed(s.ben, path + s.x.uppercase()).body), "the id is compared in lowercase")
+
+        // limit counts filtered events: seq 12, 11 | 9 (hidden), 8 | 7, 6 (hidden) | 5
+        val seen = mutableListOf<List<Long>>()
+        val cursors = mutableListOf<Long?>()
+        var before: Long? = null
+        do {
+            val p = feed(s.ben, path + s.x + "&limit=2" + (before?.let { "&before=$it" } ?: "")).body
+            seen += p["items"].values().map { it["seq"].asLong() }
+            before = p["nextBefore"].takeUnless { it.isNull }?.asLong()
+            cursors += before
+        } while (before != null)
+        assertEquals(listOf(listOf(12L, 11), listOf(8L), listOf(7L), listOf(5L)), seen)
+        assertEquals(listOf(11L, 8, 6, null), cursors)
+
+        // an expense not in this group (unknown, or another group's: no cross-group reads) is an empty page, not 404
+        val other = createGroup(s.anna, name = "Milan")
+        val z = UUID.randomUUID().toString()
+        check(push(s.anna, other["id"].asString(), expenseCreated(other["myMemberId"].asString(), 900, mapOf(other["myMemberId"].asString() to 900), expenseId = z)).status == 200)
+        for (unknown in listOf(UUID.randomUUID().toString(), z)) {
+            assertEquals(SharedJson.canon(mapOf("items" to emptyList<Any>(), "nextBefore" to null)), SharedJson.canon(feed(s.ben, path + unknown).body))
+        }
+        assertEquals(403, http.get("/groups/${other["id"].asString()}/activity?expenseId=$z", s.ben).status, "Ben is not in Milan")
+        assertEquals(403, http.get(path + s.x, login("Af-history-stranger")).status)
+        assertEquals(401, http.get(path + s.x).status)
+
+        for (bad in listOf("abc", "${s.x}0", "1")) {
+            val res = http.get(path + bad, s.ben)
+            assertEquals(400 to "VALIDATION", res.status to res.code(), res.text)
+        }
+        // an empty value is no filter, like an empty limit (Spring reads "" as a null UUID)
+        assertEquals(SharedJson.canon(feed(s.ben, "/groups/${s.id}/activity").body), SharedJson.canon(feed(s.ben, path).body))
+        // not a filter on the overall feed: ignored there
+        assertEquals(SharedJson.canon(feed(s.ben, "/activity").body), SharedJson.canon(feed(s.ben, "/activity?expenseId=${s.x}").body))
+    }
 }

@@ -21,6 +21,7 @@ class GroupsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
+          IconButton(tooltip: 'Search', onPressed: () => context.push('/search'), icon: const Icon(Icons.search)),
           IconButton(
               tooltip: 'Activity', onPressed: () => context.push('/activity'), icon: const Icon(Icons.history)),
           IconButton(

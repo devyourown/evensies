@@ -25,6 +25,9 @@ data class ImportResult(val imported: Int, val latestSeq: Long)
  * member id) also pays the slack `Cost − Σ positive nets` and owes `Cost − Σ what the others owe` (the slack when the
  * nets add up to 0, and the shares still sum to Cost when they don't); everybody else owes −net. A negative slack or
  * owed amount is 400 IMPORT_FAILED. Unknown names become placeholder members. Everything goes through the normal push path.
+ * Category is a key when [Categories.keyForLabel] knows it, else the trimmed text. A `Payment` row (any case) with
+ * Cost > 0 and exactly two non-zero nets, +Cost and −Cost, becomes a confirmed `payment.created` from the +Cost person
+ * to the −Cost person (the same balances as the expense); other Payment rows stay expenses. `imported` counts both.
  */
 @Service
 class SplitwiseImporter(
@@ -39,6 +42,7 @@ class SplitwiseImporter(
         val date = header.indexOf("Date"); val desc = header.indexOf("Description")
         if (listOf(date, desc, cost, currency).any { it < 0 }) bad("Expected columns Date, Description, Cost, Currency")
         val nameColumns = (currency + 1 until header.size).filter { header[it].isNotEmpty() }
+        val categoryColumn = header.indexOf("Category")
 
         val state = stateStore.load(groupId)
         val memberIdByName = state.members.values.filter { !it.removed }.associate { it.name.lowercase() to it.id }.toMutableMap()
@@ -61,6 +65,21 @@ class SplitwiseImporter(
             if (!Money.isKnown(cur)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Line $line: unknown currency $cur")
             val amount = minor(row[cost], cur, line)
             val nets = nameColumns.map { memberIdByName.getValue(header[it].lowercase()) to minor(row[it], cur, line) }
+            val rawCategory = row.getOrNull(categoryColumn)?.trim()?.ifEmpty { null }
+            val moved = nets.filter { it.second != 0L }
+            if (rawCategory.equals("Payment", ignoreCase = true) && amount > 0 && moved.size == 2 &&
+                moved.map { it.second }.toSet() == setOf(amount, -amount)
+            ) {
+                out += event(
+                    "payment.created", mapOf(
+                        "paymentId" to UUID.randomUUID().toString(),
+                        "fromMember" to moved.first { it.second > 0 }.first, "toMember" to moved.first { it.second < 0 }.first,
+                        "amount" to amount, "currency" to cur, "date" to parseDate(row[date], line), "status" to "confirmed",
+                    )
+                )
+                imported++
+                continue
+            }
             val payer = nets.maxWith(compareBy<Pair<String, Long>> { it.second }.thenByDescending { it.first })
             val slack = amount - nets.sumOf { maxOf(0L, it.second) }
             if (slack < 0) bad("Line $line: the people who paid add up to more than the cost")
@@ -75,7 +94,7 @@ class SplitwiseImporter(
                     "description" to row[desc].trim().ifEmpty { "Imported" }.clip(EventValidator.MAX_DESCRIPTION),
                     "amount" to amount, "currency" to cur, "fxRateToDefault" to null,
                     "paidBy" to payer.first, "date" to parseDate(row[date], line),
-                    "category" to row.getOrNull(header.indexOf("Category"))?.trim()?.ifEmpty { null },
+                    "category" to rawCategory?.let { Categories.keyForLabel(it) ?: it },
                     "shares" to lines(others + (payer.first to payerShare)),
                 ) + (lines(payers).takeIf { it.size > 1 }?.let { mapOf("payers" to it) } ?: emptyMap())
             )

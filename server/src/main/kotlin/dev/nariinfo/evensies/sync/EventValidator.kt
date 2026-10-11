@@ -291,8 +291,11 @@ class EventValidator {
         if (c == null || !Money.isKnown(c)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Unknown currency $c")
     }
 
+    /** LocalDate.parse alone also takes "+10000-01-01"; clients read the month as date[0..7]. */
     private fun requireDate(d: String?) {
-        try { LocalDate.parse(d ?: bad("date is required")) } catch (_: DateTimeParseException) { bad("date must be YYYY-MM-DD") }
+        if (d == null) bad("date is required")
+        if (d.length != 10) bad("date must be YYYY-MM-DD")
+        try { LocalDate.parse(d) } catch (_: DateTimeParseException) { bad("date must be YYYY-MM-DD") }
     }
 
     private fun bad(message: String): Nothing = throw ApiException.badRequest("VALIDATION", message)

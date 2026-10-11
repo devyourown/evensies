@@ -76,6 +76,16 @@ void main() {
     expect(server.refreshes, 1);
   });
 
+  test('a refresh keeps a name saved while it was in flight', () async {
+    var calls = 0;
+    server.meanwhile = () async {
+      if (++calls == 2) await db.updateProfile('u1', displayName: 'Anna B'); // call 2 = /auth/refresh
+    };
+    await api.listGroups();
+    final s = await db.getSession();
+    expect((s?.displayName, s?.accessToken, s?.refreshToken), ('Anna B', 'a2', 'r2'));
+  });
+
   test('a refused refresh token signs out; an offline refresh does not', () async {
     server.refreshStatus = -1;
     await expectLater(api.listGroups(), throwsA(isA<ApiException>()));

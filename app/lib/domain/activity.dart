@@ -3,6 +3,7 @@
 library;
 
 import '../core/money.dart';
+import 'categories.dart';
 
 class ActivityChange {
   final String field;
@@ -61,6 +62,13 @@ String? myDeltaText(ActivityItem item) {
   return '${d < 0 ? 'you owe' : item.refund ? 'you get back' : 'you lent'} ${formatMoney(d.abs(), item.currency ?? '')}';
 }
 
+/// `category Dining out → General`, each side as [Categories.labelOf] shows a stored value; bare `category` when both
+/// show the same (null → `uncategorized.general`).
+String _category(Object? from, Object? to) {
+  final f = Categories.labelOf(from?.toString()), t = Categories.labelOf(to?.toString());
+  return f == t ? 'category' : 'category $f → $t';
+}
+
 /// The sentence for [item] as seen by member [me] (docs/API.md "문장"). [names] maps memberId → name.
 /// [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own colored line).
 String activityText(ActivityItem item, Map<String, String> names, String? me, {bool withDelta = true}) {
@@ -115,7 +123,7 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
             'payers' => 'payers',
             'refund' => c.to == true ? 'refund on' : 'refund off',
             'date' => 'date ${c.from} → ${c.to}',
-            'category' => 'category',
+            'category' => _category(c.from, c.to),
             // A new amount always means a new split, so "split" alone would be noise.
             'shares' => fields.containsKey('amount') ? null : 'split',
             'split' => fields.containsKey('shares') || fields.containsKey('amount') ? null : 'split',

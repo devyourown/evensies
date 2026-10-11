@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,9 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _savingHome = true);
     try {
       final user = await ref.read(apiProvider).updateMe(homeCurrency: code);
-      final db = ref.read(dbProvider);
-      final s = await db.getSession();
-      if (s != null) await db.saveSession(s.copyWith(homeCurrency: Value(user.homeCurrency ?? code)));
+      await ref.read(dbProvider).updateProfile(user.id, homeCurrency: user.homeCurrency ?? code);
     } catch (e) {
       if (!mounted) return;
       setState(() => _homeTry++);

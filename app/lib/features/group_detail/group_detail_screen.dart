@@ -12,6 +12,7 @@ import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 import '../activity/activity_screen.dart';
+import '../categories/category_ui.dart';
 import 'balances.dart';
 import 'convert_sheet.dart';
 
@@ -36,6 +37,16 @@ class GroupDetailScreen extends ConsumerWidget {
         appBar: AppBar(
           title: Text(group.name),
           actions: [
+            IconButton(
+              tooltip: 'Search',
+              onPressed: () => context.push('/search?group=$groupId'),
+              icon: const Icon(Icons.search),
+            ),
+            IconButton(
+              tooltip: 'Insights',
+              onPressed: () => context.push('/groups/$groupId/insights'),
+              icon: const Icon(Icons.insights),
+            ),
             IconButton(
               tooltip: 'Members & invite',
               onPressed: () => context.push('/groups/$groupId/members'),
@@ -120,7 +131,6 @@ class _ExpensesTab extends ConsumerWidget {
     final expenses = state.expenses.where((e) => !e.deleted).toList()..sort((a, b) => b.date.compareTo(a.date));
     final payments = state.payments.where((p) => !p.deleted).toList();
     final names = {for (final m in state.members) m.id: m.name};
-    final me = group.myMemberId;
 
     Future<void> refresh() => ref.read(syncProvider).sync(group.id).catchError((_) {});
 
@@ -145,7 +155,7 @@ class _ExpensesTab extends ConsumerWidget {
 
     final rows = <({String date, Widget tile})>[
       for (final e in expenses)
-        (date: e.date, tile: _ExpenseTile(expense: e, group: group, payerName: names[e.paidBy] ?? '?', myMemberId: me)),
+        (date: e.date, tile: ExpenseTile(expense: e, group: group, names: names)),
       for (final p in payments)
         (date: p.date, tile: _PaymentTile(payment: p, from: names[p.fromMember] ?? '?', to: names[p.toMember] ?? '?')),
     ]..sort((a, b) => b.date.compareTo(a.date));
@@ -169,16 +179,22 @@ class _ExpensesTab extends ConsumerWidget {
   }
 }
 
-class _ExpenseTile extends StatelessWidget {
+/// One expense row: category, description, who paid, my part, the amount (Search and later phases reuse it).
+class ExpenseTile extends StatelessWidget {
   final Expense expense;
   final GroupRow group;
-  final String payerName;
-  final String? myMemberId;
-  const _ExpenseTile({required this.expense, required this.group, required this.payerName, required this.myMemberId});
+
+  /// memberId → name.
+  final Map<String, String> names;
+
+  /// A muted last line, e.g. the group and the matching note in Search.
+  final String? extra;
+  const ExpenseTile({super.key, required this.expense, required this.group, required this.names, this.extra});
 
   @override
   Widget build(BuildContext context) {
     final e = expense;
+    final myMemberId = group.myMemberId;
     final cs = Theme.of(context).colorScheme;
     final d = group.defaultCurrency;
     final foreign = e.currency != d;
@@ -193,7 +209,10 @@ class _ExpenseTile extends StatelessWidget {
     int mineIn(List<Share> l) => l.where((s) => s.memberId == myMemberId).fold(0, (a, s) => a + s.amount);
     final myShare = mineIn(e.shares);
     final myPaid = mineIn(e.payers);
-    final payer = '$payerName${e.payers.length > 1 ? ' +${e.payers.length - 1}' : ''}';
+    final n = e.payers.length;
+    // Splitwise's "you paid €12.80"; "2 people paid €300.00" rather than one name with "+1" (#107).
+    final payer = n > 1 ? '$n people' : e.paidBy == myMemberId ? 'you' : names[e.paidBy] ?? '?';
+    final who = e.refund ? 'refund to $payer' : '$payer paid ${formatMoney(e.amount, e.currency)}';
     // sign × (what I paid − my share); a refund reverses it (docs/API.md 잔액).
     final delta = (e.refund ? -1 : 1) * (myPaid - myShare);
     final involved = (myMemberId != null && e.payers.any((p) => p.memberId == myMemberId)) || myShare != 0;
@@ -211,35 +230,54 @@ class _ExpenseTile extends StatelessWidget {
       mineColor = cs.error;
     }
 
+    final subtitle = Text.rich(
+      TextSpan(children: [
+        TextSpan(text: '$who · $mine', style: TextStyle(color: mineColor)),
+        if (extra != null) TextSpan(text: '\n$extra', style: TextStyle(color: cs.onSurfaceVariant)),
+      ]),
+      maxLines: extra == null ? null : 3,
+      overflow: extra == null ? null : TextOverflow.ellipsis,
+    );
+    // The largest text sizes: no icon, and the amount under the text instead of a squeezed column at the end.
+    final large = MediaQuery.textScalerOf(context).scale(1) > 2;
+    final amounts = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: large ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          if (e.refund) ...[
+            Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
+            const SizedBox(width: 4),
+          ],
+          Text(formatMoney(e.amount, e.currency), style: Theme.of(context).textTheme.titleMedium),
+        ]),
+        if (foreign)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (fxMissing) ...[
+              Icon(Icons.warning_amber_rounded, size: 14, color: cs.error, semanticLabel: 'Not converted'),
+              const SizedBox(width: 2),
+            ],
+            Text(approx == null ? e.currency : '≈ ${formatMoney(approx, d)}',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: fxMissing ? cs.error : cs.onSurfaceVariant)),
+          ]),
+      ],
+    );
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      title: Text(e.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${e.refund ? 'refund to' : 'paid by'} $payer · $mine', style: TextStyle(color: mineColor)),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            if (e.refund) ...[
-              Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
-              const SizedBox(width: 4),
-            ],
-            Text(formatMoney(e.amount, e.currency), style: Theme.of(context).textTheme.titleMedium),
-          ]),
-          if (foreign)
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              if (fxMissing) ...[
-                Icon(Icons.warning_amber_rounded, size: 14, color: cs.error, semanticLabel: 'Not converted'),
-                const SizedBox(width: 2),
-              ],
-              Text(approx == null ? e.currency : '≈ ${formatMoney(approx, d)}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: fxMissing ? cs.error : cs.onSurfaceVariant)),
-            ]),
-        ],
-      ),
+      leading: large ? null : CategoryAvatar(e.category),
+      title: Text(e.description, maxLines: large ? 3 : 1, overflow: TextOverflow.ellipsis),
+      isThreeLine: extra != null && !large,
+      subtitle: large
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [subtitle, const SizedBox(height: 4), amounts],
+            )
+          : subtitle,
+      trailing: large ? null : amounts,
       onTap: () => context.push('/groups/${group.id}/expenses/${e.id}'),
     );
   }
@@ -256,7 +294,13 @@ class _PaymentTile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(Icons.payments_outlined, color: cs.onSurfaceVariant),
+      // Same tile as an expense's category, so the rows line up.
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
+        child: Icon(Icons.payments_outlined, size: 22, color: cs.onSurfaceVariant),
+      ),
       title: Text('$from paid $to', maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: payment.pending
           ? Align(
@@ -366,6 +410,24 @@ class _BalancesTab extends ConsumerWidget {
                 style: TextStyle(color: cs.onSurfaceVariant)),
           ]),
         ),
+      if (whoPaysNext(b, {for (final m in members) if (!m.removed) m.id}) case final next?)
+        Padding(
+          key: const Key('pays-next'),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(children: [
+            Icon(Icons.east, size: 18, color: cs.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                next == me
+                    ? 'You should pay next (you owe ${formatMoney(-b[next]!, d)}, the most)'
+                    : '${members.firstWhere((m) => m.id == next).name} should pay next '
+                        '(owes ${formatMoney(-b[next]!, d)}, the most)',
+                style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+          ]),
+        ),
       for (final m in rows)
         _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: d),
       if (unsettled || myPending > 0) ...[
@@ -471,12 +533,14 @@ class _BalanceRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-          const SizedBox(width: 8),
-          Text(formatMoney(amount.abs(), currency),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+        // Wraps instead of overflowing at the largest text sizes.
+        Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
+          Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
+            Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            Text(formatMoney(amount.abs(), currency),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+          ]),
         ]),
         const SizedBox(height: 6),
         ClipRRect(

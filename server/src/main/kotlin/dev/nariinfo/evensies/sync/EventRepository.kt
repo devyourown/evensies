@@ -61,10 +61,16 @@ class EventRepository(private val jdbc: JdbcClient, private val mapper: ObjectMa
         jdbc.sql("SELECT * FROM events WHERE group_id = :groupId AND seq > :after ORDER BY seq LIMIT :limit")
             .param("groupId", groupId).param("after", after).param("limit", limit).query(rowMapper).list()
 
-    /** Group feed page: seq < [before], newest first. */
-    fun findBefore(groupId: UUID, before: Long, limit: Int): List<Event> =
-        jdbc.sql("SELECT * FROM events WHERE group_id = :groupId AND seq < :before ORDER BY seq DESC LIMIT :limit")
-            .param("groupId", groupId).param("before", before).param("limit", limit).query(rowMapper).list()
+    /**
+     * Group feed page: seq < [before], newest first; with [expenseId], only events whose payload names that expense.
+     * ponytail: the filter scans the group's events; add an index on (group_id, (payload->>'expenseId')) past ~50k per group.
+     */
+    fun findBefore(groupId: UUID, before: Long, limit: Int, expenseId: String?): List<Event> {
+        val filter = if (expenseId == null) "" else "AND payload->>'expenseId' = :expenseId"
+        return jdbc.sql("SELECT * FROM events WHERE group_id = :groupId AND seq < :before $filter ORDER BY seq DESC LIMIT :limit")
+            .param("groupId", groupId).param("before", before).param("limit", limit).param("expenseId", expenseId)
+            .query(rowMapper).list()
+    }
 
     /**
      * Overall feed page: feed_id < [before], newest first, over the groups where [userId] is an active member,

@@ -15,8 +15,15 @@ class GroupStateStore {
     final g = await db.getGroup(groupId);
     final ms = await (db.select(db.members)..where((m) => m.groupId.equals(groupId))).get();
     final xs = await (db.select(db.expenses)..where((e) => e.groupId.equals(groupId))).get();
-    final shares = await (db.select(db.expenseShares)..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))).get();
-    final payers = await (db.select(db.expensePayers)..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))).get();
+    // Rows come back in insert order (= the order sent), not in primary-key order: payers keep the order sent.
+    final shares = await (db.select(db.expenseShares)
+          ..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))
+          ..orderBy([(s) => OrderingTerm.asc(s.rowId)]))
+        .get();
+    final payers = await (db.select(db.expensePayers)
+          ..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))
+          ..orderBy([(s) => OrderingTerm.asc(s.rowId)]))
+        .get();
     final ps = await (db.select(db.payments)..where((p) => p.groupId.equals(groupId))).get();
     final cs = await (db.select(db.comments)..where((c) => c.groupId.equals(groupId))).get();
     return GroupState(

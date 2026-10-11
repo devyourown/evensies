@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/confirm.dart';
 import '../../core/core_guard.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
@@ -16,11 +17,12 @@ import '../../data/db/database.dart';
 import '../../data/fx_rates.dart';
 import '../../data/sync/group_state_store.dart';
 import '../../domain/balances.dart' show tryFx;
+import '../../domain/categories.dart';
 import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
-import 'comment_thread.dart';
+import '../categories/category_ui.dart';
 import 'split_editor.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -35,7 +37,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _amount = TextEditingController();
   final _description = TextEditingController();
   final _fx = TextEditingController();
-  final _category = TextEditingController();
+  /// The stored or picked category (a key, legacy text, or null); [_catAuto] while it is a guess.
+  String? _cat;
+  bool _catAuto = false;
+
+  /// Guessing stops for good once the user picks (General included).
+  bool _catTouched = false;
+
+  /// Only a new expense or one stored without a category is guessed (docs/API.md 카테고리).
+  bool _guessable = true;
+  Timer? _guessTimer;
+
+  /// The group's other non-deleted expenses, oldest first, for guessCategory.
+  List<({String description, String? category})> _history = const [];
   final _notes = TextEditingController();
   static const _maxNotes = 500; // UTF-16 units, like the server
   static const _maxDescription = 200; // the server checks it only when sent, so an unchanged long one may stay
@@ -75,7 +89,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   void dispose() {
     _split.dispose();
-    for (final c in [_amount, _description, _fx, _category, _notes, ..._payerFields.values]) {
+    _guessTimer?.cancel();
+    for (final c in [_amount, _description, _fx, _notes, ..._payerFields.values]) {
       c.dispose();
     }
     super.dispose();
@@ -87,6 +102,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _loaded = true;
     final db = ref.read(dbProvider);
     final id = widget.expenseId;
+    final state = await GroupStateStore(db).load(widget.groupId);
+    _history = [
+      for (final x in state.expenses)
+        if (!x.deleted && x.id != id) (description: x.description, category: x.category),
+    ];
     if (id == null) {
       // A new expense starts in the last currency used in this group.
       final last = ref.read(sharedPreferencesProvider).getString(lastCurrencyKey(widget.groupId));
@@ -97,7 +117,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
       return _startFromDefault(db);
     }
-    final state = await GroupStateStore(db).load(widget.groupId);
     final e = state.expense(id);
     if (e == null || !mounted) return;
     final rated = (e.fxRateToDefault ?? 0) > 0; // 0 = not converted, like null
@@ -107,7 +126,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _description.text = e.description;
       _fx.text = rated ? e.fxRateToDefault.toString() : '';
       _fxTyped = rated;
-      _category.text = e.category ?? '';
+      _cat = e.category;
+      _catAuto = false;
+      _guessable = e.category == null;
       _notes.text = e.notes ?? '';
       _currency = e.currency;
       _date = e.date;
@@ -155,7 +176,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   /// The stored mode with the typed numbers when they still give the stored shares (zeros aside); otherwise, or
-  /// while that mode is a TODO(효준) stub, the amounts as exact (docs/API.md SplitSpec). No split (exact, or saved
+  /// while computeSplit is a stub for that mode, the amounts as exact (docs/API.md SplitSpec). No split (exact, or saved
   /// before Phase 3) whose shares are an equal split of the people in it opens as equal.
   void _openSplit(Expense e, List<String> shown) {
     final ids = [for (final s in e.shares) s.memberId];
@@ -199,7 +220,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       for (final m in await (db.select(db.members)..where((m) => m.groupId.equals(widget.groupId))).get())
         if (!m.removed) m.id
     ];
-    final fits = splitFits(spec, ids); // null: a TODO(효준) stub mode, quietly equal
+    final fits = splitFits(spec, ids); // null: computeSplit is a stub for this mode, quietly equal
     if (!mounted || fits == null) return;
     if (!fits) return setState(() => _defaultNote = "The group's default split no longer adds up, so this starts equal");
     _split.load(SplitSpec(spec.mode, {for (final id in ids) id: spec.input?[id] ?? 0.0}), ''); // joined later: 0
@@ -325,8 +346,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       appBar: AppBar(
         title: Text(_editing == null ? 'New expense' : (deleted ? 'Deleted expense' : 'Edit expense')),
         actions: [
-          if (_editing != null && !deleted)
-            IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => _delete()),
         ],
       ),
       body: ListView(
@@ -431,7 +450,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     counterText: descriptionLength > _maxDescription - 20 ? '$descriptionLength/$_maxDescription' : null,
                     errorText: descriptionTooLong ? 'Too long' : null,
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) {
+                    setState(() {});
+                    _scheduleGuess();
+                  },
                 ),
                 sectionLabel(_refund ? 'Received by' : 'Paid by'),
                 Wrap(
@@ -487,24 +509,25 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _category,
-                      decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                // Wraps Refund to its own line at the largest text sizes, so the category keeps its label.
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _categoryButton(cs, text),
+                    FilterChip(
+                      key: const Key('refund'),
+                      avatar: Icon(Icons.undo, size: 18, color: _refund ? cs.onSecondaryContainer : cs.onSurfaceVariant),
+                      showCheckmark: false,
+                      label: const Text('Refund'),
+                      tooltip: 'Money that came back, e.g. the hotel returned a deposit',
+                      selected: _refund,
+                      onSelected: (v) => setState(() => _refund = v),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilterChip(
-                    key: const Key('refund'),
-                    avatar: Icon(Icons.undo, size: 18, color: _refund ? cs.onSecondaryContainer : cs.onSurfaceVariant),
-                    showCheckmark: false,
-                    label: const Text('Refund'),
-                    tooltip: 'Money that came back, e.g. the hotel returned a deposit',
-                    selected: _refund,
-                    onSelected: (v) => setState(() => _refund = v),
-                  ),
-                ]),
+                  ],
+                ),
                 sectionLabel(_refund ? 'Split back to' : 'Split'),
                 // A refund reverses who owes whom, so the labels would be backwards (Splitwise hides them too).
                 if (other != null && me != null && !_refund) ...[
@@ -556,16 +579,71 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save'),
           ),
-          if (_editing != null) ...[
-            const SizedBox(height: 32),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            CommentThread(groupId: widget.groupId, expenseId: _editing!.id),
-          ],
         ],
       ),
     );
   }
+
+  /// 300 ms after the description changes, guess the category until the user picks one; a blank description clears
+  /// the guess (docs/API.md 카테고리).
+  void _scheduleGuess() {
+    if (!_guessable || _catTouched) return;
+    _guessTimer?.cancel();
+    if (_description.text.trim().isEmpty) {
+      setState(() {
+        _cat = null;
+        _catAuto = false;
+      });
+      return;
+    }
+    _guessTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted || _catTouched) return;
+      final g = guessCategory(_description.text, history: _history);
+      setState(() {
+        _cat = g;
+        _catAuto = g != null;
+      });
+    });
+  }
+
+  Future<void> _pickCategory() async {
+    final key = await showCategoryPicker(context, current: _cat == null ? null : resolveCategory(_cat));
+    if (key == null || !mounted) return;
+    setState(() {
+      _guessTimer?.cancel();
+      _cat = key;
+      _catAuto = false;
+      _catTouched = true;
+    });
+  }
+
+  /// The category as a tappable tile + label ("auto" while guessed); a legacy value shows as General.
+  Widget _categoryButton(ColorScheme cs, TextTheme text) => InkWell(
+        key: const Key('category'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: _pickCategory,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            CategoryAvatar(_cat, size: 36),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(_cat == null ? 'Category' : Categories.labelOf(_cat),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodyLarge),
+            ),
+            if (_catAuto) ...[
+              const SizedBox(width: 6),
+              Container(
+                key: const Key('category-auto'),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(color: cs.secondaryContainer, borderRadius: BorderRadius.circular(4)),
+                child: Text('auto', style: text.labelSmall?.copyWith(color: cs.onSecondaryContainer)),
+              ),
+            ],
+            Icon(Icons.arrow_drop_down, color: cs.onSurfaceVariant),
+          ]),
+        ),
+      );
 
   /// "≈ €69.55" under the amount; null without a usable rate or while convertAmount is a stub.
   int? _approx(int? amount, String currency, String d, double? rate) => amount == null || rate == null || !fxReady
@@ -605,7 +683,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         : (old?.currency == d ? old?.fxRateToDefault : null);
     // Same currency, and 0 vs null (both "not converted"): unchanged.
     if (old != null && currency == old.currency && (fx ?? 0) == (old.fxRateToDefault ?? 0)) fx = old.fxRateToDefault;
-    final cat = _category.text.trim().isEmpty ? null : _category.text.trim();
+    final cat = _cat; // a legacy value stays as it was unless the picker changed it
     final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
     var e = Expense(
       id: old?.id ?? newId(),
@@ -681,24 +759,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         {for (final s in a) if (s.amount != 0) s.memberId: s.amount},
         {for (final s in b) if (s.amount != 0) s.memberId: s.amount},
       );
-
-  Future<void> _delete() async {
-    final ok = await confirm(context,
-        title: 'Delete expense?', message: 'This removes it for everyone in the group. You can restore it from Activity.');
-    if (!ok || !mounted) return;
-    final e = _editing!;
-    final writes = ref.read(localWritesProvider);
-    final messenger = ScaffoldMessenger.of(context); // the app-wide one, so the SnackBar outlives this screen
-    await writes.deleteExpense(widget.groupId, e.id);
-    if (!mounted) return;
-    context.pop();
-    messenger.showSnackBar(SnackBar(
-      content: Text('Deleted “${e.description}”'),
-      duration: const Duration(seconds: 10),
-      persist: false, // actions persist by default; Undo is only offered for 10 s
-      action: SnackBarAction(label: 'Undo', onPressed: () => writes.restoreExpense(widget.groupId, e.id)),
-    ));
-  }
 
   Future<void> _restore() async {
     setState(() => _busy = true);

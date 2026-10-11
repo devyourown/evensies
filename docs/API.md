@@ -25,6 +25,7 @@
 UserDto {"id","displayName","homeCurrency": string|null}
 ```
 - `homeCurrency`(4단계): 사용자의 표시용 통화("≈ $13.46"). 저장한 적 없으면 `null`이고 앱은 기기 지역의 통화(`Money.currencyForLocale`)를 쓴다. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽는다.
+- 새로 고침(5단계): 앱은 저장된 세션으로 시작할 때와 앞으로 돌아올 때마다(resume, `syncAll`과 함께) `GET /me`를 불러 받은 `displayName`·`homeCurrency`를 세션에 덮어쓴다. 다른 폰에서 바꾼 이름·홈 통화가 다시 로그인하지 않아도 보인다. 오프라인·5xx·429면 저장된 값을 그대로 둔다. 401은 지금처럼(토큰 갱신이 실패하면 로그아웃). 로그인 직후에는 로그인 응답의 `user`를 쓴다. 받은 `displayName`이 빈 문자열이면 이름 입력 화면(위).
 - `PATCH /me` 검사(모두 검사한 뒤 한꺼번에 저장): `null`인 키는 없는 것으로 본다. 두 키가 모두 없으면(`{}` 포함) 400 `VALIDATION`. `displayName`이 범위 밖이면 400 `VALIDATION`. `homeCurrency`가 문자열이 아니면 400 `VALIDATION`, 목록에 없는 코드면(`"usd"` 포함) 400 `UNKNOWN_CURRENCY`. 홈 통화는 지울 수 없다(바꾸기만). 이전 본문 `{"displayName"}`은 그대로 동작한다. 앱은 온라인일 때만 보낸다(오프라인 큐 없음). 삭제된 계정은 401(지금과 같음).
 
 access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
@@ -146,6 +147,7 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 - 글자 수(`description` 200, `notes` 500, `text` 1000, 그룹 `name` 100, 멤버 `name` 100)는 UTF-16 길이(Kotlin·Dart `String.length`)로 센다. `notes`가 문자열·null이 아니거나 너무 길면, `text`·`createdAt`이 규칙에 맞지 않으면, 그룹 `name`(`group.created`·`group.updated`, 그래서 POST /groups도)이나 멤버 `name`(`member.added`, 그래서 POST /groups의 `memberName`과 초대 참여의 `name`도)이 100자를 넘으면 400 `VALIDATION`. 이미 저장된 긴 멤버 이름 이벤트는 그대로 읽힌다(보낼 때만 검사).
 - 금액 상한: 지출 `amount`·`payers[].amount`·`shares[].amount`와 `payment.created`의 `amount`는 `10000000000000`(10^13 최소 단위) 이하. 넘으면 400 `VALIDATION`. 멤버가 50명까지이므로 결제자·몫의 합이 64비트 정수를 넘어 한 바퀴 돌아 `amount`와 같아지는 일이 없다. 200자 제한은 새로 보내는 `description`에만 적용한다(이미 저장된 긴 설명의 지출도 다른 필드는 고칠 수 있다). Splitwise 가져오기는 200자로 자른다.
 - JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 유한한 숫자(`1e999`처럼 무한대로 읽히는 값은 400), `shares`와 `payers`는 `[{"memberId": 문자열, "amount": 정수}]`, `refund`는 boolean, `split`은 객체. `group.updated`의 `simplifyDebts`는 boolean(null도 400), `defaultSplit`은 객체 또는 null. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다).
+- `category`(`expense.created`·`expense.updated.fields`)는 `string|null`이고 뜻은 아래 "카테고리"(5단계): `shared/categories.json`의 key, `null` = General, 그 밖의 문자열 = 이전 자유 입력. 서버는 문자열·null인지만 본다(값 검사·변환 없음).
 - `comment.added`의 `text` 1~1000자 검증은 보낼 때만 적용한다. 삭제된 댓글의 저장된 이벤트는 `text: ""`로 pull된다(적용 규칙 8).
 - 호환: 출시 1 앱은 `comment.*`·`expense.restored`를 모르는 type으로 건너뛰고 `notes`를 버린 채 lastSeq를 올렸다. 그래서 앱 DB가 schemaVersion 3으로 올라갈 때 모든 그룹의 lastSeq를 0으로 되돌리고, lastSeq 0에서 시작하는 pull은 **빈 상태부터** 로그 전체를 다시 적용한다(저장된 상태 위에 다시 적용하면 `expense.created`의 notes가 돌아오지 않는다). 구 앱이 계속 쓰이는 동안 그 앱에서는 복원된 지출이 삭제된 채로 보인다.
 
@@ -163,6 +165,7 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 통화 잠금(규칙 12)은 오류가 아니다. `payers` 등이 `null`이면 타입 검사를 통과한다(규칙 9: 무시).
 
 - 호환(3단계): drift가 schemaVersion 4로 올라갈 때 `expense_payers`를 `paid_by`·`amount`로 채우고(오프라인에서도 잔액이 맞게) lastSeq를 0으로 되돌린다(이전 앱 코드가 모른 채 건너뛴 `payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit`을 로그에서 다시 적용). 이 단계 전의 앱은 여러 명이 낸 지출과 환불을 `paidBy`가 전액 낸 보통 지출로 보인다(출시 전이라 받아들인다).
+- 호환(5단계): 이벤트 모양과 저장소가 그대로다. Flyway 마이그레이션 없음(마지막은 V6), drift schemaVersion 5 그대로, lastSeq도 되돌리지 않는다. 이전 앱은 새 앱이 쓴 key(`food.dining_out`)를 자유 입력 칸에 글자 그대로 보이고, 고치지 않으면 그대로 다시 보낸다(출시 전이라 받아들인다). 새 앱이 이전 서버를 만나면 `GET /groups/{id}/activity`의 `expenseId`가 무시되므로 앱은 받은 항목 중 `expenseId`가 같은 것만 보여 준다(아래 "피드").
 - 호환(4단계): 이벤트 모양이 그대로이므로 lastSeq를 되돌리지 않는다. drift schemaVersion 5는 `FxDays` 표와 `Session.homeCurrency`만 더한다. 서버를 먼저 올린다: 이전 서버는 새 통화 코드를 400 `UNKNOWN_CURRENCY`로 거부한다(앱은 "거부된 이벤트"대로 "the currency isn't supported"). 이전 앱은 모르는 통화를 소수 2자리로 보이고(`Money.digits` 기본값) `homeCurrency`를 무시한다(출시 전이라 받아들인다).
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
@@ -184,7 +187,9 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 11. 그룹 설정: `group.updated`에서 없는 키는 그대로, `simplifyDebts`는 그 값으로, `"defaultSplit": null`은 지운다. 기본값 `simplifyDebts = true`, `defaultSplit = null`. `group.created`는 이 둘을 바꾸지 않는다.
 12. 통화 잠금: 상태에 지출이나 송금이 하나라도 있으면(삭제된 것 포함 — 복원될 수 있다) `group.updated`의 `defaultCurrency`를 무시한다. 같은 이벤트의 다른 키는 적용한다. 서버는 이 이벤트를 400 없이 받아 저장한다. 이유: 모든 `fxRateToDefault`와 송금 금액이 그룹 통화 기준이다. 이 규칙은 상태를 보므로 "로그 전체를 최종 상태 위에 한 번 더 적용"하면 결과가 다를 수 있다(`group.created`가 통화를 되돌린 뒤 변경이 무시됨). 동기화는 그렇게 하지 않는다(seq 순서로 한 번씩, 또는 빈 상태부터).
 
-4단계는 적용 규칙을 더하지 않는다. `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
+4·5단계는 적용 규칙을 더하지 않는다.
+- 4단계: `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
+- 5단계: `category`는 받은 문자열 그대로 저장한다(key로 바꾸지 않음, `null`은 규칙 9대로 지움, `shared/sync-cases.json`의 category 케이스). 뜻은 아래 "카테고리".
 
 ## 통화 환산 (4단계)
 지출마다 자기 통화를 가진다. 그룹 통화(D)와 다르면 D로 바꾸는 환율 `fxRateToDefault`를 함께 가진다. 새 이벤트 종류는 없다.
@@ -242,6 +247,61 @@ FxTable {"date": "2026-10-10", "base": "EUR", "rates": {"EUR": 1.0, "USD": 1.121
 - 온라인: 서버에 묻고(3초 시간 제한) 받은 표를 저장한다. 앱을 켤 때 온라인이면 최신 표(`date` 없이)를 한 번 받아 둔다.
 - 오프라인·오류(503·429 포함): 키가 그 날 이하인 행 중 가장 늦은 것, 없으면 가장 늦은 행, 없으면 자동 환율 없음("offline · rate of {date}" 또는 "No automatic rate. Enter one, or leave it empty to keep this under Not converted.").
 
+## 카테고리 (5단계)
+새 이벤트 종류·필드·엔드포인트·마이그레이션·오류 코드는 없다. 지출의 `category`(`string|null`) 값의 뜻만 정한다.
+
+### 분류표 `shared/categories.json`
+- Splitwise 분류 그대로: 부모 7개(`parents[]`), 하위 43개(`categories[]`). 사용자 정의 카테고리는 없다.
+- 복사본 `app/assets/categories.json`(앱이 시작할 때 `Money.loadFromAssets()` 옆에서 읽는다)과 `server/src/main/resources/categories.json`은 바이트 단위로 같아야 한다(양쪽 테스트, `currencies.json`과 같은 방식).
+- `key`: `expense.category`에 저장하는 값. `categories[]`의 key만 지출 카테고리다(부모 key `food`는 아니다). 이름을 바꾸거나 지우지 않는다.
+- `label`: 영어(9단계가 key로 번역). `icon`: Flutter Material 아이콘 이름(`Icons.<icon>`). 없는 카테고리(`*.other`, `uncategorized.general`)는 부모의 것. `keywords`: 추측용, 사람이 쓰는 대로 적고 읽을 때 fold한다.
+- 파일 순서 = 선택기 순서 = 추측 동점 순서.
+
+### 값의 뜻
+| 저장된 값 | 뜻 | 화면 |
+|---|---|---|
+| `categories[]`의 key | 새 앱이 쓰는 값 | 그 카테고리 |
+| `null` | General | General |
+| 그 밖의 문자열(이전 자유 입력, 부모 key 포함) | legacy | General로 보이고(label과 같은 글은 그 카테고리, 아래 `resolveCategory`), 저장·내보내기·snapshot에서는 원문 그대로 |
+
+- **서버는 검사하지 않는다**(일부러). 400을 내면 이미 설치된 앱의 배치 전체가 거부된다. 지금처럼 문자열이나 null인지만 본다. 적용기도 받은 값 그대로 저장한다(위 "적용 규칙").
+- 앱이 보내는 값: 고른 key(General을 고르면 `"uncategorized.general"`), 추측한 key, 고르지도 추측하지도 않았으면 `null`. legacy 값은 선택기에서 바꾸지 않는 한 그대로 두고 `expense.updated.fields`에 `category`를 넣지 않는다(바뀐 필드만 보내는 지금 규칙).
+- 폼의 추측: 새 지출이거나 저장된 값이 `null`인 지출이고 사용자가 아직 고르지 않았으면, 설명이 바뀔 때 300ms 뒤 `guessCategory`(history = 그 그룹의 삭제 안 된 지출, 상태 순서, 편집 중인 지출 제외)로 칩을 채우고 "auto"로 표시한다. 설명을 비우면 추측도 지운다. 한 번 고르면(General 포함) 더 추측하지 않는다. key나 legacy 값이 저장된 지출은 추측하지 않는다.
+
+### 규칙 (앱 `domain/categories.dart`, 서버 `export/Categories.kt`, `shared/category-cases.json`)
+- `fold(s)`: 소문자로(Dart `toLowerCase`) → 결합 부호 U+0300–U+036F 제거 → U+00C0–U+017F의 글자는 유니코드 정준 분해의 첫 글자로(`é→e`, `ñ→n`, `ź→z`), 분해가 없는 글자는 `ß→ss, æ→ae, œ→oe, ø→o, ł→l, đ→d, ð→d, þ→th, ı→i, ħ→h, ŧ→t, ĸ→k, ŀ→l, ŉ→n, ŋ→n, ĳ→ij, ſ→s`. 그 밖의 문자(`×`, 한자, 한글 등)와 공백은 그대로.
+- `resolveCategory(raw) → key`(앱): `t = raw.trim()`. `t`가 `categories[]`의 key면(대소문자 그대로) `t`. 아니면 `t`를 소문자로 바꾼 값이 `categories[]`의 label 가운데 **한 번만 나오는** label(소문자)과 같으면 그 key. 여기서 `*.other` 여섯 개의 label은 `{부모 label} - Other`(`Entertainment - Other`, 서버 CSV와 같은 표기)로 보므로 맨 `Other`는 어느 것도 아니다. 부모 label은 보지 않는다. 그 밖(`null`, `""`, 부모 key·label 포함)은 `uncategorized.general`.
+- 서버 `Categories.label(key)`: `categories[]` key의 label이고 `*.other` 여섯 개만 `{부모 label} - Other`(`Entertainment - Other`, CSV에서 서로 구별되게), 아니면 `null`. `Categories.keyForLabel(raw)`: `resolveCategory`와 같고 마지막만 `null`(가져오기가 원문을 남긴다). 그래서 양쪽 다 `{부모 label} - Other`(대소문자 무시)를 그 `*.other` key로 읽는다(`keyForLabel(label(k)) == k`, 앱은 `resolveCategory(labelOf(k)) == k`). 맨 `Other`는 여전히 `null`. 영어 label이라 Kotlin `lowercase()`와 Dart `toLowerCase()`가 같다.
+- `guessCategory(description, history) → key|null`(앱):
+  1. `n(s)` = `fold(s)`를 trim하고 연속 공백을 하나로. `n(description)`이 비면 `null`.
+  2. **history 먼저**: history(오래된 것부터)에서 `n(description)`이 같고 category가 `categories[]`의 key인 **마지막** 항목의 category.
+  3. **토큰**: `fold(text)`를 `[^\p{L}\p{N}]+`(unicode)로 나눈, 빈 것을 뺀 조각. 키워드도 fold한 뒤 같은 방식.
+  4. **띄어 쓰지 않는 문자**: fold한 키워드에 한자·히라가나·가타카나·한글·태국 문자가 있으면 fold한 설명 전체에 부분 문자열로 있을 때 맞는다(정확 일치로 본다). 점수 = 키워드의 rune 수.
+  5. **그 밖의 키워드**: 키워드의 토큰이 설명의 토큰에 연속해서 나오면 맞는다. 마지막을 뺀 토큰은 같아야 하고, 마지막 토큰은 같거나(정확) 키워드 토큰이 4자 이상이고 설명 토큰이 그것으로 시작하며 2자 이하만 더 길다(접두). 점수 = 키워드 토큰들의 rune 수 합(공백 뺀 글자 수).
+  6. **고르기**: 가장 높은 점수. 같으면 정확 > 접두, 그다음 파일 순서(앞의 카테고리), 그다음 키워드 순서. 맞는 것이 없으면 `null`. ("car rental" 9가 "rent" 4를 이긴다.)
+
+## 검색 (5단계, 앱만)
+서버 검색 엔드포인트는 없다. 앱이 로컬 DB(모든 그룹의 상태)에서 찾으므로 오프라인에서도 된다. `searchDocs`, `shared/search-cases.json`.
+- 문서: 삭제 안 된 지출마다 `SearchDoc {id, groupId, date, description, notes, comments, category, amount, currency}`. `comments`는 삭제 안 된 댓글의 글, `category`는 저장된 원문, `amount`는 지출 통화 그대로(환산 안 함, 환불도 양수). 송금과 멤버 이름은 찾지 않는다.
+- 질의를 공백으로 나눈 항이 **모두** 맞아야 한다. 항은 fold한 값이 fold한 description·notes·각 댓글·원문 category·resolve한 label·그 부모 label 가운데 하나의 부분 문자열이면 맞는다.
+- 금액: 항이 `^\d+([.,]\d{1,3})?$`이면 금액으로도 맞을 수 있다. 소수 k자리 수 N(`,`는 소수점), 통화 자릿수 d(`shared/currencies.json` `decimals`)일 때 `k ≤ d`이고 `amount ~/ 10^(d−k) == N·10^k`. `12` = €12.00–€12.99, `12,5` = €12.50–€12.59, `12,50` = €12.50, JPY `12000` = ¥12,000. 정수로 읽을 수 없을 만큼 길면 금액으로는 안 맞는다.
+- 필터: `category`는 하위 key(resolve 결과가 같음) 또는 부모 key(resolve 결과가 `{부모}.`로 시작. `uncategorized`는 `null`·legacy도 잡는다). `month`는 `YYYY-MM`(`date`의 앞 7자).
+- 질의가 비고 필터도 없으면 `[]`. 결과는 date 내림차순, 같으면 id 오름차순. `ponytail:` 선형 탐색, 150ms 디바운스. 지출이 2만 개쯤 넘으면 SQLite FTS5.
+- 화면: `/search?group=&category=&month=`(모두 선택). 그룹 목록에서 열면 모든 그룹, 그룹 화면에서 열면 그 그룹(지울 수 있는 칩).
+
+## 인사이트 (5단계, 앱만)
+그룹마다 합계와 막대. 서버 변경 없음. `computeTotals`, `shared/totals-cases.json`.
+- **통화별 칸**("통화별 잔액"과 같은 칸): D 칸 = `convertToDefault(state).converted` + D 송금. 다른 통화 X 칸 = 환산 안 된 X 지출(`unconverted[X]`) + X 송금. 칸마다 따로 `computeTotals`를 부른다. 화면은 D 칸을 위에, 다른 칸은 "Not converted · JPY" 아래에 그 통화의 합계로 보여 준다. 금액을 버리지 않는다. `convertExpense`가 구현 전이면 외화 지출은 모두 자기 칸에 있다.
+- `computeTotals(expenses, payments, me) → {months: {YYYY-MM: PeriodTotals}, allTime}`. `computeTotals`는 통화를 보지 않는다(한 칸만 넘긴다).
+  - 삭제된 지출·송금은 뺀다. 월 = `date`의 앞 7자.
+  - 지출마다 `sign = refund ? −1 : +1`. `spent`와 `byCategory[resolveCategory(category)]`에 `sign × amount`, `youPaid`에 `sign × (payers의 내 금액)`, `yourShare`에 `sign × (shares의 내 금액)`, `byMember[m].paid`에 `sign × (payers의 m 금액)`, `byMember[m].share`에 `sign × (shares의 m 금액)`.
+  - 낸 금액은 언제나 저장된 `payers`에서 읽는다(`paidAmounts(Expense)`). `computeBalances`를 거치지 않으므로 여러 결제자·환불 지출도 합계에 들어간다.
+  - 송금(`sent`·`confirmed` 모두)은 내가 `fromMember`면 `paymentsMade`, `toMember`면 `paymentsReceived`에만 더한다.
+  - `netChange = youPaid − yourShare + paymentsMade − paymentsReceived`. `allTime` = 모든 월의 합. `byCategory`·`byMember`는 합한 뒤 0인 항목을 뺀다(`byMember`는 paid와 share가 모두 0인 멤버). 환불 때문에 월 값이 음수일 수 있다(막대는 0부터, 금액 글자는 그대로).
+  - `allTime.netChange`는 그 칸에서 내 잔액과 같다(테스트). `computeBalances`가 여러 결제자·환불을 아직 못 세는 동안(`BalanceResult.unsupported > 0`) Balances는 그 지출을 빼므로 두 값이 다를 수 있다. 그때 인사이트는 그 수를 "{n} expense(s) with several payers or refunds aren't counted in Balances yet" 안내 줄로 보여 준다(Balances의 "… aren't counted yet"과 다르다). 인사이트 합계에는 들어 있으므로 잔액 변화가 Balances와 다를 수 있다.
+- **누가 다음에 낼까**: `whoPaysNext(D 칸 잔액, removed 아닌 멤버 id) → memberId|null` = 잔액이 가장 음수인 멤버, 같으면 memberId가 가장 작은 멤버, 음수가 없으면 `null`. Balances 탭 맨 위 한 줄 `{name} should pay next (owes {M(−잔액)}, the most)`, 그 멤버가 `me`이면 `You should pay next (you owe {M(−잔액)}, the most)`(성별을 모르므로 대명사를 쓰지 않는다. 앱만, 9단계 번역). `balancesOf`가 null이면 숨긴다.
+- **요약 공유**: 기간 합계, 상위 카테고리, 잔액을 담은 텍스트를 공유 시트로(`share_plus`). 앱만.
+
 ## 결제 수단 (송금 안내)
 우리는 돈을 보관하거나 옮기지 않는다. 사용자가 "나에게 돈 보내는 방법"을 등록하면 같은 그룹 멤버의 앱이 해당 결제 앱을 연다.
 
@@ -267,9 +327,12 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 상한: 사용자당 8개, `iban`·`kr_bank`는 각 3개, 나머지 유형은 1개.
 
 ## 내보내기·가져오기
-- `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다.
+- `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
 - `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
   - 이름 칸은 그 행에서 그 사람의 순액(낸 돈 − 부담)이다. 순액이 양수인 사람은 모두 그 순액만큼 낸다. 순액이 가장 큰 사람(같으면 memberId가 가장 작은 사람)은 남는 금액 `s = Cost − Σ 양수 순액`도 내고 `Cost − Σ 다른 사람들의 부담`을 부담한다(순액의 합이 0이면 `s`와 같고, 합이 0이 아닌 행도 몫의 합이 Cost가 된다). 순액이 음수인 사람은 `−순액`을 부담한다. `s < 0`이거나 그 부담이 음수면 400 `IMPORT_FAILED`. 0인 결제자·몫은 넣지 않는다. 결제자가 둘 이상이면 `payers`를 넣는다(`paidBy`는 주요 결제자). 예: Cost 100.00, Anna +26.66, Ben +6.67, Cara −33.33 → payers Anna 93.33·Ben 6.67, shares Cara 33.33·Anna 66.67. 양수 순액이 하나인 행은 지금과 같게 들어온다. Cost가 음수인 환불 행은 아직 가져오지 않는다.
+  - `Category` 칸(5단계): trim한 값의 `Categories.keyForLabel`(아래 "카테고리")이 있으면 그 key, 없으면 trim한 원문(빈 칸·칸 없음은 `null`). `Dining out` → `food.dining_out`, `General` → `uncategorized.general`, `Entertainment - Other` → `entertainment.other`, `Other`·`Food` → 원문 그대로.
+  - Payment 행(5단계): `Category`가 대소문자 무시하고 `Payment`이고 Cost > 0이며, 순액이 0이 아닌 사람이 정확히 둘이고 그 순액이 +Cost와 −Cost이면 지출 대신 `payment.created {"paymentId": 새 UUID, "fromMember": 순액이 +Cost인 멤버, "toMember": 순액이 −Cost인 멤버, "amount": Cost, "currency": 그 행의 Currency, "date": 그 행의 Date, "status": "confirmed"}`를 만든다(잔액 효과는 같은 행을 지출로 가져올 때와 같다). 이 조건에 맞지 않는 Payment 행은 지금처럼 지출로 가져온다(category는 원문 `Payment`).
+  - 응답의 `imported` = 만든 지출 수 + 송금 수(5단계). 멤버 이벤트는 세지 않는다. 응답 모양은 그대로다.
 
 ## 활동·알림
 변경 기록(이벤트 로그)에서 만든 **활동 피드**, 다른 사람의 변경을 알려 주는 **표시 푸시**, 알림 설정. 피드 항목은 구조화된 데이터이고 문장은 앱(목록)과 서버(푸시)가 같은 규칙으로 만든다(아래 "문장", `shared/activity-cases.json`으로 양쪽 검증).
@@ -277,7 +340,7 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 ### 피드
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
-| GET | `/groups/{id}/activity?before=<seq>&limit=50` | | `ActivityPage` — seq 큰 순. 호출자는 멤버여야 함(403), 그룹 없음 404 |
+| GET | `/groups/{id}/activity?before=<seq>&limit=50&expenseId=<uuid>` | `expenseId` 선택(5단계) | `ActivityPage` — seq 큰 순. 호출자는 멤버여야 함(403), 그룹 없음 404 |
 | GET | `/activity?before=<feedId>&limit=50` | | `ActivityPage` — 호출자가 지금(removed 아님) 멤버인 모든 그룹, feedId 큰 순 |
 
 ```
@@ -287,6 +350,8 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
               "name","description","amount","currency","fromMember","toMember","status","myDelta","refund","text",
               "changes": [{"field","from","to"}]}
 ```
+- `expenseId`(5단계, 지출의 편집 기록): payload의 `expenseId` 문자열이 그 값과 같은 이벤트만 본다(`expense.*`, `comment.added`, 7단계 `attachment.*`). UUID가 아니면 400 `VALIDATION`. 빈 값(`expenseId=`)은 없는 것으로 본다(필터 없음, `limit` 등과 같은 방식). 비교는 문자열 그대로이고 파라미터는 소문자 표기로 바꿔 비교한다(앱은 id를 소문자로 만든다). 그룹에 없는 지출(아직 push되지 않은 것 포함)이면 404가 아니라 빈 페이지 `{"items": [], "nextBefore": null}`. `before`·`limit`·`nextBefore`·숨김 규칙은 그대로이고 `limit`은 걸러진 이벤트 수로 센다(SQL `AND payload->>'expenseId' = :expenseId`). `GET /activity`(전체 피드)에는 없다(보내도 무시). `ponytail:` 그룹 이벤트를 훑는다. 한 그룹이 5만 이벤트쯤 넘으면 `(group_id, (payload->>'expenseId'))` 식 인덱스를 더한다.
+- 앱의 History(지출 상세): `limit=20`, "Show more"는 `before=nextBefore`. 받은 항목은 활동 캐시(drift `Activity`)에도 넣는다. 오프라인·오류면 캐시에서 그 그룹의 `json_extract(json, '$.expenseId') = ?`인 행을 feedId 내림차순으로 보여 준다. 받은 항목도 `expenseId`가 같은 것만 보여 준다(이전 서버는 필터를 무시한다). 문장은 활동 목록과 같다(아래 "문장").
 - `before` 생략 = 최신부터. 그룹 피드는 `seq < before`, 전체 피드는 `feedId < before`. `limit`은 1~100으로 잘라 맞추고 기본 50. 숫자가 아니면 400 `VALIDATION`.
 - 숨김 이벤트 때문에 `items`가 `limit`보다 적거나 비어 있어도 끝이 아닐 수 있다. **`nextBefore`가 null일 때만 끝**이고, 아니면 그 값을 다음 요청의 `before`로 넘긴다.
 - `feedId`: 서버가 이벤트를 저장한 순서의 전역 번호(그룹 안에서는 seq와 같은 순서). 앱은 오프라인용 캐시를 이 순서로 정렬한다.
@@ -346,7 +411,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `payment_confirmed` | `{A} confirmed receiving {M(amount)} from {from}` |
 | `payment_deleted` | `{A} deleted a payment of {M(amount)} from {from} to {to}` |
 
-`expense_updated`의 변경 표기: `description` → `description “{from}” → “{to}”` · `amount` → `{M(from)} → {M(to)}`(from은 `currency` 변경이 있으면 그 `from` 통화로, 없으면 `currency`로 표기) · `currency` → `currency {from} → {to}` · `fxRateToDefault` → `exchange rate` · `paidBy` → `paid by {from 이름} → {to 이름}` · `payers` → `payers` · `refund` → `refund on`/`refund off`(`to` 값) · `date` → `date {from} → {to}`(YYYY-MM-DD 그대로) · `category` → `category` · `shares` → `split`(단, `amount`도 바뀌었으면 생략 — 금액이 바뀌면 분할은 늘 바뀐다) · `split` → `split`(단, `shares`나 `amount`도 바뀌었으면 생략) · `notes` → `notes`.
+`expense_updated`의 변경 표기: `description` → `description “{from}” → “{to}”` · `amount` → `{M(from)} → {M(to)}`(from은 `currency` 변경이 있으면 그 `from` 통화로, 없으면 `currency`로 표기) · `currency` → `currency {from} → {to}` · `fxRateToDefault` → `exchange rate` · `paidBy` → `paid by {from 이름} → {to 이름}` · `payers` → `payers` · `refund` → `refund on`/`refund off`(`to` 값) · `date` → `date {from} → {to}`(YYYY-MM-DD 그대로) · `category` → `category {from 이름} → {to 이름}`(이름은 앱이 그 저장 값을 보여 주는 이름(`labelOf`): `categories[]` key·한 번만 나오는 label이면 그 label, `*.other`는 `{부모 label} - Other`, `null`·legacy는 `General`. 서버는 `Categories.label(Categories.keyForLabel(v)) ?: "General"`. 두 이름이 같으면(`null` → `uncategorized.general` 등) 그냥 `category`) · `shares` → `split`(단, `amount`도 바뀌었으면 생략 — 금액이 바뀌면 분할은 늘 바뀐다) · `split` → `split`(단, `shares`나 `amount`도 바뀌었으면 생략) · `notes` → `notes`.
 
 ### 푸시
 - 이벤트가 **새로 저장된** push가 커밋되면(clientId 중복만 있는 재시도는 알림 없음) 그룹의 연결된·removed 아닌 멤버 가운데 **보낸 사용자가 아닌** 사용자의 기기(FCM 토큰 있는)로 보낸다. 내 변경은 내 기기에 알리지 않는다(지금과 같음).

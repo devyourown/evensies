@@ -6,12 +6,12 @@ import '../../data/db/database.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 
-/// Whether computeSplit handles [mode] yet (shares and adjustment are TODO(효준) stubs until his code lands).
+/// Whether computeSplit handles [mode] (false while that mode is a stub that throws UnimplementedError).
 bool splitModeReady(SplitMode mode) =>
     implemented(() => computeSplit(amount: 0, mode: mode, members: const ['a'], input: const {'a': 0}));
 
 /// Whether [spec] still computes for [ids] (people missing from it get 0): false when it doesn't (e.g. the
-/// percentages of people who left no longer add up to 100), null while computeSplit is a TODO(효준) stub for it.
+/// percentages of people who left no longer add up to 100), null while computeSplit is a stub for that mode.
 bool? splitFits(SplitSpec spec, List<String> ids) {
   final input = {for (final id in ids) id: spec.input?[id] ?? 0.0};
   try {

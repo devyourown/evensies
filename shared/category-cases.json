@@ -1,0 +1,49 @@
+{
+  "_doc": "카테고리 규칙 테스트 케이스 (docs/API.md '카테고리', 앱 app/lib/domain/categories.dart, 분류표 shared/categories.json). fold: in → out. resolve: resolveCategory(raw) → expected(언제나 categories[]의 key). guess: guessCategory(description, history: [{description, category}] 오래된 것부터) → expected(key 또는 null). resolve는 서버도 읽는다: Categories.keyForLabel은 같은 규칙에서 마지막 'uncategorized.general' 대신 null이다. '{부모 label} - Other'(CSV의 *.other label)는 양쪽 다 그 *.other key다.",
+  "fold": [
+    {"in": "Café Crème", "out": "cafe creme"},
+    {"in": "Straße", "out": "strasse"},
+    {"in": "Œuvre Æsir Øre Łódź Đakovo Kırıkkale", "out": "oeuvre aesir ore lodz dakovo kirikkale"},
+    {"in": "Þingvellir Ðe", "out": "thingvellir de"},
+    {"in": "Ñandú Çà", "out": "nandu ca"},
+    {"in": "Café PIZZA", "out": "cafe pizza"},
+    {"in": "ラーメン 식당 ×2", "out": "ラーメン 식당 ×2"}
+  ],
+  "resolve": [
+    {"raw": "food.dining_out", "expected": "food.dining_out"},
+    {"raw": "Dining out", "expected": "food.dining_out"},
+    {"raw": "  dining OUT ", "expected": "food.dining_out"},
+    {"raw": "Heat/gas", "expected": "utilities.heat_gas"},
+    {"raw": "General", "expected": "uncategorized.general"},
+    {"raw": "Other", "expected": "uncategorized.general"},
+    {"raw": "Entertainment - Other", "expected": "entertainment.other"},
+    {"raw": " food and DRINK - other ", "expected": "food.other"},
+    {"raw": "Food - Other", "expected": "uncategorized.general"},
+    {"raw": "Food", "expected": "uncategorized.general"},
+    {"raw": "food", "expected": "uncategorized.general"},
+    {"raw": "Food and drink", "expected": "uncategorized.general"},
+    {"raw": "", "expected": "uncategorized.general"},
+    {"raw": null, "expected": "uncategorized.general"}
+  ],
+  "guess": [
+    {"name": "accent folded", "description": "Café con leche", "history": [], "expected": "food.dining_out"},
+    {"name": "longest keyword beats prefix", "description": "Car rental Sardinia", "history": [], "expected": "transportation.car"},
+    {"name": "group history beats keywords", "description": "netflix ", "history": [{"description": "Netflix", "category": "utilities.tv_phone_internet"}], "expected": "utilities.tv_phone_internet"},
+    {"name": "no match", "description": "Stuff for Marco", "history": [], "expected": null},
+    {"name": "brand keyword", "description": "Uber to the airport", "history": [], "expected": "transportation.taxi"},
+    {"name": "apostrophe splits tokens", "description": "Pizza at Luigi's", "history": [], "expected": "food.dining_out"},
+    {"name": "prefix: plural of a keyword of 4+ characters", "description": "Hotels in Rome", "history": [], "expected": "transportation.hotel"},
+    {"name": "prefix: at most 2 extra characters", "description": "Rental", "history": [], "expected": "home.rent"},
+    {"name": "prefix: 3 extra characters is no match", "description": "Rentals", "history": [], "expected": null},
+    {"name": "prefix: keywords under 4 characters match whole tokens only", "description": "Bart", "history": [], "expected": null},
+    {"name": "multi-word keyword whose last word prefix-matches", "description": "Car rentals", "history": [], "expected": "transportation.car"},
+    {"name": "equal score: exact beats prefix even when the prefix category comes first", "description": "Beers gift", "history": [], "expected": "life.gifts"},
+    {"name": "equal score, both exact: file order, not word order", "description": "Taxi, then wine", "history": [], "expected": "food.liquor"},
+    {"name": "two-word keyword beats its single words", "description": "Gas bill March", "history": [], "expected": "utilities.heat_gas"},
+    {"name": "no-space script matches as a substring", "description": "東京ラーメン", "history": [], "expected": "food.dining_out"},
+    {"name": "Hangul keyword as a substring", "description": "마트 장보기", "history": [], "expected": "food.groceries"},
+    {"name": "history: the last match wins; case and spaces are ignored; legacy categories are skipped", "description": "Stuff for marco", "history": [{"description": "Stuff for Marco", "category": "life.gifts"}, {"description": " stuff  for MARCO", "category": "Presents"}, {"description": "Something else", "category": "home.rent"}], "expected": "life.gifts"},
+    {"name": "history: a later entry overrides an earlier one", "description": "NETFLIX", "history": [{"description": "Netflix", "category": "entertainment.movies"}, {"description": "netflix", "category": "utilities.tv_phone_internet"}], "expected": "utilities.tv_phone_internet"},
+    {"name": "blank description", "description": "   ", "history": [{"description": "", "category": "home.rent"}], "expected": null}
+  ]
+}

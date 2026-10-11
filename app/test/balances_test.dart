@@ -206,7 +206,7 @@ void main() {
 
     test('while computeBalances cannot count several payers or refunds, they are left out and counted', () {
       Map<String, int> stub(List<String> m, List<ExpenseLine> lines, List<PaymentLine> p) {
-        if (lines.any((l) => l.payers.length != 1 || l.refund)) throw UnimplementedError('TODO(효준)');
+        if (lines.any((l) => l.payers.length != 1 || l.refund)) throw UnimplementedError('stub');
         return computeBalances(m, lines, p);
       }
 

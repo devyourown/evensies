@@ -1,5 +1,6 @@
 package dev.nariinfo.evensies.activity
 
+import dev.nariinfo.evensies.export.Categories
 import dev.nariinfo.evensies.money.Money
 
 /**
@@ -15,6 +16,15 @@ object ActivityText {
     private fun quote(s: Any?) = "“${s ?: ""}”"
 
     private fun onOff(v: Any?) = if (v == true) "on" else "off"
+
+    /**
+     * `category Dining out → General`, each side as the app shows a stored value (`labelOf`: the label, `Entertainment -
+     * Other`, else `General`); bare `category` when both show the same (null → `uncategorized.general`).
+     */
+    private fun category(from: Any?, to: Any?): String {
+        fun label(raw: Any?) = Categories.label(Categories.keyForLabel(raw as String?)) ?: "General"
+        return if (label(from) == label(to)) "category" else "category ${label(from)}$ARROW${label(to)}"
+    }
 
     private fun who(id: String?, names: Map<String, String>, me: String?, start: Boolean = false): String = when {
         id != null && id == me -> if (start) "You" else "you"
@@ -60,9 +70,10 @@ object ActivityText {
                         "payers" -> "payers" // listed only when several people paid before or after (Activity.expenseChanges)
                         "refund" -> "refund " + onOff(c.to)
                         "date" -> "date ${c.from}$ARROW${c.to}"
+                        "category" -> category(c.from, c.to)
                         "shares" -> if (amountChanged) null else "split" // a new amount always changes the split
                         "split" -> if (amountChanged || changed("shares")) null else "split" // the split mode alone
-                        else -> c.field // category, notes
+                        else -> c.field // notes
                     }
                 }.joinToString(", ")
             }

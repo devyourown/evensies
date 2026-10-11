@@ -5,13 +5,16 @@ import 'package:go_router/go_router.dart';
 import 'features/activity/activity_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/name_screen.dart';
+import 'features/expense_detail/expense_detail_screen.dart';
 import 'features/expense_form/expense_form_screen.dart';
 import 'features/group_detail/group_detail_screen.dart';
 import 'features/group_settings/group_settings_screen.dart';
 import 'features/groups/groups_screen.dart';
 import 'features/groups/join_code_screen.dart';
 import 'features/groups/join_screen.dart';
+import 'features/insights/insights_screen.dart';
 import 'features/members/members_screen.dart';
+import 'features/search/search_screen.dart';
 import 'features/settings/payment_methods_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settle/settle_screen.dart';
@@ -45,6 +48,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [GoRoute(path: 'payment-methods', builder: (_, _) => const PaymentMethodsScreen())],
           ),
           GoRoute(path: 'activity', builder: (_, _) => const ActivityScreen()),
+          GoRoute(
+            path: 'search',
+            builder: (_, s) => SearchScreen(
+              groupId: s.uri.queryParameters['group'],
+              category: s.uri.queryParameters['category'],
+              month: s.uri.queryParameters['month'],
+            ),
+          ),
           GoRoute(path: 'join-code', builder: (_, _) => const JoinCodeScreen()),
           GoRoute(path: 'join/:code', builder: (_, s) => JoinScreen(code: s.pathParameters['code']!)),
           GoRoute(
@@ -55,9 +66,19 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'settle', builder: (_, s) => SettleScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'settings', builder: (_, s) => GroupSettingsScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'expenses/new', builder: (_, s) => ExpenseFormScreen(groupId: s.pathParameters['id']!)),
+              GoRoute(path: 'insights', builder: (_, s) => InsightsScreen(groupId: s.pathParameters['id']!)),
+              // The read-only expense (list and activity taps land here); Edit opens the form.
               GoRoute(
                 path: 'expenses/:eid',
-                builder: (_, s) => ExpenseFormScreen(groupId: s.pathParameters['id']!, expenseId: s.pathParameters['eid']),
+                builder: (_, s) =>
+                    ExpenseDetailScreen(groupId: s.pathParameters['id']!, expenseId: s.pathParameters['eid']!),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (_, s) =>
+                        ExpenseFormScreen(groupId: s.pathParameters['id']!, expenseId: s.pathParameters['eid']),
+                  ),
+                ],
               ),
             ],
           ),

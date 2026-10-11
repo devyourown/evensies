@@ -1,0 +1,66 @@
+{
+  "_doc": "인사이트 합계 테스트 케이스 (docs/API.md '인사이트', 앱 app/lib/domain/insights.dart computeTotals). 지출은 snapshot 모양이고 이미 한 통화다(칸 하나): payers 없으면 [{memberId: paidBy, amount}], refund 없으면 false, deleted 없으면 false. 송금: {id, fromMember, toMember, amount, currency, date, status?, deleted?}, status 없으면 confirmed. expected = computeTotals(expenses, payments, me: me) → {months: {YYYY-MM: PeriodTotals}, allTime}. byCategory·byMember에는 0인 항목이 없다(합한 뒤 빼므로 allTime에서 사라질 수 있다). 모든 케이스에서 allTime.netChange == computeBalances(...)[me]도 확인한다. 지금은 앱(Dart)만 읽는다.",
+  "cases": [
+    {"name": "two months, settle in between", "me": "a",
+     "expenses": [
+       {"id": "x1", "description": "Dinner", "amount": 3000, "currency": "EUR", "paidBy": "a", "date": "2026-09-05", "category": "food.dining_out", "shares": [{"memberId": "a", "amount": 1000}, {"memberId": "b", "amount": 1000}, {"memberId": "c", "amount": 1000}]},
+       {"id": "x2", "description": "Lidl", "amount": 1500, "currency": "EUR", "paidBy": "b", "date": "2026-10-02", "category": "food.groceries", "shares": [{"memberId": "a", "amount": 500}, {"memberId": "b", "amount": 500}, {"memberId": "c", "amount": 500}]},
+       {"id": "x3", "description": "Misc", "amount": 600, "currency": "EUR", "paidBy": "c", "date": "2026-10-03", "category": null, "shares": [{"memberId": "b", "amount": 300}, {"memberId": "c", "amount": 300}]}],
+     "payments": [{"id": "p1", "fromMember": "b", "toMember": "a", "amount": 2000, "currency": "EUR", "date": "2026-10-04"}],
+     "expected": {
+       "months": {
+         "2026-09": {"spent": 3000, "youPaid": 3000, "yourShare": 1000, "paymentsMade": 0, "paymentsReceived": 0, "netChange": 2000,
+                     "byCategory": {"food.dining_out": 3000},
+                     "byMember": {"a": {"paid": 3000, "share": 1000}, "b": {"paid": 0, "share": 1000}, "c": {"paid": 0, "share": 1000}}},
+         "2026-10": {"spent": 2100, "youPaid": 0, "yourShare": 500, "paymentsMade": 0, "paymentsReceived": 2000, "netChange": -2500,
+                     "byCategory": {"food.groceries": 1500, "uncategorized.general": 600},
+                     "byMember": {"a": {"paid": 0, "share": 500}, "b": {"paid": 1500, "share": 800}, "c": {"paid": 600, "share": 800}}}},
+       "allTime": {"spent": 5100, "youPaid": 3000, "yourShare": 1500, "paymentsMade": 0, "paymentsReceived": 2000, "netChange": -500,
+                   "byCategory": {"food.dining_out": 3000, "food.groceries": 1500, "uncategorized.general": 600},
+                   "byMember": {"a": {"paid": 3000, "share": 1500}, "b": {"paid": 1500, "share": 1800}, "c": {"paid": 600, "share": 1800}}}}},
+    {"name": "deleted ignored, sent payment counts, label and legacy categories resolve", "me": "b",
+     "expenses": [
+       {"id": "x1", "description": "Hotel", "amount": 10000, "currency": "EUR", "paidBy": "a", "date": "2026-10-01", "category": "transportation.hotel", "shares": [{"memberId": "a", "amount": 5000}, {"memberId": "b", "amount": 5000}]},
+       {"id": "x2", "description": "Dinner", "amount": 4000, "currency": "EUR", "paidBy": "b", "date": "2026-10-02", "category": "Dining out", "shares": [{"memberId": "a", "amount": 2000}, {"memberId": "b", "amount": 2000}]},
+       {"id": "x3", "description": "Oops", "amount": 999, "currency": "EUR", "paidBy": "a", "date": "2026-10-03", "category": null, "deleted": true, "shares": [{"memberId": "a", "amount": 999}]},
+       {"id": "x4", "description": "Snacks", "amount": 600, "currency": "EUR", "paidBy": "a", "date": "2026-10-04", "category": "Food", "shares": [{"memberId": "a", "amount": 300}, {"memberId": "b", "amount": 300}]}],
+     "payments": [
+       {"id": "p1", "fromMember": "b", "toMember": "a", "amount": 3000, "currency": "EUR", "date": "2026-10-05", "status": "sent"},
+       {"id": "p2", "fromMember": "b", "toMember": "a", "amount": 500, "currency": "EUR", "date": "2026-10-05", "deleted": true}],
+     "expected": {
+       "months": {"2026-10": {"spent": 14600, "youPaid": 4000, "yourShare": 7300, "paymentsMade": 3000, "paymentsReceived": 0, "netChange": -300,
+         "byCategory": {"transportation.hotel": 10000, "food.dining_out": 4000, "uncategorized.general": 600},
+         "byMember": {"a": {"paid": 10600, "share": 7300}, "b": {"paid": 4000, "share": 7300}}}},
+       "allTime": {"spent": 14600, "youPaid": 4000, "yourShare": 7300, "paymentsMade": 3000, "paymentsReceived": 0, "netChange": -300,
+         "byCategory": {"transportation.hotel": 10000, "food.dining_out": 4000, "uncategorized.general": 600},
+         "byMember": {"a": {"paid": 10600, "share": 7300}, "b": {"paid": 4000, "share": 7300}}}}},
+    {"name": "refund is negative spend; several payers count per payer", "me": "a",
+     "expenses": [
+       {"id": "x1", "description": "Hotel", "amount": 10000, "currency": "EUR", "paidBy": "a", "date": "2026-10-01", "category": "transportation.hotel", "shares": [{"memberId": "a", "amount": 5000}, {"memberId": "b", "amount": 5000}]},
+       {"id": "x2", "description": "Hotel refund", "amount": 2000, "currency": "EUR", "paidBy": "a", "payers": [{"memberId": "a", "amount": 2000}], "refund": true, "date": "2026-10-02", "category": "transportation.hotel", "shares": [{"memberId": "a", "amount": 1000}, {"memberId": "b", "amount": 1000}]},
+       {"id": "x3", "description": "Dinner", "amount": 3000, "currency": "EUR", "paidBy": "b", "payers": [{"memberId": "a", "amount": 1000}, {"memberId": "b", "amount": 2000}], "date": "2026-10-03", "category": "food.dining_out", "shares": [{"memberId": "a", "amount": 1500}, {"memberId": "b", "amount": 1500}]}],
+     "payments": [],
+     "expected": {
+       "months": {"2026-10": {"spent": 11000, "youPaid": 9000, "yourShare": 5500, "paymentsMade": 0, "paymentsReceived": 0, "netChange": 3500,
+         "byCategory": {"transportation.hotel": 8000, "food.dining_out": 3000},
+         "byMember": {"a": {"paid": 9000, "share": 5500}, "b": {"paid": 2000, "share": 5500}}}},
+       "allTime": {"spent": 11000, "youPaid": 9000, "yourShare": 5500, "paymentsMade": 0, "paymentsReceived": 0, "netChange": 3500,
+         "byCategory": {"transportation.hotel": 8000, "food.dining_out": 3000},
+         "byMember": {"a": {"paid": 9000, "share": 5500}, "b": {"paid": 2000, "share": 5500}}}}},
+    {"name": "a refund in a later month: negative month totals, zero rows dropped from all time", "me": "a",
+     "expenses": [
+       {"id": "x1", "description": "Taxi", "amount": 1000, "currency": "EUR", "paidBy": "a", "date": "2026-10-30", "category": "transportation.taxi", "shares": [{"memberId": "a", "amount": 500}, {"memberId": "b", "amount": 500}]},
+       {"id": "x2", "description": "Taxi refund", "amount": 1000, "currency": "EUR", "paidBy": "a", "refund": true, "date": "2026-11-02", "category": "transportation.taxi", "shares": [{"memberId": "a", "amount": 500}, {"memberId": "b", "amount": 500}]}],
+     "payments": [],
+     "expected": {
+       "months": {
+         "2026-10": {"spent": 1000, "youPaid": 1000, "yourShare": 500, "paymentsMade": 0, "paymentsReceived": 0, "netChange": 500,
+                     "byCategory": {"transportation.taxi": 1000},
+                     "byMember": {"a": {"paid": 1000, "share": 500}, "b": {"paid": 0, "share": 500}}},
+         "2026-11": {"spent": -1000, "youPaid": -1000, "yourShare": -500, "paymentsMade": 0, "paymentsReceived": 0, "netChange": -500,
+                     "byCategory": {"transportation.taxi": -1000},
+                     "byMember": {"a": {"paid": -1000, "share": -500}, "b": {"paid": 0, "share": -500}}}},
+       "allTime": {"spent": 0, "youPaid": 0, "yourShare": 0, "paymentsMade": 0, "paymentsReceived": 0, "netChange": 0,
+                   "byCategory": {}, "byMember": {}}}}
+  ]
+}

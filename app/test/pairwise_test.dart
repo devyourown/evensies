@@ -9,7 +9,6 @@ import 'shared_json.dart';
 void main() {
   group('shared/settlement-cases.json expectedPairwise', () {
     for (final c in sharedCases('settlement-cases.json').where((c) => c['expectedPairwise'] != null)) {
-      // Pending cases need computeBalances with several payers / refunds (TODO(효준)).
       test(c['name'] as String, skip: c['pending'] == null ? null : 'pending: hyojun', () {
         final lines = [
           for (final e in (c['expenses'] as List).cast<Map>())

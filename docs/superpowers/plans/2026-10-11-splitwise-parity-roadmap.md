@@ -135,7 +135,7 @@ Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one des
 
 ## Parity checklist
 
-Status: **have** = in the app today (including Phases 1–3); **partly** = in the app, but the part named in the row still waits; **Phase N** = designed above; **out of scope** = not planned, with the reason; **n/a** = Splitwise doesn't offer it either.
+Status: **have** = in the app today (including Phases 1–5); **partly** = in the app, but the part named in the row still waits; **Phase N** = designed above; **out of scope** = not planned, with the reason; **n/a** = Splitwise doesn't offer it either.
 
 | # | Area | Feature | Splitwise | Status |
 |---|---|---|---|---|
@@ -149,10 +149,10 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 8 | Split | Reimbursement / refund | Free | have (Phase 3, `computeBalances` by Hyojun) |
 | 9 | Split | "Full amount" shortcuts | Free | have (Phase 3) |
 | 10 | Split | Multiple payers | Free | have (Phase 3, `computeBalances` by Hyojun) |
-| 11 | Split | Default split per group | Pro | have (Phase 3); a shares or ± default waits for Hyojun's `computeSplit` |
+| 11 | Split | Default split per group | Pro | have (Phase 3; shares and ± defaults since Hyojun's `computeSplit` landed) |
 | 12 | Expense | Description, amount, date, payer | Free | have |
 | 13 | Expense | Currency per expense, last one remembered | Free | have (per group since Phase 4) |
-| 14 | Expense | Category with icon, auto-guessed | Free | Phase 5 |
+| 14 | Expense | Category with icon, auto-guessed | Free | have (Phase 5): Splitwise's 43 subcategories with icons, guessed on the device from the description and the group's history ("auto" until picked); English labels until Phase 9 |
 | 15 | Expense | Notes | Free | have (Phase 2) |
 | 16 | Expense | Receipt photo | Free (Pro 10 GB) | Phase 7 |
 | 17 | Expense | Repeat | Free | Phase 8 |
@@ -160,7 +160,7 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 19 | Expense | Move between groups / to a friend | Free | Phase 6 (+ receipts and items in Phase 7) |
 | 20 | Expense | Edit / delete | Free | have |
 | 21 | Expense | Restore a deleted expense | Free | have (Phase 2) |
-| 22 | Expense | Edit history on the expense | Free | Phase 5 |
+| 22 | Expense | Edit history on the expense | Free | have (Phase 5): History on the expense screen in the Activity sentences, cached for offline |
 | 23 | Expense | Comments | Free | have (Phase 2) |
 | 24 | Expense | Location | n/a | n/a |
 | 25 | Expense | Daily expense cap | Pro removes it | have (no cap) |
@@ -174,9 +174,9 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 33 | Groups | Delete / undelete group | Free | Phase 10 |
 | 34 | Groups | Remove member | Free | have |
 | 35 | Groups | Balances per member, per currency | Free | have (Phase 4): one "Not converted · JPY" section per currency on Balances, Settle up and the groups list; folding rated expenses into the group currency waits for Hyojun's `convertExpense` |
-| 36 | Groups | Totals screen | Free | Phase 5 |
-| 37 | Groups | Charts | Pro | Phase 5 |
-| 38 | Groups | Printable summary | Free (web) | Phase 5 (share text) + Phase 9 (browser print) |
+| 36 | Groups | Totals screen | Free | have (Phase 5, Insights): per month or all time, per currency; rated foreign expenses join the group-currency totals once Hyojun's `convertExpense` lands (until then a "Not converted" card per currency) |
+| 37 | Groups | Charts | Pro | have (Phase 5, free): bars by month (group / mine), by category and by person; no pie chart, on purpose |
+| 38 | Groups | Printable summary | Free (web) | partly (Phase 5): share-sheet text with the totals, top categories and balances; browser printing in Phase 9 |
 | 39 | Groups | Whiteboard | legacy | n/a |
 | 40 | Groups | Personal (solo) group | Free | have |
 | 41 | Invite | Invite link | Free | have |
@@ -193,7 +193,7 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 52 | Friends | Delete friend | Free | Phase 10 |
 | 53 | Friends | Block / report user | Free | Phase 10 |
 | 54 | Dashboard | Overall you owe / you are owed | Free | Phase 6 |
-| 55 | Dashboard | "Who should pay next" | Free | Phase 5 |
+| 55 | Dashboard | "Who should pay next" | Free | have (Phase 5): one line on Balances, from the group-currency balances |
 | 56 | Dashboard | Global add-expense button | Free | Phase 6 |
 | 57 | Activity | Activity feed | Free | have (Phase 2) |
 | 58 | Activity | Overall activity | Free | have (Phase 2) |
@@ -216,7 +216,7 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 75 | Currency | Default (home) currency | Free | partly (Phase 4): set in Settings and stored on the account; the "≈" lines wait for Hyojun's `convertAmount` |
 | 76 | Currency | Convert to one currency | Pro | partly (Phase 4, free): the Convert sheet with Undo is built and stays hidden until Hyojun's `convertAmount`/`convertExpense` (pending cases in `shared/fx-cases.json`); until then a foreign-currency debt can't be settled in the app, so leaving that group stays blocked |
 | 77 | Currency | Change an expense's currency label | Free | have |
-| 78 | Search | Search all expenses | Pro | Phase 5 (free) |
+| 78 | Search | Search all expenses | Pro | have (Phase 5, free): all groups or one, offline, accents ignored, amounts, category and month filters; payments and member names are not searched |
 | 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | Phase 8 (incl. every 2 weeks and "stop repeating") |
 | 80 | Export | Spreadsheet per group/friend | Free | have (Phases 3–5 add the payers, rate and category columns) |
 | 81 | Export | JSON backup of the whole account | Pro | Phase 10 (free) |
@@ -245,5 +245,5 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
 | 105 | Activity | Unread activity indicator and app-icon badge | Free | Phase 6 (found in the Phase 2 check): per-user unread count on the server from the last-seen `feedId`, Activity tab badge, APNs badge on visible pushes |
 | 106 | Settle | Comments on payments | Free | Phase 6, to design with "record any payment" (contract change: comments on a `paymentId`, a new activity sentence) |
-| 107 | Expense | List row for an expense with several payers says how many paid (e.g. "2 people paid €300.00"), not "paid by Anna +1" | Free | Phase 5 (found in the Phase 3 check), with the public `ExpenseTile`: app-only wording, no contract change |
-| 108 | Expense | Read-only expense detail: who paid how much, each person's share, then Edit | Free | Phase 5 (found in the Phase 3 check), on the expense screen next to History and comments: app-only, reads the stored `payers`/`shares` |
+| 107 | Expense | List row for an expense with several payers says how many paid (e.g. "2 people paid €300.00"), not "paid by Anna +1" | Free | have (Phase 5) |
+| 108 | Expense | Read-only expense detail: who paid how much, each person's share, then Edit | Free | have (Phase 5): with notes, History and comments; Edit opens the form |

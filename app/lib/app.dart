@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/invite_code.dart';
+import 'features/auth/auth_service.dart';
 import 'providers.dart';
 import 'push.dart';
 import 'router.dart';
@@ -25,6 +26,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _listenDeepLinks();
     initPush(ref);
+    ref.read(authServiceProvider).refreshMe(); // a saved session's name and home currency (no-op when signed out)
     // Before the first sync, so a change refused while the app was closed is still told.
     _rejections = ref.read(syncProvider).rejections.listen((msg) => scaffoldMessengerKey.currentState
         ?.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 8))));
@@ -49,7 +51,10 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) ref.read(syncProvider).syncAll();
+    if (state == AppLifecycleState.resumed) {
+      ref.read(syncProvider).syncAll();
+      ref.read(authServiceProvider).refreshMe();
+    }
   }
 
   void _listenDeepLinks() {

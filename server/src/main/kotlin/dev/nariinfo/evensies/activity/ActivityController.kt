@@ -25,10 +25,11 @@ class ActivityController(private val groups: GroupService, private val events: E
         @PathVariable id: UUID,
         @RequestParam before: Long?,
         @RequestParam(defaultValue = "50") limit: Int,
+        @RequestParam expenseId: UUID?, // edit history of one expense; an expense not in this group gives an empty page
     ): ActivityPage {
         val (_, me) = groups.requireMember(id, auth.userId)
         val n = limit.coerceIn(1, MAX_LIMIT)
-        val rows = events.findBefore(id, before ?: Long.MAX_VALUE, n)
+        val rows = events.findBefore(id, before ?: Long.MAX_VALUE, n, expenseId?.toString())
         val items = rows.mapNotNull { it.item(me.id.toString()) }.withoutDeletedComments(stateStore::deletedComments)
         return ActivityPage(items, rows.lastOrNull()?.seq?.takeIf { rows.size == n })
     }

@@ -89,6 +89,7 @@ class EventValidationTest : IntegrationTestBase() {
             updated("paidBy" to 5), updated("date" to 20261010), updated("currency" to true), updated("description" to "x".repeat(201)),
             updated("amount" to 100.5), updated("shares" to listOf(mapOf("memberId" to me, "amount" to null))),
             payment("amount" to 100.5), payment("deleted" to true),
+            created("date" to "+10000-01-01"), updated("date" to "+10000-01-01"), payment("date" to "+10000-01-01"),
             event("comment.added", comment + ("deleted" to true)),
             event("member.added", mapOf("memberId" to UUID.randomUUID().toString(), "name" to 5, "userId" to null)),
             event("group.updated", mapOf("name" to 5)),

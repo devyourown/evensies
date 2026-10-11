@@ -75,22 +75,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
     setState(() => _items = [for (final r in rows) ActivityItem.fromJson((jsonDecode(r.json) as Map).cast())]);
   }
 
-  // ponytail: the cache keeps every fetched item (items never change; a deleted comment's row is dropped with its text,
-  // AppDatabase.dropDeletedCommentActivity); trim by age if it ever matters.
-  Future<void> _cache(List<ActivityItem> items) async {
-    final db = ref.read(dbProvider);
-    await db.batch((b) => b.insertAllOnConflictUpdate(db.activity, [
-          for (final i in items)
-            if ((i.groupId ?? widget.groupId) case final gid?)
-              ActivityCompanion.insert(
-                groupId: gid,
-                seq: i.seq,
-                feedId: i.feedId ?? i.seq,
-                createdAt: i.createdAt ?? '',
-                json: jsonEncode({...i.json, 'groupId': gid}),
-              ),
-        ]));
-  }
+  Future<void> _cache(List<ActivityItem> items) => cacheActivity(ref.read(dbProvider), items, widget.groupId);
 
   Future<void> _refresh() async {
     final gen = ++_generation;
@@ -234,9 +219,25 @@ class _ActivityListState extends ConsumerState<ActivityList> {
   }
 }
 
+/// Fetched feed items into the offline cache; [groupId] for a group feed's items, which carry no groupId.
+// ponytail: the cache keeps every fetched item (items never change; a deleted comment's row is dropped with its text,
+// AppDatabase.dropDeletedCommentActivity); trim by age if it ever matters.
+Future<void> cacheActivity(AppDatabase db, List<ActivityItem> items, String? groupId) =>
+    db.batch((b) => b.insertAllOnConflictUpdate(db.activity, [
+          for (final i in items)
+            if ((i.groupId ?? groupId) case final gid?)
+              ActivityCompanion.insert(
+                groupId: gid,
+                seq: i.seq,
+                feedId: i.feedId ?? i.seq,
+                createdAt: i.createdAt ?? '',
+                json: jsonEncode({...i.json, 'groupId': gid}),
+              ),
+        ]));
+
 DateTime? _local(String? iso) => iso == null ? null : DateTime.tryParse(iso)?.toLocal();
 
-@visibleForTesting
+/// "Today", "Yesterday", "Mon, 5 Oct" or "5 Oct 2025" for a feed timestamp.
 String dayLabel(String? iso, {DateTime? now}) {
   final d = _local(iso);
   if (d == null) return 'Earlier';
@@ -256,8 +257,17 @@ class ActivityTile extends ConsumerWidget {
 
   /// Whether a deleted expense's row may show Restore (the list offers it on the newest delete only).
   final bool offerRestore;
-  const ActivityTile(
-      {super.key, required this.item, required this.groupId, this.showGroup = false, this.offerRestore = false});
+
+  /// In an expense's own History: no tap (that is where it would go) and no side inset (the screen has one).
+  final bool embedded;
+  const ActivityTile({
+    super.key,
+    required this.item,
+    required this.groupId,
+    this.showGroup = false,
+    this.offerRestore = false,
+    this.embedded = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -304,12 +314,17 @@ class ActivityTile extends ConsumerWidget {
       target = showGroup ? '/groups/$groupId' : null;
     }
     final delta = myDeltaText(item);
+    final actor = item.actorMemberId;
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      contentPadding: EdgeInsets.symmetric(horizontal: embedded ? 0 : 16),
       leading: CircleAvatar(backgroundColor: bg, foregroundColor: fg, child: Icon(icon, size: 20)),
       // Comments can be long (the expense shows them in full); change lists are short enough to show whole.
-      title: Text(activityText(item, names, group?.myMemberId, withDelta: false),
+      // An expense's History only marks when someone commented: the text is in Comments right below.
+      title: Text(
+          embedded && kind == 'comment_added'
+              ? '${actor != null && actor == group?.myMemberId ? 'You' : names[actor] ?? 'Someone'} commented'
+              : activityText(item, names, group?.myMemberId, withDelta: false),
           maxLines: kind == 'comment_added' ? 3 : null,
           overflow: kind == 'comment_added' ? TextOverflow.ellipsis : null),
       subtitle: delta == null && meta.isEmpty
@@ -332,7 +347,7 @@ class ActivityTile extends ConsumerWidget {
               child: const Text('Restore'),
             )
           : null,
-      onTap: target == null ? null : () => context.push(target!),
+      onTap: target == null || embedded ? null : () => context.push(target!),
     );
   }
 }

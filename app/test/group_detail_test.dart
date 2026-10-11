@@ -92,8 +92,54 @@ void main() {
       );
     });
     await open(t);
-    expect(find.text('paid by Anna +1 · you paid for yourself'), findsOneWidget); // paid 100, owes 100
+    expect(find.text('2 people paid €300.00 · you paid for yourself'), findsOneWidget); // paid 100, owes 100 (#107)
     expect(find.text('refund to Anna · you get back €20.00'), findsOneWidget);
+    await unmount(t);
+  });
+
+  Future<void> seedMine() => db
+      .upsertGroup(const GroupRow(
+          id: 'g1', name: 'Flat 3B', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true))
+      .then((_) => GroupStateStore(db).save(
+            'g1',
+            GroupState(
+              name: 'Flat 3B',
+              defaultCurrency: 'EUR',
+              members: const [Member(id: 'm1', name: 'Maya'), Member(id: 'm2', name: 'Leo')],
+              expenses: [
+                Expense(id: 'x1', description: 'Coffee beans', amount: 1280, currency: 'EUR', paidBy: 'm1',
+                    date: '2026-10-04', category: 'food.groceries', shares: [s('m1', 640), s('m2', 640)]),
+                Expense(id: 'x2', description: 'Hotel refund', amount: 4000, currency: 'EUR', paidBy: 'm1',
+                    refund: true, date: '2026-10-03', shares: [s('m2', 4000)]),
+                Expense(id: 'x3', description: 'Netflix subscription', amount: 1599, currency: 'USD', paidBy: 'm2',
+                    date: '2026-10-02', shares: [s('m1', 800), s('m2', 799)]),
+              ],
+            ),
+            0,
+          ));
+
+  testWidgets('my own payments read "you", like the detail screen (#13)', (t) async {
+    await t.runAsync(seedMine);
+    await open(t);
+    expect(find.text('you paid €12.80 · you lent €6.40'), findsOneWidget);
+    expect(find.text('refund to you · you owe €40.00'), findsOneWidget);
+    expect(find.text('Leo paid \$15.99 · you borrowed \$8.00'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('expense rows fit at the largest text size: the amount moves under the text', (t) async {
+    t.view.physicalSize = const Size(402, 874); // iPhone 16 Pro in points
+    t.view.devicePixelRatio = 1;
+    t.platformDispatcher.textScaleFactorTestValue = 3.12; // iOS accessibility XXXL body text
+    addTearDown(t.view.reset);
+    addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+    await t.runAsync(seedMine);
+    await open(t); // an overflow fails the test
+    expect(t.getSize(find.text('Coffee beans')).width, greaterThan(200)); // not "Cof..."
+    expect(find.text('€12.80'), findsOneWidget);
+    await t.tap(find.text('Balances'));
+    await t.pumpAndSettle(); // "gets back €…" wraps under the name
+    expect(find.text('gets back'), findsOneWidget);
     await unmount(t);
   });
 
@@ -207,6 +253,44 @@ void main() {
     expect(sync.synced, ['g1', 'g1']);
     await unmount(t);
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS, TargetPlatform.android}));
+
+  testWidgets('Balances names who should pay next: the most owed among members still in the group', (t) async {
+    Future<void> seed(String me) => t.runAsync(() async {
+          await db.upsertGroup(GroupRow(
+              id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: me, simplifyDebts: true));
+          await GroupStateStore(db).save(
+            'g1',
+            GroupState(
+              name: 'Rome',
+              defaultCurrency: 'EUR',
+              members: const [
+                Member(id: 'm1', name: 'Anna'),
+                Member(id: 'm2', name: 'Ben'),
+                Member(id: 'm3', name: 'Cara'),
+                Member(id: 'm4', name: 'Dan', removed: true),
+              ],
+              expenses: [
+                Expense(id: 'x1', description: 'Hotel', amount: 9000, currency: 'EUR', paidBy: 'm1', date: '2026-10-11',
+                    shares: [s('m2', 4000), s('m3', 1000), s('m4', 4000)]),
+              ],
+            ),
+            0,
+          );
+        });
+    await seed('m1');
+    await open(t);
+    await t.tap(find.text('Balances'));
+    await t.pumpAndSettle();
+    expect(find.text('Ben should pay next (owes €40.00, the most)'), findsOneWidget); // Dan left: skipped
+    await unmount(t);
+
+    await seed('m2');
+    await open(t);
+    await t.tap(find.text('Balances'));
+    await t.pumpAndSettle();
+    expect(find.text('You should pay next (you owe €40.00, the most)'), findsOneWidget);
+    await unmount(t);
+  });
 
   testWidgets('a group that is not on the device (left, removed) says so instead of loading forever', (t) async {
     await open(t);

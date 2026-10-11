@@ -1,5 +1,5 @@
 {
-  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다.",
+  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null.",
   "cases": [
     {
       "name": "create expense then update description only",
@@ -2766,6 +2766,200 @@
               {
                 "memberId": "m1",
                 "amount": 3000
+              }
+            ]
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "category: keys and legacy text are stored as sent, an update without the key keeps it, null clears it, a missing key on an old create is null",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Trip",
+            "defaultCurrency": "EUR"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": "food.dining_out",
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Snack",
+            "amount": 600,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": "Food",
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 600
+              }
+            ]
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x3",
+            "description": "Lunch",
+            "amount": 1200,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1200
+              }
+            ]
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "category": "transportation.taxi"
+            }
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "description": "Snacks"
+            }
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x3",
+            "fields": {
+              "category": "Dining out"
+            }
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "category": null
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          },
+          {
+            "id": "x2",
+            "description": "Snacks",
+            "amount": 600,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": "Food",
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 600
+              }
+            ]
+          },
+          {
+            "id": "x3",
+            "description": "Lunch",
+            "amount": 1200,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": "Dining out",
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1200
               }
             ]
           }

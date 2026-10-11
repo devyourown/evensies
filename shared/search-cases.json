@@ -1,0 +1,29 @@
+{
+  "_doc": "검색 테스트 케이스 (docs/API.md '검색', 앱 app/lib/domain/insights.dart searchDocs). items = SearchDoc {id, groupId(생략 가능), date, description, notes, comments(삭제 안 된 댓글 글), category(저장된 값 그대로), amount(지출 통화의 최소 단위, 환불도 양수), currency}. cases: searchDocs(items, query, category?, month?) → expected(id 목록, date 내림차순 다음 id 오름차순). 자릿수는 shared/currencies.json decimals. 지금은 앱(Dart)만 읽는다.",
+  "items": [
+    {"id": "x1", "date": "2026-10-02", "description": "Café Florian", "notes": null, "comments": [], "category": "food.dining_out", "amount": 1250, "currency": "EUR"},
+    {"id": "x2", "date": "2026-10-05", "description": "Taxi", "notes": "to the airport, 4 bags", "comments": ["Anna paid the tip"], "category": "transportation.taxi", "amount": 1200, "currency": "EUR"},
+    {"id": "x3", "date": "2026-09-30", "description": "Room upgrade", "notes": null, "comments": [], "category": null, "amount": 11200, "currency": "EUR"},
+    {"id": "x4", "date": "2026-10-05", "description": "Ramen", "notes": null, "comments": [], "category": "Food", "amount": 12000, "currency": "JPY"}
+  ],
+  "cases": [
+    {"name": "diacritics", "query": "cafe", "expected": ["x1"]},
+    {"name": "amount in major units; 112.00 and JPY 12000 don't match", "query": "12", "expected": ["x2", "x1"]},
+    {"name": "decimal comma", "query": "12,5", "expected": ["x1"]},
+    {"name": "two decimals", "query": "12,50", "expected": ["x1"]},
+    {"name": "more decimals than the currency has never matches", "query": "12.001", "expected": []},
+    {"name": "minor units are not a major amount", "query": "1250", "expected": []},
+    {"name": "zero-decimal currency", "query": "12000", "expected": ["x4"]},
+    {"name": "AND across notes and comments", "query": "airport anna", "expected": ["x2"]},
+    {"name": "extra spaces and upper case", "query": "  AIRPORT   tip ", "expected": ["x2"]},
+    {"name": "legacy raw text and parent label", "query": "food", "expected": ["x4", "x1"]},
+    {"name": "resolved label of null and legacy categories", "query": "general", "expected": ["x4", "x3"]},
+    {"name": "parent label prefix", "query": "transport", "expected": ["x2"]},
+    {"name": "filters only", "query": "", "category": "transportation", "month": "2026-10", "expected": ["x2"]},
+    {"name": "full key filter", "query": "", "category": "food.dining_out", "expected": ["x1"]},
+    {"name": "uncategorized filter takes null and legacy values", "query": "", "category": "uncategorized", "expected": ["x4", "x3"]},
+    {"name": "month filter", "query": "", "month": "2026-09", "expected": ["x3"]},
+    {"name": "query and filter must both match", "query": "taxi", "category": "food", "expected": []},
+    {"name": "empty query without a filter", "query": "  ", "expected": []}
+  ]
+}

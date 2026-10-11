@@ -4,11 +4,15 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/domain/activity.dart';
+import 'package:evensies/domain/categories.dart';
 
 import 'shared_json.dart';
 
 void main() {
-  setUpAll(() => Money.loadFromJson(File('../shared/currencies.json').readAsStringSync()));
+  setUpAll(() {
+    Money.loadFromJson(File('../shared/currencies.json').readAsStringSync());
+    Categories.loadFromJson(File('../shared/categories.json').readAsStringSync()); // category change labels
+  });
   final golden = loadShared('activity-cases.json');
 
   group('shared/activity-cases.json: expected items → texts', () {

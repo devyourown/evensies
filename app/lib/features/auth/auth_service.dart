@@ -25,6 +25,23 @@ class AuthService {
 
   Future<void> dev(String name) async => _store(await ref.read(apiProvider).authDev(name));
 
+  /// GET /me into the saved session (docs/API.md 새로 고침), at launch and on resume: a name or home currency changed
+  /// on another phone shows without signing in again. Offline, 5xx and 429 keep the saved values; a 401 the refresh
+  /// can't fix signs out in ApiClient, as everywhere.
+  Future<void> refreshMe() async {
+    final db = ref.read(dbProvider);
+    if (await db.getSession() == null) return;
+    final UserDto u;
+    try {
+      u = await ref.read(apiProvider).me();
+    } catch (_) {
+      return; // offline, 5xx, 429, 401: keep what is saved
+    }
+    // Signed out or switched account meanwhile: no row of u.id, nothing written. A home currency can't be cleared
+    // (docs/API.md PATCH /me): null is a server before Phase 4 and keeps the saved one.
+    await db.updateProfile(u.id, displayName: u.displayName, homeCurrency: u.homeCurrency);
+  }
+
   Future<void> apple() async {
     final c = await SignInWithApple.getAppleIDCredential(
         scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName]);

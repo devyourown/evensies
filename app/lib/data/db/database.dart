@@ -215,6 +215,20 @@ class AppDatabase extends _$AppDatabase {
   Future<void> saveSession(SessionRow s) => into(session).insertOnConflictUpdate(s);
   Future<void> clearSession() => delete(session).go();
 
+  /// Only the profile columns of [userId]'s session (null = keep): a token refresh landing meanwhile keeps its new
+  /// tokens (a whole-row write would put the spent refresh token back and sign the user out).
+  Future<void> updateProfile(String userId, {String? displayName, String? homeCurrency}) =>
+      (update(session)..where((s) => s.userId.equals(userId))).write(SessionCompanion(
+        displayName: displayName == null ? const Value.absent() : Value(displayName),
+        homeCurrency: homeCurrency == null ? const Value.absent() : Value(homeCurrency),
+      ));
+
+  /// Only the token columns of [userId]'s session: a name saved meanwhile stays, and a session signed out meanwhile
+  /// stays gone.
+  Future<void> saveTokens(String userId, String accessToken, String refreshToken) =>
+      (update(session)..where((s) => s.userId.equals(userId)))
+          .write(SessionCompanion(accessToken: Value(accessToken), refreshToken: Value(refreshToken)));
+
   // --- groups
   Stream<List<GroupRow>> watchGroups() => (select(groups)..orderBy([(g) => OrderingTerm.asc(g.name)])).watch();
   Stream<GroupRow?> watchGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).watchSingleOrNull();

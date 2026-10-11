@@ -94,7 +94,7 @@ void main() {
         expect(simplifyDebts(balances), simplifyDebts(reversed));
       });
     });
-    // Several payers (from computeSplit(exact)) and refunds. Remove the skip with the TODO(효준) in computeBalances.
+    // Several payers (from computeSplit(exact)) and refunds.
     test('balances sum to zero with several payers and refunds', () {
       for (var k = 0; k < 200; k++) {
         final (members, _, payments) = randomCase();
