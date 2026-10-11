@@ -50,6 +50,7 @@ auth/     dev/apple/google/refresh login, /me, /devices, IdTokenVerifier (JWKS, 
 group/    groups, members, invites (/invites/{code}, /j/{code} HTML page)
 sync/     events push/pull/snapshot, EventApplier (pure, mirrors the Dart one), EventValidator, GroupStateStore
 money/    Money (currency decimals), Split, Settlement
+payment/  "ways to get paid": GET/PUT /me/payment-methods, GET /groups/{id}/payment-methods (validation incl. IBAN mod-97)
 export/   JSON/CSV export, Splitwise CSV import (goes through the normal push path)
 push/     FcmNotifier (no-op without credentials)
 common/   ApiException → {"code","message"}, RateLimiter (120 events/min/user)
@@ -65,4 +66,5 @@ owes `-net`. Unknown names become placeholder members. Rows with multiple payers
 | `money/Split.kt` | equal/exact/percent split, remainder by memberId ascending (`shared/split-cases.json`) |
 | `money/Settlement.kt` | balances and greedy debt simplification (`shared/settlement-cases.json`) |
 | `sync/EventApplier.kt` | applies events to the in-memory state (`shared/sync-cases.json`) |
+| `sync/EventValidator.kt` | batch validation; `payment.created` `sent` → `confirmed` when the receiver is a placeholder or the sender; who may confirm/delete payments |
 | `sync/EventService.push` | the sync transaction: `FOR UPDATE` lock, clientId dedupe, gap-free seq, apply, `latest_seq` |

@@ -3,6 +3,7 @@ package dev.nariinfo.evensies.auth
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.JwtService
 import dev.nariinfo.evensies.group.MemberRepository
+import dev.nariinfo.evensies.payment.PaymentMethodRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
@@ -20,6 +21,7 @@ class AuthService(
     private val refreshTokens: RefreshTokenRepository,
     private val devices: DeviceRepository,
     private val members: MemberRepository,
+    private val paymentMethods: PaymentMethodRepository,
     private val jwt: JwtService,
 ) {
     private val random = SecureRandom()
@@ -61,6 +63,7 @@ class AuthService(
         members.unlinkUser(userId)
         refreshTokens.deleteByUser(userId)
         devices.deleteByUser(userId)
+        paymentMethods.deleteByUser(userId)
     }
 
     private fun issue(userId: UUID): TokenPair {

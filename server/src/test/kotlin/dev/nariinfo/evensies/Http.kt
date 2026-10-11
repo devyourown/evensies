@@ -39,4 +39,5 @@ class Http(port: Int, private val mapper: ObjectMapper) {
     fun post(path: String, body: Any?, token: String? = null) = send(HttpMethod.POST, path, body, token)
     fun delete(path: String, token: String? = null) = send(HttpMethod.DELETE, path, null, token)
     fun patch(path: String, body: Any?, token: String? = null) = send(HttpMethod.PATCH, path, body, token)
+    fun put(path: String, body: Any?, token: String? = null) = send(HttpMethod.PUT, path, body, token)
 }

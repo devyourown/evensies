@@ -34,12 +34,15 @@ class EventService(
         return pushValidated(groupId, userId, incoming)
     }
 
-    /** Validates the whole batch (400 on any failure, nothing stored), stores it, then notifies other devices. */
+    /**
+     * Validates the whole batch (400 on any failure, nothing stored), stores the normalized events (e.g. a
+     * `sent` payment that needs no confirmation becomes `confirmed` in the stored payload), then notifies other devices.
+     */
     fun pushValidated(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): PushResult {
         val group = groups.find(groupId) ?: throw ApiException.notFound("Group")
         if (incoming.isEmpty()) return PushResult(emptyList(), group.latestSeq)
-        validator.validateAll(stateStore.load(groupId), userId, incoming)
-        val result = push(groupId, userId, incoming)
+        val normalized = validator.validateAll(stateStore.load(groupId), userId, incoming, stateStore::paymentCreator)
+        val result = push(groupId, userId, normalized)
         fcm.notifyGroup(groupId, excludeUserId = userId)
         return result
     }

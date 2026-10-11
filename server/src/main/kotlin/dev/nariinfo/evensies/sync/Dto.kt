@@ -29,6 +29,8 @@ data class PaymentDto(
     val currency: String,
     val date: String,
     val deleted: Boolean,
+    /** "sent" (payer says it is paid) or "confirmed" (receiver confirmed, or no confirmation needed). */
+    val status: String = "confirmed",
 )
 
 data class SnapshotDto(

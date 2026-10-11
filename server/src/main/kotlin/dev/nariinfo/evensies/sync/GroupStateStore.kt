@@ -47,6 +47,7 @@ class GroupStateStore(private val jdbc: JdbcClient) {
                     currency = rs.getString("currency"),
                     date = rs.getObject("date", LocalDate::class.java).toString(),
                     deleted = rs.getObject("deleted_at") != null,
+                    status = rs.getString("status"),
                 )
             }.list()
         return GroupState(
@@ -105,16 +106,21 @@ class GroupStateStore(private val jdbc: JdbcClient) {
     private fun upsertPayment(groupId: UUID, actorUserId: UUID, p: PaymentDto) {
         jdbc.sql(
             """
-            INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, created_by, deleted_at)
-            VALUES (:id, :groupId, :from, :to, :amount, :currency, :date, :actor, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, created_by, status, deleted_at)
+            VALUES (:id, :groupId, :from, :to, :amount, :currency, :date, :actor, :status, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET
               from_member = EXCLUDED.from_member, to_member = EXCLUDED.to_member, amount = EXCLUDED.amount,
-              currency = EXCLUDED.currency, date = EXCLUDED.date,
+              currency = EXCLUDED.currency, date = EXCLUDED.date, status = EXCLUDED.status,
               deleted_at = CASE WHEN :deleted THEN COALESCE(payments.deleted_at, :now) ELSE NULL END
             """
         ).param("id", UUID.fromString(p.id)).param("groupId", groupId).param("from", UUID.fromString(p.fromMember))
             .param("to", UUID.fromString(p.toMember)).param("amount", p.amount).param("currency", p.currency)
             .param("date", LocalDate.parse(p.date)).param("actor", actorUserId).param("deleted", p.deleted)
-            .param("now", OffsetDateTime.now()).update()
+            .param("status", p.status).param("now", OffsetDateTime.now()).update()
     }
+
+    /** Who created a stored payment (null if unknown); used for payment.deleted permission. */
+    fun paymentCreator(paymentId: String): String? =
+        jdbc.sql("SELECT created_by FROM payments WHERE id = :id").param("id", UUID.fromString(paymentId))
+            .query { rs, _ -> rs.getString("created_by") }.optional().orElse(null)
 }

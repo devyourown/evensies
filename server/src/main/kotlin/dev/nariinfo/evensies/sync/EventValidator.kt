@@ -4,22 +4,41 @@ import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.money.Money
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 import java.util.UUID
 
-/** Rejects a push batch before anything is stored. Validates each event against the state after the previous ones. */
+/**
+ * Rejects a push batch before anything is stored. Validates each event against the state after the previous ones
+ * and returns the batch to store: a `payment.created` with `status: "sent"` whose receiver is a placeholder or the
+ * sender themselves is rewritten to `"confirmed"`, so every client pulls the same payload.
+ * [paymentCreator] returns the user id that created an already-stored payment.
+ */
 @Component
 class EventValidator {
-    fun validateAll(initial: GroupState, actorUserId: UUID, events: List<IncomingEvent>) {
+    fun validateAll(
+        initial: GroupState, actorUserId: UUID, events: List<IncomingEvent>, paymentCreator: (String) -> String? = { null },
+    ): List<IncomingEvent> {
         var state = initial
-        for (e in events) {
-            validate(state, actorUserId, e)
+        val createdHere = HashSet<String>()
+        return events.map { raw ->
+            val e = normalize(state, actorUserId, raw)
+            validate(state, actorUserId, e) { id -> if (id in createdHere) actorUserId.toString() else paymentCreator(id) }
+            if (e.type == "payment.created") createdHere += e.payload.text("paymentId")!!
             state = EventApplier.apply(state, e.type, e.payload)
+            e
         }
     }
 
-    private fun validate(s: GroupState, actor: UUID, e: IncomingEvent) {
+    private fun normalize(s: GroupState, actor: UUID, e: IncomingEvent): IncomingEvent {
+        if (e.type != "payment.created" || !e.payload.isObject || e.payload.text("status") != "sent") return e
+        val receiverUser = s.members[e.payload.text("toMember")]?.userId
+        if (receiverUser != null && receiverUser != actor.toString()) return e
+        return e.copy(payload = (e.payload.deepCopy() as ObjectNode).put("status", "confirmed"))
+    }
+
+    private fun validate(s: GroupState, actor: UUID, e: IncomingEvent, paymentCreator: (String) -> String?) {
         val p = e.payload
         if (!p.isObject) bad("payload must be an object")
         when (e.type) {
@@ -54,8 +73,23 @@ class EventValidator {
                 requireUuid(p, "paymentId")
                 requireMember(s, p.text("fromMember")); requireMember(s, p.text("toMember"))
                 requireAmount(p.long("amount")); requireCurrency(p.text("currency")); requireDate(p.text("date"))
+                p.text("status")?.let { if (it != "sent" && it != "confirmed") bad("status must be sent or confirmed") }
             }
-            "payment.deleted" -> requireUuid(p, "paymentId")
+            "payment.confirmed" -> {
+                requireUuid(p, "paymentId")
+                val payment = s.payments[p.text("paymentId")] ?: bad("paymentId refers to an unknown payment")
+                if (s.members[payment.toMember]?.userId != actor.toString()) {
+                    throw ApiException.forbidden("Only the receiver can confirm a payment")
+                }
+            }
+            "payment.deleted" -> {
+                requireUuid(p, "paymentId")
+                val payment = s.payments[p.text("paymentId")] ?: return // rule 4: ignored by the applier
+                val me = actor.toString()
+                val allowed = paymentCreator(payment.id) == me ||
+                    s.members[payment.fromMember]?.userId == me || s.members[payment.toMember]?.userId == me
+                if (!allowed) throw ApiException.forbidden("Only the payer or the receiver can delete a payment")
+            }
             else -> throw ApiException.badRequest("UNKNOWN_TYPE", "Unknown event type ${e.type}")
         }
     }

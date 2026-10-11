@@ -14,7 +14,8 @@ data class GroupState(
 /**
  * Kotlin twin of the Dart applier. Rules (docs/API.md "적용 규칙"):
  * 1. pure and idempotent; 2. field-level last-write-wins by applying in seq order;
- * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags.
+ * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags;
+ * 6. payment.confirmed sets status, ignored for unknown or deleted payments.
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -82,9 +83,12 @@ object EventApplier {
                     currency = p.text("currency") ?: "",
                     date = p.text("date") ?: "",
                     deleted = false,
+                    status = p.text("status") ?: "confirmed",
                 )
             )
         }
+        "payment.confirmed" -> state.payments[p.text("paymentId")]?.takeUnless { it.deleted }
+            ?.let { state.withPayment(it.copy(status = "confirmed")) } ?: state
         "payment.deleted" -> state.payments[p.text("paymentId")]?.let { state.withPayment(it.copy(deleted = true)) } ?: state
 
         else -> state
