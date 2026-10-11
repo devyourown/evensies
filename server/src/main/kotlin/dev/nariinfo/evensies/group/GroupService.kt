@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
-import java.security.SecureRandom
 import java.time.Instant
 import java.util.UUID
 
@@ -19,7 +18,6 @@ class GroupService(
     @Lazy private val events: EventService,
     private val mapper: ObjectMapper,
 ) {
-    private val random = SecureRandom()
 
     /** 404 if the group does not exist, 403 if the user is not an active member. */
     fun requireMember(groupId: UUID, userId: UUID): Pair<Group, Member> {
@@ -56,13 +54,13 @@ class GroupService(
     }
 
     fun preview(code: String): InvitePreviewDto {
-        val group = groups.findByInviteCode(code) ?: throw ApiException.notFound("Invite")
+        val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
         val active = members.listByGroup(group.id).filter { !it.removed }
         return InvitePreviewDto(group.id, group.name, active.size, active.map { InviteMemberDto(it.id, it.name, it.userId != null) })
     }
 
     fun join(code: String, userId: UUID, req: JoinRequest): GroupDto {
-        val group = groups.findByInviteCode(code) ?: throw ApiException.notFound("Invite")
+        val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
         members.findByGroupAndUser(group.id, userId)?.let { return group.toDto(it.id) } // already a member
         requireGroupQuota(userId)
         val event = when {
@@ -87,10 +85,10 @@ class GroupService(
     private fun event(type: String, payload: Map<String, Any?>) =
         IncomingEvent(UUID.randomUUID(), type, mapper.valueToTree(payload), Instant.now())
 
-    private fun newInviteCode(): String = (1..10).map { INVITE_ALPHABET[random.nextInt(INVITE_ALPHABET.length)] }.joinToString("")
+    /** Retries on the (rare) collision with an existing group's code. */
+    private fun newInviteCode(): String = generateSequence { InviteCodes.generate() }.first { groups.findByInviteCode(it) == null }
 
     companion object {
         const val MAX_GROUPS_PER_USER = 100
-        private const val INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     }
 }

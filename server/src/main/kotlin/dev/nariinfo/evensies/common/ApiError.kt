@@ -10,6 +10,7 @@ class ApiException(val status: HttpStatus, val code: String, message: String) : 
         fun notFound(what: String) = ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "$what not found")
         fun forbidden(message: String = "Not a member of this group") = ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN", message)
         fun unauthorized(message: String) = ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", message)
+        fun tooManyRequests(message: String) = ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", message)
         fun limit(message: String) = ApiException(HttpStatus.CONFLICT, "LIMIT_EXCEEDED", message)
     }
 }

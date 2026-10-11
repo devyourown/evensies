@@ -1,5 +1,7 @@
 package dev.nariinfo.evensies
 
+import dev.nariinfo.evensies.group.InviteCodes
+
 import org.junit.jupiter.api.Test
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -13,7 +15,7 @@ class GroupTest : IntegrationTestBase() {
         val group = createGroup(token, "Rome")
         assertEquals(2, group["latestSeq"].asLong())
         assertEquals("Rome", group["name"].asString())
-        assertEquals(10, group["inviteCode"].asString().length)
+        assertEquals(InviteCodes.LENGTH, group["inviteCode"].asString().length)
         val id = group["id"].asString()
         val events = http.get("/groups/$id/events?after=0", token).body["events"]
         assertEquals(listOf("group.created", "member.added"), events.values().map { it["type"].asString() })
@@ -55,6 +57,11 @@ class GroupTest : IntegrationTestBase() {
         val ben = preview.body["members"].values().first { it["name"].asString() == "Ben" }
         assertEquals(false, ben["linked"].asBoolean())
         assertEquals(404, http.get("/invites/NOPE").status)
+        // Codes are 6 chars without look-alikes, and lookups ignore case, spaces and hyphens.
+        assertTrue(code.length == InviteCodes.LENGTH && code.all { it in InviteCodes.ALPHABET }, code)
+        val typed = code.lowercase().chunked(3).joinToString("-")
+        assertEquals(200, http.get("/invites/$typed").status)
+        assertTrue(http.get("/j/$code").text.contains(code.chunked(3).joinToString("-")))
         assertTrue(http.get("/j/$code").text.contains("Trip"))
 
         val benToken = login("Ben-g")

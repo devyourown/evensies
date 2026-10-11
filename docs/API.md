@@ -37,6 +37,8 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 ```
 상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`.
 
+초대 코드: **6자, 알파벳 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`**(0/O, 1/I/L 제외). 이전에 발급된 10자 코드도 계속 유효하다. `/invites/{code}`, `/invites/{code}/join`, `/j/{code}`는 코드를 정규화한다(대문자로 바꾸고 영문·숫자 외 문자는 제거: `k7p-4qx` = `K7P4QX`). 세 엔드포인트는 **클라이언트 IP당 분당 10회**(`EVENSIES_INVITE_RATE_PER_MINUTE`)로 제한되며 초과 시 429 `RATE_LIMITED`.
+
 ## 이벤트 (동기화)
 ### push
 `POST /groups/{id}/events`
@@ -102,4 +104,5 @@ push가 성공하면 그룹의 다른 기기(FCM 토큰 있는)에 데이터 메
 | `EVENSIES_APPLE_CLIENT_ID` | | Apple 서비스 ID (앱 번들 ID) |
 | `EVENSIES_GOOGLE_CLIENT_IDS` | | 쉼표 구분 |
 | `EVENSIES_FCM_CREDENTIALS_FILE` | | 없으면 푸시 비활성 |
+| `EVENSIES_INVITE_RATE_PER_MINUTE` | `10` | 초대 조회·참여·랜딩의 IP당 분당 허용 횟수 |
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |

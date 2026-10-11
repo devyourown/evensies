@@ -13,6 +13,7 @@ import java.util.UUID
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "evensies.auth.dev-login=true",
+        "evensies.invite-rate-per-minute=100000", // all tests share 127.0.0.1
         "evensies.jwt-secret=test-only-secret-0123456789-0123456789",
     ],
 )

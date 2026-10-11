@@ -10,6 +10,10 @@ spring:
       max-file-size: 5MB
       max-request-size: 5MB
 
+server:
+  # Behind Caddy: trust X-Forwarded-For from private networks so request.remoteAddr is the client IP.
+  forward-headers-strategy: native
+
 management:
   endpoints:
     web:
@@ -19,6 +23,7 @@ management:
 evensies:
   jwt-secret: ${EVENSIES_JWT_SECRET:}
   public-url: ${EVENSIES_PUBLIC_URL:http://localhost:8080}
+  invite-rate-per-minute: ${EVENSIES_INVITE_RATE_PER_MINUTE:10}
   auth:
     dev-login: ${EVENSIES_AUTH_DEV_LOGIN:false}
     apple-client-id: ${EVENSIES_APPLE_CLIENT_ID:}
