@@ -61,6 +61,7 @@ class Payments extends Table {
   TextColumn get currency => text()();
   TextColumn get date => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  TextColumn get status => text().withDefault(const Constant('confirmed'))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -103,7 +104,14 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.addColumn(payments, payments.status);
+        },
+      );
 
   // --- session
   Stream<SessionRow?> watchSession() => select(session).watchSingleOrNull();

@@ -46,6 +46,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: const Icon(Icons.edit_outlined),
             onTap: () => context.push('/name'),
           ),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('Ways to get paid'),
+            subtitle: const Text('PayPal, Wise, IBAN, bank account…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/payment-methods'),
+          ),
           header('Export & import'),
           if (groups.isEmpty)
             Padding(

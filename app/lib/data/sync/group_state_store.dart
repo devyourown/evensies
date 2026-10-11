@@ -46,6 +46,7 @@ class GroupStateStore {
             currency: p.currency,
             date: p.date,
             deleted: p.deleted,
+            status: p.status,
           ),
       ],
     );
@@ -102,6 +103,7 @@ class GroupStateStore {
                 currency: p.currency,
                 date: p.date,
                 deleted: Value(p.deleted),
+                status: Value(p.status),
               ),
           ]);
         });

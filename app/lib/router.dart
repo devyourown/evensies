@@ -10,6 +10,7 @@ import 'features/groups/groups_screen.dart';
 import 'features/groups/join_code_screen.dart';
 import 'features/groups/join_screen.dart';
 import 'features/members/members_screen.dart';
+import 'features/settings/payment_methods_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settle/settle_screen.dart';
 import 'providers.dart';
@@ -36,7 +37,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         builder: (_, _) => const GroupsScreen(),
         routes: [
-          GoRoute(path: 'settings', builder: (_, _) => const SettingsScreen()),
+          GoRoute(
+            path: 'settings',
+            builder: (_, _) => const SettingsScreen(),
+            routes: [GoRoute(path: 'payment-methods', builder: (_, _) => const PaymentMethodsScreen())],
+          ),
           GoRoute(path: 'join-code', builder: (_, _) => const JoinCodeScreen()),
           GoRoute(path: 'join/:code', builder: (_, s) => JoinScreen(code: s.pathParameters['code']!)),
           GoRoute(

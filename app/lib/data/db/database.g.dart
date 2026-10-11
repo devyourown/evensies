@@ -1751,6 +1751,16 @@ class $PaymentsTable extends Payments
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('confirmed'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1761,6 +1771,7 @@ class $PaymentsTable extends Payments
     currency,
     date,
     deleted,
+    status,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1833,6 +1844,12 @@ class $PaymentsTable extends Payments
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
       );
     }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
     return context;
   }
 
@@ -1874,6 +1891,10 @@ class $PaymentsTable extends Payments
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
     );
   }
 
@@ -1892,6 +1913,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
   final String currency;
   final String date;
   final bool deleted;
+  final String status;
   const PaymentRow({
     required this.id,
     required this.groupId,
@@ -1901,6 +1923,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     required this.currency,
     required this.date,
     required this.deleted,
+    required this.status,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1913,6 +1936,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     map['currency'] = Variable<String>(currency);
     map['date'] = Variable<String>(date);
     map['deleted'] = Variable<bool>(deleted);
+    map['status'] = Variable<String>(status);
     return map;
   }
 
@@ -1926,6 +1950,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       currency: Value(currency),
       date: Value(date),
       deleted: Value(deleted),
+      status: Value(status),
     );
   }
 
@@ -1943,6 +1968,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       currency: serializer.fromJson<String>(json['currency']),
       date: serializer.fromJson<String>(json['date']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      status: serializer.fromJson<String>(json['status']),
     );
   }
   @override
@@ -1957,6 +1983,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       'currency': serializer.toJson<String>(currency),
       'date': serializer.toJson<String>(date),
       'deleted': serializer.toJson<bool>(deleted),
+      'status': serializer.toJson<String>(status),
     };
   }
 
@@ -1969,6 +1996,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     String? currency,
     String? date,
     bool? deleted,
+    String? status,
   }) => PaymentRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -1978,6 +2006,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     currency: currency ?? this.currency,
     date: date ?? this.date,
     deleted: deleted ?? this.deleted,
+    status: status ?? this.status,
   );
   PaymentRow copyWithCompanion(PaymentsCompanion data) {
     return PaymentRow(
@@ -1991,6 +2020,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       currency: data.currency.present ? data.currency.value : this.currency,
       date: data.date.present ? data.date.value : this.date,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      status: data.status.present ? data.status.value : this.status,
     );
   }
 
@@ -2004,7 +2034,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           ..write('amount: $amount, ')
           ..write('currency: $currency, ')
           ..write('date: $date, ')
-          ..write('deleted: $deleted')
+          ..write('deleted: $deleted, ')
+          ..write('status: $status')
           ..write(')'))
         .toString();
   }
@@ -2019,6 +2050,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     currency,
     date,
     deleted,
+    status,
   );
   @override
   bool operator ==(Object other) =>
@@ -2031,7 +2063,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           other.amount == this.amount &&
           other.currency == this.currency &&
           other.date == this.date &&
-          other.deleted == this.deleted);
+          other.deleted == this.deleted &&
+          other.status == this.status);
 }
 
 class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
@@ -2043,6 +2076,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
   final Value<String> currency;
   final Value<String> date;
   final Value<bool> deleted;
+  final Value<String> status;
   final Value<int> rowid;
   const PaymentsCompanion({
     this.id = const Value.absent(),
@@ -2053,6 +2087,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     this.currency = const Value.absent(),
     this.date = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.status = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PaymentsCompanion.insert({
@@ -2064,6 +2099,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     required String currency,
     required String date,
     this.deleted = const Value.absent(),
+    this.status = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -2081,6 +2117,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Expression<String>? currency,
     Expression<String>? date,
     Expression<bool>? deleted,
+    Expression<String>? status,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2092,6 +2129,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       if (currency != null) 'currency': currency,
       if (date != null) 'date': date,
       if (deleted != null) 'deleted': deleted,
+      if (status != null) 'status': status,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2105,6 +2143,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Value<String>? currency,
     Value<String>? date,
     Value<bool>? deleted,
+    Value<String>? status,
     Value<int>? rowid,
   }) {
     return PaymentsCompanion(
@@ -2116,6 +2155,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       currency: currency ?? this.currency,
       date: date ?? this.date,
       deleted: deleted ?? this.deleted,
+      status: status ?? this.status,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2147,6 +2187,9 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2164,6 +2207,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
           ..write('currency: $currency, ')
           ..write('date: $date, ')
           ..write('deleted: $deleted, ')
+          ..write('status: $status, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4068,6 +4112,7 @@ typedef $$PaymentsTableCreateCompanionBuilder =
       required String currency,
       required String date,
       Value<bool> deleted,
+      Value<String> status,
       Value<int> rowid,
     });
 typedef $$PaymentsTableUpdateCompanionBuilder =
@@ -4080,6 +4125,7 @@ typedef $$PaymentsTableUpdateCompanionBuilder =
       Value<String> currency,
       Value<String> date,
       Value<bool> deleted,
+      Value<String> status,
       Value<int> rowid,
     });
 
@@ -4129,6 +4175,11 @@ class $$PaymentsTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4181,6 +4232,11 @@ class $$PaymentsTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PaymentsTableAnnotationComposer
@@ -4217,6 +4273,9 @@ class $$PaymentsTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
 }
 
 class $$PaymentsTableTableManager
@@ -4258,6 +4317,7 @@ class $$PaymentsTableTableManager
                 Value<String> currency = const Value.absent(),
                 Value<String> date = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion(
                 id: id,
@@ -4268,6 +4328,7 @@ class $$PaymentsTableTableManager
                 currency: currency,
                 date: date,
                 deleted: deleted,
+                status: status,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4280,6 +4341,7 @@ class $$PaymentsTableTableManager
                 required String currency,
                 required String date,
                 Value<bool> deleted = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion.insert(
                 id: id,
@@ -4290,6 +4352,7 @@ class $$PaymentsTableTableManager
                 currency: currency,
                 date: date,
                 deleted: deleted,
+                status: status,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

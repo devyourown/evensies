@@ -10,4 +10,5 @@ abstract final class EventTypes {
   static const expenseDeleted = 'expense.deleted';
   static const paymentCreated = 'payment.created';
   static const paymentDeleted = 'payment.deleted';
+  static const paymentConfirmed = 'payment.confirmed';
 }

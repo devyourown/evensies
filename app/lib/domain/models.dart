@@ -117,6 +117,8 @@ class Payment {
   final String currency;
   final String date;
   final bool deleted;
+  /// 'sent' (waiting for the receiver to confirm) or 'confirmed'. Missing in JSON = confirmed.
+  final String status;
   const Payment({
     required this.id,
     required this.fromMember,
@@ -125,8 +127,10 @@ class Payment {
     required this.currency,
     required this.date,
     this.deleted = false,
+    this.status = 'confirmed',
   });
-  Payment copyWith({bool? deleted}) => Payment(
+  bool get pending => status == 'sent';
+  Payment copyWith({bool? deleted, String? status}) => Payment(
         id: id,
         fromMember: fromMember,
         toMember: toMember,
@@ -134,6 +138,7 @@ class Payment {
         currency: currency,
         date: date,
         deleted: deleted ?? this.deleted,
+        status: status ?? this.status,
       );
   factory Payment.fromJson(Map<String, dynamic> j) => Payment(
         id: j['id'] as String,
@@ -143,6 +148,7 @@ class Payment {
         currency: j['currency'] as String,
         date: j['date'] as String,
         deleted: j['deleted'] as bool? ?? false,
+        status: j['status'] as String? ?? 'confirmed',
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -152,6 +158,7 @@ class Payment {
         'currency': currency,
         'date': date,
         'deleted': deleted,
+        'status': status,
       };
 }
 

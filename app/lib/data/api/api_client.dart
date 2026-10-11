@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../domain/models.dart';
+import '../../domain/payment_methods.dart';
 import '../db/database.dart';
 import 'dto.dart';
 
@@ -81,6 +82,16 @@ class ApiClient {
   Future<void> deleteMe() => _call(() => _dio.delete('/me'), (_) {});
   Future<void> registerDevice(String deviceId, String fcmToken) =>
       _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});
+
+  // --- payment methods
+  List<PaymentMethod> _methods(dynamic d) => (d as List).map((e) => PaymentMethod.fromJson(_map(e))).toList();
+  Future<List<PaymentMethod>> getMyPaymentMethods() => _call(() => _dio.get('/me/payment-methods'), _methods);
+  Future<List<PaymentMethod>> putMyPaymentMethods(List<PaymentMethod> ms) => _call(
+      () => _dio.put('/me/payment-methods', data: ms.map((m) => m.toJson()).toList()), _methods);
+  /// memberId → that linked member's methods.
+  Future<Map<String, List<PaymentMethod>>> groupPaymentMethods(String groupId) =>
+      _call(() => _dio.get('/groups/$groupId/payment-methods'),
+          (d) => {for (final e in _map(d).entries) e.key: _methods(e.value)});
 
   // --- groups
   Future<GroupDto> createGroup({

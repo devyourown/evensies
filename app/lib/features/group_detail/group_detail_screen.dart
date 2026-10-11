@@ -62,12 +62,13 @@ class _ExpensesTab extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     if (state == null) return const Center(child: CircularProgressIndicator());
     final expenses = state.expenses.where((e) => !e.deleted).toList()..sort((a, b) => b.date.compareTo(a.date));
+    final payments = state.payments.where((p) => !p.deleted).toList();
     final names = {for (final m in state.members) m.id: m.name};
     final me = group.myMemberId;
 
     Future<void> refresh() => ref.read(syncProvider).sync(group.id).catchError((_) {});
 
-    if (expenses.isEmpty) {
+    if (expenses.isEmpty && payments.isEmpty) {
       return RefreshIndicator(
         onRefresh: refresh,
         child: ListView(children: [
@@ -85,18 +86,24 @@ class _ExpensesTab extends ConsumerWidget {
       );
     }
 
+    final rows = <({String date, Widget tile})>[
+      for (final e in expenses)
+        (date: e.date, tile: _ExpenseTile(expense: e, group: group, payerName: names[e.paidBy] ?? '?', myMemberId: me)),
+      for (final p in payments)
+        (date: p.date, tile: _PaymentTile(payment: p, from: names[p.fromMember] ?? '?', to: names[p.toMember] ?? '?')),
+    ]..sort((a, b) => b.date.compareTo(a.date));
     final items = <Widget>[];
     String? lastDate;
-    for (final e in expenses) {
-      if (e.date != lastDate) {
-        lastDate = e.date;
+    for (final r in rows) {
+      if (r.date != lastDate) {
+        lastDate = r.date;
         items.add(Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(_dateHeader(e.date),
+          child: Text(_dateHeader(r.date),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
         ));
       }
-      items.add(_ExpenseTile(expense: e, group: group, payerName: names[e.paidBy] ?? '?', myMemberId: me));
+      items.add(r.tile);
     }
     return RefreshIndicator(
       onRefresh: refresh,
@@ -162,6 +169,35 @@ class _ExpenseTile extends StatelessWidget {
   }
 }
 
+class _PaymentTile extends StatelessWidget {
+  final Payment payment;
+  final String from, to;
+  const _PaymentTile({required this.payment, required this.from, required this.to});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Icon(Icons.payments_outlined, color: cs.onSurfaceVariant),
+      title: Text('$from paid $to', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: payment.pending
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(4)),
+                child: Text('pending', style: text.labelSmall?.copyWith(color: cs.onTertiaryContainer)),
+              ),
+            )
+          : null,
+      trailing: Text(formatMoney(payment.amount, payment.currency), style: text.titleMedium),
+    );
+  }
+}
+
 class _BalancesTab extends ConsumerWidget {
   final GroupRow group;
   const _BalancesTab({required this.group});
@@ -180,6 +216,10 @@ class _BalancesTab extends ConsumerWidget {
       ..sort((x, y) => (b[y.id] ?? 0).compareTo(b[x.id] ?? 0));
     final maxAbs = rows.fold(0, (acc, m) => (b[m.id] ?? 0).abs() > acc ? (b[m.id] ?? 0).abs() : acc);
     final unsettled = maxAbs > 0;
+    final me = group.myMemberId;
+    final myPending = (ref.watch(groupStateProvider(group.id)).value?.payments ?? const <Payment>[])
+        .where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me))
+        .length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
@@ -206,12 +246,12 @@ class _BalancesTab extends ConsumerWidget {
             ]),
           ),
         for (final m in rows) _BalanceRow(name: m.name + (m.removed ? ' (removed)' : ''), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: group.defaultCurrency),
-        if (unsettled) ...[
+        if (unsettled || myPending > 0) ...[
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => context.push('/groups/${group.id}/settle'),
             icon: const Icon(Icons.handshake_outlined),
-            label: const Text('Settle up'),
+            label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
           ),
         ],
       ],

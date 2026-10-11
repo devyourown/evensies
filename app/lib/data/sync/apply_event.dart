@@ -3,7 +3,7 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~5 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~6 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
@@ -11,6 +11,7 @@ import 'event_types.dart';
 /// 3. 삭제 vs 수정: deleted=true인 지출·송금에 오는 `updated`는 무시한다.
 /// 4. 없는 대상에 오는 `updated`·`deleted`·`linked`·`removed`는 무시한다.
 /// 5. `member.removed`는 removed=true만 표시한다(목록에서 빼지 않는다).
+/// 6. `payment.confirmed`는 status를 confirmed로 바꾼다. 없거나 삭제된 송금이면 무시.
 ///
 /// 이벤트별 payload(docs/API.md):
 ///   group.created {name, defaultCurrency} → state.name/defaultCurrency
@@ -21,7 +22,8 @@ import 'event_types.dart';
 ///   expense.created {expenseId, description, amount, currency, fxRateToDefault, paidBy, date, category, shares}
 ///     → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId}
-///   payment.created {paymentId, fromMember, toMember, amount, currency, date}   payment.deleted {paymentId}
+///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}   payment.deleted {paymentId}
+///   payment.confirmed {paymentId}
 ///   모르는 type → state 그대로.
 GroupState applyEvent(GroupState s, SyncEvent e) {
   final p = e.payload;
@@ -73,6 +75,11 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
     case EventTypes.paymentDeleted:
       final id = p['paymentId'] as String;
       return s.copyWith(payments: [for (final x in s.payments) x.id == id ? x.copyWith(deleted: true) : x]);
+    case EventTypes.paymentConfirmed:
+      final id = p['paymentId'] as String;
+      return s.copyWith(payments: [
+        for (final x in s.payments) x.id == id && !x.deleted ? x.copyWith(status: 'confirmed') : x,
+      ]);
     default:
       return s;
   }

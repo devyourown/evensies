@@ -101,6 +101,7 @@ class LocalWrites {
           amount: p.amount,
           currency: p.currency,
           date: p.date,
+          status: Value(p.status),
         ));
     await _enqueue(groupId, EventTypes.paymentCreated, {
       'paymentId': p.id,
@@ -109,7 +110,14 @@ class LocalWrites {
       'amount': p.amount,
       'currency': p.currency,
       'date': p.date,
+      'status': p.status,
     });
+  }
+
+  Future<void> confirmPayment(String groupId, String paymentId) async {
+    await (db.update(db.payments)..where((p) => p.id.equals(paymentId)))
+        .write(const PaymentsCompanion(status: Value('confirmed')));
+    await _enqueue(groupId, EventTypes.paymentConfirmed, {'paymentId': paymentId});
   }
 
   Future<void> deletePayment(String groupId, String paymentId) async {
