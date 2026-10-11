@@ -9,6 +9,9 @@ deploy/secrets/*
 !deploy/secrets/.gitkeep
 deploy/backups/*
 !deploy/backups/.gitkeep
+# Uploaded files (EVENSIES_STORAGE_DIR): user data, never committed
+deploy/data/
+server/data/
 
 # Firebase / Google
 **/GoogleService-Info.plist
