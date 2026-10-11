@@ -28,7 +28,9 @@ class AuthService {
         scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName]);
     final token = c.identityToken;
     if (token == null) throw const ApiException(code: 'APPLE', message: 'No identity token from Apple');
-    await _store(await ref.read(apiProvider).authApple(token));
+    // Apple shares the name only on the very first sign-in and never inside the id token.
+    final name = [c.givenName, c.familyName].whereType<String>().where((p) => p.trim().isNotEmpty).join(' ');
+    await _store(await ref.read(apiProvider).authApple(token, displayName: name.isEmpty ? null : name));
   }
 
   Future<void> google() async {
@@ -38,7 +40,7 @@ class AuthService {
     final account = await g.authenticate();
     final token = account.authentication.idToken;
     if (token == null) throw const ApiException(code: 'GOOGLE', message: 'No id token from Google');
-    await _store(await ref.read(apiProvider).authGoogle(token));
+    await _store(await ref.read(apiProvider).authGoogle(token, displayName: account.displayName));
   }
 
   Future<void> logout() => ref.read(dbProvider).wipeAll();

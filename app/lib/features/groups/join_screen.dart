@@ -18,7 +18,8 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
   late final Future<InvitePreview> _preview = ref.read(apiProvider).invitePreview(widget.code);
   static const _newMember = '__new__';
   String _memberId = _newMember; // existing placeholder id, or _newMember
-  final _name = TextEditingController();
+  // New members default to the profile name, like when creating a group.
+  late final _name = TextEditingController(text: ref.read(sessionProvider).value?.displayName ?? '');
   bool _busy = false;
 
   Future<void> _join() async {
@@ -52,7 +53,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 Text(p.name, style: Theme.of(context).textTheme.headlineSmall),
-                Text('${p.memberCount} members'),
+                Text('${p.memberCount} ${p.memberCount == 1 ? 'member' : 'members'}'),
                 const SizedBox(height: 24),
                 const Text('Who are you?'),
                 RadioGroup<String>(

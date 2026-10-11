@@ -64,16 +64,20 @@ class ApiClient {
   Map<String, dynamic> _map(dynamic d) => (d as Map).cast<String, dynamic>();
 
   // --- auth
-  Future<AuthResponse> authApple(String idToken) => _call(
-      () => _dio.post('/auth/apple', data: {'idToken': idToken}, options: Options(extra: {'noAuth': true})),
+  Future<AuthResponse> authApple(String idToken, {String? displayName}) => _call(
+      () => _dio.post('/auth/apple',
+          data: {'idToken': idToken, 'displayName': ?displayName}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
-  Future<AuthResponse> authGoogle(String idToken) => _call(
-      () => _dio.post('/auth/google', data: {'idToken': idToken}, options: Options(extra: {'noAuth': true})),
+  Future<AuthResponse> authGoogle(String idToken, {String? displayName}) => _call(
+      () => _dio.post('/auth/google',
+          data: {'idToken': idToken, 'displayName': ?displayName}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
   Future<AuthResponse> authDev(String name) => _call(
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
   Future<UserDto> me() => _call(() => _dio.get('/me'), (d) => UserDto.fromJson(_map(d)));
+  Future<UserDto> updateMe(String displayName) =>
+      _call(() => _dio.patch('/me', data: {'displayName': displayName}), (d) => UserDto.fromJson(_map(d)));
   Future<void> deleteMe() => _call(() => _dio.delete('/me'), (_) {});
   Future<void> registerDevice(String deviceId, String fcmToken) =>
       _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});

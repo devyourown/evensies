@@ -16,6 +16,15 @@ abstract final class Money {
 
   static int digits(String currency) => decimals[currency] ?? 2;
   static List<String> get currencies => decimals.keys.toList()..sort();
+
+  /// Currency of a locale like `ko_KR` (→ KRW), if we support it; otherwise EUR.
+  static String currencyForLocale(String locale) {
+    try {
+      final c = NumberFormat.simpleCurrency(locale: locale).currencyName;
+      if (c != null && decimals.containsKey(c)) return c;
+    } catch (_) {}
+    return 'EUR';
+  }
 }
 
 String formatMoney(int minor, String currency) {

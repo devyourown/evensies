@@ -1,8 +1,11 @@
 import 'package:drift/drift.dart' show Value;
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
@@ -22,13 +25,18 @@ class _CreateGroupDialog extends ConsumerStatefulWidget {
 class _State extends ConsumerState<_CreateGroupDialog> {
   final _name = TextEditingController();
   final _me = TextEditingController();
-  String _currency = 'EUR';
+  static const _lastCurrencyKey = 'lastCurrency';
+  late String _currency;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _me.text = ref.read(sessionProvider).value?.displayName ?? '';
+    final last = ref.read(sharedPreferencesProvider).getString(_lastCurrencyKey);
+    _currency = last != null && Money.decimals.containsKey(last)
+        ? last
+        : Money.currencyForLocale(PlatformDispatcher.instance.locale.toString());
   }
 
   Future<void> _create() async {
@@ -57,6 +65,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
           id: memberId, groupId: id, name: _me.text.trim(), userId: Value(ref.read(sessionProvider).value?.userId)));
       // group.created + member.added are already reflected locally; start pulling after them.
       await db.setLastSeq(id, dto.latestSeq);
+      await ref.read(sharedPreferencesProvider).setString(_lastCurrencyKey, _currency);
       if (!mounted) return;
       Navigator.pop(context);
       context.push('/groups/$id');

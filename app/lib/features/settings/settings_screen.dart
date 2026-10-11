@@ -42,7 +42,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text(session?.displayName ?? '-'),
-            subtitle: const Text('Signed in'),
+            subtitle: const Text('Your name · tap to change'),
+            trailing: const Icon(Icons.edit_outlined),
+            onTap: () => context.push('/name'),
           ),
           header('Export & import'),
           if (groups.isEmpty)
