@@ -887,6 +887,15 @@ class $ExpensesTable extends Expenses
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -899,6 +908,7 @@ class $ExpensesTable extends Expenses
     date,
     category,
     deleted,
+    notes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -989,6 +999,12 @@ class $ExpensesTable extends Expenses
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
       );
     }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
     return context;
   }
 
@@ -1038,6 +1054,10 @@ class $ExpensesTable extends Expenses
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
     );
   }
 
@@ -1058,6 +1078,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
   final String date;
   final String? category;
   final bool deleted;
+  final String? notes;
   const ExpenseRow({
     required this.id,
     required this.groupId,
@@ -1069,6 +1090,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     required this.date,
     this.category,
     required this.deleted,
+    this.notes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1087,6 +1109,9 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       map['category'] = Variable<String>(category);
     }
     map['deleted'] = Variable<bool>(deleted);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
     return map;
   }
 
@@ -1106,6 +1131,9 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           ? const Value.absent()
           : Value(category),
       deleted: Value(deleted),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
     );
   }
 
@@ -1125,6 +1153,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       date: serializer.fromJson<String>(json['date']),
       category: serializer.fromJson<String?>(json['category']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      notes: serializer.fromJson<String?>(json['notes']),
     );
   }
   @override
@@ -1141,6 +1170,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       'date': serializer.toJson<String>(date),
       'category': serializer.toJson<String?>(category),
       'deleted': serializer.toJson<bool>(deleted),
+      'notes': serializer.toJson<String?>(notes),
     };
   }
 
@@ -1155,6 +1185,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     String? date,
     Value<String?> category = const Value.absent(),
     bool? deleted,
+    Value<String?> notes = const Value.absent(),
   }) => ExpenseRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -1168,6 +1199,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     date: date ?? this.date,
     category: category.present ? category.value : this.category,
     deleted: deleted ?? this.deleted,
+    notes: notes.present ? notes.value : this.notes,
   );
   ExpenseRow copyWithCompanion(ExpensesCompanion data) {
     return ExpenseRow(
@@ -1185,6 +1217,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       date: data.date.present ? data.date.value : this.date,
       category: data.category.present ? data.category.value : this.category,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      notes: data.notes.present ? data.notes.value : this.notes,
     );
   }
 
@@ -1200,7 +1233,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           ..write('paidBy: $paidBy, ')
           ..write('date: $date, ')
           ..write('category: $category, ')
-          ..write('deleted: $deleted')
+          ..write('deleted: $deleted, ')
+          ..write('notes: $notes')
           ..write(')'))
         .toString();
   }
@@ -1217,6 +1251,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     date,
     category,
     deleted,
+    notes,
   );
   @override
   bool operator ==(Object other) =>
@@ -1231,7 +1266,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           other.paidBy == this.paidBy &&
           other.date == this.date &&
           other.category == this.category &&
-          other.deleted == this.deleted);
+          other.deleted == this.deleted &&
+          other.notes == this.notes);
 }
 
 class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
@@ -1245,6 +1281,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
   final Value<String> date;
   final Value<String?> category;
   final Value<bool> deleted;
+  final Value<String?> notes;
   final Value<int> rowid;
   const ExpensesCompanion({
     this.id = const Value.absent(),
@@ -1257,6 +1294,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     this.date = const Value.absent(),
     this.category = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExpensesCompanion.insert({
@@ -1270,6 +1308,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     required String date,
     this.category = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.notes = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -1289,6 +1328,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Expression<String>? date,
     Expression<String>? category,
     Expression<bool>? deleted,
+    Expression<String>? notes,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1302,6 +1342,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       if (date != null) 'date': date,
       if (category != null) 'category': category,
       if (deleted != null) 'deleted': deleted,
+      if (notes != null) 'notes': notes,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1317,6 +1358,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Value<String>? date,
     Value<String?>? category,
     Value<bool>? deleted,
+    Value<String?>? notes,
     Value<int>? rowid,
   }) {
     return ExpensesCompanion(
@@ -1330,6 +1372,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       date: date ?? this.date,
       category: category ?? this.category,
       deleted: deleted ?? this.deleted,
+      notes: notes ?? this.notes,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1367,6 +1410,9 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
     }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1386,6 +1432,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
           ..write('date: $date, ')
           ..write('category: $category, ')
           ..write('deleted: $deleted, ')
+          ..write('notes: $notes, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2208,6 +2255,829 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
           ..write('date: $date, ')
           ..write('deleted: $deleted, ')
           ..write('status: $status, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CommentsTable extends Comments
+    with TableInfo<$CommentsTable, CommentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CommentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expenseIdMeta = const VerificationMeta(
+    'expenseId',
+  );
+  @override
+  late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
+    'expense_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _authorMemberIdMeta = const VerificationMeta(
+    'authorMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> authorMemberId = GeneratedColumn<String>(
+    'author_member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    groupId,
+    expenseId,
+    authorMemberId,
+    body,
+    createdAt,
+    deleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'comments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CommentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('expense_id')) {
+      context.handle(
+        _expenseIdMeta,
+        expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expenseIdMeta);
+    }
+    if (data.containsKey('author_member_id')) {
+      context.handle(
+        _authorMemberIdMeta,
+        authorMemberId.isAcceptableOrUnknown(
+          data['author_member_id']!,
+          _authorMemberIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_authorMemberIdMeta);
+    }
+    if (data.containsKey('text')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['text']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CommentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CommentRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      expenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_id'],
+      )!,
+      authorMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_member_id'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $CommentsTable createAlias(String alias) {
+    return $CommentsTable(attachedDatabase, alias);
+  }
+}
+
+class CommentRow extends DataClass implements Insertable<CommentRow> {
+  final String id;
+  final String groupId;
+  final String expenseId;
+  final String authorMemberId;
+  final String body;
+  final String createdAt;
+  final bool deleted;
+  const CommentRow({
+    required this.id,
+    required this.groupId,
+    required this.expenseId,
+    required this.authorMemberId,
+    required this.body,
+    required this.createdAt,
+    required this.deleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['group_id'] = Variable<String>(groupId);
+    map['expense_id'] = Variable<String>(expenseId);
+    map['author_member_id'] = Variable<String>(authorMemberId);
+    map['text'] = Variable<String>(body);
+    map['created_at'] = Variable<String>(createdAt);
+    map['deleted'] = Variable<bool>(deleted);
+    return map;
+  }
+
+  CommentsCompanion toCompanion(bool nullToAbsent) {
+    return CommentsCompanion(
+      id: Value(id),
+      groupId: Value(groupId),
+      expenseId: Value(expenseId),
+      authorMemberId: Value(authorMemberId),
+      body: Value(body),
+      createdAt: Value(createdAt),
+      deleted: Value(deleted),
+    );
+  }
+
+  factory CommentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CommentRow(
+      id: serializer.fromJson<String>(json['id']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      expenseId: serializer.fromJson<String>(json['expenseId']),
+      authorMemberId: serializer.fromJson<String>(json['authorMemberId']),
+      body: serializer.fromJson<String>(json['body']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'groupId': serializer.toJson<String>(groupId),
+      'expenseId': serializer.toJson<String>(expenseId),
+      'authorMemberId': serializer.toJson<String>(authorMemberId),
+      'body': serializer.toJson<String>(body),
+      'createdAt': serializer.toJson<String>(createdAt),
+      'deleted': serializer.toJson<bool>(deleted),
+    };
+  }
+
+  CommentRow copyWith({
+    String? id,
+    String? groupId,
+    String? expenseId,
+    String? authorMemberId,
+    String? body,
+    String? createdAt,
+    bool? deleted,
+  }) => CommentRow(
+    id: id ?? this.id,
+    groupId: groupId ?? this.groupId,
+    expenseId: expenseId ?? this.expenseId,
+    authorMemberId: authorMemberId ?? this.authorMemberId,
+    body: body ?? this.body,
+    createdAt: createdAt ?? this.createdAt,
+    deleted: deleted ?? this.deleted,
+  );
+  CommentRow copyWithCompanion(CommentsCompanion data) {
+    return CommentRow(
+      id: data.id.present ? data.id.value : this.id,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+      authorMemberId: data.authorMemberId.present
+          ? data.authorMemberId.value
+          : this.authorMemberId,
+      body: data.body.present ? data.body.value : this.body,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommentRow(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('authorMemberId: $authorMemberId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deleted: $deleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    groupId,
+    expenseId,
+    authorMemberId,
+    body,
+    createdAt,
+    deleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CommentRow &&
+          other.id == this.id &&
+          other.groupId == this.groupId &&
+          other.expenseId == this.expenseId &&
+          other.authorMemberId == this.authorMemberId &&
+          other.body == this.body &&
+          other.createdAt == this.createdAt &&
+          other.deleted == this.deleted);
+}
+
+class CommentsCompanion extends UpdateCompanion<CommentRow> {
+  final Value<String> id;
+  final Value<String> groupId;
+  final Value<String> expenseId;
+  final Value<String> authorMemberId;
+  final Value<String> body;
+  final Value<String> createdAt;
+  final Value<bool> deleted;
+  final Value<int> rowid;
+  const CommentsCompanion({
+    this.id = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.expenseId = const Value.absent(),
+    this.authorMemberId = const Value.absent(),
+    this.body = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CommentsCompanion.insert({
+    required String id,
+    required String groupId,
+    required String expenseId,
+    required String authorMemberId,
+    required String body,
+    required String createdAt,
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       groupId = Value(groupId),
+       expenseId = Value(expenseId),
+       authorMemberId = Value(authorMemberId),
+       body = Value(body),
+       createdAt = Value(createdAt);
+  static Insertable<CommentRow> custom({
+    Expression<String>? id,
+    Expression<String>? groupId,
+    Expression<String>? expenseId,
+    Expression<String>? authorMemberId,
+    Expression<String>? body,
+    Expression<String>? createdAt,
+    Expression<bool>? deleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (groupId != null) 'group_id': groupId,
+      if (expenseId != null) 'expense_id': expenseId,
+      if (authorMemberId != null) 'author_member_id': authorMemberId,
+      if (body != null) 'text': body,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deleted != null) 'deleted': deleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CommentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? groupId,
+    Value<String>? expenseId,
+    Value<String>? authorMemberId,
+    Value<String>? body,
+    Value<String>? createdAt,
+    Value<bool>? deleted,
+    Value<int>? rowid,
+  }) {
+    return CommentsCompanion(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      expenseId: expenseId ?? this.expenseId,
+      authorMemberId: authorMemberId ?? this.authorMemberId,
+      body: body ?? this.body,
+      createdAt: createdAt ?? this.createdAt,
+      deleted: deleted ?? this.deleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (expenseId.present) {
+      map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (authorMemberId.present) {
+      map['author_member_id'] = Variable<String>(authorMemberId.value);
+    }
+    if (body.present) {
+      map['text'] = Variable<String>(body.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CommentsCompanion(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('authorMemberId: $authorMemberId, ')
+          ..write('body: $body, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deleted: $deleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ActivityTable extends Activity
+    with TableInfo<$ActivityTable, ActivityRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActivityTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _seqMeta = const VerificationMeta('seq');
+  @override
+  late final GeneratedColumn<int> seq = GeneratedColumn<int>(
+    'seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _feedIdMeta = const VerificationMeta('feedId');
+  @override
+  late final GeneratedColumn<int> feedId = GeneratedColumn<int>(
+    'feed_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  @override
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [groupId, seq, feedId, createdAt, json];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'activity';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActivityRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('seq')) {
+      context.handle(
+        _seqMeta,
+        seq.isAcceptableOrUnknown(data['seq']!, _seqMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seqMeta);
+    }
+    if (data.containsKey('feed_id')) {
+      context.handle(
+        _feedIdMeta,
+        feedId.isAcceptableOrUnknown(data['feed_id']!, _feedIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_feedIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(
+        _jsonMeta,
+        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {groupId, seq};
+  @override
+  ActivityRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActivityRow(
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      seq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seq'],
+      )!,
+      feedId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}feed_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+    );
+  }
+
+  @override
+  $ActivityTable createAlias(String alias) {
+    return $ActivityTable(attachedDatabase, alias);
+  }
+}
+
+class ActivityRow extends DataClass implements Insertable<ActivityRow> {
+  final String groupId;
+  final int seq;
+  final int feedId;
+  final String createdAt;
+  final String json;
+  const ActivityRow({
+    required this.groupId,
+    required this.seq,
+    required this.feedId,
+    required this.createdAt,
+    required this.json,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['group_id'] = Variable<String>(groupId);
+    map['seq'] = Variable<int>(seq);
+    map['feed_id'] = Variable<int>(feedId);
+    map['created_at'] = Variable<String>(createdAt);
+    map['json'] = Variable<String>(json);
+    return map;
+  }
+
+  ActivityCompanion toCompanion(bool nullToAbsent) {
+    return ActivityCompanion(
+      groupId: Value(groupId),
+      seq: Value(seq),
+      feedId: Value(feedId),
+      createdAt: Value(createdAt),
+      json: Value(json),
+    );
+  }
+
+  factory ActivityRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActivityRow(
+      groupId: serializer.fromJson<String>(json['groupId']),
+      seq: serializer.fromJson<int>(json['seq']),
+      feedId: serializer.fromJson<int>(json['feedId']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+      json: serializer.fromJson<String>(json['json']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'groupId': serializer.toJson<String>(groupId),
+      'seq': serializer.toJson<int>(seq),
+      'feedId': serializer.toJson<int>(feedId),
+      'createdAt': serializer.toJson<String>(createdAt),
+      'json': serializer.toJson<String>(json),
+    };
+  }
+
+  ActivityRow copyWith({
+    String? groupId,
+    int? seq,
+    int? feedId,
+    String? createdAt,
+    String? json,
+  }) => ActivityRow(
+    groupId: groupId ?? this.groupId,
+    seq: seq ?? this.seq,
+    feedId: feedId ?? this.feedId,
+    createdAt: createdAt ?? this.createdAt,
+    json: json ?? this.json,
+  );
+  ActivityRow copyWithCompanion(ActivityCompanion data) {
+    return ActivityRow(
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      seq: data.seq.present ? data.seq.value : this.seq,
+      feedId: data.feedId.present ? data.feedId.value : this.feedId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      json: data.json.present ? data.json.value : this.json,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityRow(')
+          ..write('groupId: $groupId, ')
+          ..write('seq: $seq, ')
+          ..write('feedId: $feedId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('json: $json')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(groupId, seq, feedId, createdAt, json);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActivityRow &&
+          other.groupId == this.groupId &&
+          other.seq == this.seq &&
+          other.feedId == this.feedId &&
+          other.createdAt == this.createdAt &&
+          other.json == this.json);
+}
+
+class ActivityCompanion extends UpdateCompanion<ActivityRow> {
+  final Value<String> groupId;
+  final Value<int> seq;
+  final Value<int> feedId;
+  final Value<String> createdAt;
+  final Value<String> json;
+  final Value<int> rowid;
+  const ActivityCompanion({
+    this.groupId = const Value.absent(),
+    this.seq = const Value.absent(),
+    this.feedId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.json = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActivityCompanion.insert({
+    required String groupId,
+    required int seq,
+    required int feedId,
+    required String createdAt,
+    required String json,
+    this.rowid = const Value.absent(),
+  }) : groupId = Value(groupId),
+       seq = Value(seq),
+       feedId = Value(feedId),
+       createdAt = Value(createdAt),
+       json = Value(json);
+  static Insertable<ActivityRow> custom({
+    Expression<String>? groupId,
+    Expression<int>? seq,
+    Expression<int>? feedId,
+    Expression<String>? createdAt,
+    Expression<String>? json,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (groupId != null) 'group_id': groupId,
+      if (seq != null) 'seq': seq,
+      if (feedId != null) 'feed_id': feedId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (json != null) 'json': json,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActivityCompanion copyWith({
+    Value<String>? groupId,
+    Value<int>? seq,
+    Value<int>? feedId,
+    Value<String>? createdAt,
+    Value<String>? json,
+    Value<int>? rowid,
+  }) {
+    return ActivityCompanion(
+      groupId: groupId ?? this.groupId,
+      seq: seq ?? this.seq,
+      feedId: feedId ?? this.feedId,
+      createdAt: createdAt ?? this.createdAt,
+      json: json ?? this.json,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (seq.present) {
+      map['seq'] = Variable<int>(seq.value);
+    }
+    if (feedId.present) {
+      map['feed_id'] = Variable<int>(feedId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityCompanion(')
+          ..write('groupId: $groupId, ')
+          ..write('seq: $seq, ')
+          ..write('feedId: $feedId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('json: $json, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3212,6 +4082,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExpensesTable expenses = $ExpensesTable(this);
   late final $ExpenseSharesTable expenseShares = $ExpenseSharesTable(this);
   late final $PaymentsTable payments = $PaymentsTable(this);
+  late final $CommentsTable comments = $CommentsTable(this);
+  late final $ActivityTable activity = $ActivityTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
   late final $SessionTable session = $SessionTable(this);
@@ -3225,6 +4097,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     expenses,
     expenseShares,
     payments,
+    comments,
+    activity,
     outbox,
     syncState,
     session,
@@ -3656,6 +4530,7 @@ typedef $$ExpensesTableCreateCompanionBuilder =
       required String date,
       Value<String?> category,
       Value<bool> deleted,
+      Value<String?> notes,
       Value<int> rowid,
     });
 typedef $$ExpensesTableUpdateCompanionBuilder =
@@ -3670,6 +4545,7 @@ typedef $$ExpensesTableUpdateCompanionBuilder =
       Value<String> date,
       Value<String?> category,
       Value<bool> deleted,
+      Value<String?> notes,
       Value<int> rowid,
     });
 
@@ -3729,6 +4605,11 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3791,6 +4672,11 @@ class $$ExpensesTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExpensesTableAnnotationComposer
@@ -3835,6 +4721,9 @@ class $$ExpensesTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
 }
 
 class $$ExpensesTableTableManager
@@ -3878,6 +4767,7 @@ class $$ExpensesTableTableManager
                 Value<String> date = const Value.absent(),
                 Value<String?> category = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion(
                 id: id,
@@ -3890,6 +4780,7 @@ class $$ExpensesTableTableManager
                 date: date,
                 category: category,
                 deleted: deleted,
+                notes: notes,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3904,6 +4795,7 @@ class $$ExpensesTableTableManager
                 required String date,
                 Value<String?> category = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion.insert(
                 id: id,
@@ -3916,6 +4808,7 @@ class $$ExpensesTableTableManager
                 date: date,
                 category: category,
                 deleted: deleted,
+                notes: notes,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4375,6 +5268,440 @@ typedef $$PaymentsTableProcessedTableManager =
       $$PaymentsTableUpdateCompanionBuilder,
       (PaymentRow, BaseReferences<_$AppDatabase, $PaymentsTable, PaymentRow>),
       PaymentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$CommentsTableCreateCompanionBuilder =
+    CommentsCompanion Function({
+      required String id,
+      required String groupId,
+      required String expenseId,
+      required String authorMemberId,
+      required String body,
+      required String createdAt,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+typedef $$CommentsTableUpdateCompanionBuilder =
+    CommentsCompanion Function({
+      Value<String> id,
+      Value<String> groupId,
+      Value<String> expenseId,
+      Value<String> authorMemberId,
+      Value<String> body,
+      Value<String> createdAt,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+
+class $$CommentsTableFilterComposer
+    extends Composer<_$AppDatabase, $CommentsTable> {
+  $$CommentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CommentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CommentsTable> {
+  $$CommentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CommentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CommentsTable> {
+  $$CommentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get expenseId =>
+      $composableBuilder(column: $table.expenseId, builder: (column) => column);
+
+  GeneratedColumn<String> get authorMemberId => $composableBuilder(
+    column: $table.authorMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+}
+
+class $$CommentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CommentsTable,
+          CommentRow,
+          $$CommentsTableFilterComposer,
+          $$CommentsTableOrderingComposer,
+          $$CommentsTableAnnotationComposer,
+          $$CommentsTableCreateCompanionBuilder,
+          $$CommentsTableUpdateCompanionBuilder,
+          (
+            CommentRow,
+            BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>,
+          ),
+          CommentRow,
+          PrefetchHooks Function()
+        > {
+  $$CommentsTableTableManager(_$AppDatabase db, $CommentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CommentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CommentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CommentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> expenseId = const Value.absent(),
+                Value<String> authorMemberId = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommentsCompanion(
+                id: id,
+                groupId: groupId,
+                expenseId: expenseId,
+                authorMemberId: authorMemberId,
+                body: body,
+                createdAt: createdAt,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String groupId,
+                required String expenseId,
+                required String authorMemberId,
+                required String body,
+                required String createdAt,
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CommentsCompanion.insert(
+                id: id,
+                groupId: groupId,
+                expenseId: expenseId,
+                authorMemberId: authorMemberId,
+                body: body,
+                createdAt: createdAt,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CommentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CommentsTable,
+      CommentRow,
+      $$CommentsTableFilterComposer,
+      $$CommentsTableOrderingComposer,
+      $$CommentsTableAnnotationComposer,
+      $$CommentsTableCreateCompanionBuilder,
+      $$CommentsTableUpdateCompanionBuilder,
+      (CommentRow, BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>),
+      CommentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ActivityTableCreateCompanionBuilder =
+    ActivityCompanion Function({
+      required String groupId,
+      required int seq,
+      required int feedId,
+      required String createdAt,
+      required String json,
+      Value<int> rowid,
+    });
+typedef $$ActivityTableUpdateCompanionBuilder =
+    ActivityCompanion Function({
+      Value<String> groupId,
+      Value<int> seq,
+      Value<int> feedId,
+      Value<String> createdAt,
+      Value<String> json,
+      Value<int> rowid,
+    });
+
+class $$ActivityTableFilterComposer
+    extends Composer<_$AppDatabase, $ActivityTable> {
+  $$ActivityTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get feedId => $composableBuilder(
+    column: $table.feedId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ActivityTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActivityTable> {
+  $$ActivityTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get feedId => $composableBuilder(
+    column: $table.feedId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ActivityTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActivityTable> {
+  $$ActivityTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<int> get seq =>
+      $composableBuilder(column: $table.seq, builder: (column) => column);
+
+  GeneratedColumn<int> get feedId =>
+      $composableBuilder(column: $table.feedId, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => column);
+}
+
+class $$ActivityTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActivityTable,
+          ActivityRow,
+          $$ActivityTableFilterComposer,
+          $$ActivityTableOrderingComposer,
+          $$ActivityTableAnnotationComposer,
+          $$ActivityTableCreateCompanionBuilder,
+          $$ActivityTableUpdateCompanionBuilder,
+          (
+            ActivityRow,
+            BaseReferences<_$AppDatabase, $ActivityTable, ActivityRow>,
+          ),
+          ActivityRow,
+          PrefetchHooks Function()
+        > {
+  $$ActivityTableTableManager(_$AppDatabase db, $ActivityTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActivityTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActivityTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActivityTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> groupId = const Value.absent(),
+                Value<int> seq = const Value.absent(),
+                Value<int> feedId = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String> json = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityCompanion(
+                groupId: groupId,
+                seq: seq,
+                feedId: feedId,
+                createdAt: createdAt,
+                json: json,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String groupId,
+                required int seq,
+                required int feedId,
+                required String createdAt,
+                required String json,
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityCompanion.insert(
+                groupId: groupId,
+                seq: seq,
+                feedId: feedId,
+                createdAt: createdAt,
+                json: json,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ActivityTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActivityTable,
+      ActivityRow,
+      $$ActivityTableFilterComposer,
+      $$ActivityTableOrderingComposer,
+      $$ActivityTableAnnotationComposer,
+      $$ActivityTableCreateCompanionBuilder,
+      $$ActivityTableUpdateCompanionBuilder,
+      (ActivityRow, BaseReferences<_$AppDatabase, $ActivityTable, ActivityRow>),
+      ActivityRow,
       PrefetchHooks Function()
     >;
 typedef $$OutboxTableCreateCompanionBuilder =
@@ -4946,6 +6273,10 @@ class $AppDatabaseManager {
       $$ExpenseSharesTableTableManager(_db, _db.expenseShares);
   $$PaymentsTableTableManager get payments =>
       $$PaymentsTableTableManager(_db, _db.payments);
+  $$CommentsTableTableManager get comments =>
+      $$CommentsTableTableManager(_db, _db.comments);
+  $$ActivityTableTableManager get activity =>
+      $$ActivityTableTableManager(_db, _db.activity);
   $$OutboxTableTableManager get outbox =>
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncStateTableTableManager get syncState =>

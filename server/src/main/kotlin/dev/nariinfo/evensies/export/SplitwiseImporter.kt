@@ -1,9 +1,11 @@
 package dev.nariinfo.evensies.export
 
 import com.opencsv.CSVReader
+import dev.nariinfo.evensies.activity.clip
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.money.Money
 import dev.nariinfo.evensies.sync.EventService
+import dev.nariinfo.evensies.sync.EventValidator
 import dev.nariinfo.evensies.sync.GroupStateStore
 import dev.nariinfo.evensies.sync.IncomingEvent
 import dev.nariinfo.evensies.sync.PushResult
@@ -66,7 +68,7 @@ class SplitwiseImporter(
             out += event(
                 "expense.created", mapOf(
                     "expenseId" to UUID.randomUUID().toString(),
-                    "description" to row[desc].trim().ifEmpty { "Imported" },
+                    "description" to row[desc].trim().ifEmpty { "Imported" }.clip(EventValidator.MAX_DESCRIPTION),
                     "amount" to amount, "currency" to cur, "fxRateToDefault" to null,
                     "paidBy" to payer.first, "date" to parseDate(row[date], line),
                     "category" to row.getOrNull(header.indexOf("Category"))?.trim()?.ifEmpty { null },

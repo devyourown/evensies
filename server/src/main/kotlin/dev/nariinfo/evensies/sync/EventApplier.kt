@@ -9,13 +9,15 @@ data class GroupState(
     val members: Map<String, MemberDto> = emptyMap(),
     val expenses: Map<String, ExpenseDto> = emptyMap(),
     val payments: Map<String, PaymentDto> = emptyMap(),
+    val comments: Map<String, CommentDto> = emptyMap(),
 )
 
 /**
  * Kotlin twin of the Dart applier. Rules (docs/API.md "적용 규칙"):
  * 1. pure and idempotent; 2. field-level last-write-wins by applying in seq order;
  * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags;
- * 6. payment.confirmed sets status, ignored for unknown or deleted payments.
+ * 6. payment.confirmed sets status, ignored for unknown or deleted payments; 7. expense.restored is the only way back
+ * from deleted; 8. comment.added only adds new ids, comment.deleted flags and blanks the text; 9. missing notes = null.
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -49,6 +51,7 @@ object EventApplier {
                     category = p.text("category"),
                     deleted = false,
                     shares = p.shares("shares") ?: emptyList(),
+                    notes = p.text("notes"),
                 )
             )
         }
@@ -66,10 +69,27 @@ object EventApplier {
                     date = if (f.has("date")) f.text("date") ?: e.date else e.date,
                     category = if (f.has("category")) f.text("category") else e.category,
                     shares = if (f.has("shares")) f.shares("shares") ?: e.shares else e.shares,
+                    notes = if (f.has("notes")) f.text("notes") else e.notes,
                 )
             )
         }
         "expense.deleted" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = true)) } ?: state
+        "expense.restored" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = false)) } ?: state
+
+        "comment.added" -> {
+            val id = p.text("commentId") ?: ""
+            if (id in state.comments) state
+            else state.withComment(
+                CommentDto(
+                    id = id,
+                    expenseId = p.text("expenseId") ?: "",
+                    authorMemberId = p.text("authorMemberId") ?: "",
+                    text = p.text("text") ?: "",
+                    createdAt = p.text("createdAt") ?: "",
+                )
+            )
+        }
+        "comment.deleted" -> state.comments[p.text("commentId")]?.let { state.withComment(it.copy(deleted = true, text = "")) } ?: state
 
         "payment.created" -> {
             val id = p.text("paymentId") ?: ""
@@ -97,6 +117,7 @@ object EventApplier {
     private fun GroupState.withMember(m: MemberDto) = copy(members = members + (m.id to m))
     private fun GroupState.withExpense(e: ExpenseDto) = copy(expenses = expenses + (e.id to e))
     private fun GroupState.withPayment(p: PaymentDto) = copy(payments = payments + (p.id to p))
+    private fun GroupState.withComment(c: CommentDto) = copy(comments = comments + (c.id to c))
 }
 
 // Null-safe payload readers: missing or JSON null → null.

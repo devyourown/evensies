@@ -9,18 +9,24 @@ import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
+import '../activity/activity_screen.dart';
 import 'balances.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   final String groupId;
-  const GroupDetailScreen({super.key, required this.groupId});
+
+  /// `activity` opens the Activity tab (`/groups/{id}?tab=activity`, e.g. from a notification).
+  final String? tab;
+  const GroupDetailScreen({super.key, required this.groupId, this.tab});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final group = ref.watch(groupProvider(groupId)).value;
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return DefaultTabController(
-      length: 2,
+      key: ValueKey(tab), // a new ?tab= on the same page re-selects the tab
+      length: 3,
+      initialIndex: tab == 'activity' ? 2 : 0,
       child: Scaffold(
         appBar: AppBar(
           title: Text(group.name),
@@ -31,11 +37,17 @@ class GroupDetailScreen extends ConsumerWidget {
               icon: const Icon(Icons.people_outline),
             ),
           ],
-          bottom: const TabBar(tabs: [Tab(text: 'Expenses'), Tab(text: 'Balances')]),
+          bottom: const TabBar(tabs: [Tab(text: 'Expenses'), Tab(text: 'Balances'), Tab(text: 'Activity')]),
         ),
         body: Column(children: [
           const OfflineBanner(),
-          Expanded(child: TabBarView(children: [_ExpensesTab(group: group), _BalancesTab(group: group)])),
+          Expanded(
+            child: TabBarView(children: [
+              _ExpensesTab(group: group),
+              _BalancesTab(group: group),
+              ActivityList(groupId: groupId),
+            ]),
+          ),
         ]),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/groups/$groupId/expenses/new'),

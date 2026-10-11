@@ -14,13 +14,13 @@ class LocalWrites {
   final SyncService sync;
   LocalWrites(this.db, this.sync);
 
-  Future<void> _enqueue(String groupId, String type, Map<String, dynamic> payload) async {
+  Future<void> _enqueue(String groupId, String type, Map<String, dynamic> payload, {String? createdAt}) async {
     await db.into(db.outbox).insert(OutboxCompanion.insert(
           clientId: newId(),
           groupId: groupId,
           type: type,
           payloadJson: jsonEncode(payload),
-          createdAt: nowIsoUtc(),
+          createdAt: createdAt ?? nowIsoUtc(),
         ));
     sync.syncLater(groupId);
   }
@@ -37,6 +37,7 @@ class LocalWrites {
             paidBy: e.paidBy,
             date: e.date,
             category: Value(e.category),
+            notes: Value(e.notes),
           ));
       await _writeShares(e);
     });
@@ -49,6 +50,7 @@ class LocalWrites {
       'paidBy': e.paidBy,
       'date': e.date,
       'category': e.category,
+      'notes': e.notes,
       'shares': e.shares.map((s) => s.toJson()).toList(),
     });
   }
@@ -67,6 +69,7 @@ class LocalWrites {
             paidBy: updated.paidBy,
             date: updated.date,
             category: Value(updated.category),
+            notes: Value(updated.notes),
           ));
       if (fields.containsKey('shares')) await _writeShares(updated);
     });
@@ -90,6 +93,36 @@ class LocalWrites {
     await (db.update(db.expenses)..where((e) => e.id.equals(expenseId)))
         .write(const ExpensesCompanion(deleted: Value(true)));
     await _enqueue(groupId, EventTypes.expenseDeleted, {'expenseId': expenseId});
+  }
+
+  Future<void> restoreExpense(String groupId, String expenseId) async {
+    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId)))
+        .write(const ExpensesCompanion(deleted: Value(false)));
+    await _enqueue(groupId, EventTypes.expenseRestored, {'expenseId': expenseId});
+  }
+
+  /// As my member in the group; the payload's createdAt equals the event's (docs/API.md `comment.added`).
+  Future<void> addComment(String groupId, String expenseId, String text) async {
+    final me = (await db.getGroup(groupId))?.myMemberId;
+    if (me == null) throw StateError('No member of mine in group $groupId');
+    final id = newId();
+    final at = nowIsoUtc();
+    await db.into(db.comments).insert(CommentsCompanion.insert(
+        id: id, groupId: groupId, expenseId: expenseId, authorMemberId: me, body: text, createdAt: at));
+    await _enqueue(
+      groupId,
+      EventTypes.commentAdded,
+      {'commentId': id, 'expenseId': expenseId, 'authorMemberId': me, 'text': text, 'createdAt': at},
+      createdAt: at,
+    );
+  }
+
+  /// Blanks the text like the applier (docs/API.md 적용 규칙 8).
+  Future<void> deleteComment(String groupId, String commentId) async {
+    await (db.update(db.comments)..where((c) => c.id.equals(commentId)))
+        .write(const CommentsCompanion(deleted: Value(true), body: Value('')));
+    await db.dropDeletedCommentActivity(groupId);
+    await _enqueue(groupId, EventTypes.commentDeleted, {'commentId': commentId});
   }
 
   Future<void> createPayment(String groupId, Payment p) async {

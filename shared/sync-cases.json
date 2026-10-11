@@ -1,5 +1,5 @@
 {
-  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수.",
+  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}).",
   "cases": [
     {
       "name": "create expense then update description only",
@@ -706,6 +706,656 @@
             "date": "2026-10-11",
             "deleted": true,
             "status": "sent"
+          }
+        ]
+      }
+    },
+    {
+      "name": "notes: set on create, missing means null, updated and cleared",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 2000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": "Table 12",
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 2000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Taxi",
+            "amount": 900,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 900
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "notes": "Airport"
+            }
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "notes": null
+            }
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "description": "Taxi to airport"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 2000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 2000
+              }
+            ]
+          },
+          {
+            "id": "x2",
+            "description": "Taxi to airport",
+            "amount": 900,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": "Airport",
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 900
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "comments": []
+      }
+    },
+    {
+      "name": "restore brings a deleted expense back; updates sent while deleted stay lost",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Gelato",
+            "amount": 600,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 600
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 700,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 700
+                }
+              ]
+            }
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "description": "Gelato x2"
+            }
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "ghost"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Gelato x2",
+            "amount": 600,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 600
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "comments": []
+      }
+    },
+    {
+      "name": "delete and restore: the later seq wins, restore of a live expense changes nothing",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Museum",
+            "amount": 1500,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1500
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Museum",
+            "amount": 1500,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": null,
+            "deleted": true,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1500
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "comments": []
+      }
+    },
+    {
+      "name": "comments: added, duplicate id ignored, delete flags and blanks the text, re-add of a deleted id and unknown delete ignored",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Hotel",
+            "amount": 10000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              },
+              {
+                "memberId": "m2",
+                "amount": 5000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "expenseId": "x1",
+            "authorMemberId": "m2",
+            "text": "Is breakfast included?",
+            "createdAt": "2026-10-11T09:00:00Z"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c2",
+            "expenseId": "x1",
+            "authorMemberId": "m1",
+            "text": "Yes",
+            "createdAt": "2026-10-11T09:05:00Z"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "expenseId": "x1",
+            "authorMemberId": "m2",
+            "text": "Edited text",
+            "createdAt": "2026-10-11T09:10:00Z"
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "comment.deleted",
+          "payload": {
+            "commentId": "c2"
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c2",
+            "expenseId": "x1",
+            "authorMemberId": "m1",
+            "text": "Yes",
+            "createdAt": "2026-10-11T09:05:00Z"
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "comment.deleted",
+          "payload": {
+            "commentId": "ghost"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Hotel",
+            "amount": 10000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              },
+              {
+                "memberId": "m2",
+                "amount": 5000
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "comments": [
+          {
+            "id": "c1",
+            "expenseId": "x1",
+            "authorMemberId": "m2",
+            "text": "Is breakfast included?",
+            "createdAt": "2026-10-11T09:00:00Z",
+            "deleted": false
+          },
+          {
+            "id": "c2",
+            "expenseId": "x1",
+            "authorMemberId": "m1",
+            "text": "",
+            "createdAt": "2026-10-11T09:05:00Z",
+            "deleted": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "comments: a deleted comment pulled from the server log (its text already \"\") replays to the same tombstone",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Hotel",
+            "amount": 10000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              },
+              {
+                "memberId": "m2",
+                "amount": 5000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "expenseId": "x1",
+            "authorMemberId": "m2",
+            "text": "",
+            "createdAt": "2026-10-11T09:00:00Z"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "comment.deleted",
+          "payload": {
+            "commentId": "c1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Hotel",
+            "amount": 10000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "notes": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              },
+              {
+                "memberId": "m2",
+                "amount": 5000
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "comments": [
+          {
+            "id": "c1",
+            "expenseId": "x1",
+            "authorMemberId": "m2",
+            "text": "",
+            "createdAt": "2026-10-11T09:00:00Z",
+            "deleted": true
           }
         ]
       }

@@ -42,6 +42,7 @@ class Expense {
   final String paidBy;
   final String date; // YYYY-MM-DD
   final String? category;
+  final String? notes;
   final bool deleted;
   final List<Share> shares;
   const Expense({
@@ -53,6 +54,7 @@ class Expense {
     required this.paidBy,
     required this.date,
     this.category,
+    this.notes,
     this.deleted = false,
     required this.shares,
   });
@@ -67,6 +69,8 @@ class Expense {
     String? date,
     String? category,
     bool clearCategory = false,
+    String? notes,
+    bool clearNotes = false,
     bool? deleted,
     List<Share>? shares,
   }) =>
@@ -79,6 +83,7 @@ class Expense {
         paidBy: paidBy ?? this.paidBy,
         date: date ?? this.date,
         category: clearCategory ? null : (category ?? this.category),
+        notes: clearNotes ? null : (notes ?? this.notes),
         deleted: deleted ?? this.deleted,
         shares: shares ?? this.shares,
       );
@@ -92,6 +97,7 @@ class Expense {
         paidBy: j['paidBy'] as String,
         date: j['date'] as String,
         category: j['category'] as String?,
+        notes: j['notes'] as String?,
         deleted: j['deleted'] as bool? ?? false,
         shares: (j['shares'] as List).cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
       );
@@ -104,6 +110,7 @@ class Expense {
         'paidBy': paidBy,
         'date': date,
         'category': category,
+        'notes': notes,
         'deleted': deleted,
         'shares': shares.map((s) => s.toJson()).toList(),
       };
@@ -162,6 +169,47 @@ class Payment {
       };
 }
 
+class Comment {
+  final String id;
+  final String expenseId;
+  final String authorMemberId;
+  final String text;
+  final String createdAt; // ISO-8601 UTC
+  final bool deleted;
+  const Comment({
+    required this.id,
+    required this.expenseId,
+    required this.authorMemberId,
+    required this.text,
+    required this.createdAt,
+    this.deleted = false,
+  });
+  Comment copyWith({bool? deleted, String? text}) => Comment(
+        id: id,
+        expenseId: expenseId,
+        authorMemberId: authorMemberId,
+        text: text ?? this.text,
+        createdAt: createdAt,
+        deleted: deleted ?? this.deleted,
+      );
+  factory Comment.fromJson(Map<String, dynamic> j) => Comment(
+        id: j['id'] as String,
+        expenseId: j['expenseId'] as String,
+        authorMemberId: j['authorMemberId'] as String,
+        text: j['text'] as String,
+        createdAt: j['createdAt'] as String,
+        deleted: j['deleted'] as bool? ?? false,
+      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'expenseId': expenseId,
+        'authorMemberId': authorMemberId,
+        'text': text,
+        'createdAt': createdAt,
+        'deleted': deleted,
+      };
+}
+
 /// Immutable. Lists keep insertion order (same as the server snapshot).
 class GroupState {
   final String? name;
@@ -169,12 +217,14 @@ class GroupState {
   final List<Member> members;
   final List<Expense> expenses;
   final List<Payment> payments;
+  final List<Comment> comments;
   const GroupState({
     this.name,
     this.defaultCurrency,
     this.members = const [],
     this.expenses = const [],
     this.payments = const [],
+    this.comments = const [],
   });
 
   static const empty = GroupState();
@@ -185,6 +235,7 @@ class GroupState {
     List<Member>? members,
     List<Expense>? expenses,
     List<Payment>? payments,
+    List<Comment>? comments,
   }) =>
       GroupState(
         name: name ?? this.name,
@@ -192,24 +243,29 @@ class GroupState {
         members: members ?? this.members,
         expenses: expenses ?? this.expenses,
         payments: payments ?? this.payments,
+        comments: comments ?? this.comments,
       );
 
   Member? member(String id) => members.where((m) => m.id == id).firstOrNull;
   Expense? expense(String id) => expenses.where((e) => e.id == id).firstOrNull;
   Payment? payment(String id) => payments.where((p) => p.id == id).firstOrNull;
+  Comment? comment(String id) => comments.where((c) => c.id == id).firstOrNull;
 
-  /// Parses the `members/expenses/payments` part of a snapshot or of a sync-cases `expected`.
+  /// Parses the `members/expenses/payments/comments` part of a snapshot or of a sync-cases `expected`.
   factory GroupState.fromJson(Map<String, dynamic> j) => GroupState(
         name: (j['group'] as Map?)?['name'] as String?,
         defaultCurrency: (j['group'] as Map?)?['defaultCurrency'] as String?,
         members: (j['members'] as List).cast<Map<String, dynamic>>().map(Member.fromJson).toList(),
         expenses: (j['expenses'] as List).cast<Map<String, dynamic>>().map(Expense.fromJson).toList(),
         payments: (j['payments'] as List).cast<Map<String, dynamic>>().map(Payment.fromJson).toList(),
+        // Missing in sync-cases `expected` and in pre-Phase-2 snapshots.
+        comments: ((j['comments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Comment.fromJson).toList(),
       );
   Map<String, dynamic> toJson() => {
         'members': members.map((m) => m.toJson()).toList(),
         'expenses': expenses.map((e) => e.toJson()).toList(),
         'payments': payments.map((p) => p.toJson()).toList(),
+        'comments': comments.map((c) => c.toJson()).toList(),
       };
 }
 

@@ -1,0 +1,195 @@
+import 'dart:convert';
+
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:evensies/data/api/dto.dart';
+import 'package:evensies/data/db/database.dart';
+import 'package:evensies/data/sync/apply_event.dart';
+import 'package:evensies/data/sync/sync_service.dart';
+import 'package:evensies/domain/models.dart';
+
+import 'fakes.dart';
+
+SyncEvent ev(int seq, String type, Map<String, dynamic> payload) =>
+    SyncEvent(seq: seq, clientId: 'e$seq', type: type, payload: payload);
+
+final _log = [
+  ev(1, 'member.added', {'memberId': 'm1', 'name': 'Anna', 'userId': null}),
+  ev(2, 'expense.created', {
+    'expenseId': 'x1',
+    'description': 'Dinner',
+    'amount': 2000,
+    'currency': 'EUR',
+    'fxRateToDefault': null,
+    'paidBy': 'm1',
+    'date': '2026-10-10',
+    'category': null,
+    'notes': 'Table 12',
+    'shares': [
+      {'memberId': 'm1', 'amount': 2000}
+    ],
+  }),
+  ev(3, 'comment.added', {
+    'commentId': 'c1',
+    'expenseId': 'x1',
+    'authorMemberId': 'm1',
+    'text': 'Paid cash',
+    'createdAt': '2026-10-11T09:00:00Z',
+  }),
+];
+
+void main() {
+  test('schema 2 → 3 keeps rows, adds notes/comments/activity and resets lastSeq', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      raw.execute('CREATE TABLE "expenses" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "description" TEXT NOT NULL, '
+          '"amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "fx_rate_to_default" REAL NULL, "paid_by" TEXT NOT NULL, '
+          '"date" TEXT NOT NULL, "category" TEXT NULL, "deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
+          'PRIMARY KEY ("id"))');
+      raw.execute('CREATE TABLE "sync_state" ("group_id" TEXT NOT NULL, "last_seq" INTEGER NOT NULL DEFAULT 0, '
+          'PRIMARY KEY ("group_id"))');
+      raw.execute("INSERT INTO expenses (id, group_id, description, amount, currency, paid_by, date) "
+          "VALUES ('x1', 'g1', 'Dinner', 2000, 'EUR', 'm1', '2026-10-10')");
+      raw.execute("INSERT INTO sync_state VALUES ('g1', 57)");
+      raw.execute('PRAGMA user_version = 2');
+    }));
+    addTearDown(db.close);
+
+    final x = await db.getExpense('x1');
+    expect(x!.description, 'Dinner');
+    expect(x.notes, isNull);
+    expect(await db.lastSeq('g1'), 0);
+    expect(await db.select(db.comments).get(), isEmpty);
+    expect(await db.select(db.activity).get(), isEmpty);
+  });
+
+  group('pull', () {
+    late AppDatabase db;
+    late FakeApi api;
+    late SyncService sync;
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      api = FakeApi(db)..events = _log;
+      sync = SyncService(db: db, api: api);
+      await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1'));
+      // What release 1 stored for that log: no notes, no comment.
+      await sync.store.save(
+        'g1',
+        GroupState(
+          members: const [Member(id: 'm1', name: 'Anna')],
+          expenses: [Expense.fromJson({..._log[1].payload, 'id': 'x1'}).copyWith(clearNotes: true)],
+        ),
+        3,
+      );
+    });
+    tearDown(() => db.close());
+
+    test('from lastSeq 0 folds the whole log from empty, so notes and comments come back', () async {
+      await db.setLastSeq('g1', 0);
+      await sync.sync('g1');
+      final s = await sync.store.load('g1');
+      expect(s.expense('x1')!.notes, 'Table 12');
+      expect(s.comments.single.text, 'Paid cash');
+      expect(await db.lastSeq('g1'), 3);
+    });
+
+    test('a pulled restore takes the server state, not my optimistic edit of the deleted row', () async {
+      // Case A: offline I edited x1 to 3000 while Ben deleted it; the server ignored my update (rule 3),
+      // then someone restored x1. My stored row still holds my edit.
+      final mine = Expense.fromJson({..._log[1].payload, 'id': 'x1'}).copyWith(amount: 3000);
+      await sync.store.save('g1', GroupState(members: const [Member(id: 'm1', name: 'Anna')], expenses: [mine]), 3);
+      final server = Expense.fromJson({..._log[1].payload, 'id': 'x1'});
+      api
+        ..events = [
+          ..._log,
+          ev(4, 'expense.deleted', {'expenseId': 'x1'}),
+          ev(5, 'expense.updated', {
+            'expenseId': 'x1',
+            'fields': {'amount': 3000}
+          }),
+          ev(6, 'expense.restored', {'expenseId': 'x1'}),
+        ]
+        ..snap = (
+          group: const GroupDto(
+              id: 'g1', name: 'Rome', defaultCurrency: 'EUR', inviteCode: 'ABC', latestSeq: 6, myMemberId: 'm1'),
+          state: GroupState(members: const [Member(id: 'm1', name: 'Anna')], expenses: [server]),
+          latestSeq: 6,
+        );
+      await sync.sync('g1');
+      final x = (await sync.store.load('g1')).expense('x1')!;
+      expect(x.deleted, isFalse);
+      expect(x.amount, 2000);
+      expect(await db.lastSeq('g1'), 6);
+    });
+
+    test('a restore whose snapshot fails falls back to a full replay next time', () async {
+      final mine = Expense.fromJson({..._log[1].payload, 'id': 'x1'}).copyWith(amount: 3000);
+      await sync.store.save('g1', GroupState(members: const [Member(id: 'm1', name: 'Anna')], expenses: [mine]), 3);
+      api.events = [..._log, ev(4, 'expense.restored', {'expenseId': 'x1'})]; // no snap: unreachable
+      await expectLater(sync.sync('g1'), throwsA(isA<ApiException>()));
+      expect(await db.lastSeq('g1'), 0);
+      await sync.sync('g1');
+      expect((await sync.store.load('g1')).expense('x1')!.amount, 2000);
+    });
+
+    test('a pulled comment.deleted blanks the text and drops its cached feed row', () async {
+      await db.setLastSeq('g1', 0);
+      api.events = [..._log, ev(4, 'comment.deleted', {'commentId': 'c1'})];
+      Future<void> cache(int seq, Map<String, dynamic> item) => db.into(db.activity).insert(
+          ActivityCompanion.insert(groupId: 'g1', seq: seq, feedId: seq, createdAt: '', json: jsonEncode(item)));
+      await cache(3, {'kind': 'comment_added', 'commentId': 'c1', 'text': 'Paid cash'});
+      await cache(2, {'kind': 'expense_added', 'commentId': null, 'expenseId': 'x1'});
+      await sync.sync('g1');
+      final c = (await sync.store.load('g1')).comments.single;
+      expect((c.deleted, c.text), (true, ''));
+      expect((await db.select(db.activity).get()).map((a) => a.seq), [2]);
+    });
+
+    test('from lastSeq > 0 folds over the stored state', () async {
+      await db.setLastSeq('g1', 2);
+      await sync.sync('g1');
+      final s = await sync.store.load('g1');
+      expect(s.expense('x1')!.notes, isNull); // not replayed
+      expect(s.members.single.name, 'Anna');
+      expect(s.comments.single.id, 'c1');
+    });
+  });
+
+  test('created entities start live whatever "deleted" the payload carries (like the Kotlin applier)', () {
+    var s = GroupState.empty;
+    for (final e in [
+      ev(1, 'expense.created', {..._log[1].payload, 'deleted': true}),
+      ev(2, 'comment.added', {..._log[2].payload, 'deleted': 'x'}),
+      ev(3, 'payment.created', {
+        'paymentId': 'p1',
+        'fromMember': 'm1',
+        'toMember': 'm2',
+        'amount': 500,
+        'currency': 'EUR',
+        'date': '2026-10-11',
+        'deleted': true,
+      }),
+    ]) {
+      s = applyEvent(s, e);
+    }
+    expect(s.expense('x1')!.deleted, isFalse);
+    expect(s.comments.single.deleted, isFalse);
+    expect(s.payment('p1')!.deleted, isFalse);
+  });
+
+  test('store round-trips notes and comment tombstones', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0));
+    final sync = SyncService(db: db, api: FakeApi(db));
+    final s = GroupState(
+      expenses: [Expense.fromJson({..._log[1].payload, 'id': 'x1'})],
+      comments: const [Comment(id: 'c1', expenseId: 'x1', authorMemberId: 'm1', text: 't', createdAt: 'z', deleted: true)],
+    );
+    await sync.store.save('g1', s, 3);
+    final back = await sync.store.load('g1');
+    expect(back.toJson()['expenses'], s.toJson()['expenses']);
+    expect(back.toJson()['comments'], s.toJson()['comments']);
+    expect((await db.select(db.comments).getSingle()).deleted, isTrue);
+    expect(back.expense('x1')!.notes, 'Table 12');
+  });
+}

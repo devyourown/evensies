@@ -24,6 +24,45 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final _url = TextEditingController(text: ref.read(serverUrlProvider));
 
+  /// GET/PUT /me/notifications; null while loading or when it failed ([_prefsFailed]).
+  Map<String, bool>? _prefs;
+  bool _prefsFailed = false;
+  static const _prefLabels = [
+    ('expenses', 'Expenses and payments', Icons.receipt_long_outlined),
+    ('comments', 'Comments', Icons.chat_bubble_outline),
+    ('members', 'Members and group changes', Icons.group_outlined),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    if (_prefsFailed) setState(() => _prefsFailed = false);
+    try {
+      final p = await ref.read(apiProvider).getNotificationPrefs();
+      if (mounted) setState(() => _prefs = p);
+    } catch (_) {
+      if (mounted) setState(() => _prefsFailed = true);
+    }
+  }
+
+  /// Optimistic; reverts when the server refuses or is unreachable.
+  Future<void> _setPref(String key, bool on) async {
+    final old = _prefs!;
+    setState(() => _prefs = {...old, key: on});
+    try {
+      final saved = await ref.read(apiProvider).putNotificationPrefs({...old, key: on});
+      if (mounted) setState(() => _prefs = saved);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _prefs = old);
+      showError(context, 'Could not save notification settings. Check your connection.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider).value;
@@ -53,6 +92,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/payment-methods'),
           ),
+          header('Notifications'),
+          for (final (key, label, icon) in _prefLabels)
+            SwitchListTile(
+              secondary: Icon(icon),
+              title: Text(label),
+              value: _prefs?[key] ?? true,
+              onChanged: _prefs == null ? null : (v) => _setPref(key, v),
+            ),
+          if (_prefsFailed)
+            ListTile(
+              leading: Icon(Icons.cloud_off_outlined, color: cs.onSurfaceVariant),
+              title: Text('Notification settings need a connection', style: TextStyle(color: cs.onSurfaceVariant)),
+              trailing: TextButton(onPressed: _loadPrefs, child: const Text('Retry')),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Only changes made by other people notify you.',
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ),
           header('Export & import'),
           if (groups.isEmpty)
             Padding(

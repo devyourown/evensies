@@ -33,6 +33,10 @@ final paymentsProvider = StreamProvider.family<List<PaymentRow>, String>((ref, i
   final db = ref.watch(dbProvider);
   return (db.select(db.payments)..where((p) => p.groupId.equals(id) & p.deleted.equals(false))).watch();
 });
+final commentsProvider = StreamProvider.family<List<CommentRow>, String>((ref, id) {
+  final db = ref.watch(dbProvider);
+  return (db.select(db.comments)..where((c) => c.groupId.equals(id))).watch();
+});
 
 /// Offline chip state, mirrored from SyncService.
 final offlineProvider = Provider<bool>((ref) {

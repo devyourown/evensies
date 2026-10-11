@@ -2,13 +2,13 @@ package dev.nariinfo.evensies.money
 
 import tools.jackson.databind.json.JsonMapper
 import java.math.BigDecimal
+import java.util.Locale
 
-/** Currency decimal places, loaded from resources/currencies.json (a copy of shared/currencies.json). */
+/** Currency decimal places and symbols, loaded from resources/currencies.json (a copy of shared/currencies.json). */
 object Money {
-    val decimals: Map<String, Int> = Money::class.java.getResourceAsStream("/currencies.json")!!.use { stream ->
-        val node = JsonMapper.shared().readTree(stream).get("decimals")
-        node.properties().associate { (k, v) -> k to v.asInt() }
-    }
+    private val json = Money::class.java.getResourceAsStream("/currencies.json")!!.use { JsonMapper.shared().readTree(it) }
+    val decimals: Map<String, Int> = json.get("decimals").properties().associate { (k, v) -> k to v.asInt() }
+    val symbols: Map<String, String> = json.get("symbols").properties().associate { (k, v) -> k to v.asString() }
 
     fun isKnown(currency: String) = currency in decimals
 
@@ -18,4 +18,10 @@ object Money {
 
     fun format(minor: Long, currency: String): String =
         BigDecimal.valueOf(minor).movePointLeft(decimals.getValue(currency)).toPlainString()
+
+    /** Activity/push display, same as the app's formatMoney: 1234567 KWD -> "din1,234.567", 15000 KRW -> "₩15,000". */
+    fun display(minor: Long, currency: String): String {
+        val d = decimals[currency] ?: 2
+        return (symbols[currency] ?: currency) + String.format(Locale.US, "%,.${d}f", BigDecimal.valueOf(minor).movePointLeft(d))
+    }
 }

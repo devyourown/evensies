@@ -2,12 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../core/ids.dart';
 import '../../domain/models.dart';
 import '../api/api_client.dart';
 import '../api/dto.dart';
 import '../db/database.dart';
 import 'apply_event.dart';
+import 'event_types.dart';
 import 'group_state_store.dart';
 
 /// push unsent outbox → pull after lastSeq → fold through applyEvent → save.
@@ -37,19 +37,36 @@ class SyncService {
               createdAt: o.createdAt,
             ),
         ]);
-        await db.markSent(unsent.map((o) => o.clientId).toList(), nowIsoUtc());
+        await db.dropSent(unsent.map((o) => o.clientId).toList());
       }
       var last = await db.lastSeq(groupId);
+      // lastSeq 0 = full replay (the schema v3 upgrade resets it): fold from empty, because replaying on top of
+      // stored rows would keep what release 1 dropped (notes, comments, restores).
+      final replay = last == 0;
+      var state = replay ? GroupState.empty : await store.load(groupId);
+      var restored = false;
       while (true) {
         final page = await api.pullEvents(groupId, after: last);
         if (page.events.isEmpty) break;
-        var state = await store.load(groupId);
         for (final e in page.events) {
           state = _apply(state, e);
+          restored |= e.type == EventTypes.expenseRestored;
         }
         last = page.events.last.seq;
         await store.save(groupId, state, last);
         if (page.events.length < 500) break;
+      }
+      // The stored rows include my optimistic writes, so a deleted row may hold values the server never applied
+      // (an update it ignored under rule 3, or one I ignored because my delete was local first). A restore makes
+      // that row live again: take the server's state instead. The outbox was pushed above, so nothing is lost.
+      // ponytail: snapshot per restore; keep confirmed state apart from the optimistic layer if restores get frequent.
+      if (restored && !replay) {
+        try {
+          await adoptFromSnapshot(groupId);
+        } catch (_) {
+          await db.setLastSeq(groupId, 0); // replay from empty next time instead
+          rethrow;
+        }
       }
       offline.value = false;
     } catch (e) {

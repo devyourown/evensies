@@ -1,0 +1,277 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:evensies/core/money.dart';
+import 'package:evensies/data/db/database.dart';
+import 'package:evensies/domain/activity.dart';
+import 'package:evensies/features/activity/activity_screen.dart';
+import 'package:evensies/features/group_detail/group_detail_screen.dart';
+import 'package:evensies/providers.dart';
+
+import 'fakes.dart';
+
+Map<String, dynamic> item(int seq, String kind, Map<String, dynamic> fields) =>
+    {'groupId': 'g1', 'feedId': seq, 'seq': seq, 'kind': kind, 'createdAt': '2026-10-11T08:0$seq:00Z', ...fields};
+
+void main() {
+  late AppDatabase db;
+  late FakeApi api;
+
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2}}'));
+
+  setUp(() async {
+    db = AppDatabase(NativeDatabase.memory());
+    api = FakeApi(db);
+    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1'));
+    await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
+    await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
+    await db.into(db.expenses).insert(ExpensesCompanion.insert(
+        id: 'x1',
+        groupId: 'g1',
+        description: 'Taxi',
+        amount: 1800,
+        currency: 'EUR',
+        paidBy: 'm2',
+        date: '2026-10-11',
+        deleted: const Value(true)));
+  });
+  tearDown(() => db.close());
+
+  Widget app({Widget home = const Scaffold(body: ActivityList(groupId: 'g1'))}) => ProviderScope(
+        overrides: [
+          dbProvider.overrideWithValue(db),
+          apiProvider.overrideWithValue(api),
+          syncProvider.overrideWithValue(NoSync(db)),
+        ],
+        child: MaterialApp(home: home),
+      );
+
+  Future<void> settle(WidgetTester t) async {
+    for (var i = 0; i < 3; i++) {
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await t.pumpAndSettle();
+    }
+  }
+
+  Future<void> unmount(WidgetTester t) async {
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(milliseconds: 10));
+  }
+
+  testWidgets('renders sentences with local names and restores a deleted expense', (t) async {
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(3, 'expense_deleted',
+                {'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Taxi', 'amount': 1800, 'currency': 'EUR'})),
+            ActivityItem.fromJson(item(2, 'expense_added', {
+              'actorMemberId': 'm2',
+              'expenseId': 'x1',
+              'description': 'Taxi',
+              'amount': 1800,
+              'currency': 'EUR',
+              'myDelta': -900
+            })),
+            ActivityItem.fromJson(item(1, 'member_joined', {'actorMemberId': 'm1', 'memberId': 'm1'})),
+          ],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app());
+    await settle(t);
+
+    expect(find.text('Ben deleted “Taxi”'), findsOneWidget);
+    expect(find.text('Ben added “Taxi” · €18.00'), findsOneWidget);
+    expect(find.textContaining('you owe €9.00', findRichText: true), findsOneWidget); // its own colored line
+    expect(find.text('You joined'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Restore'), findsOneWidget);
+
+    await t.tap(find.widgetWithText(TextButton, 'Restore'));
+    await settle(t);
+    expect((await t.runAsync(() => db.getExpense('x1')))!.deleted, isFalse);
+    final out = (await t.runAsync(() => db.select(db.outbox).get()))!;
+    expect(out.single.type, 'expense.restored');
+    expect(jsonDecode(out.single.payloadJson), {'expenseId': 'x1'});
+    expect(find.widgetWithText(TextButton, 'Restore'), findsNothing);
+    await unmount(t);
+  });
+
+  testWidgets('follows nextBefore until null, also across empty pages', (t) async {
+    api.onActivity = (_, before) => switch (before) {
+          null => (items: [ActivityItem.fromJson(item(9, 'member_joined', {'memberId': 'm2'}))], nextBefore: 9),
+          9 => (items: <ActivityItem>[], nextBefore: 5),
+          _ => (items: [ActivityItem.fromJson(item(1, 'group_created', {'actorMemberId': 'm1', 'name': 'Rome'}))], nextBefore: null),
+        };
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(api.activityCalls, [('g1', null), ('g1', 9), ('g1', 5)]);
+    expect(find.text('Ben joined'), findsOneWidget);
+    expect(find.text('You created the group “Rome”'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('offline: shows the cached items, or a retry message without any', (t) async {
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('Activity needs a connection'), findsOneWidget);
+    await unmount(t);
+
+    api.onActivity = (_, _) => (items: [ActivityItem.fromJson(item(2, 'member_added', {'actorMemberId': 'm1', 'memberId': 'm2'}))], nextBefore: null);
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('You added Ben'), findsOneWidget);
+    await unmount(t);
+
+    api.onActivity = null; // offline again: the item comes from the drift cache
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('You added Ben'), findsOneWidget);
+    expect(find.text('Showing saved activity. Pull to refresh.'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('pages in on scroll only, and a refresh keeps the pages already loaded', (t) async {
+    ActivityItem created(int seq) => ActivityItem.fromJson(
+        {'groupId': 'g1', 'feedId': seq, 'seq': seq, 'kind': 'group_created', 'name': 'G$seq', 'createdAt': '2026-10-11T08:00:00Z'});
+    var top = 100;
+    api.onActivity = (_, before) => before == null
+        ? (items: [for (var s = top; s > top - 50; s--) created(s)], nextBefore: top - 49)
+        : (items: [for (var s = before - 1; s > 0; s--) created(s)], nextBefore: null);
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(api.activityCalls, [('g1', null)]); // nothing more until the end of the list comes near
+
+    await t.drag(find.byType(ListView), const Offset(0, -20000));
+    await settle(t);
+    expect(api.activityCalls, [('g1', null), ('g1', 51)]);
+
+    top = 101; // a new event arrives: only the first page is fetched again
+    await t.runAsync(() => db.upsertGroup(
+        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 10, myMemberId: 'm1')));
+    await settle(t);
+    expect(api.activityCalls, [('g1', null), ('g1', 51), ('g1', null)]);
+    await t.drag(find.byType(ListView), const Offset(0, -40000));
+    await settle(t);
+    expect(find.text('Someone created the group “G1”'), findsOneWidget); // page 2 is still there
+    expect(api.activityCalls.length, 3);
+    await t.drag(find.byType(ListView), const Offset(0, 40000));
+    await settle(t);
+    expect(find.text('Someone created the group “G101”'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('an empty first page that is not the end keeps paging', (t) async {
+    api.onActivity = (_, before) => before == null
+        ? (items: <ActivityItem>[], nextBefore: 40)
+        : (items: [ActivityItem.fromJson(item(1, 'member_added', {'actorMemberId': 'm1', 'memberId': 'm2'}))], nextBefore: null);
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(api.activityCalls, [('g1', null), ('g1', 40)]);
+    expect(find.text('You added Ben'), findsOneWidget);
+    expect(find.text('No activity yet'), findsNothing);
+    await unmount(t);
+  });
+
+  testWidgets('only the newest delete of an expense offers Restore', (t) async {
+    final deleted = {'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Taxi', 'amount': 1800, 'currency': 'EUR'};
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(5, 'expense_deleted', deleted)),
+            ActivityItem.fromJson(item(4, 'expense_restored', deleted)),
+            ActivityItem.fromJson(item(3, 'expense_deleted', deleted)),
+          ],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('Ben deleted “Taxi”'), findsNWidgets(2));
+    expect(find.widgetWithText(TextButton, 'Restore'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('payment and member rows open Settle up and Members', (t) async {
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(3, 'payment_added',
+                {'paymentId': 'p1', 'fromMember': 'm2', 'toMember': 'm1', 'amount': 2400, 'currency': 'EUR', 'status': 'sent'})),
+            ActivityItem.fromJson(item(2, 'member_added', {'actorMemberId': 'm1', 'memberId': 'm2'})),
+          ],
+          nextBefore: null,
+        );
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: ActivityList(groupId: 'g1'))),
+      GoRoute(path: '/groups/:id/settle', builder: (_, s) => Text('settle ${s.pathParameters['id']}')),
+      GoRoute(path: '/groups/:id/members', builder: (_, s) => Text('members ${s.pathParameters['id']}')),
+    ]);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        dbProvider.overrideWithValue(db),
+        apiProvider.overrideWithValue(api),
+        syncProvider.overrideWithValue(NoSync(db)),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await settle(t);
+    await t.tap(find.text('Ben paid you €24.00 · waiting for you to confirm'));
+    await settle(t);
+    expect(find.text('settle g1'), findsOneWidget);
+    router.pop();
+    await settle(t);
+    await t.tap(find.text('You added Ben'));
+    await settle(t);
+    expect(find.text('members g1'), findsOneWidget);
+    await unmount(t);
+  });
+
+  test('day labels count calendar days, also across a DST change', () {
+    String at(DateTime local) => local.toUtc().toIso8601String();
+    final now = DateTime(2026, 3, 30, 10); // Europe: DST began on Sun 29 Mar
+    expect(dayLabel(at(DateTime(2026, 3, 30, 0, 30)), now: now), 'Today');
+    expect(dayLabel(at(DateTime(2026, 3, 29, 9)), now: now), 'Yesterday');
+    expect(dayLabel(at(DateTime(2026, 3, 28, 23)), now: now), 'Sat, 28 Mar');
+    expect(dayLabel(at(DateTime(2026, 3, 29, 9)), now: DateTime(2026, 3, 31, 0, 10)), 'Sun, 29 Mar');
+  });
+
+  testWidgets('opening and pulling to refresh also sync the group, so new names and expenses resolve', (t) async {
+    final sync = _RecordingSync(db);
+    api.onActivity = (_, _) => (items: [ActivityItem.fromJson(item(2, 'member_added', {'actorMemberId': 'm1', 'memberId': 'm2'}))], nextBefore: null);
+    await t.pumpWidget(ProviderScope(
+      overrides: [dbProvider.overrideWithValue(db), apiProvider.overrideWithValue(api), syncProvider.overrideWithValue(sync)],
+      child: const MaterialApp(home: Scaffold(body: ActivityList(groupId: 'g1'))),
+    ));
+    await settle(t);
+    expect(sync.calls, ['g1']);
+    await t.fling(find.text('You added Ben'), const Offset(0, 400), 1000);
+    await settle(t);
+    expect(sync.calls, ['g1', 'g1']);
+    expect(api.activityCalls, [('g1', null), ('g1', null)]);
+    await unmount(t);
+  });
+
+  testWidgets('empty feed', (t) async {
+    api.onActivity = (_, _) => (items: <ActivityItem>[], nextBefore: null);
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('No activity yet'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('group screen opens on the Activity tab with ?tab=activity', (t) async {
+    api.onActivity = (_, _) => (items: [ActivityItem.fromJson(item(2, 'member_added', {'actorMemberId': 'm2', 'memberId': 'm1'}))], nextBefore: null);
+    await t.pumpWidget(app(home: const GroupDetailScreen(groupId: 'g1', tab: 'activity')));
+    await settle(t);
+    expect(find.text('Ben added you'), findsOneWidget);
+    expect(DefaultTabController.of(t.element(find.byType(TabBar))).index, 2);
+    await unmount(t);
+  });
+}
+
+class _RecordingSync extends NoSync {
+  _RecordingSync(super.db);
+  final calls = <String>[];
+  @override
+  Future<void> sync(String groupId) async => calls.add(groupId);
+}

@@ -11,6 +11,7 @@ import '../../data/db/database.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
+import 'comment_thread.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -25,6 +26,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _description = TextEditingController();
   final _fx = TextEditingController();
   final _category = TextEditingController();
+  final _notes = TextEditingController();
+  static const _maxNotes = 500; // UTF-16 units, like the server
+  static const _maxDescription = 200; // the server checks it only when sent, so an unchanged long one may stay
   final _perMember = <String, TextEditingController>{};
   String? _currency;
   String? _paidBy;
@@ -53,6 +57,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       paidBy: row.paidBy,
       date: row.date,
       category: row.category,
+      notes: row.notes,
       deleted: row.deleted,
       shares: [for (final s in shares) Share(memberId: s.memberId, amount: s.amount)],
     );
@@ -62,6 +67,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _description.text = e.description;
       _fx.text = e.fxRateToDefault?.toString() ?? '';
       _category.text = e.category ?? '';
+      _notes.text = e.notes ?? '';
       _currency = e.currency;
       _paidBy = e.paidBy;
       _date = e.date;
@@ -120,7 +126,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final currency = _currency ?? group.defaultCurrency;
     final paidBy = _paidBy ?? group.myMemberId ?? members.firstOrNull?.id;
     final amount = parseMoney(_amount.text, currency);
-    final canSave = !_busy && amount != null && amount > 0 && _description.text.trim().isNotEmpty && paidBy != null && members.isNotEmpty;
+    final deleted = _editing?.deleted ?? false;
+    final notesLength = _notes.text.trim().length;
+    final descriptionLength = _description.text.trim().length;
+    final descriptionTooLong = descriptionLength > _maxDescription && _description.text.trim() != _editing?.description;
+    final canSave = !_busy && !deleted && notesLength <= _maxNotes && !descriptionTooLong && amount != null && amount > 0 && _description.text.trim().isNotEmpty && paidBy != null && members.isNotEmpty;
     final dateLabel = DateFormat('EEE, d MMM yyyy').format(DateTime.tryParse(_date) ?? DateTime.now());
 
     Widget sectionLabel(String s) => Padding(
@@ -156,134 +166,181 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_editing == null ? 'New expense' : 'Edit expense'),
+        title: Text(_editing == null ? 'New expense' : (deleted ? 'Deleted expense' : 'Edit expense')),
         actions: [
-          if (_editing != null)
+          if (_editing != null && !deleted)
             IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => _delete()),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            Expanded(
-              child: TextField(
-                key: const Key('amount'),
-                controller: _amount,
-                autofocus: widget.expenseId == null,
-                style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(hintText: '0.00', border: InputBorder.none, isDense: true),
-                onChanged: (_) => setState(() {}),
+          if (deleted)
+            Card(
+              color: cs.errorContainer,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
+                title: Text('This expense was deleted', style: TextStyle(color: cs.onErrorContainer)),
+                subtitle: Text('Restore it to count it in balances again.', style: TextStyle(color: cs.onErrorContainer)),
+                trailing: FilledButton(onPressed: _busy ? null : _restore, child: const Text('Restore')),
               ),
             ),
-            const SizedBox(width: 12),
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: currency,
-                style: text.titleMedium?.copyWith(color: cs.onSurface),
-                items: [for (final c in Money.currencies) DropdownMenuItem(value: c, child: Text(c))],
-                onChanged: (v) => setState(() => _currency = v),
-              ),
-            ),
-          ]),
-          const Divider(height: 1),
-          if (currency != group.defaultCurrency)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: TextField(
-                controller: _fx,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Rate: 1 $currency in ${group.defaultCurrency}',
-                  helperText: 'Needed to count this expense in balances',
-                  prefixIcon: const Icon(Icons.currency_exchange),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const Key('description'),
-            controller: _description,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.notes)),
-            onChanged: (_) => setState(() {}),
-          ),
-          sectionLabel('Paid by'),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final m in members)
-                ChoiceChip(
-                  label: Text(m.name),
-                  selected: m.id == paidBy,
-                  onSelected: (_) => setState(() => _paidBy = m.id),
-                ),
-            ],
-          ),
-          sectionLabel('When'),
-          Row(children: [
-            OutlinedButton.icon(
-              onPressed: _pickDate,
-              icon: const Icon(Icons.calendar_today_outlined, size: 18),
-              label: Text(dateLabel),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _category,
-                decoration: const InputDecoration(labelText: 'Category', isDense: true),
-              ),
-            ),
-          ]),
-          sectionLabel('Split'),
-          SegmentedButton<SplitMode>(
-            segments: const [
-              ButtonSegment(value: SplitMode.equal, label: Text('Equal')),
-              ButtonSegment(value: SplitMode.exact, label: Text('Exact')),
-              ButtonSegment(value: SplitMode.percent, label: Text('Percent')),
-            ],
-            selected: {_mode},
-            onSelectionChanged: (s) => setState(() => _mode = s.first),
-          ),
-          if (_mode == SplitMode.equal)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                members.isEmpty
-                    ? 'No members'
-                    : 'Split equally between ${members.length} member${members.length == 1 ? '' : 's'}'
-                        '${amount == null || amount <= 0 ? '' : ' · ${formatMoney(amount ~/ members.length, currency)} each'}',
-                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-            )
-          else ...[
-            for (final m in members)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: TextField(
-                  key: Key('share-${m.id}'),
-                  controller: _ctl(m.id),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          // A deleted expense is read-only until restored, so no stale edit survives the restore.
+          IgnorePointer(
+            ignoring: deleted,
+            child: Opacity(
+              opacity: deleted ? 0.6 : 1,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('amount'),
+                      controller: _amount,
+                      autofocus: widget.expenseId == null,
+                      style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(hintText: '0.00', border: InputBorder.none, isDense: true),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: currency,
+                      style: text.titleMedium?.copyWith(color: cs.onSurface),
+                      items: [for (final c in Money.currencies) DropdownMenuItem(value: c, child: Text(c))],
+                      onChanged: (v) => setState(() => _currency = v),
+                    ),
+                  ),
+                ]),
+                const Divider(height: 1),
+                if (currency != group.defaultCurrency)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: TextField(
+                      controller: _fx,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Rate: 1 $currency in ${group.defaultCurrency}',
+                        helperText: 'Needed to count this expense in balances',
+                        prefixIcon: const Icon(Icons.currency_exchange),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('description'),
+                  controller: _description,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: m.name,
-                    isDense: true,
-                    suffixText: _mode == SplitMode.percent ? '%' : currency,
+                    labelText: 'Description',
+                    prefixIcon: const Icon(Icons.notes),
+                    counterText: descriptionLength > _maxDescription - 20 ? '$descriptionLength/$_maxDescription' : null,
+                    errorText: descriptionTooLong ? 'Too long' : null,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
-              ),
-            ?remainingLine,
-          ],
-          const SizedBox(height: 32),
+                sectionLabel('Paid by'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final m in members)
+                      ChoiceChip(
+                        label: Text(m.name),
+                        selected: m.id == paidBy,
+                        onSelected: (_) => setState(() => _paidBy = m.id),
+                      ),
+                  ],
+                ),
+                sectionLabel('When'),
+                Row(children: [
+                  OutlinedButton.icon(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                    label: Text(dateLabel),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _category,
+                      decoration: const InputDecoration(labelText: 'Category', isDense: true),
+                    ),
+                  ),
+                ]),
+                sectionLabel('Split'),
+                SegmentedButton<SplitMode>(
+                  segments: const [
+                    ButtonSegment(value: SplitMode.equal, label: Text('Equal')),
+                    ButtonSegment(value: SplitMode.exact, label: Text('Exact')),
+                    ButtonSegment(value: SplitMode.percent, label: Text('Percent')),
+                  ],
+                  selected: {_mode},
+                  onSelectionChanged: (s) => setState(() => _mode = s.first),
+                ),
+                if (_mode == SplitMode.equal)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      members.isEmpty
+                          ? 'No members'
+                          : 'Split equally between ${members.length} member${members.length == 1 ? '' : 's'}'
+                              '${amount == null || amount <= 0 ? '' : ' · ${formatMoney(amount ~/ members.length, currency)} each'}',
+                      style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  )
+                else ...[
+                  for (final m in members)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextField(
+                        key: Key('share-${m.id}'),
+                        controller: _ctl(m.id),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: m.name,
+                          isDense: true,
+                          suffixText: _mode == SplitMode.percent ? '%' : currency,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ?remainingLine,
+                ],
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('notes'),
+                  controller: _notes,
+                  minLines: 1,
+                  maxLines: 5,
+                  // No maxLength: Flutter counts characters as seen (an emoji is 1), the limit counts UTF-16 units.
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Notes',
+                    prefixIcon: const Icon(Icons.sticky_note_2_outlined),
+                    counterText: notesLength > _maxNotes - 50 ? '$notesLength/$_maxNotes' : null,
+                    errorText: notesLength > _maxNotes ? 'Too long' : null,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 24),
           FilledButton(
             onPressed: canSave ? () => _save(group, members, currency, amount, paidBy) : null,
             child: _busy
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save'),
           ),
+          if (_editing != null) ...[
+            const SizedBox(height: 32),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            CommentThread(groupId: widget.groupId, expenseId: _editing!.id),
+          ],
         ],
       ),
     );
@@ -327,6 +384,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (shares == null) return;
     final fx = currency == group.defaultCurrency ? null : double.tryParse(_fx.text.trim());
     final cat = _category.text.trim().isEmpty ? null : _category.text.trim();
+    final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
     final e = Expense(
       id: _editing?.id ?? newId(),
       description: _description.text.trim(),
@@ -336,6 +394,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       paidBy: paidBy,
       date: _date,
       category: cat,
+      notes: notes,
       shares: [for (final id in memberIds) Share(memberId: id, amount: shares[id] ?? 0)],
     );
     setState(() => _busy = true);
@@ -354,6 +413,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           if (e.date != old.date) 'date': e.date,
           if (e.category != old.category) 'category': e.category,
           if (!_sameShares(e.shares, old.shares)) 'shares': e.shares,
+          if (e.notes != old.notes) 'notes': e.notes,
         });
       }
       if (mounted) context.pop();
@@ -371,9 +431,32 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   Future<void> _delete() async {
-    final ok = await confirm(context, title: 'Delete expense?', message: 'This removes it for everyone in the group.');
+    final ok = await confirm(context,
+        title: 'Delete expense?', message: 'This removes it for everyone in the group. You can restore it from Activity.');
     if (!ok || !mounted) return;
-    await ref.read(localWritesProvider).deleteExpense(widget.groupId, _editing!.id);
-    if (mounted) context.pop();
+    final e = _editing!;
+    final writes = ref.read(localWritesProvider);
+    final messenger = ScaffoldMessenger.of(context); // the app-wide one, so the SnackBar outlives this screen
+    await writes.deleteExpense(widget.groupId, e.id);
+    if (!mounted) return;
+    context.pop();
+    messenger.showSnackBar(SnackBar(
+      content: Text('Deleted “${e.description}”'),
+      duration: const Duration(seconds: 10),
+      persist: false, // actions persist by default; Undo is only offered for 10 s
+      action: SnackBarAction(label: 'Undo', onPressed: () => writes.restoreExpense(widget.groupId, e.id)),
+    ));
+  }
+
+  Future<void> _restore() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(localWritesProvider).restoreExpense(widget.groupId, _editing!.id);
+      if (mounted) await _loadExisting(); // the restored values, not what the fields showed
+    } catch (err) {
+      if (mounted) showError(context, err);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }

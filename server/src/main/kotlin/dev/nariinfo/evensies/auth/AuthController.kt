@@ -7,6 +7,7 @@ import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -51,4 +52,10 @@ class AuthController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun device(authentication: Authentication, @RequestBody req: DeviceRequest) =
         devices.upsert(req.deviceId, authentication.userId, req.fcmToken)
+
+    /** Sign-out: this phone stops getting the user's pushes. 204 also when the row is gone already. */
+    @DeleteMapping("/devices/{deviceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteDevice(authentication: Authentication, @PathVariable deviceId: String) =
+        devices.delete(deviceId, authentication.userId)
 }

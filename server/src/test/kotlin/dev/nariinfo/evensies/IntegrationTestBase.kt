@@ -15,9 +15,10 @@ import java.util.UUID
         "evensies.auth.dev-login=true",
         "evensies.invite-rate-per-minute=100000", // all tests share 127.0.0.1
         "evensies.jwt-secret=test-only-secret-0123456789-0123456789",
+        "evensies.push.batch-seconds=1",
     ],
 )
-@Import(TestcontainersConfiguration::class)
+@Import(TestcontainersConfiguration::class, PushCaptureConfiguration::class)
 abstract class IntegrationTestBase {
     @LocalServerPort
     protected var port = 0
@@ -41,6 +42,14 @@ abstract class IntegrationTestBase {
         )
         check(res.status == 200) { "createGroup failed: ${res.status} ${res.text}" }
         return res.body
+    }
+
+    /** Joins [group] through its invite as a new member and returns the member id. */
+    protected fun join(token: String, group: JsonNode, name: String): String {
+        val memberId = UUID.randomUUID().toString()
+        val res = http.post("/invites/${group["inviteCode"].asString()}/join", mapOf("newMemberId" to memberId, "name" to name), token)
+        check(res.status == 200) { "join failed: ${res.status} ${res.text}" }
+        return memberId
     }
 
     protected fun event(type: String, payload: Map<String, Any?>, clientId: String = UUID.randomUUID().toString()) = mapOf(

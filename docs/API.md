@@ -18,7 +18,8 @@
 | GET | `/me` | | `{"id","displayName"}`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
 | PATCH | `/me` | `{"displayName"}` (공백 제거 후 1~30자, 이모지 허용) | `{"id","displayName"}`. 범위 밖이면 400 `VALIDATION` |
 | DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
-| POST | `/devices` | `{"deviceId","fcmToken"}` | 204 |
+| POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다) |
+| DELETE | `/devices/{deviceId}` | | 204. 호출자 본인의 그 기기 행만 지운다(없거나 다른 사용자의 기기면 아무것도 안 하고 204). 앱은 로그아웃할 때 세션을 지우기 **전에** 보낸다. 오프라인이면 실패해도 로그아웃은 진행한다. 앱은 세션이 사라지면(로그아웃, 계정 삭제, 토큰 갱신 실패) 그 폰의 FCM 토큰도 지운다(FCM `deleteToken`, 오프라인이면 로그아웃 상태로 다음 실행·복귀 때 다시 시도). 그러면 서버의 다음 발송이 `UNREGISTERED`를 받아 남은 행을 지운다 |
 
 access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 
@@ -50,7 +51,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 - 배열 전체가 한 트랜잭션. 그룹 행 `SELECT ... FOR UPDATE`로 잠근 뒤 seq 부여.
 - `(group_id, client_id)` UNIQUE. 중복은 기존 seq를 돌려준다(오류 아님).
 - 서버는 같은 트랜잭션에서 이벤트를 테이블(member/expense/expense_share/payment/comment)에 반영하고, 활동 피드용 `meta`를 이벤트 행에 기록한다("활동·알림").
-- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 다른 그룹에 이미 있는 멤버·지출·송금·댓글 id)는 배열 전체 거부 400. 속도 제한: 사용자당 분당 120 이벤트 → 429.
+- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 새로 만드는 이벤트(`*.created`·`member.added`·`comment.added`)의 id가 다른 그룹에 이미 있음)는 배열 전체 거부 400. 다른 이벤트(`updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`)가 다른 그룹의 id를 가리키면 이 그룹에는 없는 대상이므로 통과하고 적용 규칙 4로 무시된다(다른 그룹은 바뀌지 않음). 속도 제한: 사용자당 분당 120 이벤트 → 429.
 
 ### pull
 `GET /groups/{id}/events?after=<seq>&limit=500`
@@ -68,6 +69,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
  "latestSeq": 57}
 ```
 - `notes`는 `string|null`. `comments`는 삭제된 댓글도 `deleted: true`로 포함한다(지출·송금과 같음). pull 응답의 이벤트 모양은 바뀌지 않는다(서버 내부 `meta`는 보내지 않음).
+- 삭제된 댓글의 `text`는 `""`(빈 문자열)이다(적용 규칙 8). 서버는 `comment.deleted`를 저장하는 push 트랜잭션에서 그 댓글의 저장된 `comment.added` 이벤트 payload `text`도 `""`로 바꾼다(로그에서 저장 뒤에 바뀌는 유일한 값. seq·clientId·나머지 payload는 그대로). 그래서 snapshot·내보내기·pull 어디에도 남지 않는다. 앱은 댓글 행의 글과 그 댓글의 활동 캐시 행을 지우고, 서버가 받은(push 성공한) outbox 행은 지운다.
 
 ### 이벤트 종류와 payload
 | type | payload |
@@ -75,19 +77,21 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 | `group.created` | `{"name","defaultCurrency"}` (서버가 POST /groups에서 생성) |
 | `group.updated` | `{"name"?: string, "defaultCurrency"?: string}` |
 | `member.added` | `{"memberId","name","userId": string|null}` |
-| `member.linked` | `{"memberId","userId"}` |
+| `member.linked` | `{"memberId","userId"}` — `userId`는 보낸 사람 본인. 이미 사용자에 연결된 멤버이거나 보낸 사람이 이 그룹에 이미 (removed 아닌) 멤버를 가지고 있으면 400 `MEMBER_TAKEN`. 앱은 보내지 않고 `/invites/{code}/join`이 만든다. `member.added`에 `userId`(본인)를 넣을 때도 이미 멤버가 있으면 같은 400 |
 | `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님) |
-| `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","date","category": string|null,"notes": string|null,"shares":[{"memberId","amount"}]}` — `notes`(메모) 없으면 `null`(이전 이벤트 호환). 문자열이면 500자 이하 |
+| `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","date","category": string|null,"notes": string|null,"shares":[{"memberId","amount"}]}` — `description` 1~200자. `notes`(메모) 없으면 `null`(이전 이벤트 호환). 문자열이면 500자 이하 |
 | `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares·notes 포함 가능}}` — `"notes": null`은 메모를 지운다 |
 | `expense.deleted` | `{"expenseId"}` |
 | `expense.restored` | `{"expenseId"}` — 삭제된 지출을 되살린다. 그룹 멤버 누구나 보낼 수 있다(삭제와 같음) |
 | `comment.added` | `{"commentId","expenseId","authorMemberId","text","createdAt"}` — `authorMemberId`는 **호출자 본인의 멤버**(아니면 403 `FORBIDDEN`). `expenseId`는 그룹에 있는 지출(삭제된 지출도 가능, 없으면 400 `VALIDATION`). `text`는 공백만이 아닌 1~1000자. `createdAt`은 ISO-8601 UTC 시각(앱이 이벤트의 createdAt과 같은 값을 넣는다) |
-| `comment.deleted` | `{"commentId"}` — **작성자 본인만**(아니면 403 `FORBIDDEN`). 없는 댓글이면 통과하고 적용기가 무시 |
+| `comment.deleted` | `{"commentId"}` — **작성자 본인만**(아니면 403 `FORBIDDEN`). 없는 댓글이면 통과하고 적용기가 무시. 댓글의 `text`를 `""`로 지운다(규칙 8) |
 | `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date","status"?: "sent"\|"confirmed"}` — `status` 없으면 `confirmed`(이전 이벤트 호환). 받는 멤버가 자리표시자이거나 보내는 사람이 받는 사람 본인이면 서버가 `confirmed`로 저장 |
 | `payment.confirmed` | `{"paymentId"}` — **받는 멤버에 연결된 사용자만** 보낼 수 있다(아니면 403 `FORBIDDEN`) |
 | `payment.deleted` | `{"paymentId"}` — 보낸 사람 또는 받는 사람("받지 못함")이 보낼 수 있다 |
 
-- 글자 수(`notes` 500, `text` 1000)는 UTF-16 길이(Kotlin·Dart `String.length`)로 센다. `notes`가 문자열·null이 아니거나 너무 길면, `text`·`createdAt`이 규칙에 맞지 않으면 400 `VALIDATION`.
+- 글자 수(`description` 200, `notes` 500, `text` 1000)는 UTF-16 길이(Kotlin·Dart `String.length`)로 센다. `notes`가 문자열·null이 아니거나 너무 길면, `text`·`createdAt`이 규칙에 맞지 않으면 400 `VALIDATION`. 200자 제한은 새로 보내는 `description`에만 적용한다(이미 저장된 긴 설명의 지출도 다른 필드는 고칠 수 있다). Splitwise 가져오기는 200자로 자른다.
+- JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 숫자, `shares`는 `[{"memberId": 문자열, "amount": 정수}]`. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다).
+- `comment.added`의 `text` 1~1000자 검증은 보낼 때만 적용한다. 삭제된 댓글의 저장된 이벤트는 `text: ""`로 pull된다(적용 규칙 8).
 - 호환: 출시 1 앱은 `comment.*`·`expense.restored`를 모르는 type으로 건너뛰고 `notes`를 버린 채 lastSeq를 올렸다. 그래서 앱 DB가 schemaVersion 3으로 올라갈 때 모든 그룹의 lastSeq를 0으로 되돌리고, lastSeq 0에서 시작하는 pull은 **빈 상태부터** 로그 전체를 다시 적용한다(저장된 상태 위에 다시 적용하면 `expense.created`의 notes가 돌아오지 않는다). 구 앱이 계속 쓰이는 동안 그 앱에서는 복원된 지출이 삭제된 채로 보인다.
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
@@ -98,7 +102,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 5. `member.removed`는 `removed=true`만 표시한다. 잔액 계산에는 계속 포함된다.
 6. `payment.confirmed`는 `status`를 `confirmed`로 바꾼다. 없거나 삭제된 송금이면 무시한다. 잔액은 `sent`와 `confirmed` 송금을 똑같이 반영한다(앱은 `sent`를 "확인 대기"로 표시).
 7. `expense.restored`는 `deleted=false`로 되돌린다. 삭제되지 않은 지출이면 아무것도 바꾸지 않는다. 삭제와 복원이 엇갈리면 seq 순서상 나중 것이 이긴다.
-8. `comment.added`는 `commentId`가 처음일 때만 댓글을 뒤에 추가한다(이미 있으면 — 삭제된 댓글 포함 — 무시, 멱등). `comment.deleted`는 `deleted=true`만 표시한다(목록에서 빼지 않는다). 적용기는 지출 존재 여부를 확인하지 않는다(서버 검증이 보장).
+8. `comment.added`는 `commentId`가 처음일 때만 댓글을 뒤에 추가한다(이미 있으면 — 삭제된 댓글 포함 — 무시, 멱등). `comment.deleted`는 `deleted=true`로 표시하고 `text`를 `""`로 비운다(목록에서 빼지 않는다). 서버 로그의 `comment.added`도 `text: ""`로 오므로(snapshot 아래), 글을 본 기기와 못 본 기기가 같은 상태가 된다. 적용기는 지출 존재 여부를 확인하지 않는다(서버 검증이 보장).
 9. 빠진 필드: `expense.created`에 `notes`가 없으면 `null`. `expense.updated`는 `fields`에 있는 키만 바꾸며, `notes`·`category`·`fxRateToDefault`는 `null`이 오면 지우고, 나머지 키의 `null`은 무시한다.
 
 ## 결제 수단 (송금 안내)
@@ -149,7 +153,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 - 숨김 이벤트 때문에 `items`가 `limit`보다 적거나 비어 있어도 끝이 아닐 수 있다. **`nextBefore`가 null일 때만 끝**이고, 아니면 그 값을 다음 요청의 `before`로 넘긴다.
 - `feedId`: 서버가 이벤트를 저장한 순서의 전역 번호(그룹 안에서는 seq와 같은 순서). 앱은 오프라인용 캐시를 이 순서로 정렬한다.
 - 모든 키는 항상 있다. 해당 없는 필드는 `null`, `changes`는 `[]`.
-- `createdAt`은 이벤트의 createdAt(앱이 보낸 시각). `seq`는 그룹 안 이벤트 번호(탭하면 `expenseId`의 지출을 연다).
+- `createdAt`은 **서버가 이벤트를 저장한 시각**(`events.received_at`)이다. 이벤트의 createdAt(앱 시계)은 오프라인 수정을 나중에 올리거나 기기 시계가 틀리면 목록 순서(seq·feedId)와 어긋나므로 쓰지 않는다. 이 기능 전에 저장된 이벤트는 그 이벤트의 createdAt. 앱은 이 값으로 시각과 날짜 머리글을 그린다(목록 순서와 같은 순서). `seq`는 그룹 안 이벤트 번호(탭하면 `expenseId`의 지출을 연다).
 
 | kind | 원본 이벤트 | 채워지는 필드 |
 |---|---|---|
@@ -177,6 +181,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
   2. seq 2의 `member.added`(POST /groups가 만든 사람 자신을 넣는 이벤트. `group_created`와 겹친다).
   3. `comment.deleted`.
   4. 모르는 type.
+  5. 댓글이 **지금** 삭제되어 있는 `comment_added`(삭제하면 글이 피드와 아직 묶여 있던 푸시에서 빠진다. 같은 push에서 쓰고 지운 댓글은 알리지 않는다). 이것만 현재 상태를 보므로 `shared/activity-cases.json`(이벤트 시점 규칙)에는 없고 서버 테스트가 검증한다.
 - 서버는 push 트랜잭션 안에서 이벤트마다 직전·직후 상태를 알고 있으므로 피드에 필요한 값(actorMemberId, 대상 지출·송금의 직전·직후 값, 상태 변화 여부)을 이벤트 행의 `meta`(서버 내부, pull에 없음)에 기록하고 피드는 그것만 읽는다. 이 기능 이전에 저장된 이벤트는 서버가 시작할 때 그룹 로그를 seq 1부터 다시 적용해 `meta`를 채운다.
 
 ### 문장 (영어, 앱 목록·서버 푸시 공통)
@@ -212,6 +217,9 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 - data는 언제나 `{"type":"sync","groupId":"...","seq":"<보낼 때의 latestSeq>"}`(FCM data 값은 문자열).
 - 묶음 문장(항목 2개 이상, 수신자는 actor가 아니므로 `You`는 나오지 않는다): 모든 항목의 `actorMemberId`가 같고 모두 `expense_added`면 `{A} added {n} expenses`, 모두 `comment_added`면 `{A} added {n} comments`, 그 밖이면 `{A} made {n} changes`. actor가 섞이면 `{n} new changes`.
 - 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다. 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
+- 길이: title은 100자, body는 200자(UTF-16)를 넘으면 잘라서 끝을 `…`로 한다(`…` 포함 그 길이, 서로게이트 쌍은 자르지 않음). 긴 댓글·설명·그룹 이름이 FCM/APNs 4096바이트 한도를 넘겨 data까지 잃지 않게 하기 위해서다. 앱 목록의 문장은 자르지 않는다.
+- FCM 멀티캐스트는 토큰 500개씩 나눠 보낸다. FCM이 `UNREGISTERED`로 답한 토큰과, 같은 멀티캐스트에서 다른 토큰은 성공했는데 `INVALID_ARGUMENT`로 답한 토큰은 기기 행을 지운다.
+- iOS(APNs): 표시 알림은 `sound: default`, `thread-id: <groupId>`(그룹별로 묶임). data만 있는 메시지는 `content-available: 1`, `apns-priority: 5`, `apns-push-type: background`(앱이 백그라운드에서 깨어 sync).
 - FCM 자격 증명(`EVENSIES_FCM_CREDENTIALS_FILE`)이 없으면 조용히 건너뛴다.
 
 ### 알림 설정

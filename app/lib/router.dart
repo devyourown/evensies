@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'features/activity/activity_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/name_screen.dart';
 import 'features/expense_form/expense_form_screen.dart';
@@ -42,11 +43,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const SettingsScreen(),
             routes: [GoRoute(path: 'payment-methods', builder: (_, _) => const PaymentMethodsScreen())],
           ),
+          GoRoute(path: 'activity', builder: (_, _) => const ActivityScreen()),
           GoRoute(path: 'join-code', builder: (_, _) => const JoinCodeScreen()),
           GoRoute(path: 'join/:code', builder: (_, s) => JoinScreen(code: s.pathParameters['code']!)),
           GoRoute(
             path: 'groups/:id',
-            builder: (_, s) => GroupDetailScreen(groupId: s.pathParameters['id']!),
+            builder: (_, s) => GroupDetailScreen(groupId: s.pathParameters['id']!, tab: s.uri.queryParameters['tab']),
             routes: [
               GoRoute(path: 'members', builder: (_, s) => MembersScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'settle', builder: (_, s) => SettleScreen(groupId: s.pathParameters['id']!)),

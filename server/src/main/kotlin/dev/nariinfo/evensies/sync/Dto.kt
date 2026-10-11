@@ -20,6 +20,8 @@ data class ExpenseDto(
     val category: String?,
     val deleted: Boolean,
     val shares: List<ShareDto>,
+    /** Free text, at most 500 UTF-16 chars; missing in old events = null. */
+    val notes: String? = null,
 )
 data class PaymentDto(
     val id: String,
@@ -33,11 +35,22 @@ data class PaymentDto(
     val status: String = "confirmed",
 )
 
+/** Deleted comments stay as tombstones (deleted = true), like expenses and payments. */
+data class CommentDto(
+    val id: String,
+    val expenseId: String,
+    val authorMemberId: String,
+    val text: String,
+    val createdAt: String,
+    val deleted: Boolean = false,
+)
+
 data class SnapshotDto(
     val group: GroupDto,
     val members: List<MemberDto>,
     val expenses: List<ExpenseDto>,
     val payments: List<PaymentDto>,
+    val comments: List<CommentDto>,
     val latestSeq: Long,
 )
 

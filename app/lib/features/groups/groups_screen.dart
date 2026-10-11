@@ -21,10 +21,15 @@ class GroupsScreen extends ConsumerWidget {
         title: const Text('Groups'),
         actions: [
           IconButton(
+              tooltip: 'Activity', onPressed: () => context.push('/activity'), icon: const Icon(Icons.history)),
+          IconButton(
               tooltip: 'Join with a code',
               onPressed: () => context.push('/join-code'),
               icon: const Icon(Icons.group_add_outlined)),
-          IconButton(onPressed: () => context.push('/settings'), icon: const Icon(Icons.settings_outlined)),
+          IconButton(
+              tooltip: 'Settings',
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.settings_outlined)),
         ],
       ),
       body: Column(children: [

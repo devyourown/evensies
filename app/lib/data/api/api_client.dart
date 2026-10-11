@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import '../../domain/activity.dart';
 import '../../domain/models.dart';
 import '../../domain/payment_methods.dart';
 import '../db/database.dart';
@@ -82,6 +83,28 @@ class ApiClient {
   Future<void> deleteMe() => _call(() => _dio.delete('/me'), (_) {});
   Future<void> registerDevice(String deviceId, String fcmToken) =>
       _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});
+  Future<void> unregisterDevice(String deviceId) => _call(() => _dio.delete('/devices/$deviceId'), (_) {});
+
+  // --- notification prefs: {"expenses","comments","members"} → bool (docs/API.md 알림 설정)
+  Map<String, bool> _prefs(dynamic d) => _map(d).cast<String, bool>();
+  Future<Map<String, bool>> getNotificationPrefs() => _call(() => _dio.get('/me/notifications'), _prefs);
+  Future<Map<String, bool>> putNotificationPrefs(Map<String, bool> prefs) =>
+      _call(() => _dio.put('/me/notifications', data: prefs), _prefs);
+
+  // --- activity: newest first; only nextBefore == null means the end (pages can be short or empty).
+  ActivityPage _page(dynamic d) {
+    final m = _map(d);
+    return (
+      items: (m['items'] as List).map((e) => ActivityItem.fromJson(_map(e))).toList(),
+      nextBefore: (m['nextBefore'] as num?)?.toInt(),
+    );
+  }
+
+  /// One group's feed ([before] = seq), or every group of mine when [groupId] is null ([before] = feedId).
+  Future<ActivityPage> activity({String? groupId, int? before, int limit = 50}) => _call(
+      () => _dio.get(groupId == null ? '/activity' : '/groups/$groupId/activity',
+          queryParameters: {'before': ?before, 'limit': limit}),
+      _page);
 
   // --- payment methods
   List<PaymentMethod> _methods(dynamic d) => (d as List).map((e) => PaymentMethod.fromJson(_map(e))).toList();

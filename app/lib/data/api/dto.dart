@@ -1,6 +1,10 @@
 /// Response shapes from docs/API.md.
 library;
 
+import '../../domain/activity.dart';
+
+typedef ActivityPage = ({List<ActivityItem> items, int? nextBefore});
+
 class UserDto {
   final String id;
   final String displayName;

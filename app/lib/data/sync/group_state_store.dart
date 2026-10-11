@@ -15,6 +15,7 @@ class GroupStateStore {
     final xs = await (db.select(db.expenses)..where((e) => e.groupId.equals(groupId))).get();
     final shares = await (db.select(db.expenseShares)..where((s) => s.expenseId.isIn(xs.map((e) => e.id)))).get();
     final ps = await (db.select(db.payments)..where((p) => p.groupId.equals(groupId))).get();
+    final cs = await (db.select(db.comments)..where((c) => c.groupId.equals(groupId))).get();
     return GroupState(
       name: g?.name,
       defaultCurrency: g?.defaultCurrency,
@@ -30,6 +31,7 @@ class GroupStateStore {
             paidBy: e.paidBy,
             date: e.date,
             category: e.category,
+            notes: e.notes,
             deleted: e.deleted,
             shares: [
               for (final s in shares.where((s) => s.expenseId == e.id)) Share(memberId: s.memberId, amount: s.amount)
@@ -49,6 +51,17 @@ class GroupStateStore {
             status: p.status,
           ),
       ],
+      comments: [
+        for (final c in cs)
+          Comment(
+            id: c.id,
+            expenseId: c.expenseId,
+            authorMemberId: c.authorMemberId,
+            text: c.body,
+            createdAt: c.createdAt,
+            deleted: c.deleted,
+          ),
+      ],
     );
   }
 
@@ -65,6 +78,7 @@ class GroupStateStore {
         await (db.delete(db.expenseShares)..where((x) => x.expenseId.isIn(oldExps.map((e) => e.id)))).go();
         await (db.delete(db.expenses)..where((e) => e.groupId.equals(groupId))).go();
         await (db.delete(db.payments)..where((p) => p.groupId.equals(groupId))).go();
+        await (db.delete(db.comments)..where((c) => c.groupId.equals(groupId))).go();
         await (db.delete(db.members)..where((m) => m.groupId.equals(groupId))).go();
         await db.batch((b) {
           b.insertAll(db.members, [
@@ -84,6 +98,7 @@ class GroupStateStore {
                 paidBy: e.paidBy,
                 date: e.date,
                 category: Value(e.category),
+                notes: Value(e.notes),
                 deleted: Value(e.deleted),
               ),
           ]);
@@ -106,7 +121,20 @@ class GroupStateStore {
                 status: Value(p.status),
               ),
           ]);
+          b.insertAll(db.comments, [
+            for (final c in s.comments)
+              CommentsCompanion.insert(
+                id: c.id,
+                groupId: groupId,
+                expenseId: c.expenseId,
+                authorMemberId: c.authorMemberId,
+                body: c.text,
+                createdAt: c.createdAt,
+                deleted: Value(c.deleted),
+              ),
+          ]);
         });
+        await db.dropDeletedCommentActivity(groupId);
         await db.setLastSeq(groupId, latestSeq);
       });
 }

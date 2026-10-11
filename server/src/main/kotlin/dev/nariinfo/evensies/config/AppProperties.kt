@@ -10,6 +10,7 @@ data class AppProperties(
     val inviteRatePerMinute: Double = 10.0,
     val auth: Auth = Auth(),
     val fcm: Fcm = Fcm(),
+    val push: Push = Push(),
 ) {
     data class Auth(
         val devLogin: Boolean = false,
@@ -18,5 +19,8 @@ data class AppProperties(
     )
 
     data class Fcm(val credentialsFile: String = "")
+
+    /** [batchSeconds]: minimum gap between visible pushes per recipient and group; changes inside it are batched. */
+    data class Push(val batchSeconds: Long = 30)
 
 }

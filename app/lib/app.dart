@@ -20,7 +20,10 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _listenDeepLinks();
     initPush(ref);
-    ref.read(syncProvider).syncAll();
+    // At launch with a session, and after every sign-in: a returning user's groups come from the server.
+    ref.listenManual(sessionProvider.select((s) => s.value?.userId), (prev, userId) {
+      if (userId != null && userId != prev) ref.read(syncProvider).syncAll();
+    }, fireImmediately: true);
   }
 
   @override
@@ -50,6 +53,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
   Widget build(BuildContext context) => MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Evensies',
+        scaffoldMessengerKey: scaffoldMessengerKey,
         theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
         darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),
         routerConfig: ref.watch(routerProvider),

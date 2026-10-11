@@ -17,13 +17,15 @@ class EventApplierTest {
         events.fold(start) { s, e -> EventApplier.apply(s, e["type"].asString(), e["payload"]) }
 
     private fun actual(s: GroupState) = SharedJson.canon(
-        mapOf("members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values)
+        mapOf("members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values, "comments" to s.comments.values)
     )
 
-    /** Expected members omit "removed" when false; the snapshot shape always carries it. */
+    /** Missing expected values are defaults (fixture _doc): removed=false, notes=null, comments=[]. */
     private fun expected(node: JsonNode): String {
         val copy = node.deepCopy() as ObjectNode
         for (m in copy["members"]) if (!m.has("removed")) (m as ObjectNode).put("removed", false)
+        for (e in copy["expenses"]) if (!e.has("notes")) (e as ObjectNode).putNull("notes")
+        if (!copy.has("comments")) copy.putArray("comments")
         return SharedJson.canon(copy)
     }
 

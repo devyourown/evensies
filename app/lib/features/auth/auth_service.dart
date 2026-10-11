@@ -8,6 +8,7 @@ import '../../core/env.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
+import '../../push.dart' show deviceIdKey;
 
 class AuthService {
   final Ref ref;
@@ -43,11 +44,23 @@ class AuthService {
     await _store(await ref.read(apiProvider).authGoogle(token, displayName: account.displayName));
   }
 
-  Future<void> logout() => ref.read(dbProvider).wipeAll();
+  /// Unregisters this phone first (docs/API.md DELETE /devices), or the signed-out user's pushes keep arriving.
+  /// Best effort: offline the row stays, but the session going away also deletes the FCM token (push.dart), so the
+  /// server drops the row at its next send.
+  Future<void> logout() async {
+    final deviceId = ref.read(sharedPreferencesProvider).getString(deviceIdKey);
+    if (deviceId != null && await ref.read(dbProvider).getSession() != null) {
+      try {
+        await ref.read(apiProvider).unregisterDevice(deviceId).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    await ref.read(dbProvider).wipeAll();
+  }
 
+  /// The server already dropped every device of the account.
   Future<void> deleteAccount() async {
     await ref.read(apiProvider).deleteMe();
-    await logout();
+    await ref.read(dbProvider).wipeAll();
   }
 
   static bool get appleAvailable => Platform.isIOS || Platform.isMacOS;
