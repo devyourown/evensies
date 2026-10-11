@@ -50,4 +50,16 @@ class AuthTest : IntegrationTestBase() {
         assertEquals(204, http.post("/devices", mapOf("deviceId" to "d1", "fcmToken" to "tok"), token).status)
         assertEquals(204, http.post("/devices", mapOf("deviceId" to "d1", "fcmToken" to "tok2"), token).status)
     }
+
+    @Test
+    fun renameMe() {
+        val token = http.post("/auth/dev", mapOf("name" to "Ren")).body["accessToken"].asString()
+        val renamed = http.patch("/me", mapOf("displayName" to "  Hyo 🍕  "), token)
+        assertEquals(200, renamed.status, renamed.text)
+        assertEquals("Hyo 🍕", http.get("/me", token).body["displayName"].asString())
+        assertEquals(400, http.patch("/me", mapOf("displayName" to "   "), token).status)
+        assertEquals(400, http.patch("/me", mapOf("displayName" to "x".repeat(31)), token).status)
+        assertEquals(200, http.patch("/me", mapOf("displayName" to "🍕".repeat(30)), token).status, "30 emoji are 30 characters")
+        assertEquals(401, http.patch("/me", mapOf("displayName" to "Nope"), null).status)
+    }
 }

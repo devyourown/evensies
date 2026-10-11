@@ -39,7 +39,7 @@ class IdTokenVerifier(
             throw ApiException.unauthorized("Invalid id token: ${e.message}")
         }
         if (jwt.issuer !in issuers) throw ApiException.unauthorized("Invalid id token issuer")
-        val name = nameClaims.firstNotNullOfOrNull { jwt.getClaim(it).asString()?.takeIf(String::isNotBlank) } ?: "User"
+        val name = nameClaims.firstNotNullOfOrNull { jwt.getClaim(it).asString()?.takeIf(String::isNotBlank) } ?: ""
         return VerifiedIdentity(jwt.subject, name)
     }
 }
@@ -54,7 +54,7 @@ class IdTokenVerifierConfig {
         provider("https://appleid.apple.com/auth/keys"),
         setOf("https://appleid.apple.com"),
         listOfNotNull(props.auth.appleClientId.ifBlank { null }),
-        listOf("name", "email"),
+        listOf("name"),
     )
 
     @Bean
@@ -62,6 +62,6 @@ class IdTokenVerifierConfig {
         provider("https://www.googleapis.com/oauth2/v3/certs"),
         setOf("https://accounts.google.com", "accounts.google.com"),
         props.auth.googleClientIds.map(String::trim).filter(String::isNotEmpty),
-        listOf("name", "email"),
+        listOf("name"),
     )
 }

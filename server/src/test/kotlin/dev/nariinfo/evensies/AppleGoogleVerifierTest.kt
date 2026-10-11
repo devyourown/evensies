@@ -31,7 +31,7 @@ class AppleGoogleVerifierTest {
             )
         )
     }
-    private val verifier = IdTokenVerifier(jwks, setOf("https://accounts.google.com"), listOf("my-client"), listOf("name", "email"))
+    private val verifier = IdTokenVerifier(jwks, setOf("https://accounts.google.com"), listOf("my-client"), listOf("name"))
 
     private fun token(
         iss: String = "https://accounts.google.com", aud: String = "my-client",
@@ -45,7 +45,7 @@ class AppleGoogleVerifierTest {
         val id = verifier.verify(token())
         assertEquals("sub-1", id.subject)
         assertEquals("Anna", id.displayName)
-        assertEquals("a@x.io", verifier.verify(token(name = null)).displayName)
+        assertEquals("", verifier.verify(token(name = null)).displayName, "email must never become a display name")
     }
 
     @Test

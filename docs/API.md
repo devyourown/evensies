@@ -11,11 +11,12 @@
 ## 인증
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
-| POST | `/auth/apple` | `{"idToken": "..."}` | `{"accessToken","refreshToken","user":{"id","displayName"}}` |
+| POST | `/auth/apple` | `{"idToken": "...", "displayName"?: "..."}` — Apple은 이름을 토큰에 넣지 않고 첫 로그인 때만 앱에 주므로 앱이 함께 보낸다 | `{"accessToken","refreshToken","user":{"id","displayName"}}` |
 | POST | `/auth/google` | `{"idToken": "..."}` | 위와 같음 |
 | POST | `/auth/dev` | `{"name": "Anna"}` — **`evensies.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
-| GET | `/me` | | `{"id","displayName"}` |
+| GET | `/me` | | `{"id","displayName"}`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
+| PATCH | `/me` | `{"displayName"}` (공백 제거 후 1~30자, 이모지 허용) | `{"id","displayName"}`. 범위 밖이면 400 `VALIDATION` |
 | DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
 | POST | `/devices` | `{"deviceId","fcmToken"}` | 204 |
 

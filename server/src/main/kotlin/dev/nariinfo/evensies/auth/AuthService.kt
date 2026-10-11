@@ -44,6 +44,16 @@ class AuthService(
         return UserDto(user.id, user.displayName)
     }
 
+    fun rename(userId: UUID, displayName: String): UserDto {
+        val name = displayName.trim()
+        if (name.isEmpty() || name.codePointCount(0, name.length) > MAX_NAME) {
+            throw ApiException.badRequest("VALIDATION", "Name must be 1 to $MAX_NAME characters")
+        }
+        me(userId) // 401 for deleted accounts
+        users.rename(userId, name)
+        return UserDto(userId, name)
+    }
+
     /** Soft-deletes the user; their member rows become placeholders so group history stays intact. */
     @Transactional
     fun deleteAccount(userId: UUID) {
@@ -61,6 +71,7 @@ class AuthService(
     }
 
     companion object {
+        const val MAX_NAME = 30
         val REFRESH_TTL: Duration = Duration.ofDays(30)
     }
 }

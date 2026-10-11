@@ -19,11 +19,16 @@ class UserRepository(private val jdbc: JdbcClient) {
     fun findOrCreate(provider: String, subject: String, displayName: String): User = jdbc.sql(
         """
         INSERT INTO users (id, provider, subject, display_name) VALUES (:id, :provider, :subject, :name)
-        ON CONFLICT (provider, subject) DO UPDATE SET deleted_at = NULL
+        ON CONFLICT (provider, subject) DO UPDATE SET deleted_at = NULL,
+            display_name = CASE WHEN users.display_name = '' THEN EXCLUDED.display_name ELSE users.display_name END
         RETURNING *
         """
     ).param("id", UUID.randomUUID()).param("provider", provider).param("subject", subject).param("name", displayName)
         .query(mapper).single()
+
+    fun rename(id: UUID, name: String) {
+        jdbc.sql("UPDATE users SET display_name = :name WHERE id = :id").param("name", name).param("id", id).update()
+    }
 
     fun markDeleted(id: UUID) {
         jdbc.sql("UPDATE users SET deleted_at = :now WHERE id = :id AND deleted_at IS NULL")
