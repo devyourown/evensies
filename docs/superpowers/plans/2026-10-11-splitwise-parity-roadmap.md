@@ -2,7 +2,7 @@
 
 - Written: 2026-10-11 · Status: **approved 2026-10-11; settle-up moved to Phase 1 at Hyojun's request ("송금이 가장 중요")**
 - Goal (set by Hyojun 2026-10-11): reach feature parity with Splitwise, keeping our promises (no limits, no ads, export always free, open source, self-hostable). Splitwise Pro features are included and stay free in Evensies.
-- Each phase is independently shippable (TestFlight + Play internal build at the end) and gets its own short design section here before work starts. Phases are ordered by what users hit first on a real trip.
+- Each phase is independently shippable and gets its own short design section here before work starts (builds are on hold until parity, see Rules). Phases are ordered by what users hit first on a real trip.
 
 ## Out of scope (deliberately)
 | Splitwise feature | Why not |
@@ -31,7 +31,7 @@ Rough size: phases 1–5 are 1–2 working sessions each; 6, 7, 9 are 2–3 each
 - Contract first: every phase updates `docs/API.md` (new event types, endpoints) before code; shared JSON fixtures for any logic both sides implement.
 - Sync model stays the same: new data travels as events through `POST /groups/{id}/events`; the applier rules 1–5 stay valid. New event types are added to both appliers and `shared/sync-cases.json`.
 - Tests: server Testcontainers + real HTTP, app unit/widget tests; simulator check of every new screen in light and dark mode before a build is uploaded.
-- Release per phase: bump build, clean iOS build (simulator-slice check), TestFlight internal group "Team", Play internal testing.
+- **No releases until parity** (Hyojun, 2026-10-11): no TestFlight/Play builds and no production server deploys until every phase is done. Each phase ends with tests green, a local-server + simulator check, and a commit/push. Release procedure (for later): bump build, clean iOS build (simulator-slice check), TestFlight internal group "Team", Play internal testing, `deploy/update.sh` on the server.
 - Secrets stay out of git (gitleaks in CI). Any new paid service is proposed with its monthly cost before it is added.
 
 ## Owner split
