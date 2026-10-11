@@ -59,12 +59,12 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
     } else if (res.balances == null) {
       body = const Center(child: Text(notImplementedLabel));
     } else {
-      final transfers = tryCore(() => simplifyDebts(res.balances!));
+      final transfers = res.transfers(simplify: group.simplifyDebts);
       final me = group.myMemberId;
       final pending = state.payments.where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me)).toList();
       if (transfers == null) {
         body = const Center(child: Text(notImplementedLabel));
-      } else if (transfers.isEmpty && pending.isEmpty) {
+      } else if (transfers.isEmpty && pending.isEmpty && res.unsupported == 0) {
         body = Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.check_circle_outline, size: 64, color: cs.primary),
@@ -86,8 +86,26 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               for (final p in pending) _pendingCard(group, state, p),
               const SizedBox(height: 8),
             ],
+            if (res.unsupported > 0)
+              Card(
+                color: cs.tertiaryContainer,
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
+                  title: Text(
+                      '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
+                      "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
+                      style: TextStyle(color: cs.onTertiaryContainer)),
+                ),
+              ),
             if (transfers.isNotEmpty)
-              header(transfers.length == 1 ? '1 transfer settles everything' : '${transfers.length} transfers settle everything'),
+              header(!group.simplifyDebts
+                  ? 'Debts as recorded · simplify debts is off'
+                  : res.unsupported > 0
+                      ? '${transfers.length} transfer${transfers.length == 1 ? '' : 's'} (some expenses not counted yet)'
+                      : transfers.length == 1
+                          ? '1 transfer settles everything'
+                          : '${transfers.length} transfers settle everything'),
             for (final t in transfers) _transferCard(group, state, t),
           ],
         );

@@ -9,8 +9,10 @@ import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
+import '../../core/text_limits.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
+import '../../data/sync/group_state_store.dart';
 import '../../providers.dart';
 
 Future<void> showCreateGroupDialog(BuildContext context) =>
@@ -60,6 +62,8 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         inviteCode: dto.inviteCode,
         latestSeq: dto.latestSeq,
         myMemberId: dto.myMemberId,
+        simplifyDebts: dto.simplifyDebts,
+        defaultSplitJson: splitToJson(dto.defaultSplit),
       ));
       await db.into(db.members).insert(MembersCompanion.insert(
           id: memberId, groupId: id, name: _me.text.trim(), userId: Value(ref.read(sessionProvider).value?.userId)));
@@ -85,8 +89,18 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _name, autofocus: true, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Group name')),
-            TextField(controller: _me, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Your name in this group')),
+            TextField(
+                key: const Key('group-name'),
+                controller: _name,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: limitedDecoration(const InputDecoration(labelText: 'Group name'), _name.text, maxGroupName)),
+            TextField(
+                key: const Key('my-name'),
+                controller: _me,
+                onChanged: (_) => setState(() {}),
+                decoration: limitedDecoration(
+                    const InputDecoration(labelText: 'Your name in this group'), _me.text, maxMemberName)),
             DropdownButtonFormField<String>(
               initialValue: _currency,
               decoration: const InputDecoration(labelText: 'Default currency'),
@@ -98,7 +112,13 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
-            onPressed: _busy || _name.text.trim().isEmpty || _me.text.trim().isEmpty ? null : _create,
+            onPressed: _busy ||
+                    _name.text.trim().isEmpty ||
+                    _me.text.trim().isEmpty ||
+                    !fitsLimit(_name.text, maxGroupName) ||
+                    !fitsLimit(_me.text, maxMemberName)
+                ? null
+                : _create,
             child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create'),
           ),
         ],

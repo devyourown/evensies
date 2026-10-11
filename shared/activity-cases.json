@@ -1,5 +1,5 @@
 {
-  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols).",
+  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true.",
   "money": [
     {
       "minor": 3000,
@@ -1329,6 +1329,957 @@
         "You added “Hotel” · €200.00 · you lent €100.00",
         "Ben joined",
         "You created the group “Rome”"
+      ]
+    },
+    {
+      "name": "splitting power: simplify toggle, default split, ignored currency change, several payers, refund, split-only edit, member left; same-value toggle hidden",
+      "me": "m4",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben",
+        "m3": "Carla",
+        "m4": "Dario"
+      },
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Rome",
+            "defaultCurrency": "EUR"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:01:00Z"
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:02:00Z"
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:03:00Z"
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m3",
+            "name": "Carla",
+            "userId": "u-carla"
+          },
+          "actorUserId": "u-carla",
+          "createdAt": "2026-10-11T08:04:00Z"
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m4",
+            "name": "Dario",
+            "userId": "u-dario"
+          },
+          "actorUserId": "u-dario",
+          "createdAt": "2026-10-11T08:05:00Z"
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "group.updated",
+          "payload": {
+            "simplifyDebts": false
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:06:00Z"
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "group.updated",
+          "payload": {
+            "defaultSplit": {
+              "mode": "shares",
+              "input": {
+                "m1": 2,
+                "m2": 1,
+                "m3": 1,
+                "m4": 1
+              }
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:07:00Z"
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "group.updated",
+          "payload": {
+            "simplifyDebts": false
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:08:00Z"
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Hotel",
+            "amount": 30000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 20000
+              },
+              {
+                "memberId": "m4",
+                "amount": 10000
+              }
+            ],
+            "refund": false,
+            "split": {
+              "mode": "shares",
+              "input": {
+                "m1": 2,
+                "m2": 1,
+                "m3": 1,
+                "m4": 1
+              }
+            },
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 12000
+              },
+              {
+                "memberId": "m2",
+                "amount": 6000
+              },
+              {
+                "memberId": "m3",
+                "amount": 6000
+              },
+              {
+                "memberId": "m4",
+                "amount": 6000
+              }
+            ]
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:09:00Z"
+        },
+        {
+          "seq": 10,
+          "clientId": "e10",
+          "type": "group.updated",
+          "payload": {
+            "name": "Rome trip",
+            "defaultCurrency": "USD"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:10:00Z"
+        },
+        {
+          "seq": 11,
+          "clientId": "e11",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Deposit",
+            "amount": 10000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 10000
+              }
+            ],
+            "refund": false,
+            "split": {
+              "mode": "equal"
+            },
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 2500
+              },
+              {
+                "memberId": "m2",
+                "amount": 2500
+              },
+              {
+                "memberId": "m3",
+                "amount": 2500
+              },
+              {
+                "memberId": "m4",
+                "amount": 2500
+              }
+            ]
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:11:00Z"
+        },
+        {
+          "seq": 12,
+          "clientId": "e12",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "amount": 10000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 6000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 4000
+                }
+              ],
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 2500
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 2500
+                },
+                {
+                  "memberId": "m3",
+                  "amount": 2500
+                },
+                {
+                  "memberId": "m4",
+                  "amount": 2500
+                }
+              ],
+              "split": {
+                "mode": "equal"
+              },
+              "refund": true
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:12:00Z"
+        },
+        {
+          "seq": 13,
+          "clientId": "e13",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 30000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 20000
+                },
+                {
+                  "memberId": "m4",
+                  "amount": 10000
+                }
+              ],
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 6000
+                },
+                {
+                  "memberId": "m3",
+                  "amount": 6000
+                },
+                {
+                  "memberId": "m4",
+                  "amount": 6000
+                }
+              ],
+              "split": {
+                "mode": "adjustment",
+                "input": {
+                  "m1": 6000
+                }
+              },
+              "refund": false
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:13:00Z"
+        },
+        {
+          "seq": 14,
+          "clientId": "e14",
+          "type": "member.removed",
+          "payload": {
+            "memberId": "m3"
+          },
+          "actorUserId": "u-carla",
+          "createdAt": "2026-10-11T08:14:00Z"
+        },
+        {
+          "seq": 15,
+          "clientId": "e15",
+          "type": "member.removed",
+          "payload": {
+            "memberId": "m2"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:15:00Z"
+        },
+        {
+          "seq": 16,
+          "clientId": "e16",
+          "type": "group.updated",
+          "payload": {
+            "simplifyDebts": true
+          },
+          "actorUserId": "u-dario",
+          "createdAt": "2026-10-11T08:16:00Z"
+        }
+      ],
+      "expected": [
+        {
+          "seq": 16,
+          "createdAt": "2026-10-11T08:16:00Z",
+          "actorMemberId": "m4",
+          "kind": "group_updated",
+          "changes": [
+            {
+              "field": "simplifyDebts",
+              "from": false,
+              "to": true
+            }
+          ]
+        },
+        {
+          "seq": 15,
+          "createdAt": "2026-10-11T08:15:00Z",
+          "actorMemberId": "m1",
+          "kind": "member_removed",
+          "memberId": "m2"
+        },
+        {
+          "seq": 14,
+          "createdAt": "2026-10-11T08:14:00Z",
+          "actorMemberId": "m3",
+          "kind": "member_left",
+          "memberId": "m3"
+        },
+        {
+          "seq": 13,
+          "createdAt": "2026-10-11T08:13:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_updated",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 30000,
+          "currency": "EUR",
+          "myDelta": 4000,
+          "changes": [
+            {
+              "field": "split",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 12,
+          "createdAt": "2026-10-11T08:12:00Z",
+          "actorMemberId": "m2",
+          "kind": "expense_updated",
+          "expenseId": "x2",
+          "description": "Deposit",
+          "amount": 10000,
+          "currency": "EUR",
+          "myDelta": 2500,
+          "changes": [
+            {
+              "field": "payers",
+              "from": null,
+              "to": null
+            },
+            {
+              "field": "refund",
+              "from": false,
+              "to": true
+            }
+          ]
+        },
+        {
+          "seq": 11,
+          "createdAt": "2026-10-11T08:11:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_added",
+          "expenseId": "x2",
+          "description": "Deposit",
+          "amount": 10000,
+          "currency": "EUR",
+          "myDelta": -2500
+        },
+        {
+          "seq": 10,
+          "createdAt": "2026-10-11T08:10:00Z",
+          "actorMemberId": "m1",
+          "kind": "group_updated",
+          "changes": [
+            {
+              "field": "name",
+              "from": "Rome",
+              "to": "Rome trip"
+            }
+          ]
+        },
+        {
+          "seq": 9,
+          "createdAt": "2026-10-11T08:09:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_added",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 30000,
+          "currency": "EUR",
+          "myDelta": 4000
+        },
+        {
+          "seq": 7,
+          "createdAt": "2026-10-11T08:07:00Z",
+          "actorMemberId": "m2",
+          "kind": "group_updated",
+          "changes": [
+            {
+              "field": "defaultSplit",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 6,
+          "createdAt": "2026-10-11T08:06:00Z",
+          "actorMemberId": "m1",
+          "kind": "group_updated",
+          "changes": [
+            {
+              "field": "simplifyDebts",
+              "from": true,
+              "to": false
+            }
+          ]
+        },
+        {
+          "seq": 5,
+          "createdAt": "2026-10-11T08:05:00Z",
+          "actorMemberId": "m4",
+          "kind": "member_joined",
+          "memberId": "m4"
+        },
+        {
+          "seq": 4,
+          "createdAt": "2026-10-11T08:04:00Z",
+          "actorMemberId": "m3",
+          "kind": "member_joined",
+          "memberId": "m3"
+        },
+        {
+          "seq": 3,
+          "createdAt": "2026-10-11T08:03:00Z",
+          "actorMemberId": "m2",
+          "kind": "member_joined",
+          "memberId": "m2"
+        },
+        {
+          "seq": 1,
+          "createdAt": "2026-10-11T08:01:00Z",
+          "actorMemberId": "m1",
+          "kind": "group_created",
+          "name": "Rome"
+        }
+      ],
+      "texts": [
+        "You changed the group: simplify debts on",
+        "Anna removed Ben",
+        "Carla left the group",
+        "Anna changed “Hotel”: split",
+        "Ben changed “Deposit”: payers, refund on",
+        "Anna added “Deposit” · €100.00 · you owe €25.00",
+        "Anna changed the group: name “Rome” → “Rome trip”",
+        "Anna added “Hotel” · €300.00 · you lent €40.00",
+        "Ben changed the group: default split",
+        "Anna changed the group: simplify debts off",
+        "You joined",
+        "Carla joined",
+        "Ben joined",
+        "Anna created the group “Rome”"
+      ]
+    },
+    {
+      "name": "several payers show as payers, never a flipped paid by (tie, amount edit, back to one payer); refunds read as refunds",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben",
+        "m3": "Carla"
+      },
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Lisbon",
+            "defaultCurrency": "EUR"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:01:00Z"
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:02:00Z"
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T09:03:00Z"
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m3",
+            "name": "Carla",
+            "userId": null
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:04:00Z"
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Hotel",
+            "amount": 30000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m2",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 10000
+              },
+              {
+                "memberId": "m2",
+                "amount": 20000
+              }
+            ],
+            "refund": false,
+            "split": null,
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 10000
+              },
+              {
+                "memberId": "m2",
+                "amount": 10000
+              },
+              {
+                "memberId": "m3",
+                "amount": 10000
+              }
+            ]
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:05:00Z"
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 30000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 15000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 15000
+                }
+              ],
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 10000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 10000
+                },
+                {
+                  "memberId": "m3",
+                  "amount": 10000
+                }
+              ],
+              "split": null,
+              "refund": false
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:06:00Z"
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 36000,
+              "paidBy": "m2",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 24000
+                }
+              ],
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m3",
+                  "amount": 12000
+                }
+              ],
+              "split": null,
+              "refund": false
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T09:07:00Z"
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 36000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 36000
+                }
+              ],
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 12000
+                },
+                {
+                  "memberId": "m3",
+                  "amount": 12000
+                }
+              ],
+              "split": null,
+              "refund": false
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:08:00Z"
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Hotel refund",
+            "amount": 6000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 6000
+              }
+            ],
+            "refund": true,
+            "split": {
+              "mode": "equal"
+            },
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 2000
+              },
+              {
+                "memberId": "m2",
+                "amount": 2000
+              },
+              {
+                "memberId": "m3",
+                "amount": 2000
+              }
+            ]
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T09:09:00Z"
+        },
+        {
+          "seq": 10,
+          "clientId": "e10",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x3",
+            "description": "Taxi refund",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m2",
+            "payers": [
+              {
+                "memberId": "m2",
+                "amount": 3000
+              }
+            ],
+            "refund": true,
+            "split": null,
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1500
+              },
+              {
+                "memberId": "m2",
+                "amount": 1500
+              }
+            ]
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T09:10:00Z"
+        }
+      ],
+      "expected": [
+        {
+          "seq": 10,
+          "createdAt": "2026-10-11T09:10:00Z",
+          "actorMemberId": "m2",
+          "kind": "expense_added",
+          "expenseId": "x3",
+          "description": "Taxi refund",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": -1500,
+          "refund": true
+        },
+        {
+          "seq": 9,
+          "createdAt": "2026-10-11T09:09:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_added",
+          "expenseId": "x2",
+          "description": "Hotel refund",
+          "amount": 6000,
+          "currency": "EUR",
+          "myDelta": 2000,
+          "refund": true
+        },
+        {
+          "seq": 8,
+          "createdAt": "2026-10-11T09:08:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_updated",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 36000,
+          "currency": "EUR",
+          "myDelta": -12000,
+          "changes": [
+            {
+              "field": "payers",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "createdAt": "2026-10-11T09:07:00Z",
+          "actorMemberId": "m2",
+          "kind": "expense_updated",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 36000,
+          "currency": "EUR",
+          "myDelta": 12000,
+          "changes": [
+            {
+              "field": "amount",
+              "from": 30000,
+              "to": 36000
+            },
+            {
+              "field": "payers",
+              "from": null,
+              "to": null
+            },
+            {
+              "field": "shares",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 6,
+          "createdAt": "2026-10-11T09:06:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_updated",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 30000,
+          "currency": "EUR",
+          "myDelta": 5000,
+          "changes": [
+            {
+              "field": "payers",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 5,
+          "createdAt": "2026-10-11T09:05:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_added",
+          "expenseId": "x1",
+          "description": "Hotel",
+          "amount": 30000,
+          "currency": "EUR",
+          "myDelta": 10000
+        },
+        {
+          "seq": 4,
+          "createdAt": "2026-10-11T09:04:00Z",
+          "actorMemberId": "m1",
+          "kind": "member_added",
+          "memberId": "m3"
+        },
+        {
+          "seq": 3,
+          "createdAt": "2026-10-11T09:03:00Z",
+          "actorMemberId": "m2",
+          "kind": "member_joined",
+          "memberId": "m2"
+        },
+        {
+          "seq": 1,
+          "createdAt": "2026-10-11T09:01:00Z",
+          "actorMemberId": "m1",
+          "kind": "group_created",
+          "name": "Lisbon"
+        }
+      ],
+      "texts": [
+        "You added a refund “Taxi refund” · €30.00 · you owe €15.00",
+        "Anna added a refund “Hotel refund” · €60.00 · you get back €20.00",
+        "Anna changed “Hotel”: payers",
+        "You changed “Hotel”: €300.00 → €360.00, payers",
+        "Anna changed “Hotel”: payers",
+        "Anna added “Hotel” · €300.00 · you lent €100.00",
+        "Anna added Carla",
+        "You joined",
+        "Anna created the group “Lisbon”"
       ]
     }
   ],

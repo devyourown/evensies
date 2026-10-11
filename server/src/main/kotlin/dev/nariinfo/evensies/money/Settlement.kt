@@ -3,7 +3,13 @@ package dev.nariinfo.evensies.money
 import kotlin.math.abs
 import kotlin.math.min
 
-data class ExpenseLine(val paidBy: String, val amount: Long, val shares: Map<String, Long>)
+/**
+ * [payers]: memberId → amount paid (a refund: amount received), [shares]: memberId → amount owed (a refund: split back
+ * to); both sum to [amount]. A [refund] reverses an expense's effect on balances.
+ */
+data class ExpenseLine(val payers: Map<String, Long>, val amount: Long, val shares: Map<String, Long>, val refund: Boolean = false) {
+    constructor(paidBy: String, amount: Long, shares: Map<String, Long>) : this(mapOf(paidBy to amount), amount, shares)
+}
 data class PaymentLine(val from: String, val to: String, val amount: Long)
 data class Transfer(val from: String, val to: String, val amount: Long)
 
@@ -15,12 +21,18 @@ object Settlement {
      *        + 보낸 송금(from == me) − 받은 송금(to == me)
      * 모든 members가 결과에 들어간다(활동 없으면 0). shares에만 등장하고 members에 없는 ID는 없다고 가정한다.
      * 불변식: 결과 값의 합 == 0.
+     *
+     * Phase 3 (port of Hyojun's Dart computeBalances; cases marked "pending": "hyojun" in shared/settlement-cases.json):
+     * per line sign = refund ? −1 : +1, balance[m] += sign × payers[m], balance[m] −= sign × shares[m].
+     * Until it lands (ported in the same push) several payers or a refund is TODO(); no server code calls this yet.
      */
     fun balances(members: List<String>, expenses: List<ExpenseLine>, payments: List<PaymentLine>): Map<String, Long> {
         val result = LinkedHashMap<String, Long>()
         for (member in members) result[member] = 0L
         for (expense in expenses) {
-            result[expense.paidBy] = result.getValue(expense.paidBy) + expense.amount
+            if (expense.payers.size != 1 || expense.refund) TODO("효준: port computeBalances multi-payer / refund from app/lib/domain/settlement.dart")
+            val paidBy = expense.payers.keys.single()
+            result[paidBy] = result.getValue(paidBy) + expense.amount
             for ((member, share) in expense.shares) result[member] = result.getValue(member) - share
         }
         // A payment is an expense paid by `from` and owed entirely by `to`.

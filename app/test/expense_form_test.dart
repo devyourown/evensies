@@ -21,7 +21,7 @@ void main() {
   setUp(() async {
     loadShared('currencies.json'); // fail loudly if the shared dir is missing
     db = AppDatabase(NativeDatabase.memory());
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1'));
+    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben', userId: const Value(null)));
   });
@@ -38,9 +38,16 @@ void main() {
     await t.pump(const Duration(milliseconds: 10));
   }
 
+  void tall(WidgetTester t) {
+    t.view.physicalSize = const Size(800, 3000); // the whole form on screen
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+  }
+
   bool saveEnabled(WidgetTester t) => t.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save')).enabled;
 
   testWidgets('renders and enables Save after amount + description', (t) async {
+    tall(t);
     await t.pumpWidget(app());
     await t.pumpAndSettle();
     expect(find.text('New expense'), findsOneWidget);

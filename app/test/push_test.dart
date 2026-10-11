@@ -30,7 +30,7 @@ void main() {
   late bool fcmOffline;
 
   const session = SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna');
-  const rome = GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1');
+  const rome = GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true);
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());

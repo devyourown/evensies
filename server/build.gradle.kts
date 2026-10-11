@@ -54,4 +54,5 @@ kotlin {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	inputs.dir("../shared") // fixtures read by SharedJson: a fixture-only edit must re-run the tests
 }

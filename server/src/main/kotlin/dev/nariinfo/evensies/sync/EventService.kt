@@ -36,41 +36,40 @@ class EventService(
         return pushValidated(groupId, userId, incoming)
     }
 
-    /**
-     * Validates the whole batch (400 on any failure, nothing stored), stores the normalized events (e.g. a
-     * `sent` payment that needs no confirmation becomes `confirmed` in the stored payload), then notifies other
-     * members about the newly stored events (a retry that stored nothing notifies nobody).
-     */
+    /** [push], then notifies other members about the newly stored events (a retry that stored nothing notifies nobody). */
     fun pushValidated(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): PushResult {
         val group = groups.find(groupId) ?: throw ApiException.notFound("Group")
         if (incoming.isEmpty()) return PushResult(emptyList(), group.latestSeq)
-        val normalized = validator.validateAll(stateStore.load(groupId), userId, incoming, stateStore::paymentCreator)
-        val (result, stored) = push(groupId, userId, normalized)
+        val (result, stored) = push(groupId, userId, incoming)
         if (stored.isNotEmpty()) notifier.notify(groupId, userId, stored)
         return result
     }
 
     /**
      * The sync core, all in one transaction: lock the group row (SELECT ... FOR UPDATE) so concurrent
-     * pushes cannot overlap on seq; skip events whose clientId is already stored and return their
-     * original seq (idempotent retries); assign seq = latestSeq + 1, +2, ... to the rest, apply them to the
-     * tables, store them with their feed meta, then advance latestSeq. Returns the result and the newly stored events.
+     * pushes cannot overlap on seq; validate the whole batch against the state loaded under that lock (400 on any
+     * failure, nothing stored; validating before the lock would let a concurrent push slip in between); skip events
+     * whose clientId is already stored and return their original seq (idempotent retries); assign seq = latestSeq + 1,
+     * +2, ... to the rest, apply the normalized events (e.g. a `sent` payment that needs no confirmation becomes
+     * `confirmed` in the stored payload) to the tables, store them with their feed meta, then advance latestSeq.
+     * Returns the result and the newly stored events.
      */
-    fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): Pair<PushResult, List<Event>> = tx.execute {
+    private fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): Pair<PushResult, List<Event>> = tx.execute {
         val group = groups.lockForUpdate(groupId) ?: throw ApiException.notFound("Group")
-        val existing = events.findByGroupIdAndClientIdIn(groupId, incoming.map { it.clientId })
-        val known = existing.associateTo(mutableMapOf()) { it.clientId to it.seq }
         var state = stateStore.load(groupId)
+        val normalized = validator.validateAll(state, userId, incoming, stateStore::paymentCreator)
+        val existing = events.findByGroupIdAndClientIdIn(groupId, normalized.map { it.clientId })
+        val known = existing.associateTo(mutableMapOf()) { it.clientId to it.seq }
         var seq = group.latestSeq
         val stored = mutableListOf<Event>()
-        val results = incoming.map { e ->
+        val results = normalized.map { e ->
             val seen = known[e.clientId]
             if (seen != null) {
                 SeqResult(e.clientId, seen)
             } else {
                 seq += 1
                 val before = state
-                state = EventApplier.apply(state, e.type, e.payload)   // state는 stateStore.load(groupId)로 시작
+                state = EventApplier.apply(state, e.type, e.payload)
                 stateStore.persist(groupId, userId, state, e.type, e.payload)
                 val meta = Activity.meta(before, state, e.type, e.payload, userId.toString())
                 stored += Event(groupId, seq, e.clientId, e.type, e.payload, actorUserId = userId, e.createdAt, meta)

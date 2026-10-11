@@ -22,6 +22,15 @@ data class ExpenseDto(
     val shares: List<ShareDto>,
     /** Free text, at most 500 UTF-16 chars; missing in old events = null. */
     val notes: String? = null,
+    /**
+     * Who paid (for a refund: who received it), in the order sent, summing to [amount]; [paidBy] is the primary payer
+     * (applier rule 10). The defaults read events and stored feed meta from before Phase 3.
+     */
+    val payers: List<ShareDto> = listOf(ShareDto(paidBy, amount)),
+    /** Money that came back: its balance effect is the reverse of an expense. */
+    val refund: Boolean = false,
+    /** SplitSpec as sent (docs/API.md "SplitSpec"): a hint for the editor, never used to recompute [shares]. null = exact. */
+    val split: JsonNode? = null,
 )
 data class PaymentDto(
     val id: String,

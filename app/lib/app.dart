@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,12 +16,17 @@ class EvensiesApp extends ConsumerStatefulWidget {
 }
 
 class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingObserver {
+  StreamSubscription<String>? _rejections;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _listenDeepLinks();
     initPush(ref);
+    // Before the first sync, so a change refused while the app was closed is still told.
+    _rejections = ref.read(syncProvider).rejections.listen((msg) => scaffoldMessengerKey.currentState
+        ?.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 8))));
     // At launch with a session, and after every sign-in: a returning user's groups come from the server.
     ref.listenManual(sessionProvider.select((s) => s.value?.userId), (prev, userId) {
       if (userId != null && userId != prev) ref.read(syncProvider).syncAll();
@@ -28,6 +35,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
 
   @override
   void dispose() {
+    _rejections?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

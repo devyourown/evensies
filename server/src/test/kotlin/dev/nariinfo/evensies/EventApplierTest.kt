@@ -16,15 +16,28 @@ class EventApplierTest {
     private fun applyAll(events: List<JsonNode>, start: GroupState = GroupState()): GroupState =
         events.fold(start) { s, e -> EventApplier.apply(s, e["type"].asString(), e["payload"]) }
 
-    private fun actual(s: GroupState) = SharedJson.canon(
-        mapOf("members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values, "comments" to s.comments.values)
+    /** `group` (optional in the fixture) holds only the keys the expected object names. */
+    private fun actual(s: GroupState, groupKeys: Set<String>?) = SharedJson.canon(
+        mapOf("members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values, "comments" to s.comments.values) +
+            (groupKeys?.let { keys ->
+                val group = mapOf("name" to s.name, "defaultCurrency" to s.defaultCurrency, "simplifyDebts" to s.simplifyDebts, "defaultSplit" to s.defaultSplit)
+                mapOf("group" to group.filterKeys { it in keys })
+            } ?: emptyMap())
     )
 
-    /** Missing expected values are defaults (fixture _doc): removed=false, notes=null, comments=[]. */
+    /**
+     * Missing expected values are defaults (fixture _doc): removed=false, notes=null, comments=[],
+     * payers=[{paidBy, amount}], refund=false, split=null.
+     */
     private fun expected(node: JsonNode): String {
         val copy = node.deepCopy() as ObjectNode
         for (m in copy["members"]) if (!m.has("removed")) (m as ObjectNode).put("removed", false)
-        for (e in copy["expenses"]) if (!e.has("notes")) (e as ObjectNode).putNull("notes")
+        for (e in copy["expenses"].values().map { it as ObjectNode }) {
+            if (!e.has("notes")) e.putNull("notes")
+            if (!e.has("payers")) e.putArray("payers").addObject().put("memberId", e["paidBy"].asString()).put("amount", e["amount"].asLong())
+            if (!e.has("refund")) e.put("refund", false)
+            if (!e.has("split")) e.putNull("split")
+        }
         if (!copy.has("comments")) copy.putArray("comments")
         return SharedJson.canon(copy)
     }
@@ -34,14 +47,15 @@ class EventApplierTest {
         dynamicTest(case["name"].asString()) {
             val events = case["events"].values().sortedBy { it["seq"].asLong() }
             val want = expected(case["expected"])
-            assertEquals(want, actual(applyAll(events)), "in seq order")
-            assertEquals(want, actual(applyAll(events.flatMap { listOf(it, it) })), "each event applied twice")
-            assertEquals(want, actual(applyAll(events, applyAll(events))), "whole sequence applied twice")
+            val groupKeys = case["expected"]["group"]?.propertyNames()?.toSet()
+            assertEquals(want, actual(applyAll(events), groupKeys), "in seq order")
+            assertEquals(want, actual(applyAll(events.flatMap { listOf(it, it) }), groupKeys), "each event applied twice")
+            assertEquals(want, actual(applyAll(events, applyAll(events)), groupKeys), "whole sequence applied twice")
             if (case["permute"]?.asBoolean() == true) {
                 val rnd = Random(42)
                 repeat(20) {
                     val delivered = events.shuffled(rnd).sortedBy { it["seq"].asLong() }
-                    assertEquals(want, actual(applyAll(delivered)), "shuffled delivery, applied by seq")
+                    assertEquals(want, actual(applyAll(delivered), groupKeys), "shuffled delivery, applied by seq")
                 }
             }
         }

@@ -3,7 +3,7 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~9 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~12 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
@@ -17,15 +17,26 @@ import 'event_types.dart';
 /// 8. `comment.added`는 commentId가 처음일 때만 뒤에 추가한다(삭제된 댓글 포함, 있으면 무시).
 ///    `comment.deleted`는 deleted=true로 표시하고 text를 ''로 비운다. 지출 존재 여부는 보지 않는다(서버 검증).
 /// 9. `expense.created`에 notes가 없으면 null. `expense.updated`에서 notes·category·fxRateToDefault의 null은 지우기,
-///    나머지 키의 null은 무시.
+///    나머지 키의 null은 무시. Phase 3: `split` is cleared by null too; a null `payers`/`refund` is ignored.
+/// 10. Payers are the source of truth; paidBy is always re-derived as the primary payer (largest amount, a tie goes
+///    to the lowest memberId; Expense.paidBy). created: missing/null payers → [{paidBy, amount}], refund → false,
+///    split → null. updated payers: (a) fields.payers replaces them, (b) else fields.paidBy → [{paidBy, amount after
+///    this update}], (c) else fields.amount with exactly one payer moves that payer to it, (d) else unchanged.
+///    refund changes only to a boolean. split: the key's value if present (null clears), else null when shares or
+///    amount is present (non-null), else unchanged.
+/// 11. group.updated: absent keys stay, simplifyDebts takes a boolean, "defaultSplit": null clears it.
+///    group.created leaves both at their defaults (true / null).
+/// 12. Once the state has any expense or payment (deleted ones too) group.updated's defaultCurrency is ignored;
+///    the event's other keys still apply.
 ///
 /// 이벤트별 payload(docs/API.md):
 ///   group.created {name, defaultCurrency} → state.name/defaultCurrency
-///   group.updated {name?, defaultCurrency?} → 있는 키만
+///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?} → 있는 키만 (rules 11–12)
 ///   member.added {memberId, name, userId|null} → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   member.linked {memberId, userId}
 ///   member.removed {memberId}
-///   expense.created {expenseId, description, amount, currency, fxRateToDefault, paidBy, date, category, notes?, shares}
+///   expense.created {expenseId, description, amount, currency, fxRateToDefault, paidBy, payers?, refund?, split?, date,
+///     category, notes?, shares}
 ///     → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId}   expense.restored {expenseId}
 ///   comment.added {commentId, expenseId, authorMemberId, text, createdAt}   comment.deleted {commentId}
@@ -39,7 +50,14 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
     case EventTypes.groupCreated:
       return s.copyWith(name: p['name'] as String?, defaultCurrency: p['defaultCurrency'] as String?);
     case EventTypes.groupUpdated:
-      return s.copyWith(name: p['name'] as String?, defaultCurrency: p['defaultCurrency'] as String?);
+      final locked = s.expenses.isNotEmpty || s.payments.isNotEmpty;
+      return s.copyWith(
+        name: p['name'] as String?,
+        defaultCurrency: locked ? null : p['defaultCurrency'] as String?,
+        simplifyDebts: p['simplifyDebts'] is bool ? p['simplifyDebts'] as bool : null,
+        defaultSplit: SplitSpec.fromJson(p['defaultSplit']),
+        clearDefaultSplit: p.containsKey('defaultSplit') && SplitSpec.fromJson(p['defaultSplit']) == null,
+      );
     case EventTypes.memberAdded:
       final id = p['memberId'] as String;
       if (s.member(id) != null) return s;
@@ -57,23 +75,36 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
       return s.copyWith(expenses: [...s.expenses, Expense.fromJson({...p, 'id': id, 'deleted': false})]);
     case EventTypes.expenseUpdated:
       final f = (p['fields'] as Map).cast<String, dynamic>();
+      List<Share>? list(Object? v) => (v as List?)?.cast<Map<String, dynamic>>().map(Share.fromJson).toList();
       return _mapExpense(s, p['expenseId'] as String, (x) {
         if (x.deleted) return x;
+        final amount = (f['amount'] as num?)?.toInt() ?? x.amount;
+        final paidBy = f['paidBy'] as String?;
+        final payers = (f['payers'] is List && (f['payers'] as List).isNotEmpty ? list(f['payers']) : null) ??
+            (paidBy != null
+                ? [Share(memberId: paidBy, amount: amount)]
+                : (f['amount'] != null && x.payers.length == 1)
+                    ? [Share(memberId: x.payers.single.memberId, amount: amount)]
+                    : null);
+        final splitKey = f.containsKey('split');
+        final clearSplit =
+            splitKey ? SplitSpec.fromJson(f['split']) == null : (f['shares'] != null || f['amount'] != null);
         return x.copyWith(
           description: f['description'] as String?,
-          amount: (f['amount'] as num?)?.toInt(),
+          amount: amount,
           currency: f['currency'] as String?,
           fxRateToDefault: (f['fxRateToDefault'] as num?)?.toDouble(),
           clearFx: f.containsKey('fxRateToDefault') && f['fxRateToDefault'] == null,
-          paidBy: f['paidBy'] as String?,
+          payers: payers,
           date: f['date'] as String?,
           category: f['category'] as String?,
           clearCategory: f.containsKey('category') && f['category'] == null,
           notes: f['notes'] as String?,
           clearNotes: f.containsKey('notes') && f['notes'] == null,
-          shares: f['shares'] == null
-              ? null
-              : (f['shares'] as List).cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
+          refund: f['refund'] is bool ? f['refund'] as bool : null,
+          split: splitKey ? SplitSpec.fromJson(f['split']) : null,
+          clearSplit: clearSplit,
+          shares: list(f['shares']),
         );
       });
     case EventTypes.expenseDeleted:

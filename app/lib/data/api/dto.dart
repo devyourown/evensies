@@ -2,6 +2,7 @@
 library;
 
 import '../../domain/activity.dart';
+import '../../domain/models.dart';
 
 typedef ActivityPage = ({List<ActivityItem> items, int? nextBefore});
 
@@ -33,6 +34,8 @@ class GroupDto {
   final String? createdAt;
   final int latestSeq;
   final String myMemberId;
+  final bool simplifyDebts;
+  final SplitSpec? defaultSplit;
   const GroupDto({
     required this.id,
     required this.name,
@@ -41,7 +44,11 @@ class GroupDto {
     this.createdAt,
     required this.latestSeq,
     required this.myMemberId,
+    this.simplifyDebts = true,
+    this.defaultSplit,
   });
+
+  /// `simplifyDebts`/`defaultSplit` default to true/null when a server before Phase 3 leaves them out.
   factory GroupDto.fromJson(Map<String, dynamic> j) => GroupDto(
         id: j['id'] as String,
         name: j['name'] as String,
@@ -50,6 +57,8 @@ class GroupDto {
         createdAt: j['createdAt'] as String?,
         latestSeq: (j['latestSeq'] as num).toInt(),
         myMemberId: j['myMemberId'] as String,
+        simplifyDebts: j['simplifyDebts'] as bool? ?? true,
+        defaultSplit: SplitSpec.fromJson(j['defaultSplit']),
       );
 }
 

@@ -135,21 +135,21 @@ Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one des
 
 ## Parity checklist
 
-Status: **have** = in the app today (including Phases 1–2); **Phase N** = designed above; **out of scope** = not planned, with the reason; **n/a** = Splitwise doesn't offer it either.
+Status: **have** = in the app today (including Phases 1–3); **partly** = in the app, but the part named in the row still waits; **Phase N** = designed above; **out of scope** = not planned, with the reason; **n/a** = Splitwise doesn't offer it either.
 
 | # | Area | Feature | Splitwise | Status |
 |---|---|---|---|---|
-| 1 | Split | Equally (untick people) | Free | have; Phase 3 adds the tick boxes |
+| 1 | Split | Equally (untick people) | Free | have (tick boxes since Phase 3) |
 | 2 | Split | Exact amounts | Free | have |
-| 3 | Split | Percent | Free | have; Phase 3 fixes the 0% leftover (Hyojun) |
-| 4 | Split | Shares | Free | Phase 3 (Hyojun) |
-| 5 | Split | Adjustment | Free | Phase 3 (Hyojun) |
+| 3 | Split | Percent | Free | partly: the 0% leftover fix waits for Hyojun's `computeSplit` (pending cases in `shared/split-cases.json`) |
+| 4 | Split | Shares | Free | partly (Phase 3): shares expenses from other clients sync and reopen as exact amounts; the Shares option is disabled ("Coming soon") until Hyojun's `computeSplit` |
+| 5 | Split | Adjustment | Free | partly (Phase 3): as Shares, the ± option waits for Hyojun's `computeSplit` |
 | 6 | Split | Itemized, manual | Free web / Pro mobile | Phase 7 |
 | 7 | Split | Itemize by receipt scan | Pro | Phase 7 (on-device OCR, mobile only) |
-| 8 | Split | Reimbursement / refund | Free | Phase 3 (balances: Hyojun) |
-| 9 | Split | "Full amount" shortcuts | Free | Phase 3 |
-| 10 | Split | Multiple payers | Free | Phase 3 (Hyojun) |
-| 11 | Split | Default split per group | Pro | Phase 3 |
+| 8 | Split | Reimbursement / refund | Free | partly (Phase 3): refunds are created and synced; Balances and Settle up leave them out ("N expenses with several payers or refunds aren't counted yet") until Hyojun's `computeBalances` |
+| 9 | Split | "Full amount" shortcuts | Free | have (Phase 3) |
+| 10 | Split | Multiple payers | Free | partly (Phase 3): the payers editor and sync are in; Balances and Settle up leave these expenses out until Hyojun's `computeBalances` |
+| 11 | Split | Default split per group | Pro | have (Phase 3); a shares or ± default waits for Hyojun's `computeSplit` |
 | 12 | Expense | Description, amount, date, payer | Free | have |
 | 13 | Expense | Currency per expense, last one remembered | Free | have; Phase 4 adds per-group memory |
 | 14 | Expense | Category with icon, auto-guessed | Free | Phase 5 |
@@ -167,10 +167,10 @@ Status: **have** = in the app today (including Phases 1–2); **Phase N** = desi
 | 26 | Groups | Create; add people by name | Free | have |
 | 27 | Groups | Group type | Free | Phase 10 |
 | 28 | Groups | Cover photo | Free | Phase 10 |
-| 29 | Groups | Simplify debts toggle | Free | Phase 3 (per currency from Phase 4) |
-| 30 | Groups | Simplify-debts explanation | Free | Phase 3 |
-| 31 | Groups | Settings: rename, default currency | Free | Phase 3 (currency locked after the first expense or payment) |
-| 32 | Groups | Leave group | Free | Phase 3 |
+| 29 | Groups | Simplify debts toggle | Free | have (Phase 3; per currency from Phase 4) |
+| 30 | Groups | Simplify-debts explanation | Free | have (Phase 3) |
+| 31 | Groups | Settings: rename, default currency | Free | have (Phase 3; currency locked after the first expense or payment) |
+| 32 | Groups | Leave group | Free | have (Phase 3) |
 | 33 | Groups | Delete / undelete group | Free | Phase 10 |
 | 34 | Groups | Remove member | Free | have |
 | 35 | Groups | Balances per member, per currency | Free | Phase 4 |
@@ -245,3 +245,5 @@ Status: **have** = in the app today (including Phases 1–2); **Phase N** = desi
 | 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
 | 105 | Activity | Unread activity indicator and app-icon badge | Free | Phase 6 (found in the Phase 2 check): per-user unread count on the server from the last-seen `feedId`, Activity tab badge, APNs badge on visible pushes |
 | 106 | Settle | Comments on payments | Free | Phase 6, to design with "record any payment" (contract change: comments on a `paymentId`, a new activity sentence) |
+| 107 | Expense | List row for an expense with several payers says how many paid (e.g. "2 people paid €300.00"), not "paid by Anna +1" | Free | Phase 5 (found in the Phase 3 check), with the public `ExpenseTile`: app-only wording, no contract change |
+| 108 | Expense | Read-only expense detail: who paid how much, each person's share, then Edit | Free | Phase 5 (found in the Phase 3 check), on the expense screen next to History and comments: app-only, reads the stored `payers`/`shares` |

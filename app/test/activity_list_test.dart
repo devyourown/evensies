@@ -27,7 +27,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     api = FakeApi(db);
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1'));
+    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
     await db.into(db.expenses).insert(ExpensesCompanion.insert(
@@ -150,7 +150,7 @@ void main() {
 
     top = 101; // a new event arrives: only the first page is fetched again
     await t.runAsync(() => db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 10, myMemberId: 'm1')));
+        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 10, myMemberId: 'm1', simplifyDebts: true)));
     await settle(t);
     expect(api.activityCalls, [('g1', null), ('g1', 51), ('g1', null)]);
     await t.drag(find.byType(ListView), const Offset(0, -40000));

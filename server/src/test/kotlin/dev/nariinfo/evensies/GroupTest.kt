@@ -121,4 +121,44 @@ class GroupTest : IntegrationTestBase() {
         assertEquals(409, over.status)
         assertEquals("LIMIT_EXCEEDED", over.code())
     }
+
+    /**
+     * Leave group = `member.removed` of your own member (docs/API.md "그룹 나가기"): the group leaves `GET /groups`,
+     * every group endpoint answers 403, the member stays (removed) with its expenses, others see "Ben left the group".
+     * Rejoining makes a new member; leaving again is that new member (not the older removed one).
+     */
+    @Test
+    fun leaveGroup() {
+        val anna = login("Leave-anna")
+        val ben = login("Leave-ben")
+        val group = createGroup(anna)
+        val id = group["id"].asString()
+        val a = group["myMemberId"].asString()
+        val b = join(ben, group, "Ben")
+        assertEquals(200, push(ben, id, expenseCreated(b, 1000, mapOf(a to 500, b to 500))).status)
+
+        assertEquals(200, push(ben, id, event("member.removed", mapOf("memberId" to b))).status)
+        assertEquals(0, http.get("/groups", ben).body.size())
+        for (path in listOf("/groups/$id", "/groups/$id/snapshot", "/groups/$id/events?after=0", "/groups/$id/activity", "/groups/$id/export?format=csv")) {
+            assertEquals(403, http.get(path, ben).status, path)
+        }
+        assertEquals(403, push(ben, id, event("group.updated", mapOf("name" to "Mine now"))).status)
+        val snap = snapshot(anna, id)
+        assertEquals(true, snap["members"].values().first { it["id"].asString() == b }["removed"].asBoolean())
+        assertEquals(1, snap["expenses"].size())
+        val left = http.get("/groups/$id/activity", anna).body["items"][0]
+        assertEquals("member_left" to b, left["kind"].asString() to left["memberId"].asString())
+        assertEquals(b, left["actorMemberId"].asString())
+
+        // rejoin as a new member, leave again: the feed names the new member
+        val b2 = join(ben, group, "Ben again")
+        assertEquals(1, http.get("/groups", ben).body.size())
+        assertEquals(200, push(ben, id, event("member.removed", mapOf("memberId" to b2))).status)
+        val again = http.get("/groups/$id/activity", anna).body["items"][0]
+        assertEquals(listOf("member_left", b2, b2), listOf(again["kind"].asString(), again["memberId"].asString(), again["actorMemberId"].asString()))
+        // removing someone else is still member_removed
+        val placeholder = UUID.randomUUID().toString()
+        assertEquals(200, push(anna, id, memberAdded("Cara", placeholder), event("member.removed", mapOf("memberId" to placeholder))).status)
+        assertEquals("member_removed", http.get("/groups/$id/activity", anna).body["items"][0]["kind"].asString())
+    }
 }

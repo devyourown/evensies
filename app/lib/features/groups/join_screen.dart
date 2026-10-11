@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/ids.dart';
 import '../../core/snack.dart';
+import '../../core/text_limits.dart';
 import '../../data/api/dto.dart';
 import '../../providers.dart';
 
@@ -66,14 +67,19 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
                       title: TextField(
                         controller: _name,
                         onChanged: (_) => setState(() => _memberId = _newMember),
-                        decoration: const InputDecoration(labelText: 'New member name'),
+                        decoration: limitedDecoration(
+                            const InputDecoration(labelText: 'New member name'), _name.text, maxMemberName),
                       ),
                     ),
                   ]),
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  onPressed: _busy || (_memberId == _newMember && _name.text.trim().isEmpty) ? null : _join,
+                  onPressed: _busy ||
+                          (_memberId == _newMember &&
+                              (_name.text.trim().isEmpty || !fitsLimit(_name.text, maxMemberName)))
+                      ? null
+                      : _join,
                   child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Join'),
                 ),
               ],

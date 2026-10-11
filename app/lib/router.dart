@@ -7,6 +7,7 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/name_screen.dart';
 import 'features/expense_form/expense_form_screen.dart';
 import 'features/group_detail/group_detail_screen.dart';
+import 'features/group_settings/group_settings_screen.dart';
 import 'features/groups/groups_screen.dart';
 import 'features/groups/join_code_screen.dart';
 import 'features/groups/join_screen.dart';
@@ -52,6 +53,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(path: 'members', builder: (_, s) => MembersScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'settle', builder: (_, s) => SettleScreen(groupId: s.pathParameters['id']!)),
+              GoRoute(path: 'settings', builder: (_, s) => GroupSettingsScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'expenses/new', builder: (_, s) => ExpenseFormScreen(groupId: s.pathParameters['id']!)),
               GoRoute(
                 path: 'expenses/:eid',

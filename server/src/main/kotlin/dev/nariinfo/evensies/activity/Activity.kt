@@ -9,7 +9,10 @@ import tools.jackson.databind.JsonNode
 import java.time.Instant
 import java.util.UUID
 
-data class GroupInfo(val name: String?, val defaultCurrency: String?)
+/** Defaults read meta stored before Phase 3. */
+data class GroupInfo(val name: String?, val defaultCurrency: String?, val simplifyDebts: Boolean = true, val defaultSplit: JsonNode? = null)
+
+private fun GroupState.info() = GroupInfo(name, defaultCurrency, simplifyDebts, defaultSplit)
 
 /**
  * Stored in `events.meta` (server-internal, never pulled): what the feed needs about one event, captured while it is
@@ -48,6 +51,8 @@ data class ActivityItem(
     val toMember: String? = null,
     val status: String? = null,
     val myDelta: Long? = null,
+    /** true for an `expense_added` refund, else null. */
+    val refund: Boolean? = null,
     val text: String? = null,
     val changes: List<Change> = emptyList(),
 )
@@ -63,25 +68,32 @@ object Activity {
     private val PAYMENT_KINDS = mapOf(
         "payment.created" to "payment_added", "payment.confirmed" to "payment_confirmed", "payment.deleted" to "payment_deleted",
     )
-    private val GROUP_FIELDS = listOf<Pair<String, (GroupInfo) -> Any?>>("name" to GroupInfo::name, "defaultCurrency" to GroupInfo::defaultCurrency)
+    private val GROUP_FIELDS = listOf<Pair<String, (GroupInfo) -> Any?>>(
+        "name" to GroupInfo::name, "defaultCurrency" to GroupInfo::defaultCurrency,
+        "simplifyDebts" to GroupInfo::simplifyDebts, "defaultSplit" to GroupInfo::defaultSplit,
+    )
     private val EXPENSE_FIELDS = listOf<Pair<String, (ExpenseDto) -> Any?>>(
         "description" to ExpenseDto::description, "amount" to ExpenseDto::amount, "currency" to ExpenseDto::currency,
-        "fxRateToDefault" to ExpenseDto::fxRateToDefault, "paidBy" to ExpenseDto::paidBy, "date" to ExpenseDto::date,
-        "category" to ExpenseDto::category, "shares" to ExpenseDto::shares, "notes" to ExpenseDto::notes,
+        "fxRateToDefault" to ExpenseDto::fxRateToDefault, "paidBy" to ExpenseDto::paidBy, "payers" to ExpenseDto::payers,
+        "refund" to ExpenseDto::refund, "date" to ExpenseDto::date, "category" to ExpenseDto::category,
+        "shares" to ExpenseDto::shares, "split" to ExpenseDto::split, "notes" to ExpenseDto::notes,
     )
     /** Listed only by name: the values are not shown. */
-    private val OPAQUE = setOf("shares", "notes")
+    private val OPAQUE = setOf("payers", "shares", "split", "notes", "defaultSplit")
 
     /**
      * Meta for one event applied as [before] → [after]. The actor is looked up in [after]; callers fill a missing one
-     * from the state after the whole push batch (or the whole log) with [memberOfUser].
+     * from the state after the whole push batch (or the whole log) with [memberOfUser]. Someone leaving (removing
+     * their own member) is always that member: [memberOfUser] would pick an older removed member of a user who left,
+     * rejoined and left again.
      */
     fun meta(before: GroupState, after: GroupState, type: String, p: JsonNode, actorUserId: String?): EventMeta {
+        val leaving = p.text("memberId")?.takeIf { type == "member.removed" && actorUserId != null && before.members[it]?.userId == actorUserId }
         // group.created exists once (seq 1, server-made) and POST /groups stores the group row before it, so the
         // loaded state already has the name: never a no-op.
-        val m = EventMeta(actorMemberId = after.memberOfUser(actorUserId), noop = before == after && type != "group.created")
+        val m = EventMeta(actorMemberId = leaving ?: after.memberOfUser(actorUserId), noop = before == after && type != "group.created")
         return when (type.substringBefore('.')) {
-            "group" -> m.copy(groupBefore = GroupInfo(before.name, before.defaultCurrency), group = GroupInfo(after.name, after.defaultCurrency))
+            "group" -> m.copy(groupBefore = before.info(), group = after.info())
             "expense" -> m.copy(expenseBefore = before.expenses[p.text("expenseId")], expense = after.expenses[p.text("expenseId")])
             "comment" -> m.copy(expense = after.expenses[p.text("expenseId")])
             "payment" -> m.copy(payment = after.payments[p.text("paymentId")])
@@ -107,12 +119,15 @@ object Activity {
                 memberId = p.text("memberId"),
             )
             "member.linked" -> base.copy(kind = "member_joined", memberId = p.text("memberId"))
-            "member.removed" -> base.copy(kind = "member_removed", memberId = p.text("memberId"))
+            "member.removed" -> base.copy(
+                kind = if (meta.actorMemberId != null && meta.actorMemberId == p.text("memberId")) "member_left" else "member_removed",
+                memberId = p.text("memberId"),
+            )
             in EXPENSE_KINDS -> meta.expense?.let { x ->
                 base.copy(
                     kind = EXPENSE_KINDS.getValue(type), expenseId = x.id, description = x.description, amount = x.amount,
-                    currency = x.currency, myDelta = myDelta(x, me),
-                    changes = if (type == "expense.updated") changes(meta.expenseBefore, x, EXPENSE_FIELDS) else emptyList(),
+                    currency = x.currency, myDelta = myDelta(x, me), refund = if (type == "expense.created" && x.refund) true else null,
+                    changes = if (type == "expense.updated") expenseChanges(meta.expenseBefore, x) else emptyList(),
                 )
             }
             "comment.added" -> base.copy(
@@ -148,11 +163,21 @@ object Activity {
         return filterNot { it.kind == "comment_added" && it.commentId in gone }
     }
 
-    /** `(paidBy == me ? amount : 0) − my share`; null when [me] neither paid nor has a share. */
+    /** `sign × (my payer amount − my share)`, sign −1 for a refund; null when [me] is in neither payers nor shares. */
     private fun myDelta(x: ExpenseDto, me: String?): Long? {
+        val paid = x.payers.firstOrNull { it.memberId == me }?.amount
         val share = x.shares.firstOrNull { it.memberId == me }?.amount
-        if (me == null || (x.paidBy != me && share == null)) return null
-        return (if (x.paidBy == me) x.amount else 0) - (share ?: 0)
+        if (me == null || (paid == null && share == null)) return null
+        return (if (x.refund) -1 else 1) * ((paid ?: 0) - (share ?: 0))
+    }
+
+    /**
+     * One payer before and after: `paidBy` says who and `payers` only follows it or the amount (rule 10), so it is left
+     * out. Several on either side: `payers`, never the derived `paidBy` (a tie or a small edit can flip it).
+     */
+    private fun expenseChanges(before: ExpenseDto?, after: ExpenseDto): List<Change> {
+        val several = (before?.payers?.size ?: 0) > 1 || after.payers.size > 1
+        return changes(before, after, EXPENSE_FIELDS).filterNot { it.field == if (several) "paidBy" else "payers" }
     }
 
     private fun <T> changes(before: T?, after: T?, fields: List<Pair<String, (T) -> Any?>>): List<Change> {

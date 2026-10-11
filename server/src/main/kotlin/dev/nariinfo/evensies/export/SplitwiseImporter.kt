@@ -21,8 +21,10 @@ data class ImportResult(val imported: Int, val latestSeq: Long)
 
 /**
  * Splitwise CSV: `Date,Description,Category,Cost,Currency,<name>,...` where each name column is that
- * person's net for the row (paid − owed). The payer is the column with the largest net; everybody else
- * owes −net. Unknown names become placeholder members. Everything goes through the normal push path.
+ * person's net for the row (paid − owed). Everyone with a positive net pays that net; the largest net (tie: lowest
+ * member id) also pays the slack `Cost − Σ positive nets` and owes `Cost − Σ what the others owe` (the slack when the
+ * nets add up to 0, and the shares still sum to Cost when they don't); everybody else owes −net. A negative slack or
+ * owed amount is 400 IMPORT_FAILED. Unknown names become placeholder members. Everything goes through the normal push path.
  */
 @Service
 class SplitwiseImporter(
@@ -60,11 +62,13 @@ class SplitwiseImporter(
             val amount = minor(row[cost], cur, line)
             val nets = nameColumns.map { memberIdByName.getValue(header[it].lowercase()) to minor(row[it], cur, line) }
             val payer = nets.maxWith(compareBy<Pair<String, Long>> { it.second }.thenByDescending { it.first })
+            val slack = amount - nets.sumOf { maxOf(0L, it.second) }
+            if (slack < 0) bad("Line $line: the people who paid add up to more than the cost")
+            val payers = nets.map { (id, net) -> id to maxOf(0L, net) + if (id == payer.first) slack else 0 }
             val others = nets.filter { it.first != payer.first }.map { it.first to maxOf(0L, -it.second) }
             val payerShare = amount - others.sumOf { it.second }
-            if (payerShare < 0) bad("Line $line: cannot derive shares (multiple payers?)")
-            val shares = (others + (payer.first to payerShare)).filter { it.second > 0 }
-                .map { mapOf("memberId" to it.first, "amount" to it.second) }
+            if (payerShare < 0) bad("Line $line: cannot derive shares")
+            fun lines(l: List<Pair<String, Long>>) = l.filter { it.second > 0 }.map { mapOf("memberId" to it.first, "amount" to it.second) }
             out += event(
                 "expense.created", mapOf(
                     "expenseId" to UUID.randomUUID().toString(),
@@ -72,8 +76,8 @@ class SplitwiseImporter(
                     "amount" to amount, "currency" to cur, "fxRateToDefault" to null,
                     "paidBy" to payer.first, "date" to parseDate(row[date], line),
                     "category" to row.getOrNull(header.indexOf("Category"))?.trim()?.ifEmpty { null },
-                    "shares" to shares,
-                )
+                    "shares" to lines(others + (payer.first to payerShare)),
+                ) + (lines(payers).takeIf { it.size > 1 }?.let { mapOf("payers" to it) } ?: emptyMap())
             )
             imported++
         }

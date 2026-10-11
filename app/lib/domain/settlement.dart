@@ -1,10 +1,16 @@
 import 'dart:math';
 
 class ExpenseLine {
-  final String paidBy;
+  /// memberId → amount paid (for a refund: amount received). Sums to [amount].
+  final Map<String, int> payers;
   final int amount;
+  /// memberId → amount owed (for a refund: amount it is split back to). Sums to [amount].
   final Map<String, int> shares;
-  const ExpenseLine({required this.paidBy, required this.amount, required this.shares});
+  /// Money that came back (a refund): its effect on balances is the reverse of an expense.
+  final bool refund;
+  ExpenseLine({String? paidBy, Map<String, int>? payers, required this.amount, required this.shares, this.refund = false})
+      : assert((paidBy == null) != (payers == null), 'pass paidBy or payers'),
+        payers = payers ?? {paidBy!: amount};
 }
 
 class PaymentLine {
@@ -35,6 +41,14 @@ class Transfer {
 ///   (송금은 from이 낸 돈을 to가 전부 부담한 지출과 같다. 받으면 받을 돈이 줄고, 보내면 줄 돈이 준다.)
 /// - 결과 맵은 [members] 전부를 키로 가진다(활동 없으면 0).
 /// - 합계는 항상 0 (shares 합 == amount이므로).
+///
+/// Phase 3 — TODO(효준) (docs/API.md "SplitSpec" 잔액, cases marked "pending": "hyojun" in shared/settlement-cases.json):
+/// - For each line, sign = refund ? −1 : +1: balance[m] += sign × payers[m] for every payer,
+///   balance[m] −= sign × shares[m] for every share.
+/// - Payments unchanged: balance[from] += amount, balance[to] −= amount.
+/// - Every member in [members] is a key (0 if no activity). Lines come validated
+///   (Σ payers == Σ shares == amount, ids in members): no checks here. Σ balances == 0.
+/// Until then a line with several payers or a refund throws UnimplementedError; callers go through tryCore.
 Map<String, int> computeBalances(
   List<String> members,
   List<ExpenseLine> expenses,
@@ -45,7 +59,8 @@ Map<String, int> computeBalances(
     result.putIfAbsent(member, () => 0);
   }
   for (final expense in expenses) {
-    result.update(expense.paidBy, (v) => v+expense.amount);
+    if (expense.payers.length != 1 || expense.refund) throw UnimplementedError('TODO(효준): multi-payer / refund');
+    result.update(expense.payers.keys.single, (v) => v+expense.amount);
     for (final (member) in expense.shares.keys) {
       result.update(member, (v) => v-(expense.shares[member]??0));
     }
@@ -88,4 +103,27 @@ List<Transfer> simplifyDebts(Map<String, int> balances) {
     result.add(Transfer(from: debt.$1, to: cred.$1, amount: amount));
   }
   return result;
+}
+
+/// Debts as they arose, for groups with "simplify debts" off (docs/API.md, settlement-cases `expectedPairwise`).
+/// Each expense line and each payment is settled on its own with `simplifyDebts(computeBalances(...))`; the
+/// transfers are summed per (from, to) and netted per pair of people. Zero pairs are dropped; sorted by from, then to.
+List<Transfer> pairwiseDebts(List<String> members, List<ExpenseLine> lines, List<PaymentLine> payments) {
+  final net = <(String, String), int>{}; // (lo, hi) → what lo owes hi (negative: hi owes lo)
+  void add(Transfer t) {
+    final lo = t.from.compareTo(t.to) < 0;
+    final key = lo ? (t.from, t.to) : (t.to, t.from);
+    net[key] = (net[key] ?? 0) + (lo ? t.amount : -t.amount);
+  }
+
+  for (final l in lines) {
+    simplifyDebts(computeBalances(members, [l], const [])).forEach(add);
+  }
+  for (final p in payments) {
+    simplifyDebts(computeBalances(members, const [], [p])).forEach(add);
+  }
+  return [
+    for (final MapEntry(key: (lo, hi), value: v) in net.entries)
+      if (v != 0) v > 0 ? Transfer(from: lo, to: hi, amount: v) : Transfer(from: hi, to: lo, amount: -v),
+  ]..sort((a, b) => a.from == b.from ? a.to.compareTo(b.to) : a.from.compareTo(b.from));
 }

@@ -21,7 +21,9 @@ class GroupDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final group = ref.watch(groupProvider(groupId)).value;
+    final async = ref.watch(groupProvider(groupId));
+    final group = async.value;
+    if (group == null && async.hasValue) return const _Gone();
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return DefaultTabController(
       key: ValueKey(tab), // a new ?tab= on the same page re-selects the tab
@@ -35,6 +37,11 @@ class GroupDetailScreen extends ConsumerWidget {
               tooltip: 'Members & invite',
               onPressed: () => context.push('/groups/$groupId/members'),
               icon: const Icon(Icons.people_outline),
+            ),
+            IconButton(
+              tooltip: 'Group settings',
+              onPressed: () => context.push('/groups/$groupId/settings'),
+              icon: const Icon(Icons.settings_outlined),
             ),
           ],
           bottom: const TabBar(tabs: [Tab(text: 'Expenses'), Tab(text: 'Balances'), Tab(text: 'Activity')]),
@@ -53,6 +60,40 @@ class GroupDetailScreen extends ConsumerWidget {
           onPressed: () => context.push('/groups/$groupId/expenses/new'),
           icon: const Icon(Icons.add),
           label: const Text('Expense'),
+        ),
+      ),
+    );
+  }
+}
+
+/// No local row: I left or was removed (here or on another device), or a just-joined group hasn't synced yet.
+/// The screen switches to the group by itself once its row arrives.
+class _Gone extends StatelessWidget {
+  const _Gone();
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.group_off_outlined, size: 64, color: cs.primary),
+              const SizedBox(height: 16),
+              Text("This group isn't on this device", style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                "You left it, someone removed you, or it hasn't synced yet.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(onPressed: () => context.go('/'), child: const Text('Back to groups')),
+            ],
+          ),
         ),
       ),
     );
@@ -138,30 +179,42 @@ class _ExpenseTile extends StatelessWidget {
     final foreign = e.currency != group.defaultCurrency;
     final fxMissing = foreign && e.fxRateToDefault == null;
 
-    final myShare = e.shares.where((s) => s.memberId == myMemberId).fold(0, (a, s) => a + s.amount);
-    final paidByMe = e.paidBy == myMemberId;
+    int mineIn(List<Share> l) => l.where((s) => s.memberId == myMemberId).fold(0, (a, s) => a + s.amount);
+    final myShare = mineIn(e.shares);
+    final myPaid = mineIn(e.payers);
+    final payer = '$payerName${e.payers.length > 1 ? ' +${e.payers.length - 1}' : ''}';
+    // sign × (what I paid − my share); a refund reverses it (docs/API.md 잔액).
+    final delta = (e.refund ? -1 : 1) * (myPaid - myShare);
+    final involved = (myMemberId != null && e.payers.any((p) => p.memberId == myMemberId)) || myShare != 0;
     String mine;
     Color mineColor = cs.onSurfaceVariant;
-    if (myMemberId == null || (!paidByMe && myShare == 0)) {
+    if (!involved) {
       mine = 'not involved';
-    } else if (paidByMe) {
-      final lent = e.amount - myShare;
-      mine = lent > 0 ? 'you lent ${formatMoney(lent, e.currency)}' : 'you paid for yourself';
-      if (lent > 0) mineColor = cs.primary;
+    } else if (delta == 0) {
+      mine = e.refund ? 'all yours' : 'you paid for yourself';
+    } else if (delta > 0) {
+      mine = '${e.refund ? 'you get back' : 'you lent'} ${formatMoney(delta, e.currency)}';
+      mineColor = cs.primary;
     } else {
-      mine = 'you borrowed ${formatMoney(myShare, e.currency)}';
+      mine = '${e.refund ? 'you owe' : 'you borrowed'} ${formatMoney(-delta, e.currency)}';
       mineColor = cs.error;
     }
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       title: Text(e.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('paid by $payerName · $mine', style: TextStyle(color: mineColor)),
+      subtitle: Text('${e.refund ? 'refund to' : 'paid by'} $payer · $mine', style: TextStyle(color: mineColor)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(formatMoney(e.amount, e.currency), style: Theme.of(context).textTheme.titleMedium),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (e.refund) ...[
+              Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
+              const SizedBox(width: 4),
+            ],
+            Text(formatMoney(e.amount, e.currency), style: Theme.of(context).textTheme.titleMedium),
+          ]),
           if (foreign)
             Row(mainAxisSize: MainAxisSize.min, children: [
               if (fxMissing) ...[
@@ -228,45 +281,64 @@ class _BalancesTab extends ConsumerWidget {
       ..sort((x, y) => (b[y.id] ?? 0).compareTo(b[x.id] ?? 0));
     final maxAbs = rows.fold(0, (acc, m) => (b[m.id] ?? 0).abs() > acc ? (b[m.id] ?? 0).abs() : acc);
     final unsettled = maxAbs > 0;
+    final incomplete = res.unsupported > 0 || res.missingFx > 0; // never "All settled" next to the cards above
     final me = group.myMemberId;
     final myPending = (ref.watch(groupStateProvider(group.id)).value?.payments ?? const <Payment>[])
         .where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me))
         .length;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-      children: [
-        if (res.missingFx > 0)
-          Card(
-            color: cs.errorContainer,
-            child: ListTile(
-              leading: Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer),
-              title: Text('${res.missingFx} expense${res.missingFx == 1 ? '' : 's'} missing an fx rate',
-                  style: TextStyle(color: cs.onErrorContainer)),
-              subtitle: Text('Not counted in balances. Edit the expense to add a rate.',
-                  style: TextStyle(color: cs.onErrorContainer)),
+    return RefreshIndicator(
+      onRefresh: () => ref.read(syncProvider).sync(group.id).catchError((_) {}),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+        children: [
+          if (res.missingFx > 0)
+            Card(
+              color: cs.errorContainer,
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer),
+                title: Text('${res.missingFx} expense${res.missingFx == 1 ? '' : 's'} missing an fx rate',
+                    style: TextStyle(color: cs.onErrorContainer)),
+                subtitle: Text('Not counted in balances. Edit the expense to add a rate.',
+                    style: TextStyle(color: cs.onErrorContainer)),
+              ),
             ),
-          ),
-        if (!unsettled)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Column(children: [
-              Icon(Icons.check_circle_outline, size: 64, color: cs.primary),
-              const SizedBox(height: 16),
-              Text('All settled', style: Theme.of(context).textTheme.titleMedium),
-              Text('Nobody owes anything.', style: TextStyle(color: cs.onSurfaceVariant)),
-            ]),
-          ),
-        for (final m in rows) _BalanceRow(name: m.name + (m.removed ? ' (removed)' : ''), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: group.defaultCurrency),
-        if (unsettled || myPending > 0) ...[
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => context.push('/groups/${group.id}/settle'),
-            icon: const Icon(Icons.handshake_outlined),
-            label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
-          ),
+          if (res.unsupported > 0)
+            Card(
+              color: cs.tertiaryContainer,
+              child: ListTile(
+                leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
+                title: Text(
+                    '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
+                    "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
+                    style: TextStyle(color: cs.onTertiaryContainer)),
+                subtitle: Text(notImplementedLabel, style: TextStyle(color: cs.onTertiaryContainer)),
+              ),
+            ),
+          if (!unsettled)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              child: Column(children: [
+                Icon(incomplete ? Icons.hourglass_empty : Icons.check_circle_outline,
+                    size: 64, color: incomplete ? cs.onSurfaceVariant : cs.primary),
+                const SizedBox(height: 16),
+                Text(incomplete ? 'Balances are incomplete' : 'All settled',
+                    style: Theme.of(context).textTheme.titleMedium),
+                Text(incomplete ? "Nothing to settle among the expenses counted so far." : 'Nobody owes anything.',
+                    style: TextStyle(color: cs.onSurfaceVariant)),
+              ]),
+            ),
+          for (final m in rows) _BalanceRow(name: m.name + (m.removed ? ' (removed)' : ''), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: group.defaultCurrency),
+          if (unsettled || myPending > 0) ...[
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => context.push('/groups/${group.id}/settle'),
+              icon: const Icon(Icons.handshake_outlined),
+              label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

@@ -1,5 +1,5 @@
 {
-  "_doc": "잔액·부채 단순화 테스트 케이스. 모든 금액은 그룹 기본 통화의 최소 단위 정수. balances: 낸 돈 − 부담 몫 + 받은 송금 − 보낸 송금. transfers: 탐욕법(절댓값 큰 채권자·채무자부터, 동률은 memberId 오름차순). 양쪽 구현이 이 파일을 읽는다.",
+  "_doc": "잔액·부채 단순화 테스트 케이스. 모든 금액은 그룹 기본 통화의 최소 단위 정수. 지출은 {paidBy, amount, shares}(이전 모양, payers = {paidBy: amount}) 또는 {payers: {memberId: 낸 금액}, amount, shares}, 선택 refund: true(돌려받은 돈: payers = 받은 사람, shares = 다시 나눠 받는 사람). balances: 지출마다 sign = refund ? −1 : +1로 sign × (낸 돈 − 부담 몫)의 합 + 보낸 송금 − 받은 송금. transfers: 탐욕법(절댓값 큰 채권자·채무자부터, 동률은 memberId 오름차순), expectedBalances로 계산. expectedPairwise(선택, 앱 pairwiseDebts 테스트만 확인): 부채 단순화를 끈 그룹의 송금 — 지출 하나·송금 하나마다 따로 simplifyDebts(computeBalances(members, [그것만]))를 구해 (from, to)별로 더하고 두 사람 사이는 상계, 0은 빼고 from, to 순으로 정렬. \"pending\": \"hyojun\"인 케이스의 잔액 검사는 효준님 함수가 들어올 때까지 건너뛴다(실패 아님). 양쪽 구현이 이 파일을 읽는다.",
   "cases": [
     {
       "name": "two members simple",
@@ -42,7 +42,8 @@
       ],
       "payments": [],
       "expectedBalances": {"a": 1000, "b": 0, "c": -1000},
-      "expectedTransfers": [{"from": "c", "to": "a", "amount": 1000}]
+      "expectedTransfers": [{"from": "c", "to": "a", "amount": 1000}],
+      "expectedPairwise": [{"from": "b", "to": "a", "amount": 1000}, {"from": "c", "to": "b", "amount": 1000}]
     },
     {
       "name": "greedy picks largest first",
@@ -81,6 +82,54 @@
       "payments": [],
       "expectedBalances": {"a": 0, "b": 0},
       "expectedTransfers": []
+    },
+    {
+      "name": "pairwise nets a pair across an expense and a payment",
+      "members": ["a", "b"],
+      "expenses": [
+        {"paidBy": "a", "amount": 1000, "shares": {"a": 500, "b": 500}},
+        {"paidBy": "b", "amount": 600, "shares": {"a": 300, "b": 300}}
+      ],
+      "payments": [{"from": "b", "to": "a", "amount": 100}],
+      "expectedBalances": {"a": 100, "b": -100},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 100}],
+      "expectedPairwise": [{"from": "b", "to": "a", "amount": 100}]
+    },
+    {
+      "name": "multiple payers",
+      "pending": "hyojun",
+      "members": ["a", "b", "c"],
+      "expenses": [{"payers": {"a": 6000, "b": 4000}, "amount": 10000, "shares": {"a": 3334, "b": 3333, "c": 3333}}],
+      "payments": [],
+      "expectedBalances": {"a": 2666, "b": 667, "c": -3333},
+      "expectedTransfers": [{"from": "c", "to": "a", "amount": 2666}, {"from": "c", "to": "b", "amount": 667}],
+      "expectedPairwise": [{"from": "c", "to": "a", "amount": 2666}, {"from": "c", "to": "b", "amount": 667}]
+    },
+    {
+      "name": "refund reverses the effect",
+      "pending": "hyojun",
+      "members": ["a", "b", "c"],
+      "expenses": [
+        {"paidBy": "a", "amount": 30000, "shares": {"a": 10000, "b": 10000, "c": 10000}},
+        {"payers": {"a": 6000}, "amount": 6000, "shares": {"a": 2000, "b": 2000, "c": 2000}, "refund": true}
+      ],
+      "payments": [],
+      "expectedBalances": {"a": 16000, "b": -8000, "c": -8000},
+      "expectedTransfers": [{"from": "b", "to": "a", "amount": 8000}, {"from": "c", "to": "a", "amount": 8000}],
+      "expectedPairwise": [{"from": "b", "to": "a", "amount": 8000}, {"from": "c", "to": "a", "amount": 8000}]
+    },
+    {
+      "name": "multiple payers, simplify off keeps per-expense pairs",
+      "pending": "hyojun",
+      "members": ["a", "b", "c", "d"],
+      "expenses": [
+        {"paidBy": "a", "amount": 1000, "shares": {"b": 1000}},
+        {"payers": {"b": 500, "c": 500}, "amount": 1000, "shares": {"d": 1000}}
+      ],
+      "payments": [],
+      "expectedBalances": {"a": 1000, "b": -500, "c": 500, "d": -1000},
+      "expectedTransfers": [{"from": "d", "to": "a", "amount": 1000}, {"from": "b", "to": "c", "amount": 500}],
+      "expectedPairwise": [{"from": "b", "to": "a", "amount": 1000}, {"from": "d", "to": "b", "amount": 500}, {"from": "d", "to": "c", "amount": 500}]
     }
   ]
 }

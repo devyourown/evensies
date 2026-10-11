@@ -10,6 +10,9 @@ data class GroupState(
     val expenses: Map<String, ExpenseDto> = emptyMap(),
     val payments: Map<String, PaymentDto> = emptyMap(),
     val comments: Map<String, CommentDto> = emptyMap(),
+    val simplifyDebts: Boolean = true,
+    /** SplitSpec (percent or shares) new expenses start from; null = equal. */
+    val defaultSplit: JsonNode? = null,
 )
 
 /**
@@ -17,7 +20,10 @@ data class GroupState(
  * 1. pure and idempotent; 2. field-level last-write-wins by applying in seq order;
  * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags;
  * 6. payment.confirmed sets status, ignored for unknown or deleted payments; 7. expense.restored is the only way back
- * from deleted; 8. comment.added only adds new ids, comment.deleted flags and blanks the text; 9. missing notes = null.
+ * from deleted; 8. comment.added only adds new ids, comment.deleted flags and blanks the text; 9. missing notes = null,
+ * null clears notes/category/fxRateToDefault/split and is ignored elsewhere; 10. payers are the source of truth and
+ * paidBy is the primary payer; 11. group settings keep absent keys; 12. the default currency is locked once the group
+ * has an expense or a payment (deleted ones included).
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -25,7 +31,9 @@ object EventApplier {
         "group.created" -> state.copy(name = p.text("name"), defaultCurrency = p.text("defaultCurrency"))
         "group.updated" -> state.copy(
             name = p.text("name") ?: state.name,
-            defaultCurrency = p.text("defaultCurrency") ?: state.defaultCurrency,
+            defaultCurrency = p.text("defaultCurrency")?.takeIf { state.expenses.isEmpty() && state.payments.isEmpty() } ?: state.defaultCurrency,
+            simplifyDebts = p.bool("simplifyDebts") ?: state.simplifyDebts,
+            defaultSplit = if (p.has("defaultSplit")) p.field("defaultSplit") else state.defaultSplit,
         )
 
         "member.added" -> {
@@ -38,20 +46,25 @@ object EventApplier {
 
         "expense.created" -> {
             val id = p.text("expenseId") ?: ""
+            val amount = p.long("amount") ?: 0
+            val payers = p.shares("payers") ?: listOf(ShareDto(p.text("paidBy") ?: "", amount))
             if (id in state.expenses) state
             else state.withExpense(
                 ExpenseDto(
                     id = id,
                     description = p.text("description") ?: "",
-                    amount = p.long("amount") ?: 0,
+                    amount = amount,
                     currency = p.text("currency") ?: "",
                     fxRateToDefault = p.double("fxRateToDefault"),
-                    paidBy = p.text("paidBy") ?: "",
+                    paidBy = primaryPayer(payers) ?: p.text("paidBy") ?: "",
                     date = p.text("date") ?: "",
                     category = p.text("category"),
                     deleted = false,
                     shares = p.shares("shares") ?: emptyList(),
                     notes = p.text("notes"),
+                    payers = payers,
+                    refund = p.bool("refund") ?: false,
+                    split = p.field("split"),
                 )
             )
         }
@@ -59,19 +72,35 @@ object EventApplier {
             val e = state.expenses[p.text("expenseId")]
             val f = p.get("fields")
             if (e == null || e.deleted || f == null || !f.isObject) state
-            else state.withExpense(
-                e.copy(
-                    description = if (f.has("description")) f.text("description") ?: e.description else e.description,
-                    amount = if (f.has("amount")) f.long("amount") ?: e.amount else e.amount,
-                    currency = if (f.has("currency")) f.text("currency") ?: e.currency else e.currency,
-                    fxRateToDefault = if (f.has("fxRateToDefault")) f.double("fxRateToDefault") else e.fxRateToDefault,
-                    paidBy = if (f.has("paidBy")) f.text("paidBy") ?: e.paidBy else e.paidBy,
-                    date = if (f.has("date")) f.text("date") ?: e.date else e.date,
-                    category = if (f.has("category")) f.text("category") else e.category,
-                    shares = if (f.has("shares")) f.shares("shares") ?: e.shares else e.shares,
-                    notes = if (f.has("notes")) f.text("notes") else e.notes,
+            else {
+                val amount = f.long("amount") ?: e.amount
+                // Rule 10: (a) payers replace, (b) a paidBy alone pays everything, (c) a single payer follows the amount, (d) kept.
+                val payers = f.shares("payers")
+                    ?: f.text("paidBy")?.let { listOf(ShareDto(it, amount)) }
+                    ?: e.payers.singleOrNull()?.takeIf { f.long("amount") != null }?.let { listOf(it.copy(amount = amount)) }
+                    ?: e.payers
+                state.withExpense(
+                    e.copy(
+                        description = f.text("description") ?: e.description,
+                        amount = amount,
+                        currency = f.text("currency") ?: e.currency,
+                        fxRateToDefault = if (f.has("fxRateToDefault")) f.double("fxRateToDefault") else e.fxRateToDefault,
+                        paidBy = primaryPayer(payers) ?: e.paidBy,
+                        date = f.text("date") ?: e.date,
+                        category = if (f.has("category")) f.text("category") else e.category,
+                        shares = f.shares("shares") ?: e.shares,
+                        notes = if (f.has("notes")) f.text("notes") else e.notes,
+                        payers = payers,
+                        refund = f.bool("refund") ?: e.refund,
+                        // By key presence: an amount or shares edit without a split makes the split exact.
+                        split = when {
+                            f.has("split") -> f.field("split")
+                            f.field("shares") != null || f.field("amount") != null -> null
+                            else -> e.split
+                        },
+                    )
                 )
-            )
+            }
         }
         "expense.deleted" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = true)) } ?: state
         "expense.restored" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = false)) } ?: state
@@ -114,6 +143,10 @@ object EventApplier {
         else -> state
     }
 
+    /** Rule 10: the payer with the largest amount; on a tie the lowest memberId (UTF-16 order, like Dart). */
+    fun primaryPayer(payers: List<ShareDto>): String? =
+        payers.maxWithOrNull(compareBy<ShareDto> { it.amount }.thenByDescending { it.memberId })?.memberId
+
     private fun GroupState.withMember(m: MemberDto) = copy(members = members + (m.id to m))
     private fun GroupState.withExpense(e: ExpenseDto) = copy(expenses = expenses + (e.id to e))
     private fun GroupState.withPayment(p: PaymentDto) = copy(payments = payments + (p.id to p))
@@ -125,6 +158,7 @@ internal fun JsonNode.field(k: String): JsonNode? = get(k)?.takeUnless { it.isNu
 internal fun JsonNode.text(k: String): String? = field(k)?.let { if (it.isString) it.asString() else it.toString() }
 internal fun JsonNode.long(k: String): Long? = field(k)?.takeIf { it.isNumber }?.asLong()
 internal fun JsonNode.double(k: String): Double? = field(k)?.takeIf { it.isNumber }?.asDouble()
+internal fun JsonNode.bool(k: String): Boolean? = field(k)?.takeIf { it.isBoolean }?.asBoolean()
 internal fun JsonNode.shares(k: String): List<ShareDto>? = field(k)?.takeIf { it.isArray }?.values()?.map {
     ShareDto(it.text("memberId") ?: "", it.long("amount") ?: 0)
 }

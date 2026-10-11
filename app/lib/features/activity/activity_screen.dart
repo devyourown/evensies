@@ -279,6 +279,7 @@ class ActivityTile extends ConsumerWidget {
       'comment_added' => (Icons.chat_bubble_outline, cs.secondaryContainer, cs.onSecondaryContainer),
       'payment_added' || 'payment_confirmed' => (Icons.payments_outlined, cs.tertiaryContainer, cs.onTertiaryContainer),
       'member_added' || 'member_joined' => (Icons.person_add_alt, cs.surfaceContainerHighest, cs.onSurfaceVariant),
+      'member_left' => (Icons.logout, cs.surfaceContainerHighest, cs.onSurfaceVariant),
       _ => (Icons.group_outlined, cs.surfaceContainerHighest, cs.onSurfaceVariant),
     };
     final time = _local(item.createdAt);
@@ -297,6 +298,8 @@ class ActivityTile extends ConsumerWidget {
       target = '/groups/$groupId/settle'; // where sent payments are confirmed
     } else if (kind.startsWith('member_')) {
       target = '/groups/$groupId/members';
+    } else if (kind == 'group_updated') {
+      target = '/groups/$groupId/settings';
     } else {
       target = showGroup ? '/groups/$groupId' : null;
     }

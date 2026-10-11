@@ -1,17 +1,21 @@
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
+import '../../core/core_guard.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
+import '../../data/sync/group_state_store.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
 import 'comment_thread.dart';
+import 'split_editor.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -29,60 +33,116 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   final _notes = TextEditingController();
   static const _maxNotes = 500; // UTF-16 units, like the server
   static const _maxDescription = 200; // the server checks it only when sent, so an unchanged long one may stay
-  final _perMember = <String, TextEditingController>{};
+  final _split = SplitEditorController();
+  final _payerFields = <String, TextEditingController>{};
+  bool _several = false; // "Several people" paid
   String? _currency;
   String? _paidBy;
-  SplitMode _mode = SplitMode.equal;
+  bool _refund = false;
   String _date = todayIso();
   Expense? _editing;
+  /// The stored split when the editor couldn't rebuild it and opened as exact: kept if the shares stay the same.
+  SplitSpec? _keptSplit;
+  /// Set when the group's default split no longer computes for today's members and the form starts as equal.
+  String? _defaultNote;
   bool _loaded = false;
   bool _busy = false;
 
-  TextEditingController _ctl(String memberId) => _perMember.putIfAbsent(memberId, TextEditingController.new);
+  @override
+  void initState() {
+    super.initState();
+    _split.addListener(_changed);
+  }
+
+  void _changed() => setState(() {});
+
+  @override
+  void dispose() {
+    _split.dispose();
+    for (final c in [_amount, _description, _fx, _category, _notes, ..._payerFields.values]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _payer(String memberId) => _payerFields.putIfAbsent(memberId, TextEditingController.new);
 
   Future<void> _loadExisting() async {
     _loaded = true;
-    final id = widget.expenseId;
-    if (id == null) return;
     final db = ref.read(dbProvider);
-    final row = await db.getExpense(id);
-    if (row == null) return;
-    final shares = await db.getShares(id);
-    final e = Expense(
-      id: row.id,
-      description: row.description,
-      amount: row.amount,
-      currency: row.currency,
-      fxRateToDefault: row.fxRateToDefault,
-      paidBy: row.paidBy,
-      date: row.date,
-      category: row.category,
-      notes: row.notes,
-      deleted: row.deleted,
-      shares: [for (final s in shares) Share(memberId: s.memberId, amount: s.amount)],
-    );
+    final id = widget.expenseId;
+    if (id == null) return _startFromDefault(db);
+    final state = await GroupStateStore(db).load(widget.groupId);
+    final e = state.expense(id);
+    if (e == null || !mounted) return;
     setState(() {
       _editing = e;
-      _amount.text = _minorToText(e.amount, e.currency);
+      _amount.text = minorToText(e.amount, e.currency);
       _description.text = e.description;
       _fx.text = e.fxRateToDefault?.toString() ?? '';
       _category.text = e.category ?? '';
       _notes.text = e.notes ?? '';
       _currency = e.currency;
-      _paidBy = e.paidBy;
       _date = e.date;
-      _mode = SplitMode.exact;
-      for (final s in e.shares) {
-        _ctl(s.memberId).text = _minorToText(s.amount, e.currency);
+      _refund = e.refund;
+      _several = e.payers.length > 1;
+      _paidBy = e.paidBy;
+      for (final p in e.payers) {
+        _payer(p.memberId).text = minorToText(p.amount, e.currency);
       }
+      _openSplit(e, [for (final m in state.members) m.id]);
     });
   }
 
-  String _minorToText(int minor, String currency) {
-    final d = Money.digits(currency);
-    final s = minor.abs().toString().padLeft(d + 1, '0');
-    final r = d == 0 ? s : '${s.substring(0, s.length - d)}.${s.substring(s.length - d)}';
-    return minor < 0 ? '-$r' : r;
+  /// The stored mode with the typed numbers when they still give the stored shares (zeros aside); otherwise, or
+  /// while that mode is a TODO(효준) stub, the amounts as exact (docs/API.md SplitSpec). No split (exact, or saved
+  /// before Phase 3) whose shares are an equal split of the people in it opens as equal.
+  void _openSplit(Expense e, List<String> shown) {
+    final ids = [for (final s in e.shares) s.memberId];
+    Map<String, int> nonZero(Map<String, int> m) => {
+          for (final x in m.entries)
+            if (x.value != 0) x.key: x.value
+        };
+    final stored = nonZero({for (final s in e.shares) s.memberId: s.amount});
+    final spec = e.split;
+    Map<String, int>? again;
+    _keptSplit = null;
+    if (spec != null && ids.isNotEmpty) {
+      try {
+        again = tryCore(() => computeSplit(amount: e.amount, mode: spec.mode, members: ids, input: spec.input));
+      } on SplitException {
+        again = null;
+      }
+    }
+    if (ids.isEmpty) {
+      _split.loadEqual(shown, shown); // no shares stored (not written by this app): start like a new expense
+    } else if (spec == null &&
+        stored.isNotEmpty &&
+        mapEquals(computeSplit(amount: e.amount, mode: SplitMode.equal, members: stored.keys.toList()), stored)) {
+      _split.loadEqual(stored.keys, {...shown, ...ids});
+    } else if (spec == null || again == null || !mapEquals(nonZero(again), stored)) {
+      _split.loadExact(e.shares, e.currency);
+      _keptSplit = spec;
+    } else if (spec.mode == SplitMode.equal) {
+      _split.loadEqual(ids, {...shown, ...ids});
+    } else {
+      _split.load(spec, e.currency);
+    }
+  }
+
+  /// New expense: the group's default split (percent or shares) if it can be computed for today's members,
+  /// otherwise equal with everyone ticked.
+  Future<void> _startFromDefault(AppDatabase db) async {
+    final spec = splitFromJson((await db.getGroup(widget.groupId))?.defaultSplitJson);
+    if (spec == null || spec.mode == SplitMode.equal) return;
+    final ids = [
+      for (final m in await (db.select(db.members)..where((m) => m.groupId.equals(widget.groupId))).get())
+        if (!m.removed) m.id
+    ];
+    final fits = splitFits(spec, ids); // null: a TODO(효준) stub mode, quietly equal
+    if (!mounted || fits == null) return;
+    if (!fits) return setState(() => _defaultNote = "The group's default split no longer adds up, so this starts equal");
+    _split.load(SplitSpec(spec.mode, {for (final id in ids) id: spec.input?[id] ?? 0.0}), ''); // joined later: 0
   }
 
   @override
@@ -91,17 +151,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (!_loaded) _loadExisting();
   }
 
-  /// Exact: minor units still unassigned. Percent: percent still unassigned. Null when a field is unparsable.
-  num? _remaining(int amount, List<MemberRow> members, String currency) {
-    num sum = 0;
-    for (final m in members) {
-      final t = _ctl(m.id).text.trim();
-      if (t.isEmpty) continue;
-      final v = _mode == SplitMode.exact ? parseMoney(t, currency) : double.tryParse(t);
-      if (v == null) return null;
-      sum += v;
+  /// Several payers: per person amounts (empty or zero dropped) that must add up to [amount].
+  ({List<Share>? payers, String status, bool ok}) _payers(
+      int? amount, List<MemberRow> members, String currency, String? single) {
+    if (!_several) {
+      return single == null || amount == null
+          ? (payers: null, status: '', ok: false)
+          : (payers: [Share(memberId: single, amount: amount)], status: '', ok: true);
     }
-    return _mode == SplitMode.exact ? amount - sum : 100 - sum;
+    final list = <Share>[];
+    for (final m in members) {
+      final t = _payer(m.id).text.trim();
+      if (t.isEmpty) continue;
+      final v = parseMoney(t, currency);
+      if (v == null || v < 0) return (payers: null, status: 'Check the amounts', ok: false);
+      if (v > 0) list.add(Share(memberId: m.id, amount: v));
+    }
+    if (amount == null) return (payers: null, status: 'Enter the total first', ok: false);
+    final left = amount - list.fold<int>(0, (a, p) => a + p.amount);
+    if (left > 0) return (payers: null, status: '${formatMoney(left, currency)} left to assign', ok: false);
+    if (left < 0) return (payers: null, status: 'over by: ${formatMoney(-left, currency)}', ok: false);
+    // A zero total still needs a payer.
+    if (list.isEmpty && single != null) list.add(Share(memberId: single, amount: 0));
+    return (payers: list, status: 'Adds up', ok: list.isNotEmpty);
   }
 
   Future<void> _pickDate() async {
@@ -114,15 +186,31 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (d != null) setState(() => _date = d.toIso8601String().substring(0, 10));
   }
 
+  /// "Ben owes the full amount" / "I owe Ben the full amount": one payer, equal with only [owes] ticked.
+  void _setFull(String payer, String owes, List<String> shown) => setState(() {
+        _several = false;
+        _paidBy = payer;
+        _split.loadEqual([owes], shown);
+      });
+
+  bool _isFull(String? paidBy, String payer, String owes, List<String> shown) =>
+      !_several &&
+      paidBy == payer &&
+      _split.mode == SplitMode.equal &&
+      shown.where((id) => !_split.unticked.contains(id)).toList().join() == owes;
+
   @override
   Widget build(BuildContext context) {
     final group = ref.watch(groupProvider(widget.groupId)).value;
-    final members = (ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[])
-        .where((m) => !m.removed || m.id == _editing?.paidBy || (_editing?.shares.any((s) => s.memberId == m.id) ?? false))
-        .toList();
+    final all = ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[];
+    final e0 = _editing;
+    bool involved(String id) =>
+        e0 != null && (e0.payers.any((p) => p.memberId == id) || e0.shares.any((s) => s.memberId == id));
+    final members = all.where((m) => !m.removed || involved(m.id)).toList();
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final ids = [for (final m in members) m.id];
     final currency = _currency ?? group.defaultCurrency;
     final paidBy = _paidBy ?? group.myMemberId ?? members.firstOrNull?.id;
     final amount = parseMoney(_amount.text, currency);
@@ -130,39 +218,37 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final notesLength = _notes.text.trim().length;
     final descriptionLength = _description.text.trim().length;
     final descriptionTooLong = descriptionLength > _maxDescription && _description.text.trim() != _editing?.description;
-    final canSave = !_busy && !deleted && notesLength <= _maxNotes && !descriptionTooLong && amount != null && amount > 0 && _description.text.trim().isNotEmpty && paidBy != null && members.isNotEmpty;
+    final split = _split.evaluate(amount: amount, ids: ids, currency: currency);
+    final payers = _payers(amount, members, currency, paidBy);
+    final canSave = !_busy &&
+        !deleted &&
+        notesLength <= _maxNotes &&
+        !descriptionTooLong &&
+        amount != null &&
+        amount > 0 &&
+        _description.text.trim().isNotEmpty &&
+        members.isNotEmpty &&
+        payers.ok &&
+        split.ok &&
+        split.shares != null;
     final dateLabel = DateFormat('EEE, d MMM yyyy').format(DateTime.tryParse(_date) ?? DateTime.now());
+    final active = all.where((m) => !m.removed).toList();
+    final me = group.myMemberId;
+    final other = active.length == 2 && active.any((m) => m.id == me) ? active.firstWhere((m) => m.id != me) : null;
 
     Widget sectionLabel(String s) => Padding(
           padding: const EdgeInsets.only(top: 20, bottom: 8),
           child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
         );
 
-    Widget? remainingLine;
-    if (_mode != SplitMode.equal && amount != null) {
-      final rem = _remaining(amount, members, currency);
-      final String label;
-      final Color color;
-      if (rem == null) {
-        label = 'Check the amounts';
-        color = cs.error;
-      } else if (rem == 0) {
-        label = 'Adds up';
-        color = cs.primary;
-      } else {
-        final r = _mode == SplitMode.exact ? formatMoney(rem.toInt(), currency) : '${_trimNum(rem)}%';
-        label = rem > 0 ? 'remaining: $r' : 'over by: ${r.replaceFirst('-', '')}';
-        color = cs.error;
-      }
-      remainingLine = Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Row(children: [
-          Icon(rem == 0 ? Icons.check_circle_outline : Icons.info_outline, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: text.bodySmall?.copyWith(color: color)),
-        ]),
-      );
-    }
+    Widget statusLine(String s, bool ok, {Key? key}) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(children: [
+            Icon(ok ? Icons.check_circle_outline : Icons.info_outline, size: 16, color: ok ? cs.primary : cs.error),
+            const SizedBox(width: 6),
+            Expanded(child: Text(s, key: key, style: text.bodySmall?.copyWith(color: ok ? cs.primary : cs.error))),
+          ]),
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -242,7 +328,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
-                sectionLabel('Paid by'),
+                sectionLabel(_refund ? 'Received by' : 'Paid by'),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
@@ -250,65 +336,95 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     for (final m in members)
                       ChoiceChip(
                         label: Text(m.name),
-                        selected: m.id == paidBy,
-                        onSelected: (_) => setState(() => _paidBy = m.id),
+                        selected: !_several && m.id == paidBy,
+                        onSelected: (_) => setState(() {
+                          _several = false;
+                          _paidBy = m.id;
+                        }),
                       ),
+                    ChoiceChip(
+                      key: const Key('several-payers'),
+                      avatar: const Icon(Icons.group_outlined, size: 18),
+                      label: const Text('Several people'),
+                      selected: _several,
+                      onSelected: (_) => setState(() {
+                        // Start from what the single payer paid.
+                        if (!_several && paidBy != null && _payerFields.values.every((c) => c.text.trim().isEmpty)) {
+                          _payer(paidBy).text = _amount.text.trim();
+                        }
+                        _several = true;
+                      }),
+                    ),
                   ],
                 ),
+                if (_several) ...[
+                  for (final m in members)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextField(
+                        key: Key('payer-${m.id}'),
+                        controller: _payer(m.id),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration:
+                            InputDecoration(labelText: m.name, isDense: true, suffixText: currency, hintText: '0.00'),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  statusLine(payers.status, payers.ok, key: const Key('payers-status')),
+                ],
                 sectionLabel('When'),
-                Row(children: [
-                  OutlinedButton.icon(
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
                     onPressed: _pickDate,
                     icon: const Icon(Icons.calendar_today_outlined, size: 18),
                     label: Text(dateLabel),
                   ),
-                  const SizedBox(width: 8),
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
                   Expanded(
                     child: TextField(
                       controller: _category,
                       decoration: const InputDecoration(labelText: 'Category', isDense: true),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  FilterChip(
+                    key: const Key('refund'),
+                    avatar: Icon(Icons.undo, size: 18, color: _refund ? cs.onSecondaryContainer : cs.onSurfaceVariant),
+                    showCheckmark: false,
+                    label: const Text('Refund'),
+                    tooltip: 'Money that came back, e.g. the hotel returned a deposit',
+                    selected: _refund,
+                    onSelected: (v) => setState(() => _refund = v),
+                  ),
                 ]),
-                sectionLabel('Split'),
-                SegmentedButton<SplitMode>(
-                  segments: const [
-                    ButtonSegment(value: SplitMode.equal, label: Text('Equal')),
-                    ButtonSegment(value: SplitMode.exact, label: Text('Exact')),
-                    ButtonSegment(value: SplitMode.percent, label: Text('Percent')),
-                  ],
-                  selected: {_mode},
-                  onSelectionChanged: (s) => setState(() => _mode = s.first),
-                ),
-                if (_mode == SplitMode.equal)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      members.isEmpty
-                          ? 'No members'
-                          : 'Split equally between ${members.length} member${members.length == 1 ? '' : 's'}'
-                              '${amount == null || amount <= 0 ? '' : ' · ${formatMoney(amount ~/ members.length, currency)} each'}',
-                      style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                sectionLabel(_refund ? 'Split back to' : 'Split'),
+                // A refund reverses who owes whom, so the labels would be backwards (Splitwise hides them too).
+                if (other != null && me != null && !_refund) ...[
+                  Wrap(spacing: 8, runSpacing: 4, children: [
+                    ChoiceChip(
+                      key: const Key('full-they-owe'),
+                      label: Text('${other.name} owes the full amount'),
+                      selected: _isFull(paidBy, me, other.id, ids),
+                      onSelected: (_) => _setFull(me, other.id, ids),
                     ),
-                  )
-                else ...[
-                  for (final m in members)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: TextField(
-                        key: Key('share-${m.id}'),
-                        controller: _ctl(m.id),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: InputDecoration(
-                          labelText: m.name,
-                          isDense: true,
-                          suffixText: _mode == SplitMode.percent ? '%' : currency,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
+                    ChoiceChip(
+                      key: const Key('full-i-owe'),
+                      label: Text('I owe ${other.name} the full amount'),
+                      selected: _isFull(paidBy, other.id, me, ids),
+                      onSelected: (_) => _setFull(other.id, me, ids),
                     ),
-                  ?remainingLine,
+                  ]),
+                  const SizedBox(height: 12),
                 ],
+                if (_defaultNote != null && _split.mode == SplitMode.equal)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(_defaultNote!, key: const Key('default-note'), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                  ),
+                SplitEditor(controller: _split, members: members, amount: amount, currency: currency),
                 const SizedBox(height: 16),
                 TextField(
                   key: const Key('notes'),
@@ -330,7 +446,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: canSave ? () => _save(group, members, currency, amount, paidBy) : null,
+            onPressed: canSave ? () => _save(group, ids, currency, amount, payers.payers!, split.shares!) : null,
             child: _busy
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save'),
@@ -346,74 +462,67 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     );
   }
 
-  static String _trimNum(num v) {
-    final s = v.toStringAsFixed(2);
-    return s.endsWith('.00') ? s.substring(0, s.length - 3) : s;
-  }
-
-  Map<String, int>? _split(int amount, List<String> memberIds, String currency) {
-    Map<String, double>? input;
-    if (_mode != SplitMode.equal) {
-      input = {};
-      for (final id in memberIds) {
-        final t = _ctl(id).text.trim();
-        if (t.isEmpty) {
-          input[id] = 0;
-        } else if (_mode == SplitMode.exact) {
-          final v = parseMoney(t, currency);
-          if (v == null) return null;
-          input[id] = v.toDouble();
-        } else {
-          final v = double.tryParse(t);
-          if (v == null) return null;
-          input[id] = v;
-        }
-      }
-    }
-    try {
-      return computeSplit(amount: amount, mode: _mode, members: memberIds, input: input);
-    } on SplitException catch (e) {
-      showInfo(context, e.code == 'SUM_MISMATCH' ? 'Shares must add up to the total' : 'Split error: ${e.code}');
-      return null;
-    }
-  }
-
-  Future<void> _save(GroupRow group, List<MemberRow> members, String currency, int amount, String paidBy) async {
-    final memberIds = members.map((m) => m.id).toList();
-    final shares = _split(amount, memberIds, currency);
-    if (shares == null) return;
+  Future<void> _save(
+      GroupRow group, List<String> ids, String currency, int amount, List<Share> payers, Map<String, int> split) async {
     final fx = currency == group.defaultCurrency ? null : double.tryParse(_fx.text.trim());
     final cat = _category.text.trim().isEmpty ? null : _category.text.trim();
     final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
-    final e = Expense(
-      id: _editing?.id ?? newId(),
+    final old = _editing;
+    var e = Expense(
+      id: old?.id ?? newId(),
       description: _description.text.trim(),
       amount: amount,
       currency: currency,
       fxRateToDefault: fx,
-      paidBy: paidBy,
+      payers: payers,
       date: _date,
       category: cat,
       notes: notes,
-      shares: [for (final id in memberIds) Share(memberId: id, amount: shares[id] ?? 0)],
+      refund: _refund,
+      split: _split.spec(ids, currency),
+      // Equal: only the ticked people; the other modes: everyone shown, zeros included (docs/API.md SplitSpec).
+      shares: [
+        for (final id in ids)
+          if (_split.mode != SplitMode.equal || split.containsKey(id)) Share(memberId: id, amount: split[id] ?? 0)
+      ],
     );
+    // Opened as exact only because the stored split couldn't be rebuilt, and the shares are what they were: the
+    // split didn't change, so keep it (no `split: null`, no money fields for a description edit).
+    if (old != null && _keptSplit != null && _split.mode == SplitMode.exact && _same(e.shares, old.shares)) {
+      e = e.copyWith(split: _keptSplit, shares: old.shares);
+    }
+    // No stored split that opened as equal (see _openSplit), same shares: still no split, so no money fields.
+    if (old != null && old.split == null && _split.mode == SplitMode.equal && _same(e.shares, old.shares)) {
+      e = e.copyWith(clearSplit: true, shares: old.shares);
+    }
     setState(() => _busy = true);
     try {
       final w = ref.read(localWritesProvider);
-      final old = _editing;
       if (old == null) {
         await w.createExpense(group.id, e);
       } else {
+        final money = e.amount != old.amount ||
+            e.paidBy != old.paidBy ||
+            !_same(e.payers, old.payers) ||
+            !_same(e.shares, old.shares) ||
+            e.split != old.split ||
+            e.refund != old.refund;
         await w.updateExpense(group.id, e, {
           if (e.description != old.description) 'description': e.description,
-          if (e.amount != old.amount) 'amount': e.amount,
           if (e.currency != old.currency) 'currency': e.currency,
           if (e.fxRateToDefault != old.fxRateToDefault) 'fxRateToDefault': e.fxRateToDefault,
-          if (e.paidBy != old.paidBy) 'paidBy': e.paidBy,
           if (e.date != old.date) 'date': e.date,
           if (e.category != old.category) 'category': e.category,
-          if (!_sameShares(e.shares, old.shares)) 'shares': e.shares,
           if (e.notes != old.notes) 'notes': e.notes,
+          // Any money field changed: all six together, so the server can check them as one (docs/API.md).
+          if (money) ...{
+            'amount': e.amount,
+            'paidBy': e.paidBy,
+            'payers': e.payers,
+            'shares': e.shares,
+            'split': e.split,
+            'refund': e.refund,
+          },
         });
       }
       if (mounted) context.pop();
@@ -424,11 +533,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     }
   }
 
-  bool _sameShares(List<Share> a, List<Share> b) {
-    final ma = {for (final s in a) s.memberId: s.amount};
-    final mb = {for (final s in b) s.memberId: s.amount};
-    return ma.length == mb.length && ma.entries.every((e) => mb[e.key] == e.value);
-  }
+  /// Zero entries aside: they don't change any balance.
+  bool _same(List<Share> a, List<Share> b) => mapEquals(
+        {for (final s in a) if (s.amount != 0) s.memberId: s.amount},
+        {for (final s in b) if (s.amount != 0) s.memberId: s.amount},
+      );
 
   Future<void> _delete() async {
     final ok = await confirm(context,

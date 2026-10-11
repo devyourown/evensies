@@ -14,6 +14,8 @@ object ActivityText {
 
     private fun quote(s: Any?) = "“${s ?: ""}”"
 
+    private fun onOff(v: Any?) = if (v == true) "on" else "off"
+
     private fun who(id: String?, names: Map<String, String>, me: String?, start: Boolean = false): String = when {
         id != null && id == me -> if (start) "You" else "you"
         id == null || id !in names -> if (start) "Someone" else "someone"
@@ -28,18 +30,25 @@ object ActivityText {
         return when (item.kind) {
             "group_created" -> "$a created the group ${quote(item.name)}"
             "group_updated" -> "$a changed the group: " + item.changes.joinToString(", ") {
-                if (it.field == "name") "name ${quote(it.from)}$ARROW${quote(it.to)}" else "currency ${it.from}$ARROW${it.to}"
+                when (it.field) {
+                    "name" -> "name ${quote(it.from)}$ARROW${quote(it.to)}"
+                    "simplifyDebts" -> "simplify debts " + onOff(it.to)
+                    "defaultSplit" -> "default split"
+                    else -> "currency ${it.from}$ARROW${it.to}"
+                }
             }
             "member_added" -> "$a added ${who(item.memberId)}"
             "member_joined" -> "${who(item.memberId, start = true)} joined"
             "member_removed" -> "$a removed ${who(item.memberId)}"
-            "expense_added" -> "$a added ${quote(item.description)}$DOT${money(item.amount)}" + when {
+            "member_left" -> "${who(item.memberId, start = true)} left the group"
+            "expense_added" -> "$a added ${if (item.refund == true) "a refund " else ""}${quote(item.description)}$DOT${money(item.amount)}" + when {
                 delta < 0 -> "${DOT}you owe ${money(-delta)}"
-                delta > 0 -> "${DOT}you lent ${money(delta)}"
+                delta > 0 -> "${DOT}${if (item.refund == true) "you get back" else "you lent"} ${money(delta)}"
                 else -> ""
             }
             "expense_updated" -> {
-                val amountChanged = item.changes.any { it.field == "amount" }
+                fun changed(field: String) = item.changes.any { it.field == field }
+                val amountChanged = changed("amount")
                 val fromCurrency = item.changes.firstOrNull { it.field == "currency" }?.from as String? ?: item.currency
                 "$a changed ${quote(item.description)}: " + item.changes.mapNotNull { c ->
                     when (c.field) {
@@ -48,8 +57,11 @@ object ActivityText {
                         "currency" -> "currency ${c.from}$ARROW${c.to}"
                         "fxRateToDefault" -> "exchange rate"
                         "paidBy" -> "paid by ${who(c.from as String?)}$ARROW${who(c.to as String?)}"
+                        "payers" -> "payers" // listed only when several people paid before or after (Activity.expenseChanges)
+                        "refund" -> "refund " + onOff(c.to)
                         "date" -> "date ${c.from}$ARROW${c.to}"
                         "shares" -> if (amountChanged) null else "split" // a new amount always changes the split
+                        "split" -> if (amountChanged || changed("shares")) null else "split" // the split mode alone
                         else -> c.field // category, notes
                     }
                 }.joinToString(", ")

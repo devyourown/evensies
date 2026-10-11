@@ -11,6 +11,9 @@ class Groups extends Table {
   TextColumn get inviteCode => text().nullable()();
   IntColumn get latestSeq => integer().withDefault(const Constant(0))();
   TextColumn get myMemberId => text().nullable()();
+  BoolColumn get simplifyDebts => boolean().withDefault(const Constant(true))();
+  /// SplitSpec JSON (docs/API.md), percent or shares only.
+  TextColumn get defaultSplitJson => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -39,12 +42,25 @@ class Expenses extends Table {
   TextColumn get category => text().nullable()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
+  BoolColumn get refund => boolean().withDefault(const Constant(false))();
+  /// SplitSpec JSON (docs/API.md); null for an exact split.
+  TextColumn get splitJson => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
 
 @DataClassName('ExpenseShareRow')
 class ExpenseShares extends Table {
+  TextColumn get expenseId => text()();
+  TextColumn get memberId => text()();
+  IntColumn get amount => integer()();
+  @override
+  Set<Column> get primaryKey => {expenseId, memberId};
+}
+
+/// Who paid (for a refund: received) how much. `Expenses.paidBy` keeps the primary payer.
+@DataClassName('ExpensePayerRow')
+class ExpensePayers extends Table {
   TextColumn get expenseId => text()();
   TextColumn get memberId => text()();
   IntColumn get amount => integer()();
@@ -100,6 +116,9 @@ class Outbox extends Table {
   TextColumn get payloadJson => text()();
   TextColumn get createdAt => text()();
   TextColumn get sentAt => text().nullable()();
+  /// The server's error code once the event was refused on its own (docs/API.md 거부된 이벤트): never pushed or
+  /// applied again; the row is deleted after the user was told.
+  TextColumn get rejected => text().nullable()();
   @override
   Set<Column> get primaryKey => {clientId};
 }
@@ -124,14 +143,25 @@ class Session extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(
-    tables: [Groups, Members, Expenses, ExpenseShares, Payments, Comments, Activity, Outbox, SyncState, Session])
+@DriftDatabase(tables: [
+  Groups,
+  Members,
+  Expenses,
+  ExpenseShares,
+  ExpensePayers,
+  Payments,
+  Comments,
+  Activity,
+  Outbox,
+  SyncState,
+  Session,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -143,6 +173,19 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(activity);
             // Release 1 skipped comment.* / expense.restored and dropped notes while advancing lastSeq:
             // replay every group from seq 0 (SyncService folds from an empty state then).
+            await delete(syncState).go();
+          }
+          if (from < 4) {
+            await m.createTable(expensePayers);
+            await m.addColumn(expenses, expenses.refund);
+            await m.addColumn(expenses, expenses.splitJson);
+            await m.addColumn(groups, groups.simplifyDebts);
+            await m.addColumn(groups, groups.defaultSplitJson);
+            await m.addColumn(outbox, outbox.rejected);
+            // Balances stay right offline until the replay below brings the real payers.
+            await customStatement(
+                'INSERT INTO expense_payers (expense_id, member_id, amount) SELECT id, paid_by, amount FROM expenses');
+            // Older code skipped payers, refund, split and the group settings in pulled events: replay every group.
             await delete(syncState).go();
           }
         },
@@ -158,7 +201,8 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<GroupRow>> watchGroups() => (select(groups)..orderBy([(g) => OrderingTerm.asc(g.name)])).watch();
   Stream<GroupRow?> watchGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).watchSingleOrNull();
   Future<GroupRow?> getGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).getSingleOrNull();
-  Future<void> upsertGroup(GroupRow g) => into(groups).insertOnConflictUpdate(g);
+  /// Writes the whole row: an upsert of a data class would skip null columns, so a cleared default split would stay.
+  Future<void> upsertGroup(GroupRow g) => into(groups).insert(g, mode: InsertMode.insertOrReplace);
 
   Stream<List<MemberRow>> watchMembers(String groupId) =>
       (select(members)..where((m) => m.groupId.equals(groupId))).watch();
@@ -171,8 +215,14 @@ class AppDatabase extends _$AppDatabase {
       (select(expenseShares)..where((s) => s.expenseId.equals(expenseId))).get();
 
   // --- outbox / sync state
-  Future<List<OutboxRow>> unsentOutbox(String groupId) =>
-      (select(outbox)..where((o) => o.groupId.equals(groupId) & o.sentAt.isNull())..orderBy([(o) => OrderingTerm.asc(o.createdAt)])).get();
+  Future<List<OutboxRow>> unsentOutbox(String groupId) => (select(outbox)
+        ..where((o) => o.groupId.equals(groupId) & o.sentAt.isNull() & o.rejected.isNull())
+        ..orderBy([(o) => OrderingTerm.asc(o.createdAt)]))
+      .get();
+  Future<List<OutboxRow>> rejectedOutbox(String groupId) =>
+      (select(outbox)..where((o) => o.groupId.equals(groupId) & o.rejected.isNotNull())).get();
+  Future<void> markRejected(String clientId, String code) =>
+      (update(outbox)..where((o) => o.clientId.equals(clientId))).write(OutboxCompanion(rejected: Value(code)));
   /// Pushed events belong to the server log now. Keeping them would keep a deleted comment's text on this device.
   Future<void> dropSent(List<String> clientIds) => (delete(outbox)..where((o) => o.clientId.isIn(clientIds))).go();
 
@@ -189,6 +239,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteGroupData(String groupId) => transaction(() async {
         final exps = await (select(expenses)..where((e) => e.groupId.equals(groupId))).get();
         await (delete(expenseShares)..where((s) => s.expenseId.isIn(exps.map((e) => e.id)))).go();
+        await (delete(expensePayers)..where((s) => s.expenseId.isIn(exps.map((e) => e.id)))).go();
         await (delete(expenses)..where((e) => e.groupId.equals(groupId))).go();
         await (delete(payments)..where((p) => p.groupId.equals(groupId))).go();
         await (delete(comments)..where((c) => c.groupId.equals(groupId))).go();

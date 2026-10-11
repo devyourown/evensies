@@ -26,7 +26,7 @@ class ActivityFeedTest : IntegrationTestBase() {
 
     private val itemKeys = setOf(
         "groupId", "feedId", "seq", "kind", "createdAt", "actorMemberId", "memberId", "expenseId", "commentId", "paymentId",
-        "name", "description", "amount", "currency", "fromMember", "toMember", "status", "myDelta", "text", "changes",
+        "name", "description", "amount", "currency", "fromMember", "toMember", "status", "myDelta", "refund", "text", "changes",
     )
 
     private class Setup(val id: String, val anna: String, val ben: String, val annaMember: String, val benMember: String, val carla: String, val x: String)
@@ -115,7 +115,8 @@ class ActivityFeedTest : IntegrationTestBase() {
         assertEquals(s.benMember, bySeq.getValue(3)["memberId"].asString())
         assertEquals(s.carla, bySeq.getValue(4)["memberId"].asString())
         assertEquals(
-            SharedJson.canon(listOf(mapOf("field" to "amount", "from" to 3000, "to" to 3300), mapOf("field" to "shares", "from" to null, "to" to null))),
+            SharedJson.canon(listOf(mapOf("field" to "amount", "from" to 3000, "to" to 3300),
+                mapOf("field" to "shares", "from" to null, "to" to null))), // rule 10 moved the single payer too, not listed
             SharedJson.canon(bySeq.getValue(7)["changes"]),
         )
         assertEquals(s.x, bySeq.getValue(8)["expenseId"].asString())
@@ -249,5 +250,68 @@ class ActivityFeedTest : IntegrationTestBase() {
         assertEquals(SharedJson.canon(beforeBen), SharedJson.canon(feed(s.ben, "/groups/${s.id}/activity").body))
         assertEquals(SharedJson.canon(beforeAnna), SharedJson.canon(feed(s.anna, "/groups/${s.id}/activity").body))
         assertEquals(10, beforeBen["items"].size())
+    }
+
+    /**
+     * Phase 3 kinds over HTTP: settings changes, a currency change ignored by rule 12 (hidden), several payers, refund
+     * and split-only edits, member_left; then meta stored before Phase 3 (no payers/refund/split keys) and the backfill
+     * give the same feed.
+     */
+    @Test
+    fun splittingPowerFeed() {
+        val anna = login("Af3-anna")
+        val ben = login("Af3-ben")
+        val group = createGroup(anna, name = "Rome")
+        val id = group["id"].asString()
+        val a = group["myMemberId"].asString()
+        val b = join(ben, group, "Ben")
+        val hotel = UUID.randomUUID().toString()
+        val taxi = UUID.randomUUID().toString()
+        check(push(anna, id,
+            event("group.updated", mapOf("simplifyDebts" to false)),
+            event("group.updated", mapOf("defaultSplit" to mapOf("mode" to "shares", "input" to mapOf(a to 2, b to 1)))),
+            expenseCreated(a, 3000, mapOf(a to 1500, b to 1500), expenseId = hotel, description = "Hotel",
+                extra = mapOf("payers" to lines(mapOf(a to 1000, b to 2000)))),
+            event("group.updated", mapOf("defaultCurrency" to "USD")),
+            expenseUpdated(hotel, "refund" to true),
+            expenseUpdated(hotel, "split" to mapOf("mode" to "equal")),
+            expenseCreated(b, 800, mapOf(a to 400, b to 400), expenseId = taxi, description = "Taxi"),
+            expenseUpdated(taxi, "amount" to 1000, "shares" to lines(mapOf(a to 500, b to 500))),
+        ).status == 200)
+        val refundItem = items(ben, id).first { it["changes"].any { c -> c["field"].asString() == "refund" } }
+        assertEquals(-500, refundItem["myDelta"].asLong(), "Ben received 2000 of the refund and gets 1500 back: −(2000 − 1500)")
+        check(push(ben, id, event("member.removed", mapOf("memberId" to b))).status == 200)
+
+        val expected = listOf(
+            "Ben left the group",
+            "You changed “Taxi”: €8.00 → €10.00",
+            "You added “Taxi” · €8.00 · you owe €4.00",
+            "You changed “Hotel”: split",
+            "You changed “Hotel”: refund on",
+            "You added “Hotel” · €30.00 · you owe €5.00",
+            "You changed the group: default split",
+            "You changed the group: simplify debts off",
+            "Ben joined",
+            "You created the group “Rome”",
+        )
+        assertEquals(expected, texts(anna, id, a))
+        val feed = feed(anna, "/groups/$id/activity").body
+        assertEquals(500, feed["items"][4]["myDelta"].asLong(), "Anna: −(1000 − 1500)")
+        assertEquals(SharedJson.canon(mapOf("field" to "simplifyDebts", "from" to true, "to" to false)), SharedJson.canon(feed["items"][7]["changes"][0]))
+
+        // meta written before Phase 3 has no payers/refund/split/settings keys: the defaults read it the same way
+        jdbc.sql(
+            """
+            UPDATE events SET meta = meta #- '{expense,payers}' #- '{expense,refund}' #- '{expense,split}'
+              #- '{expenseBefore,payers}' #- '{expenseBefore,refund}' #- '{expenseBefore,split}'
+              #- '{group,simplifyDebts}' #- '{group,defaultSplit}' #- '{groupBefore,simplifyDebts}' #- '{groupBefore,defaultSplit}'
+            WHERE group_id = :g AND (payload->>'expenseId' = :taxi OR type = 'group.created')
+            """
+        ).param("g", UUID.fromString(id)).param("taxi", taxi).update()
+        assertEquals(SharedJson.canon(feed), SharedJson.canon(feed(anna, "/groups/$id/activity").body))
+
+        jdbc.sql("UPDATE events SET meta = NULL WHERE group_id = :g").param("g", UUID.fromString(id)).update()
+        backfill.run(DefaultApplicationArguments())
+        assertEquals(SharedJson.canon(feed), SharedJson.canon(feed(anna, "/groups/$id/activity").body), "replayed from the log")
     }
 }

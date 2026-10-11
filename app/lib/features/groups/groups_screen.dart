@@ -116,6 +116,7 @@ class _GroupCard extends ConsumerWidget {
         status = 'You owe ${formatMoney(-mine, cur)}';
         color = cs.error;
       }
+      if (res.unsupported > 0 || res.missingFx > 0) status = '$status so far'; // some expenses aren't counted
     }
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

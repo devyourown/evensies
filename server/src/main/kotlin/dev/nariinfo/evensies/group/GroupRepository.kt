@@ -2,13 +2,14 @@ package dev.nariinfo.evensies.group
 
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
+import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 
 @Repository
-class GroupRepository(private val jdbc: JdbcClient) {
+class GroupRepository(private val jdbc: JdbcClient, private val json: ObjectMapper) {
     private val mapper = { rs: ResultSet, _: Int ->
         Group(
             id = rs.getObject("id", UUID::class.java),
@@ -18,6 +19,8 @@ class GroupRepository(private val jdbc: JdbcClient) {
             createdBy = rs.getObject("created_by", UUID::class.java),
             createdAt = rs.getObject("created_at", OffsetDateTime::class.java).toInstant(),
             latestSeq = rs.getLong("latest_seq"),
+            simplifyDebts = rs.getBoolean("simplify_debts"),
+            defaultSplit = rs.getString("default_split")?.let(json::readTree),
         )
     }
 

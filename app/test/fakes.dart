@@ -3,6 +3,7 @@ import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/sync/sync_service.dart';
 import 'package:evensies/domain/models.dart';
+import 'package:evensies/domain/payment_methods.dart';
 
 /// ApiClient with canned answers; anything not set throws like an unreachable server.
 class FakeApi extends ApiClient {
@@ -49,8 +50,43 @@ class FakeApi extends ApiClient {
     return prefs = p;
   }
 
+  /// POST events; null = unreachable. Every call's batch lands in [pushes].
+  PushResult Function(String groupId, List<OutboundEvent> events)? onPush;
+  final pushes = <List<OutboundEvent>>[];
+
   @override
-  Future<PushResult> pushEvents(String groupId, List<OutboundEvent> events) async => throw offline;
+  Future<PushResult> pushEvents(String groupId, List<OutboundEvent> events) async {
+    pushes.add(events);
+    final f = onPush;
+    if (f == null) throw offline;
+    return f(groupId, events);
+  }
+
+  @override
+  Future<Map<String, List<PaymentMethod>>> groupPaymentMethods(String groupId) async => throw offline;
+
+  /// GET /groups ids; null = unreachable.
+  List<String>? groupIds;
+
+  @override
+  Future<List<GroupSummaryDto>> listGroups() async => [
+        for (final id in groupIds ?? (throw offline))
+          GroupSummaryDto(id: id, name: id, defaultCurrency: 'EUR', latestSeq: 0, memberCount: 1),
+      ];
+
+  /// GET /groups/{id}: a status to fail with (403, 404), or null to answer 200; [groupCode] overrides the server's
+  /// code (e.g. 'NETWORK' for a proxy's answer).
+  int? groupStatus;
+  String? groupCode;
+
+  @override
+  Future<GroupDto> getGroup(String id) async {
+    if (groupStatus != null) {
+      throw ApiException(
+          status: groupStatus, code: groupCode ?? (groupStatus == 404 ? 'NOT_FOUND' : 'FORBIDDEN'), message: 'no');
+    }
+    return GroupDto(id: id, name: id, defaultCurrency: 'EUR', inviteCode: 'ABC', latestSeq: 0, myMemberId: 'm1');
+  }
 
   /// POST /devices (deviceId, fcmToken) and DELETE /devices ids; [devicesOffline] makes both unreachable.
   final registered = <(String, String)>[];

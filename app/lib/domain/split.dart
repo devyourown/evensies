@@ -1,6 +1,6 @@
-enum SplitMode { equal, exact, percent }
+enum SplitMode { equal, exact, percent, shares, adjustment }
 
-/// Codes: SUM_MISMATCH, NEGATIVE_AMOUNT, NO_MEMBERS.
+/// Codes: SUM_MISMATCH, NEGATIVE_AMOUNT, NO_MEMBERS, INVALID_INPUT, NEGATIVE_SHARE.
 class SplitException implements Exception {
   final String code;
   SplitException(this.code);
@@ -19,6 +19,22 @@ class SplitException implements Exception {
 ///   각 몫 = (amount * pct / 100).floor(), 남는 최소 단위는 equal과 같은 규칙으로 memberId 오름차순 +1씩.
 ///   (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
 /// - 결과의 합은 항상 amount. 결과 맵은 모든 member를 키로 가진다(0 포함).
+///
+/// Phase 3 — TODO(효준) (docs/API.md "SplitSpec", cases marked "pending": "hyojun" in shared/split-cases.json):
+/// - percent: unchanged, except that leftover minor units go only to members whose percent is > 0
+///   (memberId ascending). A 0% member always gets 0. Today a 0% member can be charged 1 cent.
+/// - shares: input[memberId] is a share count (>= 0, may be fractional, missing = 0).
+///   Negative, NaN or infinite → 'INVALID_INPUT'. Weights w = (count * 100).round(), W = Σ w over [members].
+///   W == 0 → 'NO_MEMBERS'. Each share = amount * w ~/ W (integer math, no doubles).
+///   Leftover = amount − Σ shares: +1 each to members with w > 0, memberId ascending (always fewer than them).
+///   (1000, {a:2, b:1, c:0} → a 667, b 333, c 0)
+/// - adjustment: input[memberId] is an adjustment in minor units (may be negative, missing = 0).
+///   Not a whole number, NaN or infinite → 'INVALID_INPUT'. base = amount − Σ adj over [members].
+///   base < 0 → 'NEGATIVE_SHARE'. Split base exactly like equal over all [members], then add each member's adj.
+///   Any result < 0 → 'NEGATIVE_SHARE'. (1000, {b:-100} → a 367, b 267, c 366)
+/// - shares/adjustment: input keys not in [members] are ignored.
+/// - Always: the result has every member as a key (0 included) and sums to amount.
+/// Until then shares/adjustment throw UnimplementedError; callers go through tryCore/implemented (core/core_guard.dart).
 Map<String, int> computeSplit({
   required int amount,
   required SplitMode mode,
@@ -51,7 +67,10 @@ Map<String, int> computeSplit({
       result.putIfAbsent(member, () => quotient);
     }
     final k = amount - result.values.reduce((value, element) => value + element);
+    // TODO(효준): the leftover goes only to members whose percent is > 0 (see the doc comment above).
     _giveRemainder(result, sorted, k);
+  } else {
+    throw UnimplementedError('TODO(효준): ${mode.name}');
   }
   return result;
 }

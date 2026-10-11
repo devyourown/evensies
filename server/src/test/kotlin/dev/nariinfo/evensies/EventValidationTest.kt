@@ -148,4 +148,185 @@ class EventValidationTest : IntegrationTestBase() {
         assertEquals(200, res.status, res.text)
         assertEquals(placeholder, res.body["myMemberId"].asString())
     }
+
+    /** Phase 3 (docs/API.md "결제자·분할·그룹 설정 검증"): one assertion per code, the whole batch is refused, nothing stored. */
+    @Test
+    fun payersSplitAndGroupSettingsAreValidated() {
+        val token = login("Val6")
+        val group = createGroup(token)
+        val id = group["id"].asString()
+        val me = group["myMemberId"].asString()
+        val ben = UUID.randomUUID().toString()
+        val removed = UUID.randomUUID().toString()
+        val x = UUID.randomUUID().toString()
+        val gone = UUID.randomUUID().toString()
+        assertEquals(200, push(token, id, memberAdded("Ben", ben), memberAdded("Old", removed),
+            event("member.removed", mapOf("memberId" to removed)),
+            expenseCreated(me, 1000, mapOf(me to 500, ben to 500), expenseId = x),
+            expenseCreated(me, 100, mapOf(me to 100), expenseId = gone), event("expense.deleted", mapOf("expenseId" to gone))).status)
+        val foreign = createGroup(token, "Other")["myMemberId"].asString() // cross-group ids are unknown members here
+        val seq = snapshot(token, id)["latestSeq"].asLong()
+
+        fun created(vararg kv: Pair<String, Any?>) = expenseCreated(me, 1000, mapOf(me to 500, ben to 500), extra = mapOf(*kv))
+        fun updated(vararg kv: Pair<String, Any?>) = expenseUpdated(x, *kv)
+        fun settings(vararg kv: Pair<String, Any?>) = event("group.updated", mapOf(*kv))
+        fun split(mode: String, input: Map<String, Any?>?) = mapOf("mode" to mode, "input" to input)
+        val bad = listOf(
+            "PAYERS_SUM_MISMATCH" to created("payers" to lines(mapOf(me to 600, ben to 300))),
+            "PAYERS_SUM_MISMATCH" to updated("payers" to lines(mapOf(me to 999))),
+            "UNKNOWN_MEMBER" to created("payers" to lines(mapOf(me to 500, foreign to 500))),
+            "UNKNOWN_MEMBER" to created("split" to split("shares", mapOf(me to 1, foreign to 1))),
+            "UNKNOWN_MEMBER" to settings("defaultSplit" to split("shares", mapOf(foreign to 1))),
+            "NEGATIVE_AMOUNT" to created("payers" to lines(mapOf(me to 1100, ben to -100))),
+            "SUM_MISMATCH" to settings("defaultSplit" to split("percent", mapOf(me to 60, ben to 50))),
+            "VALIDATION" to created("payers" to emptyList<Any>()),
+            "VALIDATION" to created("payers" to "me"),
+            "VALIDATION" to created("payers" to listOf(mapOf("memberId" to me, "amount" to 1000.5))),
+            "VALIDATION" to created("payers" to listOf(mapOf("memberId" to 5, "amount" to 1000))),
+            "VALIDATION" to created("payers" to listOf(mapOf("memberId" to me, "amount" to 500), mapOf("memberId" to me, "amount" to 500))),
+            "VALIDATION" to updated("payers" to emptyList<Any>()),
+            "VALIDATION" to created("refund" to "yes"),
+            "VALIDATION" to updated("refund" to 1),
+            "VALIDATION" to created("split" to "equal"),
+            "VALIDATION" to created("split" to split("exact", mapOf(me to 500))),
+            "VALIDATION" to created("split" to split("itemized", mapOf(me to 500))),
+            "VALIDATION" to created("split" to split("equal", mapOf(me to 1))),
+            "VALIDATION" to created("split" to mapOf("mode" to "percent")),
+            "VALIDATION" to created("split" to split("percent", null)),
+            "VALIDATION" to created("split" to split("shares", mapOf(me to "1"))),
+            "VALIDATION" to created("split" to split("percent", mapOf(me to -10, ben to 110))),
+            "VALIDATION" to created("split" to split("shares", mapOf(me to -1))),
+            "VALIDATION" to created("split" to split("adjustment", mapOf(me to 10.5))),
+            "VALIDATION" to updated("split" to listOf("equal")),
+            "VALIDATION" to settings("defaultSplit" to split("equal", null)),
+            "VALIDATION" to settings("defaultSplit" to split("adjustment", mapOf(me to 100))),
+            "VALIDATION" to settings("defaultSplit" to split("shares", mapOf(me to 0, ben to 0))),
+            "VALIDATION" to settings("defaultSplit" to "shares"),
+            "VALIDATION" to settings("simplifyDebts" to null),
+            "VALIDATION" to settings("simplifyDebts" to "false"),
+            // an update of a deleted expense is ignored (rule 3), so only the types are checked
+            "VALIDATION" to expenseUpdated(gone, "payers" to "me"),
+        )
+        for ((code, e) in bad) {
+            val res = push(token, id, memberAdded("Batch mate"), e)
+            assertEquals(400 to code, res.status to res.code(), "${e["payload"]}: ${res.text}")
+        }
+        assertEquals(seq, snapshot(token, id)["latestSeq"].asLong(), "nothing stored")
+
+        // what passes: null payers/refund are ignored, Dart's 1000.0 is a whole adjustment, a removed member is a member,
+        // percent within 0.001 of 100, unknown keys in a split, and a deleted expense's payers that don't add up
+        val ok = push(token, id,
+            created("payers" to null, "refund" to null, "split" to null),
+            created("split" to split("adjustment", mapOf(me to 1000.0, ben to -1000))),
+            created("split" to mapOf("mode" to "shares", "input" to mapOf(me to 1.5, removed to 0), "note" to "kept")),
+            created("payers" to lines(mapOf(me to 500, removed to 500))),
+            updated("payers" to null, "refund" to null),
+            settings("defaultSplit" to split("percent", mapOf(me to 33.3333, ben to 33.3333, removed to 33.3333))),
+            settings("defaultSplit" to null, "simplifyDebts" to false),
+            expenseUpdated(gone, "payers" to lines(mapOf(me to 1)), "amount" to 5),
+        )
+        assertEquals(200, ok.status, ok.text)
+        val kept = snapshot(token, id)["expenses"].values().first { it["split"]?.get("note") != null }
+        assertEquals("kept", kept["split"]["note"].asString())
+    }
+
+    /**
+     * Phase 2 clients don't know payers: their amount-and-shares edit still works on a single-payer expense (the payer
+     * follows, rule 10c) but can't silently break a multi-payer one (rule 10d → PAYERS_SUM_MISMATCH).
+     */
+    @Test
+    fun legacyAmountUpdates() {
+        val token = login("Val7")
+        val group = createGroup(token)
+        val id = group["id"].asString()
+        val me = group["myMemberId"].asString()
+        val ben = UUID.randomUUID().toString()
+        val single = UUID.randomUUID().toString()
+        val multi = UUID.randomUUID().toString()
+        assertEquals(200, push(token, id, memberAdded("Ben", ben),
+            expenseCreated(me, 1000, mapOf(me to 500, ben to 500), expenseId = single),
+            expenseCreated(me, 1000, mapOf(me to 500, ben to 500), expenseId = multi, extra = mapOf("payers" to lines(mapOf(me to 600, ben to 400))))).status)
+
+        assertEquals(200, push(token, id, expenseUpdated(single, "amount" to 2000, "shares" to lines(mapOf(me to 1000, ben to 1000)))).status)
+        val s = snapshot(token, id)["expenses"].values().first { it["id"].asString() == single }
+        assertEquals(SharedJson.canon(lines(mapOf(me to 2000))), SharedJson.canon(s["payers"]))
+
+        for (fields in listOf(arrayOf("amount" to 2000), arrayOf("amount" to 2000, "shares" to lines(mapOf(me to 1000, ben to 1000))))) {
+            val res = push(token, id, expenseUpdated(multi, *fields))
+            assertEquals(400 to "PAYERS_SUM_MISMATCH", res.status to res.code(), res.text)
+        }
+        // a legacy paidBy edit collapses the payers to one (rule 10b), and the app's full money update passes
+        assertEquals(200, push(token, id, expenseUpdated(multi, "paidBy" to ben, "amount" to 1000)).status)
+        assertEquals(200, push(token, id, expenseUpdated(multi, "amount" to 2000, "paidBy" to me, "payers" to lines(mapOf(me to 1200, ben to 800)),
+            "shares" to lines(mapOf(me to 1000, ben to 1000)), "split" to null, "refund" to false)).status)
+        val m = snapshot(token, id)["expenses"].values().first { it["id"].asString() == multi }
+        assertEquals(SharedJson.canon(lines(mapOf(me to 1200, ben to 800))), SharedJson.canon(m["payers"]))
+        assertEquals(me, m["paidBy"].asString())
+    }
+
+    /**
+     * Amounts are capped (docs/API.md "금액 상한"), so Σ payers or Σ shares can't wrap around in Long arithmetic and
+     * match the amount; group and member names are at most 100 UTF-16 units, in events and POST /groups.
+     */
+    @Test
+    fun amountsAndNamesAreBounded() {
+        val token = login("Val9")
+        val group = createGroup(token)
+        val id = group["id"].asString()
+        val me = group["myMemberId"].asString()
+        val ben = UUID.randomUUID().toString()
+        val cara = UUID.randomUUID().toString()
+        assertEquals(200, push(token, id, memberAdded("Ben", ben), memberAdded("Cara", cara)).status)
+        val seq = snapshot(token, id)["latestSeq"].asLong()
+        val max = Long.MAX_VALUE
+        val cap = 10_000_000_000_000L
+        for (e in listOf(
+            expenseCreated(me, 1000, mapOf(me to 1000), extra = mapOf("payers" to lines(mapOf(me to max, ben to max, cara to 1002)))),
+            expenseCreated(me, 1000, mapOf(me to max, ben to max, cara to 1002)),
+            expenseCreated(me, cap + 1, mapOf(me to cap + 1)),
+            event("payment.created", mapOf("paymentId" to UUID.randomUUID().toString(), "fromMember" to me, "toMember" to ben,
+                "amount" to cap + 1, "currency" to "EUR", "date" to "2026-10-11")),
+            event("group.updated", mapOf("name" to "x".repeat(101))),
+            memberAdded("x".repeat(101)),
+        )) {
+            val res = push(token, id, e)
+            assertEquals(400 to "VALIDATION", res.status to res.code(), "${e["payload"]}: ${res.text}")
+        }
+        assertEquals(seq, snapshot(token, id)["latestSeq"].asLong(), "nothing stored")
+        assertEquals(200, push(token, id, expenseCreated(me, cap, mapOf(me to cap)), event("group.updated", mapOf("name" to "x".repeat(100)))).status)
+        assertEquals(200, push(token, id, memberAdded("😀".repeat(50))).status, "100 UTF-16 units")
+
+        val longId = UUID.randomUUID().toString()
+        val long = http.post("/groups", mapOf("id" to longId, "name" to "x".repeat(101), "defaultCurrency" to "EUR",
+            "memberId" to UUID.randomUUID().toString(), "memberName" to "Me"), token)
+        assertEquals(400 to "VALIDATION", long.status to long.code(), long.text)
+        assertEquals(404, http.get("/groups/$longId", token).status, "the group row is rolled back")
+        val longMember = http.post("/groups", mapOf("id" to longId, "name" to "Trip", "defaultCurrency" to "EUR",
+            "memberId" to UUID.randomUUID().toString(), "memberName" to "x".repeat(101)), token)
+        assertEquals(400 to "VALIDATION", longMember.status to longMember.code(), longMember.text)
+    }
+
+    /** Rule 12: a late currency change is stored with 200 but not applied; other keys in the event still are. */
+    @Test
+    fun defaultCurrencyLocksAfterTheFirstExpenseOrPayment() {
+        val token = login("Val8")
+        val group = createGroup(token)
+        val id = group["id"].asString()
+        val me = group["myMemberId"].asString()
+        assertEquals(200, push(token, id, event("group.updated", mapOf("defaultCurrency" to "USD"))).status)
+        assertEquals("USD", http.get("/groups/$id", token).body["defaultCurrency"].asString(), "no expenses yet: applies")
+        assertEquals("UNKNOWN_CURRENCY", push(token, id, event("group.updated", mapOf("defaultCurrency" to "XXX"))).code())
+
+        val x = UUID.randomUUID().toString()
+        assertEquals(200, push(token, id, expenseCreated(me, 100, mapOf(me to 100), expenseId = x, currency = "USD"),
+            event("expense.deleted", mapOf("expenseId" to x))).status)
+        val res = push(token, id, event("group.updated", mapOf("name" to "Japan", "defaultCurrency" to "JPY", "simplifyDebts" to false)))
+        assertEquals(200, res.status, res.text)
+        val snap = snapshot(token, id)
+        assertEquals("USD", snap["group"]["defaultCurrency"].asString(), "a deleted expense still locks it")
+        assertEquals("Japan", snap["group"]["name"].asString())
+        assertEquals(false, snap["group"]["simplifyDebts"].asBoolean())
+        val stored = http.get("/groups/$id/events?after=0", token).body["events"].values().last()
+        assertEquals("JPY", stored["payload"]["defaultCurrency"].asString(), "the event is stored as sent")
+    }
 }

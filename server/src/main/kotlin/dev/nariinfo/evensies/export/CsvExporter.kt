@@ -6,18 +6,23 @@ import dev.nariinfo.evensies.sync.GroupState
 import java.io.StringWriter
 
 object CsvExporter {
-    /** date,description,amount,currency,paidBy,<one column per member name> — amounts in major units. */
+    /**
+     * date,description,amount,currency,paidBy,<one column per member name> — amounts in major units. paidBy is the
+     * payer's name, or `Anna 60.00; Ben 40.00` (payers order) for several; refund rows have negative amount and shares.
+     */
     fun export(state: GroupState): String {
         val members = state.members.values.toList()
+        fun name(id: String) = state.members[id]?.name ?: id
         val out = StringWriter()
         CSVWriter(out).use { csv ->
             csv.writeNext((listOf("date", "description", "amount", "currency", "paidBy") + members.map { it.name }).toTypedArray())
             for (e in state.expenses.values.filter { !it.deleted }) {
+                val sign = if (e.refund) -1 else 1
                 val shares = e.shares.associate { it.memberId to it.amount }
-                val row = listOf(
-                    e.date, e.description, Money.format(e.amount, e.currency), e.currency,
-                    state.members[e.paidBy]?.name ?: e.paidBy,
-                ) + members.map { m -> shares[m.id]?.let { Money.format(it, e.currency) } ?: "" }
+                val paidBy = e.payers.singleOrNull()?.let { name(it.memberId) }
+                    ?: e.payers.joinToString("; ") { "${name(it.memberId)} ${Money.format(it.amount, e.currency)}" }
+                val row = listOf(e.date, e.description, Money.format(sign * e.amount, e.currency), e.currency, paidBy) +
+                    members.map { m -> shares[m.id]?.let { Money.format(sign * it, e.currency) } ?: "" }
                 csv.writeNext(row.toTypedArray())
             }
         }

@@ -1,6 +1,10 @@
 /// In-memory group state, shape mirrors `GET /groups/{id}/snapshot` (docs/API.md).
 library;
 
+import 'package:flutter/foundation.dart' show mapEquals;
+
+import 'split.dart';
+
 class Member {
   final String id;
   final String name;
@@ -33,31 +37,90 @@ class Share {
   Map<String, dynamic> toJson() => {'memberId': memberId, 'amount': amount};
 }
 
+/// How an expense was split, so the editor reopens it the same way (docs/API.md "SplitSpec").
+/// A hint only: `Expense.shares` holds the amounts. An exact split has no SplitSpec.
+class SplitSpec {
+  final SplitMode mode;
+
+  /// percent: percent, shares: share count, adjustment: minor units. Null for equal.
+  final Map<String, double>? input;
+  const SplitSpec(this.mode, [this.input]);
+
+  static const _modes = {SplitMode.equal, SplitMode.percent, SplitMode.shares, SplitMode.adjustment};
+
+  /// Null for anything this app can't use: not an object, an unknown mode (Phase 7 adds `itemized`), bad input.
+  static SplitSpec? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final mode = SplitMode.values.where((m) => m.name == j['mode'] && _modes.contains(m)).firstOrNull;
+    if (mode == null) return null;
+    final raw = j['input'];
+    if (raw is! Map) return mode == SplitMode.equal ? const SplitSpec(SplitMode.equal) : null;
+    final input = <String, double>{};
+    for (final e in raw.entries) {
+      if (e.key is! String || e.value is! num) return null;
+      input[e.key as String] = (e.value as num).toDouble();
+    }
+    return SplitSpec(mode, mode == SplitMode.equal ? null : input);
+  }
+
+  Map<String, dynamic> toJson() => {'mode': mode.name, if (input != null) 'input': input};
+
+  /// Same mode and numbers; a member missing from [input] counts as 0 (docs/API.md SplitSpec).
+  @override
+  bool operator ==(Object other) =>
+      other is SplitSpec && other.mode == mode && mapEquals(_nonZero(other.input), _nonZero(input));
+  @override
+  int get hashCode => mode.hashCode;
+
+  static Map<String, double> _nonZero(Map<String, double>? m) => {
+        for (final e in (m ?? const <String, double>{}).entries)
+          if (e.value != 0) e.key: e.value
+      };
+}
+
+/// Primary payer (docs/API.md 적용 규칙 10): the largest amount; on a tie the lowest memberId.
+String primaryPayer(List<Share> payers) => payers
+    .reduce((a, b) => b.amount > a.amount || (b.amount == a.amount && b.memberId.compareTo(a.memberId) < 0) ? b : a)
+    .memberId;
+
 class Expense {
   final String id;
   final String description;
   final int amount;
   final String currency;
   final double? fxRateToDefault;
-  final String paidBy;
+
+  /// Who paid how much, in the order sent; sums to [amount]. For a refund: who received the money.
+  final List<Share> payers;
   final String date; // YYYY-MM-DD
   final String? category;
   final String? notes;
   final bool deleted;
+
+  /// Money that came back (e.g. a hotel refund): reverses the effect on balances.
+  final bool refund;
+  final SplitSpec? split;
   final List<Share> shares;
-  const Expense({
+
+  /// Pass [payers], or [paidBy] alone for a single payer of the whole [amount].
+  Expense({
     required this.id,
     required this.description,
     required this.amount,
     required this.currency,
     this.fxRateToDefault,
-    required this.paidBy,
+    String? paidBy,
+    List<Share>? payers,
     required this.date,
     this.category,
     this.notes,
     this.deleted = false,
+    this.refund = false,
+    this.split,
     required this.shares,
-  });
+  }) : payers = payers ?? [Share(memberId: paidBy!, amount: amount)];
+
+  String get paidBy => primaryPayer(payers);
 
   Expense copyWith({
     String? description,
@@ -65,13 +128,16 @@ class Expense {
     String? currency,
     double? fxRateToDefault,
     bool clearFx = false,
-    String? paidBy,
+    List<Share>? payers,
     String? date,
     String? category,
     bool clearCategory = false,
     String? notes,
     bool clearNotes = false,
     bool? deleted,
+    bool? refund,
+    SplitSpec? split,
+    bool clearSplit = false,
     List<Share>? shares,
   }) =>
       Expense(
@@ -80,25 +146,35 @@ class Expense {
         amount: amount ?? this.amount,
         currency: currency ?? this.currency,
         fxRateToDefault: clearFx ? null : (fxRateToDefault ?? this.fxRateToDefault),
-        paidBy: paidBy ?? this.paidBy,
+        payers: payers ?? this.payers,
         date: date ?? this.date,
         category: clearCategory ? null : (category ?? this.category),
         notes: clearNotes ? null : (notes ?? this.notes),
         deleted: deleted ?? this.deleted,
+        refund: refund ?? this.refund,
+        split: clearSplit ? null : (split ?? this.split),
         shares: shares ?? this.shares,
       );
 
+  /// Missing `payers` = `[{paidBy, amount}]`, `refund` = false, `split` = null (events and snapshots before Phase 3).
   factory Expense.fromJson(Map<String, dynamic> j) => Expense(
         id: j['id'] as String,
         description: j['description'] as String,
         amount: (j['amount'] as num).toInt(),
         currency: j['currency'] as String,
         fxRateToDefault: (j['fxRateToDefault'] as num?)?.toDouble(),
-        paidBy: j['paidBy'] as String,
+        paidBy: j['paidBy'] as String?,
+        // Empty is never valid (the server refuses it); read it like a missing key rather than crash on paidBy.
+        payers: switch (j['payers']) {
+          final List l when l.isNotEmpty => l.cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
+          _ => null,
+        },
         date: j['date'] as String,
         category: j['category'] as String?,
         notes: j['notes'] as String?,
         deleted: j['deleted'] as bool? ?? false,
+        refund: j['refund'] == true,
+        split: SplitSpec.fromJson(j['split']),
         shares: (j['shares'] as List).cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
       );
   Map<String, dynamic> toJson() => {
@@ -108,6 +184,9 @@ class Expense {
         'currency': currency,
         'fxRateToDefault': fxRateToDefault,
         'paidBy': paidBy,
+        'payers': payers.map((s) => s.toJson()).toList(),
+        'refund': refund,
+        'split': split?.toJson(),
         'date': date,
         'category': category,
         'notes': notes,
@@ -214,6 +293,10 @@ class Comment {
 class GroupState {
   final String? name;
   final String? defaultCurrency;
+
+  /// Group settings (docs/API.md 적용 규칙 11).
+  final bool simplifyDebts;
+  final SplitSpec? defaultSplit;
   final List<Member> members;
   final List<Expense> expenses;
   final List<Payment> payments;
@@ -221,6 +304,8 @@ class GroupState {
   const GroupState({
     this.name,
     this.defaultCurrency,
+    this.simplifyDebts = true,
+    this.defaultSplit,
     this.members = const [],
     this.expenses = const [],
     this.payments = const [],
@@ -232,6 +317,9 @@ class GroupState {
   GroupState copyWith({
     String? name,
     String? defaultCurrency,
+    bool? simplifyDebts,
+    SplitSpec? defaultSplit,
+    bool clearDefaultSplit = false,
     List<Member>? members,
     List<Expense>? expenses,
     List<Payment>? payments,
@@ -240,6 +328,8 @@ class GroupState {
       GroupState(
         name: name ?? this.name,
         defaultCurrency: defaultCurrency ?? this.defaultCurrency,
+        simplifyDebts: simplifyDebts ?? this.simplifyDebts,
+        defaultSplit: clearDefaultSplit ? null : (defaultSplit ?? this.defaultSplit),
         members: members ?? this.members,
         expenses: expenses ?? this.expenses,
         payments: payments ?? this.payments,
@@ -251,21 +341,34 @@ class GroupState {
   Payment? payment(String id) => payments.where((p) => p.id == id).firstOrNull;
   Comment? comment(String id) => comments.where((c) => c.id == id).firstOrNull;
 
-  /// Parses the `members/expenses/payments/comments` part of a snapshot or of a sync-cases `expected`.
-  factory GroupState.fromJson(Map<String, dynamic> j) => GroupState(
-        name: (j['group'] as Map?)?['name'] as String?,
-        defaultCurrency: (j['group'] as Map?)?['defaultCurrency'] as String?,
-        members: (j['members'] as List).cast<Map<String, dynamic>>().map(Member.fromJson).toList(),
-        expenses: (j['expenses'] as List).cast<Map<String, dynamic>>().map(Expense.fromJson).toList(),
-        payments: (j['payments'] as List).cast<Map<String, dynamic>>().map(Payment.fromJson).toList(),
-        // Missing in sync-cases `expected` and in pre-Phase-2 snapshots.
-        comments: ((j['comments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Comment.fromJson).toList(),
-      );
+  /// Parses a snapshot or a sync-cases `expected` (its `group` is optional there).
+  factory GroupState.fromJson(Map<String, dynamic> j) {
+    final g = (j['group'] as Map?) ?? const {};
+    return GroupState(
+      name: g['name'] as String?,
+      defaultCurrency: g['defaultCurrency'] as String?,
+      simplifyDebts: g['simplifyDebts'] as bool? ?? true,
+      defaultSplit: SplitSpec.fromJson(g['defaultSplit']),
+      members: (j['members'] as List).cast<Map<String, dynamic>>().map(Member.fromJson).toList(),
+      expenses: (j['expenses'] as List).cast<Map<String, dynamic>>().map(Expense.fromJson).toList(),
+      payments: (j['payments'] as List).cast<Map<String, dynamic>>().map(Payment.fromJson).toList(),
+      // Missing in sync-cases `expected` and in pre-Phase-2 snapshots.
+      comments: ((j['comments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Comment.fromJson).toList(),
+    );
+  }
   Map<String, dynamic> toJson() => {
         'members': members.map((m) => m.toJson()).toList(),
         'expenses': expenses.map((e) => e.toJson()).toList(),
         'payments': payments.map((p) => p.toJson()).toList(),
         'comments': comments.map((c) => c.toJson()).toList(),
+      };
+
+  /// The `group` part (sync-cases `expected.group` compares the keys it has).
+  Map<String, dynamic> groupJson() => {
+        'name': name,
+        'defaultCurrency': defaultCurrency,
+        'simplifyDebts': simplifyDebts,
+        'defaultSplit': defaultSplit?.toJson(),
       };
 }
 

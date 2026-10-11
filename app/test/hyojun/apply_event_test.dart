@@ -13,10 +13,18 @@ void main() {
   for (final c in sharedCases('sync-cases.json')) {
     final events = (c['events'] as List).cast<Map<String, dynamic>>().map(SyncEvent.fromJson).toList();
     final expected = GroupState.fromJson(c['expected'] as Map<String, dynamic>).toJson();
+    // Optional: only the keys it has are compared (sync-cases _doc).
+    final expectedGroup = (c['expected'] as Map)['group'] as Map<String, dynamic>?;
+    void expectGroup(GroupState s) {
+      if (expectedGroup == null) return;
+      final g = s.groupJson();
+      expect({for (final k in expectedGroup.keys) k: g[k]}, expectedGroup);
+    }
 
     test(c['name'] as String, () {
       final result = events.fold(GroupState.empty, applyEvent);
       expect(result.toJson(), expected);
+      expectGroup(result);
     });
 
     test('idempotent: ${c['name']}', () {
@@ -25,6 +33,7 @@ void main() {
         s = applyEvent(applyEvent(s, e), e);
       }
       expect(s.toJson(), expected);
+      expectGroup(s);
     });
 
     if (c['permute'] == true) {

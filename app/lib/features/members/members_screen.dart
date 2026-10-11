@@ -8,6 +8,7 @@ import '../../core/confirm.dart';
 import '../../core/env.dart';
 import '../../core/invite_code.dart';
 import '../../core/snack.dart';
+import '../../core/text_limits.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
 
@@ -138,19 +139,28 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final ctl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add member'),
-        content: TextField(
-          controller: ctl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Name'),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, ctl.text.trim()), child: const Text('Add')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          final ok = ctl.text.trim().isNotEmpty && fitsLimit(ctl.text, maxMemberName);
+          return AlertDialog(
+            title: const Text('Add member'),
+            content: TextField(
+              key: const Key('member-name'),
+              controller: ctl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: limitedDecoration(const InputDecoration(labelText: 'Name'), ctl.text, maxMemberName),
+              onChanged: (_) => setDialog(() {}),
+              onSubmitted: (v) {
+                if (ok) Navigator.pop(ctx, v.trim());
+              },
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              FilledButton(onPressed: ok ? () => Navigator.pop(ctx, ctl.text.trim()) : null, child: const Text('Add')),
+            ],
+          );
+        },
       ),
     );
     if (name == null || name.isEmpty) return;

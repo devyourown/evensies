@@ -94,6 +94,29 @@ class PushNotificationTest : IntegrationTestBase() {
         assertEquals(groupId, m.data["groupId"])
     }
 
+    /** The next visible body [u] gets (a push inside the batch window first sends data-only, then the batch). */
+    private fun awaitBody(u: User): String {
+        await("a visible push") { capture.to(u.device).drop(u.seen).any { it.body != null } }
+        return take(u).first { it.body != null }.body!!
+    }
+
+    /** Phase 3: settings changes and leaving are `members` pushes; a refund's myDelta is reversed in the sentence. */
+    @Test
+    fun settingsLeavingAndRefundsArePushed() {
+        val s = setup("phase3")
+        push(s.anna.token, s.id, event("group.updated", mapOf("simplifyDebts" to false)))
+        assertEquals("Me changed the group: simplify debts off", awaitBody(s.ben))
+        assertEquals("Me changed the group: simplify debts off", awaitBody(s.carla))
+
+        push(s.anna.token, s.id, expenseCreated(s.a, 600, mapOf(s.a to 300, s.b to 300), description = "Refund",
+            extra = mapOf("payers" to lines(mapOf(s.a to 600)), "refund" to true)))
+        assertEquals("Me added a refund “Refund” · €6.00 · you get back €3.00", awaitBody(s.ben), "−1 × (0 − 300)")
+
+        push(s.carla.token, s.id, event("member.removed", mapOf("memberId" to s.c)))
+        assertEquals("Carla left the group", awaitBody(s.anna))
+        assertEquals("Carla left the group", awaitBody(s.ben))
+    }
+
     @Test
     fun othersGetTheirOwnSentenceAndTheActorNothing() {
         val s = setup("fan")

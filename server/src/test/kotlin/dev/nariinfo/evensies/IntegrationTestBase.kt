@@ -59,16 +59,24 @@ abstract class IntegrationTestBase {
     protected fun memberAdded(name: String, memberId: String = UUID.randomUUID().toString(), userId: String? = null) =
         event("member.added", mapOf("memberId" to memberId, "name" to name, "userId" to userId))
 
+    /** [extra] adds or overrides payload keys (e.g. Phase 3 `payers`, `refund`, `split`). */
     protected fun expenseCreated(
         paidBy: String, amount: Long, shares: Map<String, Long>,
         expenseId: String = UUID.randomUUID().toString(), currency: String = "EUR", description: String = "Dinner",
+        extra: Map<String, Any?> = emptyMap(),
     ) = event(
         "expense.created", mapOf(
             "expenseId" to expenseId, "description" to description, "amount" to amount, "currency" to currency,
             "fxRateToDefault" to null, "paidBy" to paidBy, "date" to "2026-10-10", "category" to null,
-            "shares" to shares.map { mapOf("memberId" to it.key, "amount" to it.value) },
-        )
+            "shares" to lines(shares),
+        ) + extra
     )
+
+    /** `[{memberId, amount}]`, the shape of `shares` and `payers`. */
+    protected fun lines(amounts: Map<String, Long>) = amounts.map { mapOf("memberId" to it.key, "amount" to it.value) }
+
+    protected fun expenseUpdated(expenseId: String, vararg fields: Pair<String, Any?>) =
+        event("expense.updated", mapOf("expenseId" to expenseId, "fields" to mapOf(*fields)))
 
     protected fun push(token: String, groupId: String, vararg events: Map<String, Any?>) =
         http.post("/groups/$groupId/events", events.toList(), token)

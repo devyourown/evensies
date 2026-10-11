@@ -7,6 +7,7 @@ import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/sync/apply_event.dart';
 import 'package:evensies/data/sync/sync_service.dart';
 import 'package:evensies/domain/models.dart';
+import 'package:evensies/domain/split.dart';
 
 import 'fakes.dart';
 
@@ -39,17 +40,27 @@ final _log = [
 ];
 
 void main() {
-  test('schema 2 → 3 keeps rows, adds notes/comments/activity and resets lastSeq', () async {
+  // Tables as release 1 created them (unchanged until schema 4).
+  void v1Tables(dynamic raw) {
+    raw.execute('CREATE TABLE "groups" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "default_currency" TEXT NOT NULL, '
+        '"invite_code" TEXT NULL, "latest_seq" INTEGER NOT NULL DEFAULT 0, "my_member_id" TEXT NULL, PRIMARY KEY ("id"))');
+    raw.execute('CREATE TABLE "outbox" ("client_id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "type" TEXT NOT NULL, '
+        '"payload_json" TEXT NOT NULL, "created_at" TEXT NOT NULL, "sent_at" TEXT NULL, PRIMARY KEY ("client_id"))');
+    raw.execute('CREATE TABLE "sync_state" ("group_id" TEXT NOT NULL, "last_seq" INTEGER NOT NULL DEFAULT 0, '
+        'PRIMARY KEY ("group_id"))');
+    raw.execute("INSERT INTO groups (id, name, default_currency) VALUES ('g1', 'Rome', 'EUR')");
+    raw.execute("INSERT INTO sync_state VALUES ('g1', 57)");
+  }
+
+  test('schema 2 → 4 keeps rows, adds notes/comments/activity and resets lastSeq', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
       raw.execute('CREATE TABLE "expenses" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "description" TEXT NOT NULL, '
           '"amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "fx_rate_to_default" REAL NULL, "paid_by" TEXT NOT NULL, '
           '"date" TEXT NOT NULL, "category" TEXT NULL, "deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
           'PRIMARY KEY ("id"))');
-      raw.execute('CREATE TABLE "sync_state" ("group_id" TEXT NOT NULL, "last_seq" INTEGER NOT NULL DEFAULT 0, '
-          'PRIMARY KEY ("group_id"))');
       raw.execute("INSERT INTO expenses (id, group_id, description, amount, currency, paid_by, date) "
           "VALUES ('x1', 'g1', 'Dinner', 2000, 'EUR', 'm1', '2026-10-10')");
-      raw.execute("INSERT INTO sync_state VALUES ('g1', 57)");
       raw.execute('PRAGMA user_version = 2');
     }));
     addTearDown(db.close);
@@ -62,6 +73,30 @@ void main() {
     expect(await db.select(db.activity).get(), isEmpty);
   });
 
+  test('schema 3 → 4 backfills payers from paid_by, defaults the new columns and resets lastSeq', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      raw.execute('CREATE TABLE "expenses" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "description" TEXT NOT NULL, '
+          '"amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "fx_rate_to_default" REAL NULL, "paid_by" TEXT NOT NULL, '
+          '"date" TEXT NOT NULL, "category" TEXT NULL, "deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
+          '"notes" TEXT NULL, PRIMARY KEY ("id"))');
+      raw.execute("INSERT INTO expenses (id, group_id, description, amount, currency, paid_by, date) "
+          "VALUES ('x1', 'g1', 'Dinner', 2000, 'EUR', 'm1', '2026-10-10')");
+      raw.execute("INSERT INTO outbox VALUES ('c1', 'g1', 'expense.deleted', '{}', '2026-10-11T00:00:00Z', NULL)");
+      raw.execute('PRAGMA user_version = 3');
+    }));
+    addTearDown(db.close);
+
+    final p = await db.select(db.expensePayers).getSingle();
+    expect((p.expenseId, p.memberId, p.amount), ('x1', 'm1', 2000));
+    final x = (await db.getExpense('x1'))!;
+    expect((x.refund, x.splitJson), (false, null));
+    final g = (await db.getGroup('g1'))!;
+    expect((g.simplifyDebts, g.defaultSplitJson), (true, null));
+    expect((await db.unsentOutbox('g1')).single.rejected, isNull);
+    expect(await db.lastSeq('g1'), 0);
+  });
+
   group('pull', () {
     late AppDatabase db;
     late FakeApi api;
@@ -70,7 +105,7 @@ void main() {
       db = AppDatabase(NativeDatabase.memory());
       api = FakeApi(db)..events = _log;
       sync = SyncService(db: db, api: api);
-      await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1'));
+      await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1', simplifyDebts: true));
       // What release 1 stored for that log: no notes, no comment.
       await sync.store.save(
         'g1',
@@ -110,7 +145,7 @@ void main() {
         ]
         ..snap = (
           group: const GroupDto(
-              id: 'g1', name: 'Rome', defaultCurrency: 'EUR', inviteCode: 'ABC', latestSeq: 6, myMemberId: 'm1'),
+              id: 'g1', name: 'Rome', defaultCurrency: 'EUR', inviteCode: 'ABC', latestSeq: 6, myMemberId: 'm1', simplifyDebts: true),
           state: GroupState(members: const [Member(id: 'm1', name: 'Anna')], expenses: [server]),
           latestSeq: 6,
         );
@@ -179,7 +214,7 @@ void main() {
   test('store round-trips notes and comment tombstones', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0));
+    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
     final sync = SyncService(db: db, api: FakeApi(db));
     final s = GroupState(
       expenses: [Expense.fromJson({..._log[1].payload, 'id': 'x1'})],
@@ -191,5 +226,48 @@ void main() {
     expect(back.toJson()['comments'], s.toJson()['comments']);
     expect((await db.select(db.comments).getSingle()).deleted, isTrue);
     expect(back.expense('x1')!.notes, 'Table 12');
+  });
+
+  test('store round-trips payers, refund, split and the group settings; a pulled null clears the default split',
+      () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await db.upsertGroup(
+        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
+    final api = FakeApi(db);
+    final sync = SyncService(db: db, api: api);
+    final s = GroupState(
+      name: 'Rome',
+      defaultCurrency: 'EUR',
+      simplifyDebts: false,
+      defaultSplit: const SplitSpec(SplitMode.shares, {'m1': 2, 'm2': 1}),
+      members: const [Member(id: 'm1', name: 'Anna'), Member(id: 'm2', name: 'Ben')],
+      expenses: [
+        Expense(
+          id: 'x1',
+          description: 'Hotel',
+          amount: 3000,
+          currency: 'EUR',
+          payers: const [Share(memberId: 'm2', amount: 1000), Share(memberId: 'm1', amount: 2000)],
+          date: '2026-10-11',
+          refund: true,
+          split: const SplitSpec(SplitMode.equal),
+          shares: const [Share(memberId: 'm1', amount: 1500), Share(memberId: 'm2', amount: 1500)],
+        ),
+      ],
+    );
+    await sync.store.save('g1', s, 3);
+    final back = await sync.store.load('g1');
+    expect(back.groupJson(), s.groupJson());
+    final x = back.expense('x1')!;
+    expect(x.paidBy, 'm1');
+    expect({for (final p in x.payers) p.memberId: p.amount}, {'m1': 2000, 'm2': 1000});
+    expect((x.refund, x.split), (true, const SplitSpec(SplitMode.equal)));
+    expect((await db.getExpense('x1'))!.paidBy, 'm1'); // the primary payer, for old readers
+
+    api.events = [ev(4, 'group.updated', {'defaultSplit': null, 'simplifyDebts': true})];
+    await sync.sync('g1');
+    final g = (await db.getGroup('g1'))!;
+    expect((g.defaultSplitJson, g.simplifyDebts), (null, true));
   });
 }

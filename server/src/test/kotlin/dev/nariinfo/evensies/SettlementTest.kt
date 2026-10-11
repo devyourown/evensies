@@ -8,6 +8,8 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import tools.jackson.databind.JsonNode
 import dev.nariinfo.evensies.money.Split
 import dev.nariinfo.evensies.money.SplitMode
 import kotlin.random.Random
@@ -19,18 +21,21 @@ class SettlementTest {
     fun sharedSettlementCases(): List<DynamicTest> = SharedJson.load("settlement-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
             val members = case["members"].values().map { it.asString() }
+            fun amounts(n: JsonNode) = n.properties().associate { (k, v) -> k to v.asLong() }
             val expenses = case["expenses"].values().map { e ->
-                ExpenseLine(e["paidBy"].asString(), e["amount"].asLong(), e["shares"].properties().associate { (k, v) -> k to v.asLong() })
+                val shares = amounts(e["shares"])
+                val payers = e["payers"]?.let(::amounts) ?: mapOf(e["paidBy"].asString() to e["amount"].asLong())
+                ExpenseLine(payers, e["amount"].asLong(), shares, refund = e["refund"]?.asBoolean() ?: false)
             }
             val payments = case["payments"].values().map { PaymentLine(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
-            val expectedBalances = case["expectedBalances"].properties().associate { (k, v) -> k to v.asLong() }
+            val expectedBalances = amounts(case["expectedBalances"])
             val expectedTransfers = case["expectedTransfers"].values().map { Transfer(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
 
-            val balances = Settlement.balances(members, expenses, payments)
-            val transfers = Settlement.simplify(balances)
-
-            assertEquals(expectedBalances, balances)
-            assertEquals(expectedTransfers, transfers)
+            // Transfers come from the expected balances, so they are checked even while the balances are pending.
+            // expectedPairwise is the app's pairwiseDebts; the Kotlin port comes with Phase 6.
+            assertEquals(expectedTransfers, Settlement.simplify(expectedBalances))
+            assumeTrue(case["pending"] == null, "pending: hyojun (multi-payer / refund balances land with his Dart computeBalances)")
+            assertEquals(expectedBalances, Settlement.balances(members, expenses, payments))
         }
     }
 

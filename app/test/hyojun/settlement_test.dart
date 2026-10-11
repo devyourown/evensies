@@ -14,9 +14,11 @@ void main() {
     final expenses = [
       for (final e in (c['expenses'] as List).cast<Map>())
         ExpenseLine(
-          paidBy: e['paidBy'] as String,
+          paidBy: e['paidBy'] as String?,
+          payers: (e['payers'] as Map?)?.cast<String, int>(),
           amount: e['amount'] as int,
           shares: (e['shares'] as Map).cast<String, int>(),
+          refund: e['refund'] == true,
         ),
     ];
     final payments = [
@@ -29,7 +31,8 @@ void main() {
         Transfer(from: t['from'] as String, to: t['to'] as String, amount: t['amount'] as int),
     ];
 
-    test('balances: ${c['name']}', () {
+    // "pending": "hyojun" = needs the TODO(효준) part of computeBalances; reported as skipped until it lands.
+    test('balances: ${c['name']}', skip: c['pending'] == null ? null : 'pending: hyojun', () {
       final balances = computeBalances(members, expenses, payments);
       expect(balances, expectedBalances);
     });
@@ -90,6 +93,27 @@ void main() {
         final reversed = Map.fromEntries(balances.entries.toList().reversed);
         expect(simplifyDebts(balances), simplifyDebts(reversed));
       });
+    });
+    // Several payers (from computeSplit(exact)) and refunds. Remove the skip with the TODO(효준) in computeBalances.
+    test('balances sum to zero with several payers and refunds', skip: 'TODO(효준)', () {
+      for (var k = 0; k < 200; k++) {
+        final (members, _, payments) = randomCase();
+        final lines = List.generate(rnd.nextInt(21), (_) {
+          final amount = rnd.nextInt(10000);
+          final who = (List.of(members)..shuffle(rnd)).take(1 + rnd.nextInt(members.length)).toList();
+          final cut = rnd.nextInt(amount + 1);
+          final input = {for (final m in who) m: 0.0}..[who.first] = (amount - cut).toDouble();
+          input[who.last] = input[who.last]! + cut;
+          return ExpenseLine(
+            payers: computeSplit(amount: amount, mode: SplitMode.exact, members: who, input: input),
+            amount: amount,
+            shares: computeSplit(amount: amount, mode: SplitMode.equal, members: members),
+            refund: rnd.nextBool(),
+          );
+        });
+        final balances = computeBalances(members, lines, payments);
+        expect(balances.values.fold(0, (a, b) => a + b), 0, reason: '$balances');
+      }
     });
     test('no transfer involves a zero-balance member', () {
       forEachCase((_, balances) {

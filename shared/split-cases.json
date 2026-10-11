@@ -1,5 +1,5 @@
 {
-  "_doc": "분할 계산 테스트 케이스. amount는 최소 단위 정수. mode: equal | exact | percent. members는 ID 오름차순이 아닐 수 있다 — 나머지 배분은 memberId 오름차순으로 앞에서부터 1씩. 양쪽(Dart·Kotlin) 구현이 이 파일을 읽는다.",
+  "_doc": "분할 계산 테스트 케이스. amount는 최소 단위 정수. mode: equal | exact | percent | shares | adjustment (input: percent = 퍼센트, shares = 몫 개수, adjustment = 최소 단위 조정액). members는 ID 오름차순이 아닐 수 있다 — 나머지 배분은 memberId 오름차순으로 앞에서부터 1씩(percent·shares는 0이 아닌 멤버에게만). expected 대신 error(SplitException 코드)가 있을 수 있다. \"pending\": \"hyojun\"인 케이스는 효준님 함수가 들어올 때까지 건너뛴다(실패 아님). 양쪽(Dart·Kotlin) 구현이 이 파일을 읽는다.",
   "cases": [
     {"name": "equal 3 ways no remainder", "amount": 3000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 1000, "b": 1000, "c": 1000}},
     {"name": "equal 3 ways remainder 1", "amount": 1000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 334, "b": 333, "c": 333}},
@@ -12,6 +12,18 @@
     {"name": "percent with rounding remainder", "amount": 100, "mode": "percent", "members": ["a", "b", "c"], "input": {"a": 33.33, "b": 33.33, "c": 33.34}, "expected": {"a": 34, "b": 33, "c": 33}},
     {"name": "percent must sum to 100", "amount": 100, "mode": "percent", "members": ["a", "b"], "input": {"a": 60, "b": 50}, "error": "SUM_MISMATCH"},
     {"name": "negative amount rejected", "amount": -5, "mode": "equal", "members": ["a"], "error": "NEGATIVE_AMOUNT"},
-    {"name": "no members rejected", "amount": 100, "mode": "equal", "members": [], "error": "NO_MEMBERS"}
+    {"name": "no members rejected", "amount": 100, "mode": "equal", "members": [], "error": "NO_MEMBERS"},
+    {"name": "shares 2/1/0, leftover to lowest id with a share", "amount": 1000, "mode": "shares", "members": ["a", "b", "c"], "input": {"a": 2, "b": 1, "c": 0}, "expected": {"a": 667, "b": 333, "c": 0}, "pending": "hyojun"},
+    {"name": "shares leftover skips a zero-share lower id, unsorted input", "amount": 100, "mode": "shares", "members": ["c", "a", "b"], "input": {"a": 0, "b": 1, "c": 2}, "expected": {"a": 0, "b": 34, "c": 66}, "pending": "hyojun"},
+    {"name": "shares fractional counts", "amount": 1000, "mode": "shares", "members": ["a", "b", "c"], "input": {"a": 1.5, "b": 1, "c": 0.5}, "expected": {"a": 501, "b": 333, "c": 166}, "pending": "hyojun"},
+    {"name": "shares missing input counts as 0", "amount": 500, "mode": "shares", "members": ["a", "b"], "input": {"a": 1}, "expected": {"a": 500, "b": 0}, "pending": "hyojun"},
+    {"name": "shares all zero rejected", "amount": 100, "mode": "shares", "members": ["a", "b"], "input": {"a": 0, "b": 0}, "error": "NO_MEMBERS", "pending": "hyojun"},
+    {"name": "shares negative count rejected", "amount": 100, "mode": "shares", "members": ["a", "b"], "input": {"a": -1, "b": 2}, "error": "INVALID_INPUT", "pending": "hyojun"},
+    {"name": "adjustment +10 on one person", "amount": 10000, "mode": "adjustment", "members": ["a", "b", "c"], "input": {"a": 1000}, "expected": {"a": 4000, "b": 3000, "c": 3000}, "pending": "hyojun"},
+    {"name": "adjustment negative with remainder", "amount": 1000, "mode": "adjustment", "members": ["a", "b", "c"], "input": {"b": -100}, "expected": {"a": 367, "b": 267, "c": 366}, "pending": "hyojun"},
+    {"name": "adjustment larger than the bill rejected", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"a": 1200}, "error": "NEGATIVE_SHARE", "pending": "hyojun"},
+    {"name": "adjustment pushing someone below zero rejected", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"b": -1200}, "error": "NEGATIVE_SHARE", "pending": "hyojun"},
+    {"name": "adjustment must be whole minor units", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"a": 10.5}, "error": "INVALID_INPUT", "pending": "hyojun"},
+    {"name": "percent leftover skips 0% members", "amount": 100, "mode": "percent", "members": ["a", "b", "c"], "input": {"a": 0, "b": 33.33, "c": 66.67}, "expected": {"a": 0, "b": 34, "c": 66}, "pending": "hyojun"}
   ]
 }

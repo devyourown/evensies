@@ -4,6 +4,7 @@ import dev.nariinfo.evensies.common.ApiException
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
 import java.time.LocalDate
 import java.time.Instant
@@ -13,18 +14,25 @@ import java.util.UUID
 
 /** Loads a group's state from the member/expense/payment/comment tables and writes back what an event touched. */
 @Repository
-class GroupStateStore(private val jdbc: JdbcClient) {
+class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMapper) {
     fun load(groupId: UUID): GroupState {
-        val group = jdbc.sql("SELECT name, default_currency FROM groups WHERE id = :id").param("id", groupId)
-            .query { rs, _ -> rs.getString("name") to rs.getString("default_currency") }.optional().orElse(null)
+        val group = jdbc.sql("SELECT name, default_currency, simplify_debts, default_split FROM groups WHERE id = :id").param("id", groupId)
+            .query { rs, _ ->
+                GroupState(
+                    name = rs.getString("name"), defaultCurrency = rs.getString("default_currency"),
+                    simplifyDebts = rs.getBoolean("simplify_debts"), defaultSplit = json(rs.getString("default_split")),
+                )
+            }.optional().orElse(GroupState())
         val members = jdbc.sql("SELECT * FROM members WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
             .query { rs, _ ->
                 MemberDto(rs.getString("id"), rs.getString("name"), rs.getString("user_id"), rs.getBoolean("removed"))
             }.list()
-        val shares = jdbc.sql(
-            "SELECT s.* FROM expense_shares s JOIN expenses e ON e.id = s.expense_id WHERE e.group_id = :id ORDER BY s.expense_id, s.position"
+        fun lines(table: String) = jdbc.sql(
+            "SELECT s.* FROM $table s JOIN expenses e ON e.id = s.expense_id WHERE e.group_id = :id ORDER BY s.expense_id, s.position"
         ).param("id", groupId).query { rs, _ -> rs.getString("expense_id") to ShareDto(rs.getString("member_id"), rs.getLong("amount")) }
             .list().groupBy({ it.first }, { it.second })
+        val shares = lines("expense_shares")
+        val payers = lines("expense_payers")
         val expenses = jdbc.sql("SELECT * FROM expenses WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
             .query { rs, _ ->
                 ExpenseDto(
@@ -39,6 +47,9 @@ class GroupStateStore(private val jdbc: JdbcClient) {
                     deleted = rs.getObject("deleted_at") != null,
                     shares = shares[rs.getString("id")] ?: emptyList(),
                     notes = rs.getString("notes"),
+                    payers = payers[rs.getString("id")] ?: listOf(ShareDto(rs.getString("paid_by"), rs.getLong("amount"))),
+                    refund = rs.getBoolean("refund"),
+                    split = json(rs.getString("split")),
                 )
             }.list()
         val payments = jdbc.sql("SELECT * FROM payments WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -65,9 +76,7 @@ class GroupStateStore(private val jdbc: JdbcClient) {
                     deleted = rs.getObject("deleted_at") != null,
                 )
             }.list()
-        return GroupState(
-            name = group?.first,
-            defaultCurrency = group?.second,
+        return group.copy(
             members = members.associateBy { it.id },
             expenses = expenses.associateBy { it.id },
             payments = payments.associateBy { it.id },
@@ -82,8 +91,10 @@ class GroupStateStore(private val jdbc: JdbcClient) {
      */
     fun persist(groupId: UUID, actorUserId: UUID, state: GroupState, type: String, payload: JsonNode) {
         when (type.substringBefore('.')) {
-            "group" -> jdbc.sql("UPDATE groups SET name = :name, default_currency = :cur WHERE id = :id")
-                .param("name", state.name).param("cur", state.defaultCurrency).param("id", groupId).update()
+            "group" -> jdbc.sql(
+                "UPDATE groups SET name = :name, default_currency = :cur, simplify_debts = :simplify, default_split = CAST(:split AS jsonb) WHERE id = :id"
+            ).param("name", state.name).param("cur", state.defaultCurrency).param("simplify", state.simplifyDebts)
+                .param("split", state.defaultSplit?.let(mapper::writeValueAsString)).param("id", groupId).update()
             "member" -> state.members[payload.text("memberId")]?.let { upsertMember(groupId, it) }
             "expense" -> state.expenses[payload.text("expenseId")]?.let { upsertExpense(groupId, actorUserId, it) }
             "payment" -> state.payments[payload.text("paymentId")]?.let { upsertPayment(groupId, actorUserId, it) }
@@ -106,25 +117,35 @@ class GroupStateStore(private val jdbc: JdbcClient) {
         val now = OffsetDateTime.now()
         jdbc.sql(
             """
-            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, created_by, updated_at, deleted_at)
-            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, refund, split, created_by, updated_at, deleted_at)
+            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :refund, CAST(:split AS jsonb), :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET
               description = EXCLUDED.description, amount = EXCLUDED.amount, currency = EXCLUDED.currency,
               fx_rate_to_default = EXCLUDED.fx_rate_to_default, paid_by = EXCLUDED.paid_by, date = EXCLUDED.date,
-              category = EXCLUDED.category, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at,
+              category = EXCLUDED.category, notes = EXCLUDED.notes, refund = EXCLUDED.refund, split = EXCLUDED.split, updated_at = EXCLUDED.updated_at,
               deleted_at = CASE WHEN :deleted THEN COALESCE(expenses.deleted_at, EXCLUDED.updated_at) ELSE NULL END
             WHERE expenses.group_id = EXCLUDED.group_id
             """
         ).param("id", UUID.fromString(e.id)).param("groupId", groupId).param("description", e.description)
             .param("amount", e.amount).param("currency", e.currency).param("fx", e.fxRateToDefault)
             .param("paidBy", UUID.fromString(e.paidBy)).param("date", LocalDate.parse(e.date)).param("category", e.category)
-            .param("notes", e.notes).param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
-        jdbc.sql("DELETE FROM expense_shares WHERE expense_id = :id").param("id", UUID.fromString(e.id)).update()
-        for ((i, s) in e.shares.withIndex()) {
-            jdbc.sql("INSERT INTO expense_shares (expense_id, member_id, amount, position) VALUES (:eid, :mid, :amount, :pos)")
-                .param("eid", UUID.fromString(e.id)).param("mid", UUID.fromString(s.memberId)).param("amount", s.amount).param("pos", i).update()
+            .param("notes", e.notes).param("refund", e.refund).param("split", e.split?.let(mapper::writeValueAsString))
+            .param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
+        replaceLines("expense_shares", e.id, e.shares)
+        replaceLines("expense_payers", e.id, e.payers)
+    }
+
+    /** Shares and payers are stored by delete-and-reinsert, keeping the order sent. */
+    private fun replaceLines(table: String, expenseId: String, lines: List<ShareDto>) {
+        val id = UUID.fromString(expenseId)
+        jdbc.sql("DELETE FROM $table WHERE expense_id = :id").param("id", id).update()
+        for ((i, s) in lines.withIndex()) {
+            jdbc.sql("INSERT INTO $table (expense_id, member_id, amount, position) VALUES (:eid, :mid, :amount, :pos)")
+                .param("eid", id).param("mid", UUID.fromString(s.memberId)).param("amount", s.amount).param("pos", i).update()
         }
     }
+
+    private fun json(text: String?): JsonNode? = text?.let(mapper::readTree)
 
     private fun upsertPayment(groupId: UUID, actorUserId: UUID, p: PaymentDto) {
         jdbc.sql(
