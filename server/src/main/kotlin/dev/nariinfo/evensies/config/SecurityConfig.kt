@@ -26,8 +26,8 @@ class SecurityConfig {
         .csrf { it.disable() }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .authorizeHttpRequests {
-            it.requestMatchers("/auth/**", "/actuator/health", "/j/*").permitAll()
-                .requestMatchers(HttpMethod.GET, "/invites/*").permitAll()
+            it.requestMatchers("/auth/**", "/actuator/health", "/j/*", "/f/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/invites/*", "/friend-invites/*").permitAll()
                 .anyRequest().authenticated()
         }
         .exceptionHandling {

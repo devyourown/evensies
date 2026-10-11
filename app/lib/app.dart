@@ -18,6 +18,7 @@ class EvensiesApp extends ConsumerStatefulWidget {
 
 class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingObserver {
   StreamSubscription<String>? _rejections;
+  late final VoidCallback _stopRetry;
   bool _fxFetched = false;
 
   @override
@@ -30,10 +31,15 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     // Before the first sync, so a change refused while the app was closed is still told.
     _rejections = ref.read(syncProvider).rejections.listen((msg) => scaffoldMessengerKey.currentState
         ?.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 8))));
+    _stopRetry = ref.read(syncProvider).retryWhileOffline();
     // At launch with a session, and after every sign-in: a returning user's groups come from the server.
     ref.listenManual(sessionProvider.select((s) => s.value?.userId), (prev, userId) {
-      if (userId == null || userId == prev) return;
+      if (userId == prev) return;
+      // Sign-out or another account; not at launch, where the icon keeps its count until the refresh below answers.
+      if (prev != null) ref.read(unreadProvider.notifier).reset();
+      if (userId == null) return;
       ref.read(syncProvider).syncAll();
+      ref.read(unreadProvider.notifier).refresh();
       // The latest rate table once per app start, for the "≈" lines and offline expenses (docs/API.md 환율).
       if (!_fxFetched) {
         _fxFetched = true;
@@ -45,6 +51,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
   @override
   void dispose() {
     _rejections?.cancel();
+    _stopRetry();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -54,6 +61,9 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     if (state == AppLifecycleState.resumed) {
       ref.read(syncProvider).syncAll();
       ref.read(authServiceProvider).refreshMe();
+      ref.read(unreadProvider.notifier).refresh();
+      // A friend's new (or removed) photo; the shown one stays while it reloads.
+      ref.invalidate(avatarProvider);
     }
   }
 
@@ -61,8 +71,9 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     final links = AppLinks();
     void handle(Uri? uri) {
       if (uri == null) return;
-      final code = extractInviteCode(uri.toString());
-      if (code != null) ref.read(routerProvider).push('/join/$code');
+      final link = uri.toString();
+      final code = extractInviteCode(link);
+      if (code != null) ref.read(routerProvider).push(isFriendLink(link) ? '/friends/add?code=$code' : '/join/$code');
     }
 
     links.getInitialLink().then(handle);

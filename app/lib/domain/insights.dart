@@ -121,7 +121,7 @@ typedef Bucket = ({List<Expense> expenses, List<Payment> payments});
 
 /// Insights per currency bucket, like Balances (docs/API.md 인사이트): the group currency D first with the converted
 /// expenses and D payments, then every other currency X with its unconverted X expenses and X payments. Nothing is
-/// dropped: while convertExpense is a TODO(효준) stub every foreign expense stays in its own bucket.
+/// dropped: a foreign expense convertExpense can't convert stays in its own bucket.
 Map<String, Bucket> insightBuckets(GroupState s) {
   final d = s.defaultCurrency ?? '';
   final (:converted, :unconverted) = convertToDefault(s);
@@ -175,8 +175,8 @@ class SearchDoc {
   /// Every non-deleted expense of [s].
   static List<SearchDoc> of(String groupId, GroupState s) {
     final comments = <String, List<String>>{};
-    for (final c in s.comments.where((c) => !c.deleted)) {
-      comments.putIfAbsent(c.expenseId, () => []).add(c.text);
+    for (final c in s.comments.where((c) => !c.deleted && c.expenseId != null)) {
+      comments.putIfAbsent(c.expenseId!, () => []).add(c.text);
     }
     return [
       for (final e in s.expenses.where((e) => !e.deleted))

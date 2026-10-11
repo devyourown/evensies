@@ -30,7 +30,7 @@ void main() {
   Future<void> addGroup(String id, String name, List<Expense> expenses) async {
     final p = id == 'g1' ? '' : id;
     await db.upsertGroup(
-        GroupRow(id: id, name: name, defaultCurrency: 'EUR', latestSeq: 0, myMemberId: '${p}m1', simplifyDebts: true));
+        GroupRow(kind: 'group', id: id, name: name, defaultCurrency: 'EUR', latestSeq: 0, myMemberId: '${p}m1', simplifyDebts: true));
     await GroupStateStore(db).save(
       id,
       GroupState(

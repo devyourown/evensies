@@ -32,7 +32,7 @@ void main() {
     api = FakeApi(db);
     sync = NoSync(db);
     await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Tokyo', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        const GroupRow(kind: 'group', id: 'g1', name: 'Tokyo', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     for (final (id, name) in [('m1', 'Anna'), ('m2', 'Ben')]) {
       await db.into(db.members).insert(MembersCompanion.insert(id: id, groupId: 'g1', name: name));
     }
@@ -146,7 +146,7 @@ void main() {
     await unmount(t);
   });
 
-  testWidgets('Settle up pays in EUR only; a JPY bucket gets a "not converted" card', (t) async {
+  testWidgets('Settle up settles a JPY bucket in JPY, under its own header (Phase 6, #76)', (t) async {
     await t.runAsync(() async {
       await expense('eur', 1000, 'EUR');
       await expense('jpy', 3000, 'JPY');
@@ -154,8 +154,32 @@ void main() {
     await t.pumpWidget(app(const SettleScreen(groupId: 'g1')));
     await settle(t);
     expect(find.text('€10.00'), findsOneWidget);
-    expect(find.text("¥3,000 isn't converted yet"), findsOneWidget);
+    expect(find.text('¥3,000'), findsOneWidget);
+    expect(find.text('Not converted · JPY · settles in JPY'), findsOneWidget);
     expect(find.text('1 transfer settles the EUR balance'), findsOneWidget); // not the yen
+    // Ben pays the yen in yen: the card opens "Record a payment" prefilled in JPY.
+    await t.tap(find.text('¥3,000'));
+    await settle(t);
+    expect(find.text('Record a payment'), findsWidgets);
+    await t.tap(find.byKey(const Key('payment-save')));
+    await settle(t);
+    final p = (await t.runAsync(() => db.select(db.payments).getSingle()))!;
+    expect((p.fromMember, p.toMember, p.amount, p.currency), ('m2', 'm1', 3000, 'JPY'));
+    await unmount(t);
+  });
+
+  testWidgets('the Convert sheet says when payments in that currency stay in it', (t) async {
+    await t.runAsync(() async {
+      await expense('jpy', 3000, 'JPY');
+      await db.into(db.payments).insert(PaymentsCompanion.insert(
+          id: 'p1', groupId: 'g1', fromMember: 'm2', toMember: 'm1', amount: 1000, currency: 'JPY', date: '2026-10-11'));
+    });
+    await t.pumpWidget(app(Builder(
+        builder: (c) => TextButton(
+            onPressed: () => showConvertSheet(c, groupId: 'g1', currencies: ['JPY']), child: const Text('open')))));
+    await t.tap(find.text('open'));
+    await settle(t);
+    expect(find.byKey(const Key('payments-stay-JPY')), findsOneWidget);
     await unmount(t);
   });
 

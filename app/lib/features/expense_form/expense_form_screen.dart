@@ -22,7 +22,12 @@ import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
+import '../../data/local_writes.dart' show MoveException;
 import '../categories/category_ui.dart';
+import '../expense_detail/expense_detail_screen.dart' show DeletedExpenseCard;
+import '../friends/friend_screen.dart' show groupForExpenseWith;
+import '../friends/home_data.dart';
+import '../friends/with_picker.dart';
 import 'split_editor.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -67,6 +72,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   String? _defaultNote;
   bool _loaded = false;
   bool _busy = false;
+
+  /// Editing only: the friend or group picked under *With* (docs/API.md 지출 옮기기); Save then moves the expense.
+  WithChoice? _moveTo;
+
+  /// The moved expense's id and its push's clientId, made once per [_moveTo] (docs/API.md 지출 옮기기).
+  ({String expenseId, String clientId})? _moveIds;
 
   /// The rate field was typed in this session (or holds a stored rate): kept when the date changes.
   bool _fxTyped = false;
@@ -294,6 +305,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final large = MediaQuery.textScalerOf(context).scale(1) > 2;
     final ids = [for (final m in members) m.id];
     final currency = _currency ?? group.defaultCurrency;
     final d = group.defaultCurrency;
@@ -328,6 +340,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final me = group.myMemberId;
     final other = active.length == 2 && active.any((m) => m.id == me) ? active.firstWhere((m) => m.id != me) : null;
 
+    final amountField = TextField(
+      key: const Key('amount'),
+      controller: _amount,
+      autofocus: widget.expenseId == null,
+      style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(hintText: minorToText(0, currency), border: InputBorder.none, isDense: true),
+      onChanged: (_) => setState(() {}),
+    );
+    final picker = CurrencyPicker(
+      key: const Key('currency'),
+      value: currency,
+      pinned: [
+        d,
+        ref.watch(homeCurrencyProvider),
+        ?ref.read(sharedPreferencesProvider).getString(lastCurrencyKey(widget.groupId)),
+      ],
+      width: large ? null : 116,
+      bare: true,
+      textStyle: text.titleMedium?.copyWith(color: cs.onSurface),
+      onChanged: (c) => _setCurrency(c, d),
+    );
+
     Widget sectionLabel(String s) => Padding(
           padding: const EdgeInsets.only(top: 20, bottom: 8),
           child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
@@ -352,49 +387,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           if (deleted)
-            Card(
-              color: cs.errorContainer,
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
-                title: Text('This expense was deleted', style: TextStyle(color: cs.onErrorContainer)),
-                subtitle: Text('Restore it to count it in balances again.', style: TextStyle(color: cs.onErrorContainer)),
-                trailing: FilledButton(onPressed: _busy ? null : _restore, child: const Text('Restore')),
-              ),
-            ),
+            DeletedExpenseCard(groupId: widget.groupId, expenseId: _editing!.id, onRestore: _busy ? null : _restore),
           // A deleted expense is read-only until restored, so no stale edit survives the restore.
           IgnorePointer(
             ignoring: deleted,
             child: Opacity(
               opacity: deleted ? 0.6 : 1,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('amount'),
-                      controller: _amount,
-                      autofocus: widget.expenseId == null,
-                      style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(hintText: minorToText(0, currency), border: InputBorder.none, isDense: true),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  CurrencyPicker(
-                    key: const Key('currency'),
-                    value: currency,
-                    pinned: [
-                      d,
-                      ref.watch(homeCurrencyProvider),
-                      ?ref.read(sharedPreferencesProvider).getString(lastCurrencyKey(widget.groupId)),
-                    ],
-                    width: 116,
-                    bare: true,
-                    textStyle: text.titleMedium?.copyWith(color: cs.onSurface),
-                    onChanged: (c) => _setCurrency(c, d),
-                  ),
-                ]),
+                _withTile(group.name, cs, text),
+                // The largest text sizes: the currency under the amount, where its code fits.
+                if (large)
+                  ...[amountField, picker]
+                else
+                  Row(children: [Expanded(child: amountField), const SizedBox(width: 12), picker]),
                 const Divider(height: 1),
                 if (foreign) ...[
                   if (_approx(amount, currency, d, fxBad ? null : fxValue) case final approx?)
@@ -584,6 +589,87 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     );
   }
 
+  /// *With*: the friend or group of this expense. While editing, picking another one moves the expense on Save.
+  Widget _withTile(String groupName, ColorScheme cs, TextTheme text) {
+    final home = ref.watch(homeDataProvider).value;
+    final current = home?.label(widget.groupId) ?? groupName;
+    final m = _moveTo;
+    final target = m == null ? null : (m.person != null ? 'Non-group · ${m.person!.name}' : home?.label(m.groupId!) ?? '');
+    final canMove = _editing != null && !(_editing?.deleted ?? false);
+    return ListTile(
+      key: const Key('with'),
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Icon(target == null ? Icons.group_outlined : Icons.drive_file_move_outline,
+          color: target == null ? cs.onSurfaceVariant : cs.primary),
+      title: Text(target == null ? 'With $current' : 'Moves to $target on Save',
+          style: text.bodyLarge?.copyWith(color: target == null ? null : cs.primary)),
+      subtitle: target == null ? null : Text('From $current'),
+      trailing: !canMove
+          ? null
+          : target == null
+              ? const Icon(Icons.chevron_right)
+              : IconButton(
+                  tooltip: "Don't move",
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() {
+                    _moveTo = null;
+                    _moveIds = null;
+                  }),
+                ),
+      onTap: canMove ? _pickWith : null,
+    );
+  }
+
+  Future<void> _pickWith() async {
+    final picked = await showModalBottomSheet<WithChoice>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.sizeOf(ctx).height * 0.75,
+        child: WithPicker(except: widget.groupId, onPick: (c) => Navigator.pop(ctx, c)),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final same = picked.groupId == widget.groupId || (picked.person?.friendGroups.contains(widget.groupId) ?? false);
+    setState(() {
+      _moveTo = same ? null : picked;
+      _moveIds = null;
+    });
+  }
+
+  /// Online only: the target friend group is created first if needed, then [e] goes there and leaves this group.
+  Future<void> _move(GroupRow group, Expense old, Expense e) async {
+    final m = _moveTo!;
+    final db = ref.read(dbProvider);
+    try {
+      final target = m.person != null ? await groupForExpenseWith(ref, m.person!) : m.groupId!;
+      final store = GroupStateStore(db);
+      final source = await store.load(widget.groupId), dest = await store.load(target);
+      // One id pair per picked target: a retry after a lost answer is the same event, deduped by the server, plus an
+      // update with today's values (moveExpense).
+      final retry = _moveIds != null;
+      final ids = _moveIds ??= (expenseId: newId(), clientId: newId());
+      var moved = remapForMove(e, source.members, dest.members,
+          id: ids.expenseId, sameCurrency: source.defaultCurrency == dest.defaultCurrency);
+      if (moved == null) throw const MoveException('Only people on Evensies who are in both can be moved');
+      // Another default currency there: the day's automatic rate, as a new expense in that currency gets it.
+      final to = dest.defaultCurrency;
+      if (to != null && moved.currency != to && moved.fxRateToDefault == null) {
+        final table = await ref.read(fxRatesProvider).lookup(moved.date);
+        final rate = table == null ? null : crossRate(table.rates, moved.currency, to);
+        if (rate != null) moved = moved.copyWith(fxRateToDefault: rate);
+      }
+      await ref.read(localWritesProvider).moveExpense(widget.groupId, old, target, moved, clientId: ids.clientId, retry: retry);
+      if (mounted) context.go('/groups/$target');
+    } on ApiException catch (x) {
+      if (mounted) {
+        showError(context, x.code == 'NETWORK' ? "Couldn't move it. Try again when you're online" : x.message);
+      }
+    }
+  }
+
   /// 300 ms after the description changes, guess the category until the user picks one; a blank description clears
   /// the guess (docs/API.md 카테고리).
   void _scheduleGuess() {
@@ -716,7 +802,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     try {
       final w = ref.read(localWritesProvider);
       await ref.read(sharedPreferencesProvider).setString(lastCurrencyKey(group.id), currency);
-      if (old == null) {
+      if (old != null && _moveTo != null) {
+        await _move(group, old, e);
+        return;
+      } else if (old == null) {
         await w.createExpense(group.id, e);
       } else {
         final money = e.amount != old.amount ||

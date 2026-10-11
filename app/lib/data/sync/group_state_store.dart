@@ -29,6 +29,7 @@ class GroupStateStore {
     return GroupState(
       name: g?.name,
       defaultCurrency: g?.defaultCurrency,
+      kind: g?.kind ?? 'group',
       simplifyDebts: g?.simplifyDebts ?? true,
       defaultSplit: splitFromJson(g?.defaultSplitJson),
       members: [for (final m in ms) Member(id: m.id, name: m.name, userId: m.userId, removed: m.removed)],
@@ -50,6 +51,7 @@ class GroupStateStore {
             deleted: e.deleted,
             refund: e.refund,
             split: splitFromJson(e.splitJson),
+            moved: e.moved,
             shares: [
               for (final s in shares.where((s) => s.expenseId == e.id)) Share(memberId: s.memberId, amount: s.amount)
             ],
@@ -73,6 +75,7 @@ class GroupStateStore {
           Comment(
             id: c.id,
             expenseId: c.expenseId,
+            paymentId: c.paymentId,
             authorMemberId: c.authorMemberId,
             text: c.body,
             createdAt: c.createdAt,
@@ -88,6 +91,7 @@ class GroupStateStore {
           await db.upsertGroup(g.copyWith(
             name: s.name ?? g.name,
             defaultCurrency: s.defaultCurrency ?? g.defaultCurrency,
+            kind: s.kind,
             simplifyDebts: s.simplifyDebts,
             defaultSplitJson: Value(splitToJson(s.defaultSplit)),
             latestSeq: latestSeq,
@@ -136,7 +140,8 @@ class GroupStateStore {
               CommentsCompanion.insert(
                 id: c.id,
                 groupId: groupId,
-                expenseId: c.expenseId,
+                expenseId: Value(c.expenseId),
+                paymentId: Value(c.paymentId),
                 authorMemberId: c.authorMemberId,
                 body: c.text,
                 createdAt: c.createdAt,
@@ -164,6 +169,7 @@ ExpensesCompanion expenseRow(String groupId, Expense e) => ExpensesCompanion.ins
       deleted: Value(e.deleted),
       refund: Value(e.refund),
       splitJson: Value(splitToJson(e.split)),
+      moved: Value(e.moved),
     );
 
 SplitSpec? splitFromJson(String? json) => json == null ? null : SplitSpec.fromJson(jsonDecode(json));

@@ -14,6 +14,8 @@ class Groups extends Table {
   BoolColumn get simplifyDebts => boolean().withDefault(const Constant(true))();
   /// SplitSpec JSON (docs/API.md), percent or shares only.
   TextColumn get defaultSplitJson => text().nullable()();
+  /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
+  TextColumn get kind => text().withDefault(const Constant('group'))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -45,6 +47,8 @@ class Expenses extends Table {
   BoolColumn get refund => boolean().withDefault(const Constant(false))();
   /// SplitSpec JSON (docs/API.md); null for an exact split.
   TextColumn get splitJson => text().nullable()();
+  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
+  BoolColumn get moved => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -87,7 +91,9 @@ class Payments extends Table {
 class Comments extends Table {
   TextColumn get id => text()();
   TextColumn get groupId => text()();
-  TextColumn get expenseId => text()();
+  /// Exactly one of the two is set (Phase 6: comments on payments).
+  TextColumn get expenseId => text().nullable()();
+  TextColumn get paymentId => text().nullable()();
   TextColumn get authorMemberId => text()();
   TextColumn get body => text().named('text')();
   TextColumn get createdAt => text()();
@@ -174,7 +180,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -206,6 +212,18 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(fxDays);
             await m.addColumn(session, session.homeCurrency);
           }
+          if (from < 6) {
+            // Old events carry no kind, paymentId or movedTo, and their defaults are right (docs/API.md 호환 6단계):
+            // no replay.
+            await m.addColumn(groups, groups.kind);
+            // Rebuilds the table: expense_id becomes nullable. A database from before v3 got today's table above.
+            if (from >= 3) await m.alterTable(TableMigration(comments, newColumns: [comments.paymentId]));
+          }
+          if (from < 7) {
+            await m.addColumn(expenses, expenses.moved);
+            // Moves pulled by schema 6 left no flag: replay every group (docs/API.md 호환 6단계).
+            await delete(syncState).go();
+          }
         },
       );
 
@@ -230,6 +248,7 @@ class AppDatabase extends _$AppDatabase {
           .write(SessionCompanion(accessToken: Value(accessToken), refreshToken: Value(refreshToken)));
 
   // --- groups
+  /// Every group on this device, friend groups included (the Groups tab filters `kind == 'group'`).
   Stream<List<GroupRow>> watchGroups() => (select(groups)..orderBy([(g) => OrderingTerm.asc(g.name)])).watch();
   Stream<GroupRow?> watchGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).watchSingleOrNull();
   Future<GroupRow?> getGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).getSingleOrNull();

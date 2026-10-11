@@ -12,6 +12,7 @@ import '../../data/db/database.dart';
 import '../../domain/activity.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
+import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
 
 /// Overall feed across all my groups (route `/activity`).
@@ -83,6 +84,9 @@ class _ActivityListState extends ConsumerState<ActivityList> {
       final page = await ref.read(apiProvider).activity(groupId: widget.groupId, limit: _pageSize);
       await _cache(page.items);
       if (!mounted || gen != _generation) return;
+      // Seen up to the newest item shown (docs/API.md 읽지 않은 활동); an empty page sends nothing.
+      final newest = page.items.map((i) => i.feedId ?? 0).fold(0, (a, b) => a > b ? a : b);
+      if (newest > 0) ref.read(unreadProvider.notifier).seen(newest, groupId: widget.groupId);
       final cut = page.nextBefore;
       setState(() {
         if (_live && cut != null && _items.isNotEmpty && cut <= _key(_items.first)) {
@@ -190,8 +194,12 @@ class _ActivityListState extends ConsumerState<ActivityList> {
           item: i,
           groupId: i.groupId ?? widget.groupId!,
           showGroup: widget.groupId == null,
-          // Newest first, so this is the expense's latest delete: the only row that offers Restore.
-          offerRestore: i.kind == 'expense_deleted' && i.expenseId != null && restoreOffered.add(i.expenseId!),
+          // Newest first, so this is the expense's latest delete: the only row that offers Restore. A move counts as a
+          // delete with no Restore (it would count in both groups, docs/API.md 적용 규칙 13).
+          offerRestore: (i.kind == 'expense_deleted' || i.kind == 'expense_moved') &&
+              i.expenseId != null &&
+              restoreOffered.add(i.expenseId!) &&
+              i.kind == 'expense_deleted',
         ));
       }
       final wantMore = _nextBefore != null && !_moreFailed;
@@ -274,7 +282,13 @@ class ActivityTile extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final group = ref.watch(groupProvider(groupId)).value;
     final state = ref.watch(groupStateProvider(groupId)).value;
-    final names = {for (final m in state?.members ?? const <Member>[]) m.id: m.name};
+    final home = ref.watch(homeDataProvider).value;
+    // In a friend group the other member is named as on the Friends tab, not by a claimed placeholder's old name.
+    final friend = state != null && state.isFriend ? home?.friendName(groupId) : null;
+    final names = {
+      for (final m in state?.members ?? const <Member>[])
+        m.id: friend != null && m.id != group?.myMemberId && m.userId != home?.myUserId ? friend : m.name,
+    };
     final expense = item.expenseId == null ? null : state?.expense(item.expenseId!);
     final restorable = offerRestore && item.kind == 'expense_deleted' && expense != null && expense.deleted;
     final (icon, bg, fg) = switch (item.kind) {
@@ -288,24 +302,35 @@ class ActivityTile extends ConsumerWidget {
       'expense_restored' => (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
       'comment_added' => (Icons.chat_bubble_outline, cs.secondaryContainer, cs.onSecondaryContainer),
       'payment_added' || 'payment_confirmed' => (Icons.payments_outlined, cs.tertiaryContainer, cs.onTertiaryContainer),
-      'member_added' || 'member_joined' => (Icons.person_add_alt, cs.surfaceContainerHighest, cs.onSurfaceVariant),
+      'member_added' || 'member_joined' || 'friend_added' => (
+          Icons.person_add_alt,
+          cs.surfaceContainerHighest,
+          cs.onSurfaceVariant
+        ),
+      'expense_moved' => (Icons.drive_file_move_outline, cs.surfaceContainerHighest, cs.onSurfaceVariant),
       'member_left' => (Icons.logout, cs.surfaceContainerHighest, cs.onSurfaceVariant),
       _ => (Icons.group_outlined, cs.surfaceContainerHighest, cs.onSurfaceVariant),
     };
     final time = _local(item.createdAt);
     final meta = [
-      if (showGroup) group?.name ?? '',
+      // A friend group reads "Non-group · Ben".
+      if (showGroup) home?.label(groupId) ?? group?.name ?? '',
       if (time != null) DateFormat.jm().format(time),
     ].where((s) => s.isNotEmpty).join(' · ');
 
     final kind = item.kind;
+    final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final String? target;
     if (expense != null) {
       target = '/groups/$groupId/expenses/${expense.id}';
     } else if (group == null) {
       target = null; // not on this device yet
+    } else if (payment != null) {
+      target = '/groups/$groupId/payments/${payment.id}'; // the payment, its status and comments
     } else if (kind.startsWith('payment_')) {
-      target = '/groups/$groupId/settle'; // where sent payments are confirmed
+      target = '/groups/$groupId/settle'; // not synced yet: where sent payments are confirmed
+    } else if (kind == 'friend_added') {
+      target = '/groups/$groupId'; // the friend's page
     } else if (kind.startsWith('member_')) {
       target = '/groups/$groupId/members';
     } else if (kind == 'group_updated') {

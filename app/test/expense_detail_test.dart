@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/db/database.dart';
+import 'package:evensies/data/local_writes.dart';
 import 'package:evensies/data/sync/group_state_store.dart';
 import 'package:evensies/domain/activity.dart';
 import 'package:evensies/domain/categories.dart';
@@ -35,7 +37,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     api = FakeApi(db);
     await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await GroupStateStore(db).save(
       'g1',
       GroupState(
@@ -224,6 +226,32 @@ void main() {
     expect(find.byTooltip('Edit'), findsOneWidget);
     final out = (await t.runAsync(() => db.select(db.outbox).get()))!;
     expect(out.single.type, 'expense.restored');
+    await unmount(t);
+  });
+
+  testWidgets('a moved expense: "Moved to another group" and no Restore', (t) async {
+    tall(t);
+    await t.runAsync(() => (db.update(db.expenses)..where((e) => e.id.equals('x2')))
+        .write(const ExpensesCompanion(moved: Value(true))));
+    await t.pumpWidget(app(expenseId: 'x2'));
+    await settle(t);
+    expect(find.byKey(const Key('moved-card')), findsOneWidget);
+    expect(find.text('Moved to another group'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Restore'), findsNothing);
+    await unmount(t);
+  });
+
+  testWidgets('my own move, not pushed yet: no Restore either, and a restore leaves it deleted (rule 13)', (t) async {
+    tall(t);
+    final sync = NoSync(db);
+    final writes = LocalWrites(db, sync);
+    await t.runAsync(() => writes.deleteExpense('g1', 'x1', movedTo: (groupId: 'g9', expenseId: 'x9')));
+    await t.pumpWidget(app(sync: sync)); // offline
+    await settle(t);
+    expect(find.text('Moved to another group'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Restore'), findsNothing);
+    await t.runAsync(() => writes.restoreExpense('g1', 'x1'));
+    expect((await t.runAsync(() => db.getExpense('x1')))!.deleted, isTrue);
     await unmount(t);
   });
 

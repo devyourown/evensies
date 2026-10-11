@@ -196,7 +196,7 @@ Errors:
 
 **Snapshot:** a top-level `"attachments": [{"id","expenseId","deleted"}]`, attached rows only, deleted ones included. CSV is unchanged.
 
-**Migration `V8__receipts.sql`:**
+**Migration `V9__receipts.sql`:**
 ```sql
 -- Receipt photos (Phase 7). The upload creates the row; attachment.added sets expense_id.
 CREATE TABLE attachments (
@@ -210,7 +210,7 @@ CREATE TABLE attachments (
 CREATE INDEX attachments_group_id ON attachments (group_id);
 ```
 
-**drift (schemaVersion 7):**
+**drift (schemaVersion 8):**
 - `attachments (id PK, groupId, expenseId, deleted bool default false)`;
 - `pending_uploads (attachmentId PK, groupId, createdAt)`.
 

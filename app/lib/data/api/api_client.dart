@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -113,7 +114,7 @@ class ApiClient {
       _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});
   Future<void> unregisterDevice(String deviceId) => _call(() => _dio.delete('/devices/$deviceId'), (_) {});
 
-  // --- notification prefs: {"expenses","comments","members"} → bool (docs/API.md 알림 설정)
+  // --- notification prefs: {"expenses","comments","members","reminders"?} → bool (docs/API.md 알림 설정)
   Map<String, bool> _prefs(dynamic d) => _map(d).cast<String, bool>();
   Future<Map<String, bool>> getNotificationPrefs() => _call(() => _dio.get('/me/notifications'), _prefs);
   Future<Map<String, bool>> putNotificationPrefs(Map<String, bool> prefs) =>
@@ -135,6 +136,58 @@ class ApiClient {
       () => _dio.get(groupId == null ? '/activity' : '/groups/$groupId/activity',
           queryParameters: {'before': ?before, 'limit': limit, 'expenseId': ?expenseId?.toLowerCase()}),
       _page);
+
+  /// Unread feed items per group (docs/API.md 읽지 않은 활동).
+  Future<ActivityUnread> activityUnread() =>
+      _call(() => _dio.get('/activity/unread'), (d) => ActivityUnread.fromJson(_map(d)));
+
+  /// Marks the feed seen up to [feedId], in [groupId] or in every group of mine.
+  Future<ActivityUnread> activitySeen(int feedId, {String? groupId}) => _call(
+      () => _dio.post('/activity/seen', data: {'feedId': feedId, 'groupId': ?groupId}),
+      (d) => ActivityUnread.fromJson(_map(d)));
+
+  // --- friends (docs/API.md 친구)
+  FriendCode _friendCode(dynamic d) =>
+      (friendCode: _map(d)['friendCode'] as String, link: _map(d)['link'] as String);
+  Future<FriendCode> friendCode() => _call(() => _dio.get('/me/friend-code'), _friendCode);
+  Future<FriendCode> rotateFriendCode() => _call(() => _dio.post('/me/friend-code/rotate'), _friendCode);
+
+  /// The display name behind a friend code (no auth).
+  Future<String> friendInvite(String code) => _call(
+      () => _dio.get('/friend-invites/$code', options: Options(extra: {'noAuth': true})),
+      (d) => _map(d)['displayName'] as String);
+
+  /// Exactly one of [code], [userId], [name]; [id] makes retries idempotent. Returns the (canonical) friend group.
+  Future<GroupDto> addFriend(
+          {required String id, required String defaultCurrency, String? code, String? userId, String? name}) =>
+      _call(
+          () => _dio.post('/friends', data: {
+                'id': id,
+                'defaultCurrency': defaultCurrency,
+                'code': ?code,
+                'userId': ?userId,
+                'name': ?name,
+              }),
+          (d) => GroupDto.fromJson(_map(d)));
+
+  /// What [userId] owes me, per currency (sorted by code).
+  Future<Map<String, int>> remind(String userId) => _call(
+      () => _dio.post('/friends/$userId/remind'),
+      (d) => {
+            for (final a in (_map(d)['amounts'] as List).cast<Map>())
+              a['currency'] as String: (a['amount'] as num).toInt(),
+          });
+
+  // --- profile photo (docs/API.md 프로필 사진)
+  Future<void> putAvatar(File jpeg) => _call(
+        () async => _dio.put('/me/avatar',
+            data: FormData.fromMap({'file': await MultipartFile.fromFile(jpeg.path, filename: 'avatar.jpg')})),
+        (_) {},
+      );
+  Future<void> deleteAvatar() => _call(() => _dio.delete('/me/avatar'), (_) {});
+  Future<Uint8List> avatar(String userId) => _call(
+      () => _dio.get('/users/$userId/avatar', options: Options(responseType: ResponseType.bytes)),
+      (d) => Uint8List.fromList(d as List<int>));
 
   // --- payment methods
   List<PaymentMethod> _methods(dynamic d) => (d as List).map((e) => PaymentMethod.fromJson(_map(e))).toList();

@@ -46,7 +46,13 @@ class EventService(
     }
 
     /**
-     * The sync core, all in one transaction: lock the group row (SELECT ... FOR UPDATE) so concurrent
+     * Server-built events stored without the validator (POST /friends adds the *other* user's member, which a client
+     * may never do), on the caller's transaction. Returns the newly stored events; the caller notifies after commit.
+     */
+    fun pushTrusted(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): List<Event> = push(groupId, userId, incoming, trusted = true).second
+
+    /**
+     * The sync core, all in one transaction (joining the caller's, if any): lock the group row (SELECT ... FOR UPDATE) so concurrent
      * pushes cannot overlap on seq; validate the whole batch against the state loaded under that lock (400 on any
      * failure, nothing stored; validating before the lock would let a concurrent push slip in between); skip events
      * whose clientId is already stored and return their original seq (idempotent retries); assign seq = latestSeq + 1,
@@ -54,10 +60,10 @@ class EventService(
      * `confirmed` in the stored payload) to the tables, store them with their feed meta, then advance latestSeq.
      * Returns the result and the newly stored events.
      */
-    private fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): Pair<PushResult, List<Event>> = tx.execute {
+    private fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>, trusted: Boolean = false): Pair<PushResult, List<Event>> = tx.execute {
         val group = groups.lockForUpdate(groupId) ?: throw ApiException.notFound("Group")
         var state = stateStore.load(groupId)
-        val normalized = validator.validateAll(state, userId, incoming, stateStore::paymentCreator)
+        val normalized = if (trusted) incoming else validator.validateAll(state, userId, incoming, stateStore::paymentCreator)
         val existing = events.findByGroupIdAndClientIdIn(groupId, normalized.map { it.clientId })
         val known = existing.associateTo(mutableMapOf()) { it.clientId to it.seq }
         var seq = group.latestSeq

@@ -16,6 +16,7 @@ services:
         condition: service_healthy
     volumes:
       - ./secrets:/secrets:ro   # EVENSIES_FCM_CREDENTIALS_FILE=/secrets/fcm.json (선택)
+      - ./data:/data            # EVENSIES_STORAGE_DIR: 프로필 사진 등 올린 파일. DB 덤프와 함께 백업한다
     expose:
       - "8080"
 

@@ -97,6 +97,16 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('group'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -107,6 +117,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     myMemberId,
     simplifyDebts,
     defaultSplitJson,
+    kind,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -183,6 +194,12 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         ),
       );
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
     return context;
   }
 
@@ -224,6 +241,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         DriftSqlType.string,
         data['${effectivePrefix}default_split_json'],
       ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
     );
   }
 
@@ -244,6 +265,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
 
   /// SplitSpec JSON (docs/API.md), percent or shares only.
   final String? defaultSplitJson;
+
+  /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
+  final String kind;
   const GroupRow({
     required this.id,
     required this.name,
@@ -253,6 +277,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     this.myMemberId,
     required this.simplifyDebts,
     this.defaultSplitJson,
+    required this.kind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -271,6 +296,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     if (!nullToAbsent || defaultSplitJson != null) {
       map['default_split_json'] = Variable<String>(defaultSplitJson);
     }
+    map['kind'] = Variable<String>(kind);
     return map;
   }
 
@@ -290,6 +316,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       defaultSplitJson: defaultSplitJson == null && nullToAbsent
           ? const Value.absent()
           : Value(defaultSplitJson),
+      kind: Value(kind),
     );
   }
 
@@ -307,6 +334,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       myMemberId: serializer.fromJson<String?>(json['myMemberId']),
       simplifyDebts: serializer.fromJson<bool>(json['simplifyDebts']),
       defaultSplitJson: serializer.fromJson<String?>(json['defaultSplitJson']),
+      kind: serializer.fromJson<String>(json['kind']),
     );
   }
   @override
@@ -321,6 +349,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       'myMemberId': serializer.toJson<String?>(myMemberId),
       'simplifyDebts': serializer.toJson<bool>(simplifyDebts),
       'defaultSplitJson': serializer.toJson<String?>(defaultSplitJson),
+      'kind': serializer.toJson<String>(kind),
     };
   }
 
@@ -333,6 +362,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     Value<String?> myMemberId = const Value.absent(),
     bool? simplifyDebts,
     Value<String?> defaultSplitJson = const Value.absent(),
+    String? kind,
   }) => GroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -344,6 +374,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     defaultSplitJson: defaultSplitJson.present
         ? defaultSplitJson.value
         : this.defaultSplitJson,
+    kind: kind ?? this.kind,
   );
   GroupRow copyWithCompanion(GroupsCompanion data) {
     return GroupRow(
@@ -365,6 +396,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       defaultSplitJson: data.defaultSplitJson.present
           ? data.defaultSplitJson.value
           : this.defaultSplitJson,
+      kind: data.kind.present ? data.kind.value : this.kind,
     );
   }
 
@@ -378,7 +410,8 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           ..write('latestSeq: $latestSeq, ')
           ..write('myMemberId: $myMemberId, ')
           ..write('simplifyDebts: $simplifyDebts, ')
-          ..write('defaultSplitJson: $defaultSplitJson')
+          ..write('defaultSplitJson: $defaultSplitJson, ')
+          ..write('kind: $kind')
           ..write(')'))
         .toString();
   }
@@ -393,6 +426,7 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     myMemberId,
     simplifyDebts,
     defaultSplitJson,
+    kind,
   );
   @override
   bool operator ==(Object other) =>
@@ -405,7 +439,8 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           other.latestSeq == this.latestSeq &&
           other.myMemberId == this.myMemberId &&
           other.simplifyDebts == this.simplifyDebts &&
-          other.defaultSplitJson == this.defaultSplitJson);
+          other.defaultSplitJson == this.defaultSplitJson &&
+          other.kind == this.kind);
 }
 
 class GroupsCompanion extends UpdateCompanion<GroupRow> {
@@ -417,6 +452,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
   final Value<String?> myMemberId;
   final Value<bool> simplifyDebts;
   final Value<String?> defaultSplitJson;
+  final Value<String> kind;
   final Value<int> rowid;
   const GroupsCompanion({
     this.id = const Value.absent(),
@@ -427,6 +463,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.myMemberId = const Value.absent(),
     this.simplifyDebts = const Value.absent(),
     this.defaultSplitJson = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GroupsCompanion.insert({
@@ -438,6 +475,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.myMemberId = const Value.absent(),
     this.simplifyDebts = const Value.absent(),
     this.defaultSplitJson = const Value.absent(),
+    this.kind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -451,6 +489,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Expression<String>? myMemberId,
     Expression<bool>? simplifyDebts,
     Expression<String>? defaultSplitJson,
+    Expression<String>? kind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -462,6 +501,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       if (myMemberId != null) 'my_member_id': myMemberId,
       if (simplifyDebts != null) 'simplify_debts': simplifyDebts,
       if (defaultSplitJson != null) 'default_split_json': defaultSplitJson,
+      if (kind != null) 'kind': kind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -475,6 +515,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Value<String?>? myMemberId,
     Value<bool>? simplifyDebts,
     Value<String?>? defaultSplitJson,
+    Value<String>? kind,
     Value<int>? rowid,
   }) {
     return GroupsCompanion(
@@ -486,6 +527,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       myMemberId: myMemberId ?? this.myMemberId,
       simplifyDebts: simplifyDebts ?? this.simplifyDebts,
       defaultSplitJson: defaultSplitJson ?? this.defaultSplitJson,
+      kind: kind ?? this.kind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -517,6 +559,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     if (defaultSplitJson.present) {
       map['default_split_json'] = Variable<String>(defaultSplitJson.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -534,6 +579,7 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
           ..write('myMemberId: $myMemberId, ')
           ..write('simplifyDebts: $simplifyDebts, ')
           ..write('defaultSplitJson: $defaultSplitJson, ')
+          ..write('kind: $kind, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1038,6 +1084,19 @@ class $ExpensesTable extends Expenses
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _movedMeta = const VerificationMeta('moved');
+  @override
+  late final GeneratedColumn<bool> moved = GeneratedColumn<bool>(
+    'moved',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("moved" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1053,6 +1112,7 @@ class $ExpensesTable extends Expenses
     notes,
     refund,
     splitJson,
+    moved,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1161,6 +1221,12 @@ class $ExpensesTable extends Expenses
         splitJson.isAcceptableOrUnknown(data['split_json']!, _splitJsonMeta),
       );
     }
+    if (data.containsKey('moved')) {
+      context.handle(
+        _movedMeta,
+        moved.isAcceptableOrUnknown(data['moved']!, _movedMeta),
+      );
+    }
     return context;
   }
 
@@ -1222,6 +1288,10 @@ class $ExpensesTable extends Expenses
         DriftSqlType.string,
         data['${effectivePrefix}split_json'],
       ),
+      moved: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}moved'],
+      )!,
     );
   }
 
@@ -1247,6 +1317,9 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
 
   /// SplitSpec JSON (docs/API.md); null for an exact split.
   final String? splitJson;
+
+  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
+  final bool moved;
   const ExpenseRow({
     required this.id,
     required this.groupId,
@@ -1261,6 +1334,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     this.notes,
     required this.refund,
     this.splitJson,
+    required this.moved,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1286,6 +1360,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     if (!nullToAbsent || splitJson != null) {
       map['split_json'] = Variable<String>(splitJson);
     }
+    map['moved'] = Variable<bool>(moved);
     return map;
   }
 
@@ -1312,6 +1387,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       splitJson: splitJson == null && nullToAbsent
           ? const Value.absent()
           : Value(splitJson),
+      moved: Value(moved),
     );
   }
 
@@ -1334,6 +1410,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       notes: serializer.fromJson<String?>(json['notes']),
       refund: serializer.fromJson<bool>(json['refund']),
       splitJson: serializer.fromJson<String?>(json['splitJson']),
+      moved: serializer.fromJson<bool>(json['moved']),
     );
   }
   @override
@@ -1353,6 +1430,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       'notes': serializer.toJson<String?>(notes),
       'refund': serializer.toJson<bool>(refund),
       'splitJson': serializer.toJson<String?>(splitJson),
+      'moved': serializer.toJson<bool>(moved),
     };
   }
 
@@ -1370,6 +1448,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     Value<String?> notes = const Value.absent(),
     bool? refund,
     Value<String?> splitJson = const Value.absent(),
+    bool? moved,
   }) => ExpenseRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -1386,6 +1465,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     notes: notes.present ? notes.value : this.notes,
     refund: refund ?? this.refund,
     splitJson: splitJson.present ? splitJson.value : this.splitJson,
+    moved: moved ?? this.moved,
   );
   ExpenseRow copyWithCompanion(ExpensesCompanion data) {
     return ExpenseRow(
@@ -1406,6 +1486,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       notes: data.notes.present ? data.notes.value : this.notes,
       refund: data.refund.present ? data.refund.value : this.refund,
       splitJson: data.splitJson.present ? data.splitJson.value : this.splitJson,
+      moved: data.moved.present ? data.moved.value : this.moved,
     );
   }
 
@@ -1424,7 +1505,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           ..write('deleted: $deleted, ')
           ..write('notes: $notes, ')
           ..write('refund: $refund, ')
-          ..write('splitJson: $splitJson')
+          ..write('splitJson: $splitJson, ')
+          ..write('moved: $moved')
           ..write(')'))
         .toString();
   }
@@ -1444,6 +1526,7 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     notes,
     refund,
     splitJson,
+    moved,
   );
   @override
   bool operator ==(Object other) =>
@@ -1461,7 +1544,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           other.deleted == this.deleted &&
           other.notes == this.notes &&
           other.refund == this.refund &&
-          other.splitJson == this.splitJson);
+          other.splitJson == this.splitJson &&
+          other.moved == this.moved);
 }
 
 class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
@@ -1478,6 +1562,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
   final Value<String?> notes;
   final Value<bool> refund;
   final Value<String?> splitJson;
+  final Value<bool> moved;
   final Value<int> rowid;
   const ExpensesCompanion({
     this.id = const Value.absent(),
@@ -1493,6 +1578,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     this.notes = const Value.absent(),
     this.refund = const Value.absent(),
     this.splitJson = const Value.absent(),
+    this.moved = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExpensesCompanion.insert({
@@ -1509,6 +1595,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     this.notes = const Value.absent(),
     this.refund = const Value.absent(),
     this.splitJson = const Value.absent(),
+    this.moved = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -1531,6 +1618,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Expression<String>? notes,
     Expression<bool>? refund,
     Expression<String>? splitJson,
+    Expression<bool>? moved,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1547,6 +1635,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       if (notes != null) 'notes': notes,
       if (refund != null) 'refund': refund,
       if (splitJson != null) 'split_json': splitJson,
+      if (moved != null) 'moved': moved,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1565,6 +1654,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Value<String?>? notes,
     Value<bool>? refund,
     Value<String?>? splitJson,
+    Value<bool>? moved,
     Value<int>? rowid,
   }) {
     return ExpensesCompanion(
@@ -1581,6 +1671,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       notes: notes ?? this.notes,
       refund: refund ?? this.refund,
       splitJson: splitJson ?? this.splitJson,
+      moved: moved ?? this.moved,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1627,6 +1718,9 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     if (splitJson.present) {
       map['split_json'] = Variable<String>(splitJson.value);
     }
+    if (moved.present) {
+      map['moved'] = Variable<bool>(moved.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1649,6 +1743,7 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
           ..write('notes: $notes, ')
           ..write('refund: $refund, ')
           ..write('splitJson: $splitJson, ')
+          ..write('moved: $moved, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2777,9 +2872,20 @@ class $CommentsTable extends Comments
   late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
     'expense_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _paymentIdMeta = const VerificationMeta(
+    'paymentId',
+  );
+  @override
+  late final GeneratedColumn<String> paymentId = GeneratedColumn<String>(
+    'payment_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _authorMemberIdMeta = const VerificationMeta(
     'authorMemberId',
@@ -2832,6 +2938,7 @@ class $CommentsTable extends Comments
     id,
     groupId,
     expenseId,
+    paymentId,
     authorMemberId,
     body,
     createdAt,
@@ -2867,8 +2974,12 @@ class $CommentsTable extends Comments
         _expenseIdMeta,
         expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_expenseIdMeta);
+    }
+    if (data.containsKey('payment_id')) {
+      context.handle(
+        _paymentIdMeta,
+        paymentId.isAcceptableOrUnknown(data['payment_id']!, _paymentIdMeta),
+      );
     }
     if (data.containsKey('author_member_id')) {
       context.handle(
@@ -2923,7 +3034,11 @@ class $CommentsTable extends Comments
       expenseId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}expense_id'],
-      )!,
+      ),
+      paymentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_id'],
+      ),
       authorMemberId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}author_member_id'],
@@ -2952,7 +3067,10 @@ class $CommentsTable extends Comments
 class CommentRow extends DataClass implements Insertable<CommentRow> {
   final String id;
   final String groupId;
-  final String expenseId;
+
+  /// Exactly one of the two is set (Phase 6: comments on payments).
+  final String? expenseId;
+  final String? paymentId;
   final String authorMemberId;
   final String body;
   final String createdAt;
@@ -2960,7 +3078,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
   const CommentRow({
     required this.id,
     required this.groupId,
-    required this.expenseId,
+    this.expenseId,
+    this.paymentId,
     required this.authorMemberId,
     required this.body,
     required this.createdAt,
@@ -2971,7 +3090,12 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['group_id'] = Variable<String>(groupId);
-    map['expense_id'] = Variable<String>(expenseId);
+    if (!nullToAbsent || expenseId != null) {
+      map['expense_id'] = Variable<String>(expenseId);
+    }
+    if (!nullToAbsent || paymentId != null) {
+      map['payment_id'] = Variable<String>(paymentId);
+    }
     map['author_member_id'] = Variable<String>(authorMemberId);
     map['text'] = Variable<String>(body);
     map['created_at'] = Variable<String>(createdAt);
@@ -2983,7 +3107,12 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
     return CommentsCompanion(
       id: Value(id),
       groupId: Value(groupId),
-      expenseId: Value(expenseId),
+      expenseId: expenseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expenseId),
+      paymentId: paymentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentId),
       authorMemberId: Value(authorMemberId),
       body: Value(body),
       createdAt: Value(createdAt),
@@ -2999,7 +3128,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
     return CommentRow(
       id: serializer.fromJson<String>(json['id']),
       groupId: serializer.fromJson<String>(json['groupId']),
-      expenseId: serializer.fromJson<String>(json['expenseId']),
+      expenseId: serializer.fromJson<String?>(json['expenseId']),
+      paymentId: serializer.fromJson<String?>(json['paymentId']),
       authorMemberId: serializer.fromJson<String>(json['authorMemberId']),
       body: serializer.fromJson<String>(json['body']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
@@ -3012,7 +3142,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'groupId': serializer.toJson<String>(groupId),
-      'expenseId': serializer.toJson<String>(expenseId),
+      'expenseId': serializer.toJson<String?>(expenseId),
+      'paymentId': serializer.toJson<String?>(paymentId),
       'authorMemberId': serializer.toJson<String>(authorMemberId),
       'body': serializer.toJson<String>(body),
       'createdAt': serializer.toJson<String>(createdAt),
@@ -3023,7 +3154,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
   CommentRow copyWith({
     String? id,
     String? groupId,
-    String? expenseId,
+    Value<String?> expenseId = const Value.absent(),
+    Value<String?> paymentId = const Value.absent(),
     String? authorMemberId,
     String? body,
     String? createdAt,
@@ -3031,7 +3163,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
   }) => CommentRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
-    expenseId: expenseId ?? this.expenseId,
+    expenseId: expenseId.present ? expenseId.value : this.expenseId,
+    paymentId: paymentId.present ? paymentId.value : this.paymentId,
     authorMemberId: authorMemberId ?? this.authorMemberId,
     body: body ?? this.body,
     createdAt: createdAt ?? this.createdAt,
@@ -3042,6 +3175,7 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
       id: data.id.present ? data.id.value : this.id,
       groupId: data.groupId.present ? data.groupId.value : this.groupId,
       expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+      paymentId: data.paymentId.present ? data.paymentId.value : this.paymentId,
       authorMemberId: data.authorMemberId.present
           ? data.authorMemberId.value
           : this.authorMemberId,
@@ -3057,6 +3191,7 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
           ..write('id: $id, ')
           ..write('groupId: $groupId, ')
           ..write('expenseId: $expenseId, ')
+          ..write('paymentId: $paymentId, ')
           ..write('authorMemberId: $authorMemberId, ')
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
@@ -3070,6 +3205,7 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
     id,
     groupId,
     expenseId,
+    paymentId,
     authorMemberId,
     body,
     createdAt,
@@ -3082,6 +3218,7 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
           other.id == this.id &&
           other.groupId == this.groupId &&
           other.expenseId == this.expenseId &&
+          other.paymentId == this.paymentId &&
           other.authorMemberId == this.authorMemberId &&
           other.body == this.body &&
           other.createdAt == this.createdAt &&
@@ -3091,7 +3228,8 @@ class CommentRow extends DataClass implements Insertable<CommentRow> {
 class CommentsCompanion extends UpdateCompanion<CommentRow> {
   final Value<String> id;
   final Value<String> groupId;
-  final Value<String> expenseId;
+  final Value<String?> expenseId;
+  final Value<String?> paymentId;
   final Value<String> authorMemberId;
   final Value<String> body;
   final Value<String> createdAt;
@@ -3101,6 +3239,7 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
     this.id = const Value.absent(),
     this.groupId = const Value.absent(),
     this.expenseId = const Value.absent(),
+    this.paymentId = const Value.absent(),
     this.authorMemberId = const Value.absent(),
     this.body = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3110,7 +3249,8 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
   CommentsCompanion.insert({
     required String id,
     required String groupId,
-    required String expenseId,
+    this.expenseId = const Value.absent(),
+    this.paymentId = const Value.absent(),
     required String authorMemberId,
     required String body,
     required String createdAt,
@@ -3118,7 +3258,6 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
-       expenseId = Value(expenseId),
        authorMemberId = Value(authorMemberId),
        body = Value(body),
        createdAt = Value(createdAt);
@@ -3126,6 +3265,7 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
     Expression<String>? id,
     Expression<String>? groupId,
     Expression<String>? expenseId,
+    Expression<String>? paymentId,
     Expression<String>? authorMemberId,
     Expression<String>? body,
     Expression<String>? createdAt,
@@ -3136,6 +3276,7 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
       if (id != null) 'id': id,
       if (groupId != null) 'group_id': groupId,
       if (expenseId != null) 'expense_id': expenseId,
+      if (paymentId != null) 'payment_id': paymentId,
       if (authorMemberId != null) 'author_member_id': authorMemberId,
       if (body != null) 'text': body,
       if (createdAt != null) 'created_at': createdAt,
@@ -3147,7 +3288,8 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
   CommentsCompanion copyWith({
     Value<String>? id,
     Value<String>? groupId,
-    Value<String>? expenseId,
+    Value<String?>? expenseId,
+    Value<String?>? paymentId,
     Value<String>? authorMemberId,
     Value<String>? body,
     Value<String>? createdAt,
@@ -3158,6 +3300,7 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
       id: id ?? this.id,
       groupId: groupId ?? this.groupId,
       expenseId: expenseId ?? this.expenseId,
+      paymentId: paymentId ?? this.paymentId,
       authorMemberId: authorMemberId ?? this.authorMemberId,
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
@@ -3177,6 +3320,9 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
     }
     if (expenseId.present) {
       map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (paymentId.present) {
+      map['payment_id'] = Variable<String>(paymentId.value);
     }
     if (authorMemberId.present) {
       map['author_member_id'] = Variable<String>(authorMemberId.value);
@@ -3202,6 +3348,7 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
           ..write('id: $id, ')
           ..write('groupId: $groupId, ')
           ..write('expenseId: $expenseId, ')
+          ..write('paymentId: $paymentId, ')
           ..write('authorMemberId: $authorMemberId, ')
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
@@ -4984,6 +5131,7 @@ typedef $$GroupsTableCreateCompanionBuilder =
       Value<String?> myMemberId,
       Value<bool> simplifyDebts,
       Value<String?> defaultSplitJson,
+      Value<String> kind,
       Value<int> rowid,
     });
 typedef $$GroupsTableUpdateCompanionBuilder =
@@ -4996,6 +5144,7 @@ typedef $$GroupsTableUpdateCompanionBuilder =
       Value<String?> myMemberId,
       Value<bool> simplifyDebts,
       Value<String?> defaultSplitJson,
+      Value<String> kind,
       Value<int> rowid,
     });
 
@@ -5045,6 +5194,11 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<String> get defaultSplitJson => $composableBuilder(
     column: $table.defaultSplitJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5097,6 +5251,11 @@ class $$GroupsTableOrderingComposer
     column: $table.defaultSplitJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GroupsTableAnnotationComposer
@@ -5141,6 +5300,9 @@ class $$GroupsTableAnnotationComposer
     column: $table.defaultSplitJson,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
 }
 
 class $$GroupsTableTableManager
@@ -5179,6 +5341,7 @@ class $$GroupsTableTableManager
                 Value<String?> myMemberId = const Value.absent(),
                 Value<bool> simplifyDebts = const Value.absent(),
                 Value<String?> defaultSplitJson = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion(
                 id: id,
@@ -5189,6 +5352,7 @@ class $$GroupsTableTableManager
                 myMemberId: myMemberId,
                 simplifyDebts: simplifyDebts,
                 defaultSplitJson: defaultSplitJson,
+                kind: kind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5201,6 +5365,7 @@ class $$GroupsTableTableManager
                 Value<String?> myMemberId = const Value.absent(),
                 Value<bool> simplifyDebts = const Value.absent(),
                 Value<String?> defaultSplitJson = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion.insert(
                 id: id,
@@ -5211,6 +5376,7 @@ class $$GroupsTableTableManager
                 myMemberId: myMemberId,
                 simplifyDebts: simplifyDebts,
                 defaultSplitJson: defaultSplitJson,
+                kind: kind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5444,6 +5610,7 @@ typedef $$ExpensesTableCreateCompanionBuilder =
       Value<String?> notes,
       Value<bool> refund,
       Value<String?> splitJson,
+      Value<bool> moved,
       Value<int> rowid,
     });
 typedef $$ExpensesTableUpdateCompanionBuilder =
@@ -5461,6 +5628,7 @@ typedef $$ExpensesTableUpdateCompanionBuilder =
       Value<String?> notes,
       Value<bool> refund,
       Value<String?> splitJson,
+      Value<bool> moved,
       Value<int> rowid,
     });
 
@@ -5535,6 +5703,11 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<String> get splitJson => $composableBuilder(
     column: $table.splitJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get moved => $composableBuilder(
+    column: $table.moved,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5612,6 +5785,11 @@ class $$ExpensesTableOrderingComposer
     column: $table.splitJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get moved => $composableBuilder(
+    column: $table.moved,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExpensesTableAnnotationComposer
@@ -5665,6 +5843,9 @@ class $$ExpensesTableAnnotationComposer
 
   GeneratedColumn<String> get splitJson =>
       $composableBuilder(column: $table.splitJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get moved =>
+      $composableBuilder(column: $table.moved, builder: (column) => column);
 }
 
 class $$ExpensesTableTableManager
@@ -5711,6 +5892,7 @@ class $$ExpensesTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<bool> refund = const Value.absent(),
                 Value<String?> splitJson = const Value.absent(),
+                Value<bool> moved = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion(
                 id: id,
@@ -5726,6 +5908,7 @@ class $$ExpensesTableTableManager
                 notes: notes,
                 refund: refund,
                 splitJson: splitJson,
+                moved: moved,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5743,6 +5926,7 @@ class $$ExpensesTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<bool> refund = const Value.absent(),
                 Value<String?> splitJson = const Value.absent(),
+                Value<bool> moved = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion.insert(
                 id: id,
@@ -5758,6 +5942,7 @@ class $$ExpensesTableTableManager
                 notes: notes,
                 refund: refund,
                 splitJson: splitJson,
+                moved: moved,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6385,7 +6570,8 @@ typedef $$CommentsTableCreateCompanionBuilder =
     CommentsCompanion Function({
       required String id,
       required String groupId,
-      required String expenseId,
+      Value<String?> expenseId,
+      Value<String?> paymentId,
       required String authorMemberId,
       required String body,
       required String createdAt,
@@ -6396,7 +6582,8 @@ typedef $$CommentsTableUpdateCompanionBuilder =
     CommentsCompanion Function({
       Value<String> id,
       Value<String> groupId,
-      Value<String> expenseId,
+      Value<String?> expenseId,
+      Value<String?> paymentId,
       Value<String> authorMemberId,
       Value<String> body,
       Value<String> createdAt,
@@ -6425,6 +6612,11 @@ class $$CommentsTableFilterComposer
 
   ColumnFilters<String> get expenseId => $composableBuilder(
     column: $table.expenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentId => $composableBuilder(
+    column: $table.paymentId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6473,6 +6665,11 @@ class $$CommentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get paymentId => $composableBuilder(
+    column: $table.paymentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get authorMemberId => $composableBuilder(
     column: $table.authorMemberId,
     builder: (column) => ColumnOrderings(column),
@@ -6511,6 +6708,9 @@ class $$CommentsTableAnnotationComposer
 
   GeneratedColumn<String> get expenseId =>
       $composableBuilder(column: $table.expenseId, builder: (column) => column);
+
+  GeneratedColumn<String> get paymentId =>
+      $composableBuilder(column: $table.paymentId, builder: (column) => column);
 
   GeneratedColumn<String> get authorMemberId => $composableBuilder(
     column: $table.authorMemberId,
@@ -6560,7 +6760,8 @@ class $$CommentsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> groupId = const Value.absent(),
-                Value<String> expenseId = const Value.absent(),
+                Value<String?> expenseId = const Value.absent(),
+                Value<String?> paymentId = const Value.absent(),
                 Value<String> authorMemberId = const Value.absent(),
                 Value<String> body = const Value.absent(),
                 Value<String> createdAt = const Value.absent(),
@@ -6570,6 +6771,7 @@ class $$CommentsTableTableManager
                 id: id,
                 groupId: groupId,
                 expenseId: expenseId,
+                paymentId: paymentId,
                 authorMemberId: authorMemberId,
                 body: body,
                 createdAt: createdAt,
@@ -6580,7 +6782,8 @@ class $$CommentsTableTableManager
               ({
                 required String id,
                 required String groupId,
-                required String expenseId,
+                Value<String?> expenseId = const Value.absent(),
+                Value<String?> paymentId = const Value.absent(),
                 required String authorMemberId,
                 required String body,
                 required String createdAt,
@@ -6590,6 +6793,7 @@ class $$CommentsTableTableManager
                 id: id,
                 groupId: groupId,
                 expenseId: expenseId,
+                paymentId: paymentId,
                 authorMemberId: authorMemberId,
                 body: body,
                 createdAt: createdAt,

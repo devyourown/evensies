@@ -27,19 +27,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- evensies://j/<code> -->
+            <!-- evensies://j/<code> (group invite) and evensies://f/<code> (friend link) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="evensies" android:host="j"/>
+                <data android:scheme="evensies" android:host="f"/>
             </intent-filter>
-            <!-- App Links https://evensies.nariinfo.dev/j/<code> (verified via /.well-known/assetlinks.json). -->
+            <!-- App Links https://evensies.nariinfo.dev/j/<code> and /f/<code> (verified via /.well-known/assetlinks.json). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="evensies.nariinfo.dev" android:pathPrefix="/j/"/>
+                <data android:scheme="https" android:host="evensies.nariinfo.dev" android:pathPrefix="/f/"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

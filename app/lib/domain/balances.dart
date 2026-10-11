@@ -38,7 +38,7 @@ class BalanceResult {
   final Map<String, int> unconverted;
 
   /// currency → how many of those have no rate (null or 0): what Convert fills in. The rest have a rate that can't be
-  /// used yet (convertExpense is a TODO(효준) stub, or it refused).
+  /// used (convertExpense refused, or is a stub again).
   final Map<String, int> unrated;
 
   /// Expenses with several payers or a refund that computeBalances refused as unimplemented; left out (0 since it
@@ -123,7 +123,7 @@ Expense? _convert(Expense e, String d, ConvertFn convert) {
 }
 
 /// computeBalances per bucket (rules in docs/API.md 통화별 잔액). Payments go to the bucket of their own currency
-/// (Settle up always records them in D). While [compute] can't handle several payers or refunds, those lines are left
+/// (Settle up records each bucket's payments in that bucket's currency since Phase 6). While [compute] can't handle several payers or refunds, those lines are left
 /// out and counted as unsupported. Null only if [compute] throws UnimplementedError even for single-payer lines.
 BalanceResult? balancesOf(GroupState s, {BalanceFn compute = computeBalances, ConvertFn convert = convertExpense}) {
   final d = s.defaultCurrency ?? '';
@@ -190,11 +190,8 @@ String? leaveBlocker(BalanceResult? res, String? me) {
   if (res.unsupported > 0) return "Some expenses aren't counted in balances yet";
   for (final MapEntry(key: cur, value: mine) in res.mine(me).entries) {
     final m = formatMoney(mine.abs(), cur);
-    final tail = cur == res.currency
-        ? 'settle up first'
-        : fxReady
-            ? 'convert it and settle up first'
-            : 'it can be settled once converting to ${res.currency} is ready';
+    // Phase 6: every bucket can be settled in its own currency, so leaving never waits for a conversion.
+    final tail = cur == res.currency ? 'settle up first' : 'settle up in $cur first';
     return mine < 0 ? 'You owe $m · $tail' : 'You are owed $m · $tail';
   }
   return null;

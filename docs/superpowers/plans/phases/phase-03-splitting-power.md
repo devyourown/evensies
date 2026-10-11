@@ -7,8 +7,8 @@ Phase 3 adds fields to events that already exist. It adds no new event types, en
 
   | Item | Phase 3 | Phase 4 | Phase 5 | Phase 6 | Phase 7 | Phase 8 | Phase 9 | Phase 10 |
   |---|---|---|---|---|---|---|---|---|
-  | Server migration | V5 | V6 | none | V7 | V8 | V9 | V10 | V11 |
-  | drift `schemaVersion` | 4 | 5 | — | 6 | 7 | 8 | — | 9 |
+  | Server migration | V5 | V6 | none | V7–V8 | V9 | V10 | V11 | V12 |
+  | drift `schemaVersion` | 4 | 5 | — | 6–7 | 8 | 9 | — | 10 |
   | Applier rules | 10–12 | — | — | 13 | 14 | 15–16 | — | 17–18 |
 - **Pending fixtures.** A shared case marked `"pending": "hyojun"` needs a Hyojun function that hasn't landed yet. It is reported as **skipped**, never as failed:
   - Dart: `skip: c['pending'] == null ? null : 'pending: hyojun'`

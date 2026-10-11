@@ -13,6 +13,8 @@ data class GroupState(
     val simplifyDebts: Boolean = true,
     /** SplitSpec (percent or shares) new expenses start from; null = equal. */
     val defaultSplit: JsonNode? = null,
+    /** "group" or "friend" (a hidden two-person group); set by group.created only (rule 13). */
+    val kind: String = "group",
 )
 
 /**
@@ -23,12 +25,17 @@ data class GroupState(
  * from deleted; 8. comment.added only adds new ids, comment.deleted flags and blanks the text; 9. missing notes = null,
  * null clears notes/category/fxRateToDefault/split and is ignored elsewhere; 10. payers are the source of truth and
  * paidBy is the primary payer; 11. group settings keep absent keys; 12. the default currency is locked once the group
- * has an expense or a payment (deleted ones included).
+ * has an expense or a payment (deleted ones included); 13. group.created sets kind (missing or not a string = "group"),
+ * nothing changes it afterwards; expense.deleted with a movedTo object also sets moved (never cleared), and
+ * expense.restored on a moved expense is ignored (it counts in the other group now).
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
     fun apply(state: GroupState, type: String, p: JsonNode): GroupState = when (type) {
-        "group.created" -> state.copy(name = p.text("name"), defaultCurrency = p.text("defaultCurrency"))
+        "group.created" -> state.copy(
+            name = p.text("name"), defaultCurrency = p.text("defaultCurrency"),
+            kind = p.field("kind")?.takeIf { it.isString }?.asString() ?: "group",
+        )
         "group.updated" -> state.copy(
             name = p.text("name") ?: state.name,
             defaultCurrency = p.text("defaultCurrency")?.takeIf { state.expenses.isEmpty() && state.payments.isEmpty() } ?: state.defaultCurrency,
@@ -102,8 +109,10 @@ object EventApplier {
                 )
             }
         }
-        "expense.deleted" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = true)) } ?: state
-        "expense.restored" -> state.expenses[p.text("expenseId")]?.let { state.withExpense(it.copy(deleted = false)) } ?: state
+        "expense.deleted" -> state.expenses[p.text("expenseId")]
+            ?.let { state.withExpense(it.copy(deleted = true, moved = it.moved || p.field("movedTo")?.isObject == true)) } ?: state
+        "expense.restored" -> state.expenses[p.text("expenseId")]?.takeUnless { it.moved }
+            ?.let { state.withExpense(it.copy(deleted = false)) } ?: state
 
         "comment.added" -> {
             val id = p.text("commentId") ?: ""
@@ -111,7 +120,8 @@ object EventApplier {
             else state.withComment(
                 CommentDto(
                     id = id,
-                    expenseId = p.text("expenseId") ?: "",
+                    expenseId = p.text("expenseId"),
+                    paymentId = p.text("paymentId"),
                     authorMemberId = p.text("authorMemberId") ?: "",
                     text = p.text("text") ?: "",
                     createdAt = p.text("createdAt") ?: "",

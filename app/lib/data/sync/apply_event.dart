@@ -3,7 +3,7 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~12 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~13 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
@@ -16,6 +16,7 @@ import 'event_types.dart';
 /// 7. `expense.restored`는 deleted=false로 되돌린다(살아 있는 지출이면 그대로). 삭제·복원은 seq 순서상 나중 것이 이긴다.
 /// 8. `comment.added`는 commentId가 처음일 때만 뒤에 추가한다(삭제된 댓글 포함, 있으면 무시).
 ///    `comment.deleted`는 deleted=true로 표시하고 text를 ''로 비운다. 지출 존재 여부는 보지 않는다(서버 검증).
+///    Phase 6: expenseId and paymentId are stored as sent (a payment comment has expenseId null).
 /// 9. `expense.created`에 notes가 없으면 null. `expense.updated`에서 notes·category·fxRateToDefault의 null은 지우기,
 ///    나머지 키의 null은 무시. Phase 3: `split` is cleared by null too; a null `payers`/`refund` is ignored.
 /// 10. Payers are the source of truth; paidBy is always re-derived as the primary payer (largest amount, a tie goes
@@ -28,9 +29,12 @@ import 'event_types.dart';
 ///    group.created leaves both at their defaults (true / null).
 /// 12. Once the state has any expense or payment (deleted ones too) group.updated's defaultCurrency is ignored;
 ///    the event's other keys still apply.
+/// 13. group.created sets kind ("group" when missing or not a string); nothing changes it afterwards (a `kind` in
+///    group.updated is ignored). expense.deleted with a movedTo object also sets moved (never cleared), and
+///    expense.restored on a moved expense is ignored: it counts in the other group now.
 ///
 /// 이벤트별 payload(docs/API.md):
-///   group.created {name, defaultCurrency} → state.name/defaultCurrency
+///   group.created {name, defaultCurrency, kind?} → state.name/defaultCurrency/kind
 ///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?} → 있는 키만 (rules 11–12)
 ///   member.added {memberId, name, userId|null} → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   member.linked {memberId, userId}
@@ -38,8 +42,8 @@ import 'event_types.dart';
 ///   expense.created {expenseId, description, amount, currency, fxRateToDefault, paidBy, payers?, refund?, split?, date,
 ///     category, notes?, shares}
 ///     → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
-///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId}   expense.restored {expenseId}
-///   comment.added {commentId, expenseId, authorMemberId, text, createdAt}   comment.deleted {commentId}
+///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId, movedTo?}   expense.restored {expenseId}
+///   comment.added {commentId, expenseId?, paymentId?, authorMemberId, text, createdAt}   comment.deleted {commentId}
 ///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}   payment.deleted {paymentId}
 ///   payment.confirmed {paymentId}
 ///   모르는 type → state 그대로.
@@ -48,7 +52,11 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
   final p = e.payload;
   switch (e.type) {
     case EventTypes.groupCreated:
-      return s.copyWith(name: p['name'] as String?, defaultCurrency: p['defaultCurrency'] as String?);
+      return s.copyWith(
+        name: p['name'] as String?,
+        defaultCurrency: p['defaultCurrency'] as String?,
+        kind: p['kind'] is String ? p['kind'] as String : 'group',
+      );
     case EventTypes.groupUpdated:
       final locked = s.expenses.isNotEmpty || s.payments.isNotEmpty;
       return s.copyWith(
@@ -72,7 +80,7 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
     case EventTypes.expenseCreated:
       final id = p['expenseId'] as String;
       if (s.expense(id) != null) return s;
-      return s.copyWith(expenses: [...s.expenses, Expense.fromJson({...p, 'id': id, 'deleted': false})]);
+      return s.copyWith(expenses: [...s.expenses, Expense.fromJson({...p, 'id': id, 'deleted': false, 'moved': false})]);
     case EventTypes.expenseUpdated:
       final f = (p['fields'] as Map).cast<String, dynamic>();
       List<Share>? list(Object? v) => (v as List?)?.cast<Map<String, dynamic>>().map(Share.fromJson).toList();
@@ -108,9 +116,10 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
         );
       });
     case EventTypes.expenseDeleted:
-      return _mapExpense(s, p['expenseId'] as String, (x) => x.copyWith(deleted: true));
+      return _mapExpense(
+          s, p['expenseId'] as String, (x) => x.copyWith(deleted: true, moved: x.moved || p['movedTo'] is Map));
     case EventTypes.expenseRestored:
-      return _mapExpense(s, p['expenseId'] as String, (x) => x.copyWith(deleted: false));
+      return _mapExpense(s, p['expenseId'] as String, (x) => x.moved ? x : x.copyWith(deleted: false));
     case EventTypes.commentAdded:
       final id = p['commentId'] as String;
       if (s.comment(id) != null) return s;

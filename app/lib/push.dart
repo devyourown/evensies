@@ -20,9 +20,11 @@ const tokenToDeleteKey = 'pushTokenToDelete';
 /// App-wide messenger: the in-app push banner and SnackBars that outlive a screen (Undo after delete).
 final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-/// FCM (docs/API.md 푸시): every message carries data {"type":"sync","groupId","seq"} → sync(groupId).
+/// FCM (docs/API.md 푸시): group messages carry data {"type":"sync","groupId","seq"} → sync(groupId), or syncAll() for a
+/// group not on this device yet (a new friend group); reminders carry {"type":"remind","fromUserId"} (Phase 6).
 /// Visible ones (notification title/body) show an in-app banner in the foreground; tapping one opens the
-/// group's Activity tab. No-op when Firebase is not configured (no GoogleService-Info.plist / google-services.json).
+/// group's Activity tab (a friend group: the friend's page) or, for a reminder, the sender's friend page. Every
+/// message refreshes the unread count. No-op when Firebase is not configured (no GoogleService-Info.plist / google-services.json).
 /// The token is registered whenever someone is signed in (at launch, after a sign-in, on refresh). The permission
 /// prompt waits until there is a group (created, joined, or adopted on a new device), not at launch.
 /// Losing the session in any way deletes the token at FCM (see [wirePush]).
@@ -119,18 +121,31 @@ Future<void> wirePush(
     await register();
   });
   try {
-    Future<void> open(RemoteMessage? m) async {
-      final groupId = m?.data['groupId'];
-      if (groupId is! String) return;
-      await ref.read(sessionProvider.future); // let the router's sign-in redirect settle first
-      ref.read(routerProvider).go('/groups/$groupId?tab=activity');
+    /// Where tapping [m] goes; null when it has nowhere to go.
+    String? target(RemoteMessage? m) {
+      final d = m?.data ?? const <String, dynamic>{};
+      if (d['type'] == 'remind' && d['fromUserId'] is String) return '/friends/${d['fromUserId']}';
+      final groupId = d['groupId'];
+      return groupId is String ? '/groups/$groupId?tab=activity' : null;
     }
 
-    onMessage.listen((m) {
+    Future<void> open(RemoteMessage? m) async {
+      final to = target(m);
+      if (to == null) return;
+      await ref.read(sessionProvider.future); // let the router's sign-in redirect settle first
+      ref.read(routerProvider).go(to);
+    }
+
+    onMessage.listen((m) async {
       final groupId = m.data['groupId'];
-      if (m.data['type'] == 'sync' && groupId is String) ref.read(syncProvider).syncLater(groupId);
+      if (m.data['type'] == 'sync' && groupId is String) {
+        final sync = ref.read(syncProvider);
+        // A group this device doesn't have yet (someone added me as a friend): adopt it with the rest.
+        (await ref.read(dbProvider).getGroup(groupId)) == null ? sync.syncAll() : sync.syncLater(groupId);
+      }
+      ref.read(unreadProvider.notifier).refresh();
       final n = m.notification;
-      if (n != null) _showBanner(n.title ?? 'Evensies', n.body ?? '', groupId is String ? () => open(m) : null);
+      if (n != null) _showBanner(n.title ?? 'Evensies', n.body ?? '', target(m) == null ? null : () => open(m));
     });
     onMessageOpenedApp.listen(open);
     await open(await getInitialMessage());

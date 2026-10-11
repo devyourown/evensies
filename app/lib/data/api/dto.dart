@@ -54,6 +54,9 @@ class GroupDto {
   final String myMemberId;
   final bool simplifyDebts;
   final SplitSpec? defaultSplit;
+
+  /// `group` or `friend` (Phase 6); a server before it leaves the key out.
+  final String kind;
   const GroupDto({
     required this.id,
     required this.name,
@@ -64,6 +67,7 @@ class GroupDto {
     required this.myMemberId,
     this.simplifyDebts = true,
     this.defaultSplit,
+    this.kind = 'group',
   });
 
   /// `simplifyDebts`/`defaultSplit` default to true/null when a server before Phase 3 leaves them out.
@@ -77,6 +81,7 @@ class GroupDto {
         myMemberId: j['myMemberId'] as String,
         simplifyDebts: j['simplifyDebts'] as bool? ?? true,
         defaultSplit: SplitSpec.fromJson(j['defaultSplit']),
+        kind: j['kind'] as String? ?? 'group',
       );
 }
 
@@ -86,12 +91,14 @@ class GroupSummaryDto {
   final String defaultCurrency;
   final int latestSeq;
   final int memberCount;
+  final String kind;
   const GroupSummaryDto({
     required this.id,
     required this.name,
     required this.defaultCurrency,
     required this.latestSeq,
     required this.memberCount,
+    this.kind = 'group',
   });
   factory GroupSummaryDto.fromJson(Map<String, dynamic> j) => GroupSummaryDto(
         id: j['id'] as String,
@@ -99,6 +106,7 @@ class GroupSummaryDto {
         defaultCurrency: j['defaultCurrency'] as String,
         latestSeq: (j['latestSeq'] as num).toInt(),
         memberCount: (j['memberCount'] as num).toInt(),
+        kind: j['kind'] as String? ?? 'group',
       );
 }
 
@@ -114,10 +122,15 @@ class InvitePreview {
   final String name;
   final int memberCount;
   final List<InviteMemberDto> members;
-  const InvitePreview({required this.groupId, required this.name, required this.memberCount, required this.members});
+
+  /// `friend`: a placeholder friend's invite (claim only; a new member gets 409).
+  final String kind;
+  const InvitePreview(
+      {required this.groupId, required this.name, required this.memberCount, required this.members, this.kind = 'group'});
   factory InvitePreview.fromJson(Map<String, dynamic> j) => InvitePreview(
         groupId: j['groupId'] as String,
         name: j['name'] as String,
+        kind: j['kind'] as String? ?? 'group',
         memberCount: (j['memberCount'] as num).toInt(),
         members: (j['members'] as List)
             .cast<Map>()
@@ -154,4 +167,18 @@ class ApiException implements Exception {
   const ApiException({this.status, required this.code, required this.message});
   @override
   String toString() => message;
+}
+
+/// `GET /me/friend-code` (docs/API.md 친구).
+typedef FriendCode = ({String friendCode, String link});
+
+/// `GET /activity/unread` (docs/API.md 읽지 않은 활동): groupId → count, zeros left out.
+class ActivityUnread {
+  final int total;
+  final Map<String, int> groups;
+  const ActivityUnread({required this.total, this.groups = const {}});
+  factory ActivityUnread.fromJson(Map<String, dynamic> j) => ActivityUnread(
+        total: (j['total'] as num).toInt(),
+        groups: {for (final e in ((j['groups'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toInt()},
+      );
 }

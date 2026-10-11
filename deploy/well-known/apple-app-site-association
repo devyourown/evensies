@@ -2,7 +2,7 @@
   "applinks": {
     "apps": [],
     "details": [
-      { "appID": "968Z3F28LL.dev.nariinfo.evensies", "paths": ["/j/*"] }
+      { "appID": "968Z3F28LL.dev.nariinfo.evensies", "paths": ["/j/*", "/f/*"] }
     ]
   },
   "webcredentials": { "apps": ["968Z3F28LL.dev.nariinfo.evensies"] }

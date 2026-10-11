@@ -140,10 +140,11 @@ class PushNotificationTest : IntegrationTestBase() {
     @Test
     fun preferencesTurnVisiblePushesIntoDataOnly() {
         val s = setup("prefs")
-        assertEquals(SharedJson.canon(allOn), SharedJson.canon(http.get("/me/notifications", s.ben.token).body))
+        // Phase 6 `reminders` is always in the response (true until turned off)
+        assertEquals(SharedJson.canon(allOn + ("reminders" to true)), SharedJson.canon(http.get("/me/notifications", s.ben.token).body))
         val off = mapOf("expenses" to false, "comments" to true, "members" to false)
-        assertEquals(SharedJson.canon(off), SharedJson.canon(prefs(s.ben, off).body))
-        assertEquals(SharedJson.canon(off), SharedJson.canon(http.get("/me/notifications", s.ben.token).body))
+        assertEquals(SharedJson.canon(off + ("reminders" to true)), SharedJson.canon(prefs(s.ben, off).body))
+        assertEquals(SharedJson.canon(off + ("reminders" to true)), SharedJson.canon(http.get("/me/notifications", s.ben.token).body))
 
         // expenses off: data-only; Carla (all on) still sees it
         val x = UUID.randomUUID().toString()

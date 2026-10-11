@@ -1,9 +1,13 @@
 /// Invite codes: 6 chars from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (legacy: 10 chars).
 String normalizeInviteCode(String input) => input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
-final _link = RegExp(r'/(?:j|join)/([A-Za-z0-9-]+)');
+final _link = RegExp(r'/(?:j|join|f)/([A-Za-z0-9-]+)');
 
-/// Code from an invite link (`…/j/CODE`, `evensies://j/CODE`, `evensies://join/CODE`) or a bare 6/10-char code.
+/// Whether [text] is a friend link (`…/f/CODE`, `evensies://f/CODE`), not a group invite.
+bool isFriendLink(String text) => RegExp(r'/f/[A-Za-z0-9-]+').hasMatch(text);
+
+/// Code from an invite link (`…/j/CODE`, `evensies://j/CODE`, `evensies://join/CODE`), a friend link (`…/f/CODE`,
+/// `evensies://f/CODE`; group and friend codes share one namespace) or a bare 6/10-char code.
 String? extractInviteCode(String text) {
   final m = _link.firstMatch(text);
   if (m != null) {

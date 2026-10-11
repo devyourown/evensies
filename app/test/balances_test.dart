@@ -171,8 +171,8 @@ void main() {
     final even = balancesOf(trip(expenses: [x('self', payers: [s('a', 3000)], shares: [s('a', 3000)], cur: 'JPY')]));
     expect(leaveBlocker(even, 'a'), isNull);
     final owed = balancesOf(trip(expenses: [x('sushi', payers: [s('a', 3000)], shares: [s('b', 3000)], cur: 'JPY')]));
-    // Until convertExpense lands there is no Convert, so it doesn't send people to it.
-    final tail = fxReady ? 'convert it and settle up first' : 'it can be settled once converting to EUR is ready';
+    // Phase 6: the JPY bucket settles in JPY, no conversion needed.
+    const tail = 'settle up in JPY first';
     expect(leaveBlocker(owed, 'a'), 'You are owed ¥3,000 · $tail');
     expect(leaveBlocker(owed, 'b'), 'You owe ¥3,000 · $tail');
     expect(leaveBlocker(owed, 'c'), isNull);

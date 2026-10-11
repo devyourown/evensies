@@ -36,21 +36,7 @@ class LocalWrites {
       await db.into(db.expenses).insertOnConflictUpdate(expenseRow(groupId, e));
       await _writeLists(e);
     });
-    await _enqueue(groupId, EventTypes.expenseCreated, {
-      'expenseId': e.id,
-      'description': e.description,
-      'amount': e.amount,
-      'currency': e.currency,
-      'fxRateToDefault': e.fxRateToDefault,
-      'paidBy': e.paidBy,
-      'payers': e.payers.map((s) => s.toJson()).toList(),
-      'refund': e.refund,
-      'split': e.split?.toJson(),
-      'date': e.date,
-      'category': e.category,
-      'notes': e.notes,
-      'shares': e.shares.map((s) => s.toJson()).toList(),
-    });
+    await _enqueue(groupId, EventTypes.expenseCreated, expenseCreatedPayload(e));
   }
 
   /// [fields] holds only the changed keys (API.md `expense.updated`): `shares`/`payers` as `List<Share>`,
@@ -59,7 +45,8 @@ class LocalWrites {
   Future<void> updateExpense(String groupId, Expense updated, Map<String, dynamic> fields) async {
     if (fields.isEmpty) return;
     await db.transaction(() async {
-      final row = expenseRow(groupId, updated).copyWith(deleted: const Value.absent()); // deleting is its own event
+      // Deleting (and moving) is its own event.
+      final row = expenseRow(groupId, updated).copyWith(deleted: const Value.absent(), moved: const Value.absent());
       await db.into(db.expenses).insertOnConflictUpdate(row);
       await _writeLists(updated);
     });
@@ -91,30 +78,78 @@ class LocalWrites {
     });
   }
 
-  Future<void> deleteExpense(String groupId, String expenseId) async {
-    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId)))
-        .write(const ExpensesCompanion(deleted: Value(true)));
-    await _enqueue(groupId, EventTypes.expenseDeleted, {'expenseId': expenseId});
+  /// [movedTo] marks a move (docs/API.md 지출 옮기기): the expense also becomes moved, which no restore undoes.
+  Future<void> deleteExpense(String groupId, String expenseId, {({String groupId, String expenseId})? movedTo}) async {
+    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId))).write(ExpensesCompanion(
+        deleted: const Value(true), moved: movedTo == null ? const Value.absent() : const Value(true)));
+    await _enqueue(groupId, EventTypes.expenseDeleted, {
+      'expenseId': expenseId,
+      if (movedTo != null) 'movedTo': {'groupId': movedTo.groupId, 'expenseId': movedTo.expenseId},
+    });
   }
 
+  /// Moves [e] from [fromGroup] to [toGroup] as [moved] (remapForMove), online only (docs/API.md 지출 옮기기): the new
+  /// expense is pushed to [toGroup] directly, and only then the source's delete with movedTo goes into the outbox.
+  /// If the push fails nothing has changed ([MoveException]). Pass the same [clientId] (and [moved] id) on a retry, so a
+  /// push that reached the server before its answer was lost isn't stored twice; a [retry] also carries an
+  /// `expense.updated` with all of [moved]'s values, so an edit made between the tries isn't lost to that dedupe (a
+  /// no-op, hidden in Activity, when the first try never landed).
+  Future<void> moveExpense(String fromGroup, Expense e, String toGroup, Expense moved,
+      {String? clientId, bool retry = false}) async {
+    final created = expenseCreatedPayload(moved);
+    try {
+      await sync.api.pushEvents(toGroup, [
+        OutboundEvent(
+            clientId: clientId ?? newId(), type: EventTypes.expenseCreated, payload: created, createdAt: nowIsoUtc()),
+        if (retry)
+          OutboundEvent(
+              clientId: newId(),
+              type: EventTypes.expenseUpdated,
+              payload: {'expenseId': moved.id, 'fields': {...created}..remove('expenseId')},
+              createdAt: nowIsoUtc()),
+      ]);
+    } on ApiException catch (x) {
+      throw MoveException(
+          x.code == 'NETWORK' ? "Couldn't move it. Try again when you're online" : "Couldn't move it: ${x.message}");
+    }
+    await deleteExpense(fromGroup, e.id, movedTo: (groupId: toGroup, expenseId: moved.id));
+    sync.syncLater(toGroup);
+  }
+
+  /// A moved expense stays deleted (rule 13), like on the server.
   Future<void> restoreExpense(String groupId, String expenseId) async {
-    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId)))
+    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId) & e.moved.equals(false)))
         .write(const ExpensesCompanion(deleted: Value(false)));
     await _enqueue(groupId, EventTypes.expenseRestored, {'expenseId': expenseId});
   }
 
-  /// As my member in the group; the payload's createdAt equals the event's (docs/API.md `comment.added`).
-  Future<void> addComment(String groupId, String expenseId, String text) async {
+  /// As my member in the group, on an expense or (Phase 6) a payment: exactly one of [expenseId] and [paymentId].
+  /// The payload's createdAt equals the event's (docs/API.md `comment.added`).
+  Future<void> addComment(String groupId, String text, {String? expenseId, String? paymentId}) async {
+    if ((expenseId == null) == (paymentId == null)) throw ArgumentError('pass expenseId or paymentId');
     final me = (await db.getGroup(groupId))?.myMemberId;
     if (me == null) throw StateError('No member of mine in group $groupId');
     final id = newId();
     final at = nowIsoUtc();
     await db.into(db.comments).insert(CommentsCompanion.insert(
-        id: id, groupId: groupId, expenseId: expenseId, authorMemberId: me, body: text, createdAt: at));
+        id: id,
+        groupId: groupId,
+        expenseId: Value(expenseId),
+        paymentId: Value(paymentId),
+        authorMemberId: me,
+        body: text,
+        createdAt: at));
     await _enqueue(
       groupId,
       EventTypes.commentAdded,
-      {'commentId': id, 'expenseId': expenseId, 'authorMemberId': me, 'text': text, 'createdAt': at},
+      {
+        'commentId': id,
+        'expenseId': ?expenseId,
+        'paymentId': ?paymentId,
+        'authorMemberId': me,
+        'text': text,
+        'createdAt': at,
+      },
       createdAt: at,
     );
   }
@@ -128,6 +163,23 @@ class LocalWrites {
   }
 
   Future<void> createPayment(String groupId, Payment p) async {
+    await _writePayment(groupId, p);
+    sync.syncLater(groupId);
+  }
+
+  /// An edit (docs/API.md 송금 기록·편집): `payment.deleted` of [oldId] plus `payment.created` of [p] (a new id) in one
+  /// local transaction, so they usually go in one push. Comments stay on the old payment.
+  Future<void> editPayment(String groupId, String oldId, Payment p) async {
+    await db.transaction(() async {
+      await (db.update(db.payments)..where((x) => x.id.equals(oldId)))
+          .write(const PaymentsCompanion(deleted: Value(true)));
+      await _outbox(groupId, EventTypes.paymentDeleted, {'paymentId': oldId});
+      await _writePayment(groupId, p);
+    });
+    sync.syncLater(groupId);
+  }
+
+  Future<void> _writePayment(String groupId, Payment p) async {
     await db.into(db.payments).insertOnConflictUpdate(PaymentsCompanion.insert(
           id: p.id,
           groupId: groupId,
@@ -138,7 +190,7 @@ class LocalWrites {
           date: p.date,
           status: Value(p.status),
         ));
-    await _enqueue(groupId, EventTypes.paymentCreated, {
+    await _outbox(groupId, EventTypes.paymentCreated, {
       'paymentId': p.id,
       'fromMember': p.fromMember,
       'toMember': p.toMember,
@@ -269,6 +321,37 @@ class LocalWrites {
     }
     await db.deleteGroupData(groupId);
   }
+}
+
+/// `expense.created` payload of [e] (docs/API.md).
+Map<String, dynamic> expenseCreatedPayload(Expense e) => {
+      'expenseId': e.id,
+      'description': e.description,
+      'amount': e.amount,
+      'currency': e.currency,
+      'fxRateToDefault': e.fxRateToDefault,
+      'paidBy': e.paidBy,
+      'payers': e.payers.map((s) => s.toJson()).toList(),
+      'refund': e.refund,
+      'split': e.split?.toJson(),
+      'date': e.date,
+      'category': e.category,
+      'notes': e.notes,
+      'shares': e.shares.map((s) => s.toJson()).toList(),
+    };
+
+/// Status of a payment recorded with "Record a payment" (docs/API.md 송금 기록·편집): `sent` when I pay ([from] is
+/// mine) someone linked to another user, so they confirm; else `confirmed`.
+String recordedStatus(Member? from, Member? to, String? myUserId) =>
+    from?.userId != null && from?.userId == myUserId && to?.userId != null && to?.userId != myUserId
+        ? 'sent'
+        : 'confirmed';
+
+class MoveException implements Exception {
+  final String message;
+  const MoveException(this.message);
+  @override
+  String toString() => message;
 }
 
 class LeaveException implements Exception {

@@ -9,6 +9,7 @@ import '../../domain/insights.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 import '../categories/category_ui.dart';
+import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
 import '../group_detail/group_detail_screen.dart' show ExpenseTile;
 import '../insights/insights_screen.dart' show monthLabel;
@@ -130,7 +131,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           final doc = byId[ids[n - 1]]!;
           final g = all[doc.groupId]!;
           final extra = [
-            if (_group == null) g.group.name,
+            // A friend group reads "Non-group · Ben".
+            if (_group == null) ref.watch(homeDataProvider).value?.label(g.group.id) ?? g.group.name,
             if (searchExcerpt(doc, _query) case final x?) '“$x”',
           ].join(' · ');
           return ExpenseTile(

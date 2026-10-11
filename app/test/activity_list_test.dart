@@ -27,7 +27,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     api = FakeApi(db);
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1', simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
     await db.into(db.expenses).insert(ExpensesCompanion.insert(
@@ -150,7 +150,7 @@ void main() {
 
     top = 101; // a new event arrives: only the first page is fetched again
     await t.runAsync(() => db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 10, myMemberId: 'm1', simplifyDebts: true)));
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 10, myMemberId: 'm1', simplifyDebts: true)));
     await settle(t);
     expect(api.activityCalls, [('g1', null), ('g1', 51), ('g1', null)]);
     await t.drag(find.byType(ListView), const Offset(0, -40000));
@@ -192,6 +192,47 @@ void main() {
     await unmount(t);
   });
 
+  testWidgets('deleted, restored, then moved: the older delete row offers no Restore', (t) async {
+    final x = {'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Taxi', 'amount': 1800, 'currency': 'EUR'};
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(5, 'expense_moved', x)),
+            ActivityItem.fromJson(item(4, 'expense_restored', x)),
+            ActivityItem.fromJson(item(3, 'expense_deleted', x)),
+          ],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('Ben deleted “Taxi”'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Restore'), findsNothing);
+    await unmount(t);
+  });
+
+  testWidgets("a claimed placeholder friend's rows use the name the Friends tab shows", (t) async {
+    await t.runAsync(() async {
+      await db.saveSession(const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u-anna', displayName: 'Anna'));
+      // The canonical friend group (smallest id names the person) and the placeholder's, claimed by Kofi.
+      for (final (gid, me, other, name) in [('ga', 'a1', 'a2', 'Kofi Mensah'), ('gz', 'z1', 'z2', 'Kofi M.')]) {
+        await db.upsertGroup(GroupRow(
+            kind: 'friend', id: gid, name: 'Anna & $name', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: me,
+            simplifyDebts: true));
+        await db.into(db.members).insert(MembersCompanion.insert(id: me, groupId: gid, name: 'Anna', userId: const Value('u-anna')));
+        await db.into(db.members).insert(MembersCompanion.insert(id: other, groupId: gid, name: name, userId: const Value('u-kofi')));
+      }
+    });
+    api.onActivity = (_, _) => (
+          items: [ActivityItem.fromJson({...item(4, 'member_joined', {'memberId': 'z2'}), 'groupId': 'gz'})],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app(home: const Scaffold(body: ActivityList())));
+    await settle(t);
+    expect(find.text('Kofi Mensah joined'), findsOneWidget);
+    expect(find.textContaining('Non-group · Kofi Mensah', findRichText: true), findsOneWidget);
+    expect(find.textContaining('Kofi M.', findRichText: true), findsNothing);
+    await unmount(t);
+  });
+
   testWidgets('payment and member rows open Settle up and Members', (t) async {
     api.onActivity = (_, _) => (
           items: [
@@ -223,6 +264,44 @@ void main() {
     await t.tap(find.text('You added Ben'));
     await settle(t);
     expect(find.text('members g1'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('a payment on this device opens its page, also from a comment on it; a moved expense has no Restore',
+      (t) async {
+    await t.runAsync(() => db.into(db.payments).insert(PaymentsCompanion.insert(
+        id: 'p1', groupId: 'g1', fromMember: 'm2', toMember: 'm1', amount: 2400, currency: 'EUR', date: '2026-10-11')));
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(4, 'expense_moved',
+                {'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Taxi', 'amount': 1800, 'currency': 'EUR'})),
+            ActivityItem.fromJson(item(3, 'comment_added', {
+              'actorMemberId': 'm2', 'commentId': 'c1', 'paymentId': 'p1', 'fromMember': 'm2', 'toMember': 'm1',
+              'amount': 2400, 'currency': 'EUR', 'text': 'Sent!',
+            })),
+          ],
+          nextBefore: null,
+        );
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: ActivityList(groupId: 'g1'))),
+      GoRoute(
+          path: '/groups/:id/payments/:pid',
+          builder: (_, s) => Text('payment ${s.pathParameters['id']} ${s.pathParameters['pid']}')),
+    ]);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        dbProvider.overrideWithValue(db),
+        apiProvider.overrideWithValue(api),
+        syncProvider.overrideWithValue(NoSync(db)),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await settle(t);
+    expect(find.text('Ben moved “Taxi” to another group'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Restore'), findsNothing);
+    await t.tap(find.text('Ben commented on a payment of €24.00 from Ben to you: Sent!'));
+    await settle(t);
+    expect(find.text('payment g1 p1'), findsOneWidget);
     await unmount(t);
   });
 

@@ -143,6 +143,13 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
             if (preview != null)
               Text('≈ ${formatMoney(preview, d)}', style: text.titleMedium?.copyWith(color: cs.primary)),
           ]),
+          // Convert never changes payments: after settling in JPY, the JPY payments stay in the JPY bucket.
+          if (state.payments.any((p) => !p.deleted && p.currency == c))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('Payments in $c stay in $c',
+                  key: Key('payments-stay-$c'), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ),
           const SizedBox(height: 8),
           TextField(
             key: Key('convert-rate-$c'),

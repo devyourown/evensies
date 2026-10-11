@@ -2,8 +2,10 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart' show ImageSource;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -11,12 +13,29 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/confirm.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
+import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
+import '../../data/images.dart';
 import '../../domain/fx.dart';
 import '../../providers.dart';
 import '../auth/auth_service.dart';
+import '../friends/home_data.dart';
+
+/// Exports a group (a friend group: its non-group expenses) through the share sheet as `[name].[format]`.
+Future<void> exportGroup(BuildContext context, WidgetRef ref, String groupId, String name, String format) async {
+  try {
+    final data = await ref.read(apiProvider).export(groupId, format);
+    final dir = await getTemporaryDirectory();
+    // A file name can't hold a slash.
+    final file = File(p.join(dir.path, '${name.replaceAll('/', '-')}.$format'));
+    await file.writeAsString(data);
+    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -31,12 +50,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Map<String, bool>? _prefs;
   bool _prefsFailed = false;
   bool _savingHome = false;
+  bool _savingPhoto = false;
   int _homeTry = 0; // a refused change rebuilds the picker with the saved value
   static const _prefLabels = [
     ('expenses', 'Expenses and payments', Icons.receipt_long_outlined),
     ('comments', 'Comments', Icons.chat_bubble_outline),
     ('members', 'Members and group changes', Icons.group_outlined),
+    // Only shown when the server has it (Phase 6): an older server would refuse the key.
+    ('reminders', 'Reminders from friends', Icons.notifications_active_outlined),
   ];
+
+  /// Take photo / Choose from library / Remove (docs/API.md 프로필 사진), online only.
+  Future<void> _photo(String userId) async {
+    final hasPhoto = ref.read(avatarProvider(userId)).value != null;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Take photo'),
+            onTap: () => Navigator.pop(ctx, 'camera'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Choose from library'),
+            onTap: () => Navigator.pop(ctx, 'gallery'),
+          ),
+          if (hasPhoto)
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: Theme.of(ctx).colorScheme.error),
+              title: Text('Remove photo', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final api = ref.read(apiProvider);
+    try {
+      if (choice == 'remove') {
+        setState(() => _savingPhoto = true);
+        await api.deleteAvatar();
+      } else {
+        final file = await ref
+            .read(pickPhotoProvider)(choice == 'camera' ? ImageSource.camera : ImageSource.gallery, maxEdge: 512, quality: 85);
+        if (file == null) return;
+        if (mounted) setState(() => _savingPhoto = true);
+        await api.putAvatar(file);
+      }
+      ref.invalidate(avatarProvider(userId));
+    } on ApiException catch (e) {
+      if (mounted) {
+        showError(
+          context,
+          switch (e) {
+            ApiException(code: 'NETWORK') => 'Changing your photo needs a connection.',
+            ApiException(status: 429) => 'Too many photo changes. Try again in an hour.',
+            _ => "That photo couldn't be used. Try another one.",
+          },
+        );
+      }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        showError(
+            context,
+            e.code.contains('access_denied')
+                ? 'Evensies has no access. Allow it in the Settings app.'
+                : "Couldn't open the ${choice == 'camera' ? 'camera' : 'photo library'}.");
+      }
+    } catch (e) {
+      if (mounted) showError(context, "That photo couldn't be used. Try another one.");
+    } finally {
+      if (mounted) setState(() => _savingPhoto = false);
+    }
+  }
 
   @override
   void initState() {
@@ -89,6 +179,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final session = ref.watch(sessionProvider).value;
     final home = ref.watch(homeCurrencyProvider);
     final groups = ref.watch(groupsProvider).value ?? const <GroupRow>[];
+    final homeData = ref.watch(homeDataProvider).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     Widget header(String s) => Padding(
@@ -101,7 +192,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.only(bottom: 32),
         children: [
           ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
+            leading: Semantics(
+              button: true,
+              label: 'Change profile photo',
+              child: InkWell(
+                key: const Key('my-photo'),
+                customBorder: const CircleBorder(),
+                onTap: session == null || _savingPhoto ? null : () => _photo(session.userId),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  PersonAvatar(userId: session?.userId, name: session?.displayName ?? '', radius: 24),
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: CircleAvatar(
+                      radius: 11,
+                      backgroundColor: cs.surface,
+                      child: _savingPhoto
+                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(Icons.photo_camera, size: 14, color: cs.primary),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
             title: Text(session?.displayName ?? '-'),
             subtitle: const Text('Your name · tap to change'),
             trailing: const Icon(Icons.edit_outlined),
@@ -118,7 +231,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             key: const Key('home-currency'),
             leading: const Icon(Icons.public),
             title: const Text('Home currency'),
-            // The "≈" lines need convertAmount (TODO(효준)); no promise before they show.
+            // The "≈" lines need convertAmount (fxReady); no promise before they show.
             subtitle: Text(session?.homeCurrency == null
                 ? 'From your region · ${fxReady ? 'balances also show ≈ in it' : 'totals in it are coming soon'}'
                 : fxReady
@@ -137,12 +250,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           header('Notifications'),
           for (final (key, label, icon) in _prefLabels)
-            SwitchListTile(
-              secondary: Icon(icon),
-              title: Text(label),
-              value: _prefs?[key] ?? true,
-              onChanged: _prefs == null ? null : (v) => _setPref(key, v),
-            ),
+            if (key != 'reminders' || (_prefs?.containsKey(key) ?? false))
+              SwitchListTile(
+                secondary: Icon(icon),
+                title: Text(label),
+                value: _prefs?[key] ?? true,
+                onChanged: _prefs == null ? null : (v) => _setPref(key, v),
+              ),
           if (_prefsFailed)
             ListTile(
               leading: Icon(Icons.cloud_off_outlined, color: cs.onSurfaceVariant),
@@ -163,14 +277,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           for (final g in groups)
             ListTile(
-              title: Text(g.name),
+              title: Text(g.kind == 'friend' ? homeData?.label(g.id) ?? 'Non-group' : g.name),
               trailing: PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz),
-                onSelected: (v) => v == 'import' ? _import(g) : _export(g, v),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'json', child: Text('Export JSON')),
-                  PopupMenuItem(value: 'csv', child: Text('Export CSV')),
-                  PopupMenuItem(value: 'import', child: Text('Import Splitwise CSV')),
+                onSelected: (v) => v == 'import'
+                    ? _import(g)
+                    : exportGroup(context, ref, g.id, g.kind == 'friend' ? homeData?.label(g.id) ?? g.name : g.name, v),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'json', child: Text('Export JSON')),
+                  const PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+                  // A friend group has exactly two members, so new names from a file can't be added (409).
+                  if (g.kind != 'friend') const PopupMenuItem(value: 'import', child: Text('Import Splitwise CSV')),
                 ],
               ),
             ),
@@ -224,18 +341,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!ok) return;
     await ref.read(authServiceProvider).logout();
     if (mounted) context.go('/login');
-  }
-
-  Future<void> _export(GroupRow g, String format) async {
-    try {
-      final data = await ref.read(apiProvider).export(g.id, format);
-      final dir = await getTemporaryDirectory();
-      final file = File(p.join(dir.path, '${g.name}.$format'));
-      await file.writeAsString(data);
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
-    } catch (e) {
-      if (mounted) showError(context, e);
-    }
   }
 
   Future<void> _import(GroupRow g) async {

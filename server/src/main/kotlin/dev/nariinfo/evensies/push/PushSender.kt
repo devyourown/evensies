@@ -3,6 +3,8 @@ package dev.nariinfo.evensies.push
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.google.firebase.messaging.AndroidConfig
+import com.google.firebase.messaging.AndroidNotification
 import com.google.firebase.messaging.ApnsConfig
 import com.google.firebase.messaging.Aps
 import com.google.firebase.messaging.FirebaseMessaging
@@ -18,9 +20,10 @@ import java.io.FileInputStream
 interface PushSender {
     /**
      * A visible notification with [data] when [title]/[body] are set, otherwise a data-only message, to at most
-     * [MAX_TOKENS] tokens. Returns the tokens FCM reported as no longer valid (the caller deletes them).
+     * [MAX_TOKENS] tokens. [badge]: the app icon count on a visible push (APNs `badge`, Android `notification_count`),
+     * null = leave it. Returns the tokens FCM reported as no longer valid (the caller deletes them).
      */
-    fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>): List<String>
+    fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>, badge: Int? = null): List<String>
 
     companion object {
         /** FCM's limit for one multicast. */
@@ -43,13 +46,16 @@ class FcmPushSender(props: AppProperties) : PushSender {
         else log.info("FCM push enabled with credentials {}", props.fcm.credentialsFile)
     }
 
-    override fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>): List<String> {
+    override fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>, badge: Int?): List<String> {
         val firebase = app ?: return emptyList()
         if (tokens.isEmpty()) return emptyList()
         return try {
             val visible = title != null && body != null
-            val message = MulticastMessage.builder().addAllTokens(tokens).putAllData(data).setApnsConfig(apns(visible, data["groupId"]))
+            val message = MulticastMessage.builder().addAllTokens(tokens).putAllData(data).setApnsConfig(apns(visible, data["groupId"], badge))
             if (visible) message.setNotification(Notification.builder().setTitle(title).setBody(body).build())
+            if (visible && badge != null) {
+                message.setAndroidConfig(AndroidConfig.builder().setNotification(AndroidNotification.builder().setNotificationCount(badge).build()).build())
+            }
             val res = FirebaseMessaging.getInstance(firebase).sendEachForMulticast(message.build())
             val codes = res.responses.map { if (it.isSuccessful) null else it.exception?.messagingErrorCode }
             deadTokens(tokens, codes, res.successCount)
@@ -61,11 +67,11 @@ class FcmPushSender(props: AppProperties) : PushSender {
 
     companion object {
         /**
-         * iOS: visible pushes play the default sound and stack per group; data-only ones are background pushes
-         * (content-available, priority 5), without which iOS delivers them only while the app is open.
+         * iOS: visible pushes play the default sound, stack per group and set the [badge] when given; data-only ones are
+         * background pushes (content-available, priority 5), without which iOS delivers them only while the app is open.
          */
-        fun apns(visible: Boolean, groupId: String?): ApnsConfig =
-            if (visible) ApnsConfig.builder().setAps(Aps.builder().setSound("default").setThreadId(groupId).build()).build()
+        fun apns(visible: Boolean, groupId: String?, badge: Int? = null): ApnsConfig =
+            if (visible) ApnsConfig.builder().setAps(Aps.builder().setSound("default").setThreadId(groupId).apply { badge?.let { setBadge(it) } }.build()).build()
             else ApnsConfig.builder().putHeader("apns-priority", "5").putHeader("apns-push-type", "background")
                 .setAps(Aps.builder().setContentAvailable(true).build()).build()
 

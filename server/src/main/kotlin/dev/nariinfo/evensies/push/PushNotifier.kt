@@ -4,10 +4,12 @@ import dev.nariinfo.evensies.activity.Activity.item
 import dev.nariinfo.evensies.activity.Activity.withoutDeletedComments
 import dev.nariinfo.evensies.activity.ActivityItem
 import dev.nariinfo.evensies.activity.ActivityText
+import dev.nariinfo.evensies.activity.UnreadActivity
 import dev.nariinfo.evensies.auth.DeviceRepository
 import dev.nariinfo.evensies.config.AppProperties
 import dev.nariinfo.evensies.group.Group
 import dev.nariinfo.evensies.group.GroupRepository
+import dev.nariinfo.evensies.group.Member
 import dev.nariinfo.evensies.group.MemberRepository
 import dev.nariinfo.evensies.sync.Event
 import dev.nariinfo.evensies.sync.GroupStateStore
@@ -21,9 +23,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Push fan-out after a committed push (docs/API.md "푸시"): every linked, active member except the actor gets either a
- * visible notification (title = group name, body = [ActivityText.body]) or a data-only sync message. Visible items are
- * filtered by the recipient's [NotificationPrefs] and batched per recipient and group: after a visible push, items
- * within `evensies.push.batch-seconds` are queued and sent together when the window ends.
+ * visible notification (title = group name, or in a friend group the other member's name; body = [ActivityText.body];
+ * badge = the recipient's unread total) or a data-only sync message. Visible items are filtered by the recipient's
+ * [NotificationPrefs] and batched per recipient and group: after a visible push, items within
+ * `evensies.push.batch-seconds` are queued and sent together when the window ends. Reminders ([remind]) go out here too.
  *
  * Everything runs on one background thread, so pushes never wait for FCM and the batch state needs no locks.
  * ponytail: in-memory, single-instance state; queued items are lost on restart (by contract). Shared state (Redis or a
@@ -37,6 +40,7 @@ class PushNotifier(
     private val devices: DeviceRepository,
     private val prefs: NotificationPrefsRepository,
     private val stateStore: GroupStateStore,
+    private val unread: UnreadActivity,
     props: AppProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,7 +60,7 @@ class PushNotifier(
         val group = groups.find(groupId) ?: return
         val all = members.listByGroup(groupId)
         val names = all.associate { it.id.toString() to it.name }
-        val byBody = LinkedHashMap<String?, MutableList<String>>() // null = data-only
+        val byMessage = LinkedHashMap<Visible?, MutableList<String>>() // null = data-only
         for (m in all) {
             val user = m.userId ?: continue
             if (m.removed || user == actorUserId) continue
@@ -65,10 +69,28 @@ class PushNotifier(
             val me = m.id.toString()
             val wanted = prefs.get(user)
             val items = stored.mapNotNull { it.item(me) }.filter { wanted.allows(it.kind) }.withoutDeletedComments(stateStore::deletedComments)
-            val body = if (items.isNotEmpty() && claimVisible(user to groupId, items)) ActivityText.body(items, names, me) else null
-            byBody.getOrPut(body) { mutableListOf() } += tokens
+            val visible = if (items.isNotEmpty() && claimVisible(user to groupId, items)) visible(group, all, m, items, names) else null
+            byMessage.getOrPut(visible) { mutableListOf() } += tokens
         }
-        for ((body, tokens) in byBody) send(tokens, body?.let { ActivityText.title(group.name) }, body, data(group))
+        for ((v, tokens) in byMessage) send(tokens, v?.title, v?.body, data(group), v?.badge)
+    }
+
+    /** The badge differs per recipient, so tokens are grouped by the whole visible message. */
+    private data class Visible(val title: String, val body: String, val badge: Int)
+
+    private fun visible(group: Group, all: List<Member>, me: Member, items: List<ActivityItem>, names: Map<String, String>): Visible {
+        val title = if (group.kind == "friend") all.firstOrNull { it.id != me.id }?.name ?: group.name else group.name
+        return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString()), unread.of(me.userId!!).total)
+    }
+
+    /** A reminder (docs/API.md "리마인더") to every device of [toUser]; no badge, data `{type: remind, fromUserId}`. */
+    fun remind(toUser: UUID, fromUser: UUID, title: String, body: String) {
+        worker.execute {
+            guarded(toUser) {
+                val tokens = devices.fcmTokensOfUser(toUser)
+                if (tokens.isNotEmpty()) send(tokens, title, body, mapOf("type" to "remind", "fromUserId" to fromUser.toString()))
+            }
+        }
     }
 
     /** True: send [items] now. False: they joined the queue, flushed when the window since the last visible push ends. */
@@ -97,14 +119,15 @@ class PushNotifier(
         val me = members.findByGroupAndUser(groupId, user) ?: return // left the group meanwhile
         val tokens = devices.fcmTokensOfUser(user)
         if (items.isEmpty() || tokens.isEmpty()) return
-        val names = members.listByGroup(groupId).associate { it.id.toString() to it.name }
-        send(tokens, ActivityText.title(group.name), ActivityText.body(items, names, me.id.toString()), data(group))
+        val all = members.listByGroup(groupId)
+        val v = visible(group, all, me, items, all.associate { it.id.toString() to it.name })
+        send(tokens, v.title, v.body, data(group), v.badge)
     }
 
     /** In multicasts of at most [PushSender.MAX_TOKENS]; tokens FCM reports as dead are deleted. */
-    private fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>) {
+    private fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>, badge: Int? = null) {
         for (chunk in tokens.chunked(PushSender.MAX_TOKENS)) {
-            val dead = sender.send(chunk, title, body, data)
+            val dead = sender.send(chunk, title, body, data, badge)
             if (dead.isNotEmpty()) devices.deleteTokens(dead)
         }
     }
@@ -112,11 +135,11 @@ class PushNotifier(
     /** FCM data values are strings. */
     private fun data(group: Group) = mapOf("type" to "sync", "groupId" to group.id.toString(), "seq" to group.latestSeq.toString())
 
-    private fun guarded(groupId: UUID, block: () -> Unit) {
+    private fun guarded(id: UUID, block: () -> Unit) {
         try {
             block()
         } catch (e: Exception) {
-            log.warn("Push fan-out failed for group {}: {}", groupId, e.toString())
+            log.warn("Push fan-out failed for {}: {}", id, e.toString())
         }
     }
 }

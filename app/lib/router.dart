@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,10 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/name_screen.dart';
 import 'features/expense_detail/expense_detail_screen.dart';
 import 'features/expense_form/expense_form_screen.dart';
+import 'features/friends/add_friend_screen.dart';
+import 'features/friends/friend_screen.dart';
+import 'features/friends/friend_settle_screen.dart';
+import 'features/friends/with_picker.dart';
 import 'features/group_detail/group_detail_screen.dart';
 import 'features/group_settings/group_settings_screen.dart';
 import 'features/groups/groups_screen.dart';
@@ -17,6 +21,7 @@ import 'features/members/members_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/settings/payment_methods_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/settle/payment_detail_screen.dart';
 import 'features/settle/settle_screen.dart';
 import 'providers.dart';
 
@@ -24,6 +29,13 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Re-run redirects on any session change (sign-in, sign-out, name saved).
   final refresh = ValueNotifier<int>(0);
   ref.listen(sessionProvider, (_, _) => refresh.value++);
+  // A friend group has exactly two members, no Leave and no settings (docs/API.md 친구): an activity row or a link to
+  // its members or settings lands on the friend's page instead.
+  Future<String?> friendPage(BuildContext _, GoRouterState s) async {
+    final id = s.pathParameters['id']!;
+    return (await ref.read(dbProvider).getGroup(id))?.kind == 'friend' ? '/groups/$id' : null;
+  }
+
   return GoRouter(
     refreshListenable: refresh,
     initialLocation: '/',
@@ -40,8 +52,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Children of '/': the groups list is always underneath, so every screen has a way back.
       GoRoute(
         path: '/',
-        builder: (_, _) => const GroupsScreen(),
+        builder: (_, s) => GroupsScreen(key: ValueKey(s.uri.queryParameters['tab']), tab: s.uri.queryParameters['tab']),
         routes: [
+          // Friends (docs/API.md 친구): the tab, adding one, a person's page (key = userId, g:<groupId>, m:<memberId>).
+          GoRoute(path: 'friends', redirect: (_, _) => '/?tab=friends'),
+          GoRoute(path: 'friends/add', builder: (_, s) => AddFriendScreen(code: s.uri.queryParameters['code'])),
+          GoRoute(
+            path: 'friends/:key',
+            builder: (_, s) => FriendScreen(personKey: s.pathParameters['key']!),
+            routes: [
+              GoRoute(path: 'settle', builder: (_, s) => FriendSettleScreen(personKey: s.pathParameters['key']!)),
+            ],
+          ),
+          // Add expense from Home: with whom first.
+          GoRoute(path: 'expenses/new', builder: (_, _) => const NewExpenseScreen()),
           GoRoute(
             path: 'settings',
             builder: (_, _) => const SettingsScreen(),
@@ -62,11 +86,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'groups/:id',
             builder: (_, s) => GroupDetailScreen(groupId: s.pathParameters['id']!, tab: s.uri.queryParameters['tab']),
             routes: [
-              GoRoute(path: 'members', builder: (_, s) => MembersScreen(groupId: s.pathParameters['id']!)),
+              GoRoute(
+                  path: 'members',
+                  redirect: friendPage,
+                  builder: (_, s) => MembersScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'settle', builder: (_, s) => SettleScreen(groupId: s.pathParameters['id']!)),
-              GoRoute(path: 'settings', builder: (_, s) => GroupSettingsScreen(groupId: s.pathParameters['id']!)),
+              GoRoute(
+                  path: 'settings',
+                  redirect: friendPage,
+                  builder: (_, s) => GroupSettingsScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'expenses/new', builder: (_, s) => ExpenseFormScreen(groupId: s.pathParameters['id']!)),
               GoRoute(path: 'insights', builder: (_, s) => InsightsScreen(groupId: s.pathParameters['id']!)),
+              GoRoute(
+                path: 'payments/:pid',
+                builder: (_, s) =>
+                    PaymentDetailScreen(groupId: s.pathParameters['id']!, paymentId: s.pathParameters['pid']!),
+              ),
               // The read-only expense (list and activity taps land here); Edit opens the form.
               GoRoute(
                 path: 'expenses/:eid',

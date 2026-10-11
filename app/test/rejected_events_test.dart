@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:evensies/data/api/api_client.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/local_writes.dart';
@@ -50,7 +51,7 @@ void main() {
     told = [];
     sync.rejections.listen(told.add);
     await db.upsertGroup(
-      const GroupRow(
+      const GroupRow(kind: 'group', 
         id: 'g1',
         name: 'Rome',
         defaultCurrency: 'EUR',
@@ -219,6 +220,37 @@ void main() {
     expect(await db.select(db.members).get(), isEmpty);
   });
 
+  test("syncAll fixes the kind of a friend group stored before schema v6 (it read 'group')", () async {
+    await db
+        .into(db.session)
+        .insert(SessionCompanion.insert(accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna'));
+    expect((await db.getGroup('g1'))!.kind, 'group');
+    api.groupIds = ['g1'];
+    api.groupKinds = {'g1': 'friend'};
+    await sync.syncAll();
+    expect((await db.getGroup('g1'))!.kind, 'friend');
+    await sync.store.save('g1', await sync.store.load('g1'), 2); // a later sync keeps it
+    expect((await db.getGroup('g1'))!.kind, 'friend');
+  });
+
+  testWidgets('offline: syncAll every 30 s until the server answers again, then stop', (t) async {
+    final s = _CountingAll(db, api);
+    final stop = s.retryWhileOffline();
+    await t.pump(const Duration(seconds: 31));
+    expect(s.alls, 0); // online: no timer
+    s.offline.value = true;
+    await t.pump(const Duration(seconds: 31));
+    await t.pump(const Duration(seconds: 30));
+    expect(s.alls, 2);
+    s.offline.value = false;
+    await t.pump(const Duration(seconds: 90));
+    expect(s.alls, 2);
+    s.offline.value = true;
+    stop();
+    await t.pump(const Duration(seconds: 90));
+    expect(s.alls, 2);
+  });
+
   group('leave', () {
     setUp(() async {
       api.onPush = (_, events) => PushResult(seqByClientId: {for (final e in events) e.clientId: 9}, latestSeq: 9);
@@ -269,4 +301,11 @@ void main() {
       expect(await db.getGroup('g1'), isNotNull);
     });
   });
+}
+
+class _CountingAll extends SyncService {
+  _CountingAll(AppDatabase db, ApiClient api) : super(db: db, api: api);
+  int alls = 0;
+  @override
+  Future<void> syncAll() async => alls++;
 }

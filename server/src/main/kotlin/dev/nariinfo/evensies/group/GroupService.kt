@@ -1,6 +1,7 @@
 package dev.nariinfo.evensies.group
 
 import dev.nariinfo.evensies.common.ApiException
+import dev.nariinfo.evensies.friend.FriendRepository
 import dev.nariinfo.evensies.money.Money
 import dev.nariinfo.evensies.sync.EventService
 import dev.nariinfo.evensies.sync.IncomingEvent
@@ -15,6 +16,7 @@ import java.util.UUID
 class GroupService(
     private val groups: GroupRepository,
     private val members: MemberRepository,
+    private val friends: FriendRepository,
     @Lazy private val events: EventService,
     private val mapper: ObjectMapper,
 ) {
@@ -36,7 +38,7 @@ class GroupService(
         if (req.name.isBlank() || req.memberName.isBlank()) throw ApiException.badRequest("VALIDATION", "name and memberName are required")
         if (!Money.isKnown(req.defaultCurrency)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Unknown currency ${req.defaultCurrency}")
         requireGroupQuota(userId)
-        groups.insert(Group(req.id, req.name, req.defaultCurrency, newInviteCode(), userId, Instant.now(), 0))
+        groups.insert(Group(req.id, req.name, req.defaultCurrency, groups.newCode(), userId, Instant.now(), 0))
         events.pushValidated(
             req.id, userId, listOf(
                 event("group.created", mapOf("name" to req.name, "defaultCurrency" to req.defaultCurrency)),
@@ -48,7 +50,7 @@ class GroupService(
 
     fun rotateInvite(groupId: UUID, userId: UUID): InviteCodeDto {
         requireMember(groupId, userId)
-        val code = newInviteCode()
+        val code = groups.newCode()
         groups.updateInviteCode(groupId, code)
         return InviteCodeDto(code)
     }
@@ -56,14 +58,27 @@ class GroupService(
     fun preview(code: String): InvitePreviewDto {
         val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
         val active = members.listByGroup(group.id).filter { !it.removed }
-        return InvitePreviewDto(group.id, group.name, active.size, active.map { InviteMemberDto(it.id, it.name, it.userId != null) })
+        return InvitePreviewDto(group.id, group.name, group.kind, active.size, active.map { InviteMemberDto(it.id, it.name, it.userId != null) })
     }
 
+    /**
+     * A friend group (Phase 6) skips the group cap; a new member there is 409 LIMIT_EXCEEDED (validator), and claiming
+     * its placeholder records the pair in `friendships` unless the two already have a canonical friend group.
+     */
     fun join(code: String, userId: UUID, req: JoinRequest): GroupDto {
         val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
-        members.findByGroupAndUser(group.id, userId)?.let { return group.toDto(it.id) } // already a member
-        requireGroupQuota(userId)
-        val event = when {
+        if (members.findByGroupAndUser(group.id, userId) == null) {
+            if (group.kind == "group") requireGroupQuota(userId)
+            events.pushValidated(group.id, userId, listOf(joinEvent(group, userId, req)))
+        }
+        if (group.kind == "friend") {
+            members.listByGroup(group.id).mapNotNull { it.userId }.distinct().takeIf { it.size == 2 }?.let { (a, b) -> friends.insertPair(a, b, group.id) }
+        }
+        return get(group.id, userId)
+    }
+
+    private fun joinEvent(group: Group, userId: UUID, req: JoinRequest): IncomingEvent =
+        when {
             req.memberId != null -> {
                 val placeholder = members.find(req.memberId)
                 if (placeholder == null || placeholder.groupId != group.id || placeholder.removed) throw ApiException.notFound("Member")
@@ -74,9 +89,6 @@ class GroupService(
                 event("member.added", mapOf("memberId" to req.newMemberId, "name" to req.name, "userId" to userId))
             else -> throw ApiException.badRequest("VALIDATION", "Send memberId, or newMemberId and name")
         }
-        events.pushValidated(group.id, userId, listOf(event))
-        return get(group.id, userId)
-    }
 
     private fun requireGroupQuota(userId: UUID) {
         if (members.countGroupsOfUser(userId) >= MAX_GROUPS_PER_USER) throw ApiException.limit("A user can be in at most $MAX_GROUPS_PER_USER groups")
@@ -84,9 +96,6 @@ class GroupService(
 
     private fun event(type: String, payload: Map<String, Any?>) =
         IncomingEvent(UUID.randomUUID(), type, mapper.valueToTree(payload), Instant.now())
-
-    /** Retries on the (rare) collision with an existing group's code. */
-    private fun newInviteCode(): String = generateSequence { InviteCodes.generate() }.first { groups.findByInviteCode(it) == null }
 
     companion object {
         const val MAX_GROUPS_PER_USER = 100

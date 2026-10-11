@@ -47,6 +47,10 @@
 	<string>735984614718-p2ga7bem68i1tbs6se9tmfrcrepfnggt.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Evensies uses the camera when you take a profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Evensies opens your photo library when you choose a profile photo.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>

@@ -1,5 +1,5 @@
 {
-  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'.",
+  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'. 6단계: 친구 그룹(seq 1 group.created의 kind가 \"friend\")에서는 seq 1·2를 숨기고 그 밖의 member.added는 friend_added(\"{A} added {member} as a friend\"). movedTo가 있는 expense.deleted는 expense_moved(expense_deleted와 같은 필드, \"{A} moved “{description}” to another group\"). paymentId가 있는 comment_added는 댓글 시점의 송금 필드(paymentId, fromMember, toMember, amount, currency)와 commentId·text를 채우고 expenseId·description은 null(\"{A} commented on a payment of {M(amount)} from {from} to {to}: {text}\"). 송금 편집(payment_deleted + payment_added)은 묶음에서 \"{A} made 2 changes\".",
   "money": [
     {
       "minor": 3000,
@@ -2392,6 +2392,327 @@
         "You joined",
         "Anna created the group “Lisbon”"
       ]
+    },
+    {
+      "name": "friend group: seq 1 and 2 hidden, friend_added, a comment on a payment, an expense moved out",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Anna & Ben",
+            "defaultCurrency": "EUR",
+            "kind": "friend"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:01:00Z"
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:02:00Z"
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:03:00Z"
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Taxi",
+            "amount": 2000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              },
+              {
+                "memberId": "m2",
+                "amount": 1000
+              }
+            ]
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:04:00Z"
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1000,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "sent"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:05:00Z"
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "paymentId": "p1",
+            "authorMemberId": "m1",
+            "text": "Got it, thanks!",
+            "createdAt": "2026-10-11T08:06:00Z"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:06:00Z"
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "payment.confirmed",
+          "payload": {
+            "paymentId": "p1"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:07:00Z"
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m2",
+            "date": "2026-10-11",
+            "category": null,
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1500
+              },
+              {
+                "memberId": "m2",
+                "amount": 1500
+              }
+            ]
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:08:00Z"
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x2",
+            "movedTo": {
+              "groupId": "g-rome",
+              "expenseId": "x9"
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-11T08:09:00Z"
+        }
+      ],
+      "expected": [
+        {
+          "seq": 9,
+          "createdAt": "2026-10-11T08:09:00Z",
+          "actorMemberId": "m2",
+          "kind": "expense_moved",
+          "expenseId": "x2",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": 1500
+        },
+        {
+          "seq": 8,
+          "createdAt": "2026-10-11T08:08:00Z",
+          "actorMemberId": "m2",
+          "kind": "expense_added",
+          "expenseId": "x2",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": 1500
+        },
+        {
+          "seq": 7,
+          "createdAt": "2026-10-11T08:07:00Z",
+          "actorMemberId": "m1",
+          "kind": "payment_confirmed",
+          "paymentId": "p1",
+          "fromMember": "m2",
+          "toMember": "m1",
+          "amount": 1000,
+          "currency": "EUR",
+          "status": "confirmed"
+        },
+        {
+          "seq": 6,
+          "createdAt": "2026-10-11T08:06:00Z",
+          "actorMemberId": "m1",
+          "kind": "comment_added",
+          "commentId": "c1",
+          "paymentId": "p1",
+          "fromMember": "m2",
+          "toMember": "m1",
+          "amount": 1000,
+          "currency": "EUR",
+          "text": "Got it, thanks!"
+        },
+        {
+          "seq": 5,
+          "createdAt": "2026-10-11T08:05:00Z",
+          "actorMemberId": "m2",
+          "kind": "payment_added",
+          "paymentId": "p1",
+          "fromMember": "m2",
+          "toMember": "m1",
+          "amount": 1000,
+          "currency": "EUR",
+          "status": "sent"
+        },
+        {
+          "seq": 4,
+          "createdAt": "2026-10-11T08:04:00Z",
+          "actorMemberId": "m1",
+          "kind": "expense_added",
+          "expenseId": "x1",
+          "description": "Taxi",
+          "amount": 2000,
+          "currency": "EUR",
+          "myDelta": -1000
+        },
+        {
+          "seq": 3,
+          "createdAt": "2026-10-11T08:03:00Z",
+          "actorMemberId": "m1",
+          "kind": "friend_added",
+          "memberId": "m2"
+        }
+      ],
+      "texts": [
+        "You moved “Dinner” to another group",
+        "You added “Dinner” · €30.00 · you lent €15.00",
+        "Anna confirmed receiving €10.00 from you",
+        "Anna commented on a payment of €10.00 from you to Anna: Got it, thanks!",
+        "You paid Anna €10.00 · waiting for Anna to confirm",
+        "Anna added “Taxi” · €20.00 · you owe €10.00",
+        "Anna added you as a friend"
+      ]
+    },
+    {
+      "name": "placeholder friend seen by its creator: added as a friend, then claimed",
+      "me": "m1",
+      "names": {
+        "m1": "Anna",
+        "m2": "Carla"
+      },
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Anna & Carla",
+            "defaultCurrency": "EUR",
+            "kind": "friend"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:01:00Z"
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:02:00Z"
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Carla",
+            "userId": null
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-11T08:03:00Z"
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "member.linked",
+          "payload": {
+            "memberId": "m2",
+            "userId": "u-carla"
+          },
+          "actorUserId": "u-carla",
+          "createdAt": "2026-10-11T08:04:00Z"
+        }
+      ],
+      "expected": [
+        {
+          "seq": 4,
+          "createdAt": "2026-10-11T08:04:00Z",
+          "actorMemberId": "m2",
+          "kind": "member_joined",
+          "memberId": "m2"
+        },
+        {
+          "seq": 3,
+          "createdAt": "2026-10-11T08:03:00Z",
+          "actorMemberId": "m1",
+          "kind": "friend_added",
+          "memberId": "m2"
+        }
+      ],
+      "texts": [
+        "Carla joined",
+        "You added Carla as a friend"
+      ]
     }
   ],
   "batches": [
@@ -2585,6 +2906,42 @@
         }
       ],
       "text": "Someone added 2 expenses"
+    },
+    {
+      "name": "a payment edit (delete + new payment) from one actor",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben",
+        "m3": "Carla"
+      },
+      "items": [
+        {
+          "seq": 7,
+          "kind": "payment_added",
+          "createdAt": "2026-10-11T08:07:00Z",
+          "actorMemberId": "m1",
+          "paymentId": "p2",
+          "fromMember": "m1",
+          "toMember": "m2",
+          "amount": 1200,
+          "currency": "EUR",
+          "status": "sent"
+        },
+        {
+          "seq": 6,
+          "kind": "payment_deleted",
+          "createdAt": "2026-10-11T08:06:00Z",
+          "actorMemberId": "m1",
+          "paymentId": "p1",
+          "fromMember": "m1",
+          "toMember": "m2",
+          "amount": 1000,
+          "currency": "EUR",
+          "status": "sent"
+        }
+      ],
+      "text": "Anna made 2 changes"
     }
   ]
 }

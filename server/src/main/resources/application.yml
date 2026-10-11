@@ -13,6 +13,9 @@ spring:
 server:
   # Behind Caddy: trust X-Forwarded-For from private networks so request.remoteAddr is the client IP.
   forward-headers-strategy: native
+  tomcat:
+    # An upload over the multipart cap is read to the end (and dropped) up to this size, so the client gets the 413.
+    max-swallow-size: 10MB
 
 management:
   endpoints:
@@ -32,6 +35,7 @@ evensies:
     credentials-file: ${EVENSIES_FCM_CREDENTIALS_FILE:}
   push:
     batch-seconds: ${EVENSIES_PUSH_BATCH_SECONDS:30}
+  storage-dir: ${EVENSIES_STORAGE_DIR:./data}
   fx:
     # Frankfurter v2 shape ({url}/rates?base=EUR&date=); empty turns automatic rates off.
     url: ${EVENSIES_FX_URL:https://api.frankfurter.dev/v2}

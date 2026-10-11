@@ -13,6 +13,8 @@ import '../../domain/models.dart';
 import '../../providers.dart';
 import '../activity/activity_screen.dart';
 import '../categories/category_ui.dart';
+import '../friends/friend_screen.dart';
+import '../friends/home_data.dart';
 import 'balances.dart';
 import 'convert_sheet.dart';
 
@@ -29,6 +31,8 @@ class GroupDetailScreen extends ConsumerWidget {
     final group = async.value;
     if (group == null && async.hasValue) return const _Gone();
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // A friend group is a person (docs/API.md 친구): links and pushes to it land on the friend's page.
+    if (group.kind == 'friend') return _FriendGroup(groupId: groupId);
     return DefaultTabController(
       key: ValueKey(tab), // a new ?tab= on the same page re-selects the tab
       length: 3,
@@ -58,7 +62,20 @@ class GroupDetailScreen extends ConsumerWidget {
               icon: const Icon(Icons.settings_outlined),
             ),
           ],
-          bottom: const TabBar(tabs: [Tab(text: 'Expenses'), Tab(text: 'Balances'), Tab(text: 'Activity')]),
+          // The largest text sizes: tabs that scroll, not labels clipped to "Expe".
+          bottom: TabBar(isScrollable: MediaQuery.textScalerOf(context).scale(1) > 2, tabs: [
+            const Tab(text: 'Expenses'),
+            const Tab(text: 'Balances'),
+            Tab(
+              child: Badge(
+                key: const Key('group-activity-badge'),
+                isLabelVisible: (ref.watch(unreadProvider)?.groups[groupId] ?? 0) > 0,
+                label: Text(badgeLabel(ref.watch(unreadProvider)?.groups[groupId] ?? 0)),
+                offset: const Offset(14, -6),
+                child: const Text('Activity'),
+              ),
+            ),
+          ]),
         ),
         body: Column(children: [
           const OfflineBanner(),
@@ -77,6 +94,16 @@ class GroupDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _FriendGroup extends ConsumerWidget {
+  final String groupId;
+  const _FriendGroup({required this.groupId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key = ref.watch(homeDataProvider).value?.friendKey(groupId);
+    return key == null ? const Scaffold(body: Center(child: CircularProgressIndicator())) : FriendScreen(personKey: key);
   }
 }
 
@@ -157,7 +184,7 @@ class _ExpensesTab extends ConsumerWidget {
       for (final e in expenses)
         (date: e.date, tile: ExpenseTile(expense: e, group: group, names: names)),
       for (final p in payments)
-        (date: p.date, tile: _PaymentTile(payment: p, from: names[p.fromMember] ?? '?', to: names[p.toMember] ?? '?')),
+        (date: p.date, tile: PaymentTile(groupId: group.id, payment: p, names: names, myMemberId: group.myMemberId)),
     ]..sort((a, b) => b.date.compareTo(a.date));
     final items = <Widget>[];
     String? lastDate;
@@ -283,15 +310,40 @@ class ExpenseTile extends StatelessWidget {
   }
 }
 
-class _PaymentTile extends StatelessWidget {
+/// One payment row (the expense list, a friend's page); tapping opens the payment (docs/API.md 송금 상세).
+class PaymentTile extends StatelessWidget {
+  final String groupId;
   final Payment payment;
-  final String from, to;
-  const _PaymentTile({required this.payment, required this.from, required this.to});
+
+  /// memberId → name.
+  final Map<String, String> names;
+  final String? myMemberId;
+
+  /// A muted last line, e.g. the group on a friend's page.
+  final String? extra;
+  const PaymentTile(
+      {super.key, required this.groupId, required this.payment, required this.names, this.myMemberId, this.extra});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    String who(String id, {bool start = false}) => id == myMemberId ? (start ? 'You' : 'you') : names[id] ?? '?';
+    final large = MediaQuery.textScalerOf(context).scale(1) > 2; // like ExpenseTile: the names wrap
+    final pending = payment.pending
+        ? Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(4)),
+              child: Text('pending', style: text.labelSmall?.copyWith(color: cs.onTertiaryContainer)),
+            ),
+          )
+        : null;
+    final amount = Text(formatMoney(payment.amount, payment.currency), style: text.titleMedium);
+    // The largest text sizes: the amount under the names, not a column squeezing them (as on ExpenseTile).
+    final lines = [?pending, if (extra != null) Text(extra!, style: TextStyle(color: cs.onSurfaceVariant)), if (large) amount];
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       // Same tile as an expense's category, so the rows line up.
@@ -301,19 +353,15 @@ class _PaymentTile extends StatelessWidget {
         decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
         child: Icon(Icons.payments_outlined, size: 22, color: cs.onSurfaceVariant),
       ),
-      title: Text('$from paid $to', maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: payment.pending
-          ? Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(4)),
-                child: Text('pending', style: text.labelSmall?.copyWith(color: cs.onTertiaryContainer)),
-              ),
-            )
-          : null,
-      trailing: Text(formatMoney(payment.amount, payment.currency), style: text.titleMedium),
+      title: Text('${who(payment.fromMember, start: true)} paid ${who(payment.toMember)}',
+          maxLines: large ? 3 : 1, overflow: TextOverflow.ellipsis),
+      subtitle: lines.isEmpty
+          ? null
+          : lines.length == 1
+              ? lines.single
+              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines),
+      trailing: large ? null : amount,
+      onTap: () => context.push('/groups/$groupId/payments/${payment.id}'),
     );
   }
 }

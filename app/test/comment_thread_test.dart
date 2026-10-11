@@ -16,14 +16,14 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
     Future<void> comment(String id, String expense, String author, String text, String at, {bool deleted = false}) =>
         db.into(db.comments).insert(CommentsCompanion.insert(
             id: id,
             groupId: 'g1',
-            expenseId: expense,
+            expenseId: Value(expense),
             authorMemberId: author,
             body: text,
             createdAt: at,

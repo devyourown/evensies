@@ -167,7 +167,7 @@ At 1,000 active users: about 2,800 emails a month. `EVENSIES_EMAIL_DAILY_LIMIT` 
 - **Export & import:** **Export everything (JSON)** → `GET /me/export` → `evensies-export-YYYY-MM-DD.json` (downloads on web).
 - **Deleted groups** (Settings, when any exist) with **Restore**.
 - **Push status:** `push.dart` sends `notificationsAllowed` with `POST /devices`, and again on resume when it changed.
-- **drift (schemaVersion 9):** `Groups.type` (default `'other'`), `Groups.coverImageId`, `Groups.deleted`.
+- **drift (schemaVersion 10):** `Groups.type` (default `'other'`), `Groups.coverImageId`, `Groups.deleted`.
   - `watchGroups` filters out deleted groups; `watchDeletedGroups` lists them.
   - **Deleted groups are left out of** the Friends tab and overall card (Phase 6), search (Phase 5) and the widget (Phase 9).
 - **Local writes:** `updateGroup` gains `type` and `removeCover`; new `deleteGroup` and `restoreGroup`, both offline-capable.
@@ -307,7 +307,7 @@ AccountExport   {"exportedAt","user":{"id","displayName","email","homeCurrency",
 
 **New error codes:** `EMAIL_NOT_CONFIGURED` 400, `EMAIL_REJECTED` 400, `CODE_INVALID` 400, `EMAIL_TAKEN` 409, `EMAIL_REQUIRED` 409, `EMAIL_UNAVAILABLE` 503. Images reuse Phase 6's codes.
 
-**Migration `V11__email_and_account.sql`:**
+**Migration `V12__email_and_account.sql`:**
 ```sql
 -- Account email. Only verified addresses are stored: an id-token claim with email_verified, or a code we sent.
 ALTER TABLE users ADD COLUMN email text;

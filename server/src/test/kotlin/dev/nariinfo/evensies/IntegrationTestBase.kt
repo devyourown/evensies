@@ -34,12 +34,33 @@ abstract class IntegrationTestBase {
         /** Exchange rates come from the local [FxStub], never the network. */
         @JvmStatic
         @DynamicPropertySource
-        fun fxSource(registry: DynamicPropertyRegistry) = registry.add("evensies.fx.url") { FxStub.url }
+        fun fxSource(registry: DynamicPropertyRegistry) {
+            registry.add("evensies.fx.url") { FxStub.url }
+            registry.add("evensies.storage-dir") { storageDir.toString() } // uploads never land in the source tree
+        }
+
+        val storageDir: java.nio.file.Path by lazy { java.nio.file.Files.createTempDirectory("evensies-storage") }
     }
 
     protected fun login(name: String): String = http.post("/auth/dev", mapOf("name" to name)).body["accessToken"].asString()
 
     protected fun myId(token: String): String = http.get("/me", token).body["id"].asString()
+
+    /** Registers a phone for [token]'s user and returns its FCM token (pushes land in [CapturingPushSender]). */
+    protected fun device(token: String): String {
+        val fcm = "tok-${UUID.randomUUID()}"
+        check(http.post("/devices", mapOf("deviceId" to UUID.randomUUID().toString(), "fcmToken" to fcm), token).status == 204)
+        return fcm
+    }
+
+    protected fun awaitUntil(what: String, check: () -> Boolean) {
+        val end = System.currentTimeMillis() + 5000
+        while (System.currentTimeMillis() < end) {
+            if (check()) return
+            Thread.sleep(20)
+        }
+        kotlin.test.fail("Timed out waiting for $what")
+    }
 
     /** Creates a group and returns the GroupDto. */
     protected fun createGroup(token: String, name: String = "Trip", currency: String = "EUR"): JsonNode {

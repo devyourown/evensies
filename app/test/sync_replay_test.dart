@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/data/api/dto.dart';
@@ -55,9 +56,51 @@ void main() {
     raw.execute("INSERT INTO session VALUES (1, 'a', 'r', 'u1', 'Anna')");
   }
 
-  test('schema 4 → 5 adds the rate cache and the home currency, keeps the session and lastSeq', () async {
+  // The comments table as schema 3 created it (expense_id NOT NULL, no payment_id).
+  // Expenses as schema 4 left them (5 and 6 kept them).
+  void v4Expenses(dynamic raw) {
+    raw.execute('CREATE TABLE "expenses" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "description" TEXT NOT NULL, '
+        '"amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "fx_rate_to_default" REAL NULL, "paid_by" TEXT NOT NULL, '
+        '"date" TEXT NOT NULL, "category" TEXT NULL, "deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
+        '"notes" TEXT NULL, "refund" INTEGER NOT NULL DEFAULT 0 CHECK ("refund" IN (0, 1)), "split_json" TEXT NULL, '
+        'PRIMARY KEY ("id"))');
+    raw.execute("INSERT INTO expenses (id, group_id, description, amount, currency, paid_by, date) "
+        "VALUES ('x1', 'g1', 'Dinner', 2000, 'EUR', 'm1', '2026-10-10')");
+  }
+
+  void v3Comments(dynamic raw) => raw.execute('CREATE TABLE "comments" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, '
+      '"expense_id" TEXT NOT NULL, "author_member_id" TEXT NOT NULL, "text" TEXT NOT NULL, "created_at" TEXT NOT NULL, '
+      '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
+
+  test('schema 5 → 7 adds the group kind, payment comments and the moved flag, keeps comments, replays', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
       v1Tables(raw);
+      v4Expenses(raw);
+      v3Comments(raw);
+      raw.execute('ALTER TABLE groups ADD COLUMN "simplify_debts" INTEGER NOT NULL DEFAULT 1 CHECK ("simplify_debts" IN (0, 1))');
+      raw.execute('ALTER TABLE groups ADD COLUMN "default_split_json" TEXT NULL');
+      raw.execute("INSERT INTO comments (id, group_id, expense_id, author_member_id, text, created_at) "
+          "VALUES ('c1', 'g1', 'x1', 'm1', 'Paid cash', '2026-10-11T09:00:00Z')");
+      raw.execute('PRAGMA user_version = 5');
+    }));
+    addTearDown(db.close);
+
+    expect((await db.getGroup('g1'))!.kind, 'group');
+    final c = await db.select(db.comments).getSingle();
+    expect((c.id, c.expenseId, c.paymentId, c.body), ('c1', 'x1', null, 'Paid cash'));
+    // expense_id is nullable now: a payment comment fits.
+    await db.into(db.comments).insert(CommentsCompanion.insert(
+        id: 'c2', groupId: 'g1', paymentId: const Value('p1'), authorMemberId: 'm1', body: 'Thanks', createdAt: 'z'));
+    expect((await db.select(db.comments).get()).length, 2);
+    expect((await db.getExpense('x1'))!.moved, isFalse);
+    expect(await db.lastSeq('g1'), 0); // schema 6 stored no moved flag: replay
+  });
+
+  test('schema 4 → 5 adds the rate cache and the home currency, keeps the session', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      v4Expenses(raw);
+      v3Comments(raw);
       raw.execute('PRAGMA user_version = 4');
     }));
     addTearDown(db.close);
@@ -65,7 +108,6 @@ void main() {
     final s = (await db.getSession())!;
     expect((s.userId, s.displayName, s.homeCurrency), ('u1', 'Anna', null));
     expect(await db.select(db.fxDays).get(), isEmpty);
-    expect(await db.lastSeq('g1'), 57); // event shapes are unchanged: no replay
   });
 
   test('schema 2 → 4 keeps rows, adds notes/comments/activity and resets lastSeq', () async {
@@ -96,6 +138,7 @@ void main() {
           '"amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "fx_rate_to_default" REAL NULL, "paid_by" TEXT NOT NULL, '
           '"date" TEXT NOT NULL, "category" TEXT NULL, "deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
           '"notes" TEXT NULL, PRIMARY KEY ("id"))');
+      v3Comments(raw);
       raw.execute("INSERT INTO expenses (id, group_id, description, amount, currency, paid_by, date) "
           "VALUES ('x1', 'g1', 'Dinner', 2000, 'EUR', 'm1', '2026-10-10')");
       raw.execute("INSERT INTO outbox VALUES ('c1', 'g1', 'expense.deleted', '{}', '2026-10-11T00:00:00Z', NULL)");
@@ -121,7 +164,7 @@ void main() {
       db = AppDatabase(NativeDatabase.memory());
       api = FakeApi(db)..events = _log;
       sync = SyncService(db: db, api: api);
-      await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1', simplifyDebts: true));
+      await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1', simplifyDebts: true));
       // What release 1 stored for that log: no notes, no comment.
       await sync.store.save(
         'g1',
@@ -230,7 +273,7 @@ void main() {
   test('store round-trips notes and comment tombstones', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
     final sync = SyncService(db: db, api: FakeApi(db));
     final s = GroupState(
       expenses: [Expense.fromJson({..._log[1].payload, 'id': 'x1'})],
@@ -249,7 +292,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
     final api = FakeApi(db);
     final sync = SyncService(db: db, api: api);
     final s = GroupState(

@@ -12,6 +12,8 @@ data class AppProperties(
     val fcm: Fcm = Fcm(),
     val push: Push = Push(),
     val fx: Fx = Fx(),
+    /** Uploaded files (avatars; Phase 7 receipts, Phase 10 covers): `EVENSIES_STORAGE_DIR`, `/data` in Docker. */
+    val storageDir: String = "./data",
 ) {
     data class Auth(
         val devLogin: Boolean = false,

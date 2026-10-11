@@ -32,8 +32,11 @@ class SettlementTest {
             val expectedTransfers = case["expectedTransfers"].values().map { Transfer(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
 
             // Transfers come from the expected balances, so they are checked even while the balances are pending.
-            // expectedPairwise is the app's pairwiseDebts; the Kotlin port comes with Phase 6.
             assertEquals(expectedTransfers, Settlement.simplify(expectedBalances))
+            case["expectedPairwise"]?.let { want ->
+                val pairwise = want.values().map { Transfer(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
+                assertEquals(pairwise, Settlement.pairwiseDebts(members, expenses, payments), "pairwise (simplify debts off)")
+            }
             assumeTrue(case["pending"] == null, "pending: hyojun (multi-payer / refund balances land with his Dart computeBalances)")
             assertEquals(expectedBalances, Settlement.balances(members, expenses, payments))
         }

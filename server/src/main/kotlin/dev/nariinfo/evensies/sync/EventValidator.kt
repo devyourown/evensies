@@ -70,6 +70,7 @@ class EventValidator {
         when (e.type) {
             "group.created" -> { requireText(p, "name", MAX_GROUP_NAME); requireCurrency(p.text("defaultCurrency")) }
             "group.updated" -> {
+                if (p.has("kind")) bad("kind is set when the group is created and cannot change") // rule 13
                 if (p.has("name")) requireText(p, "name", MAX_GROUP_NAME)
                 // Rule 12 ignores a late currency change instead of rejecting it: an offline client can't know.
                 if (p.field("defaultCurrency") != null) requireCurrency(p.text("defaultCurrency"))
@@ -79,6 +80,7 @@ class EventValidator {
             "member.added" -> {
                 requireUuid(p, "memberId"); requireText(p, "name", MAX_MEMBER_NAME); requireOwnUser(p, actor)
                 if (p.text("memberId") !in s.members) {
+                    if (s.kind == "friend" && s.members.size >= 2) throw ApiException.limit("A friend group has exactly two members")
                     if (s.members.size >= MAX_MEMBERS) throw ApiException.limit("A group can have at most $MAX_MEMBERS members")
                     if (p.text("userId") != null) requireNoActiveMember(s, actor)
                 }
@@ -90,7 +92,10 @@ class EventValidator {
                 }
                 requireNoActiveMember(s, actor)
             }
-            "member.removed" -> requireMember(s, p.text("memberId"))
+            "member.removed" -> {
+                if (s.kind == "friend") bad("Nobody can leave or be removed from a friend group")
+                requireMember(s, p.text("memberId"))
+            }
             "expense.created" -> {
                 requireUuid(p, "expenseId"); requireExpenseFields(p, created = true); requireNoDeleted(p)
                 validateExpense(s, EventApplier.apply(s, e.type, p).expenses.getValue(p.text("expenseId")!!))
@@ -105,14 +110,24 @@ class EventValidator {
                     validateExpense(s, EventApplier.apply(s, e.type, p).expenses.getValue(before.id))
                 }
             }
-            "expense.deleted", "expense.restored" -> requireUuid(p, "expenseId")
+            "expense.deleted" -> {
+                requireUuid(p, "expenseId")
+                // Phase 6 move: only the shape is checked, the target group and expense are not looked up.
+                p.field("movedTo")?.let { if (!it.isObject) bad("movedTo must be an object or null"); requireUuid(it, "groupId"); requireUuid(it, "expenseId") }
+            }
+            "expense.restored" -> requireUuid(p, "expenseId")
             "comment.added" -> {
-                requireUuid(p, "commentId"); requireUuid(p, "expenseId"); requireNoDeleted(p)
+                requireUuid(p, "commentId"); requireNoDeleted(p)
+                // Exactly one target (Phase 6: a payment); null counts as absent.
+                val onExpense = p.field("expenseId") != null
+                if (onExpense == (p.field("paymentId") != null)) bad("Send exactly one of expenseId and paymentId")
+                requireUuid(p, if (onExpense) "expenseId" else "paymentId")
                 val author = s.members[p.text("authorMemberId")]
                 if (author == null || author.removed || author.userId != actor.toString()) {
                     throw ApiException.forbidden("authorMemberId must be your own member")
                 }
-                if (p.text("expenseId") !in s.expenses) bad("expenseId refers to an unknown expense")
+                if (onExpense && p.text("expenseId") !in s.expenses) bad("expenseId refers to an unknown expense")
+                if (!onExpense && p.text("paymentId") !in s.payments) bad("paymentId refers to an unknown payment")
                 val text = p.field("text")?.takeIf { it.isString }?.asString()
                 if (text.isNullOrBlank() || text.length > MAX_COMMENT) bad("text must be 1 to $MAX_COMMENT characters")
                 try { Instant.parse(p.text("createdAt") ?: bad("createdAt is required")) } catch (_: DateTimeParseException) {
@@ -129,6 +144,7 @@ class EventValidator {
             "payment.created" -> {
                 requireUuid(p, "paymentId"); requireNoDeleted(p)
                 requireMember(s, p.text("fromMember")); requireMember(s, p.text("toMember"))
+                if (p.text("fromMember") == p.text("toMember")) bad("fromMember and toMember must differ")
                 requireAmount(p.field("amount")?.takeIf(::isMinorUnits)?.asLong()); requireCurrency(p.text("currency")); requireDate(p.text("date"))
                 p.text("status")?.let { if (it != "sent" && it != "confirmed") bad("status must be sent or confirmed") }
             }

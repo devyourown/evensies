@@ -1,0 +1,83 @@
+{
+  "_doc": "개요 케이스 (Friends 탭, 전체 카드, 리마인더; docs/API.md '개요'). 앱 overview_test.dart와 서버 OverviewTest가 읽는다. 그룹마다: groups[]의 그룹(스냅숏 모양: id, kind, defaultCurrency, simplifyDebts?, members, expenses, payments)으로 상태를 만들고 → balancesOf / Balances.ofGroup → groupTransfers / Balances.transfers(4단계 칸: 외화 지출은 fxRateToDefault > 0이면 convertExpense로 기본 통화에 들어가고 아니면 자기 통화 칸에 남는다) → GroupLedger.of(me) → computeOverview. person 키: 연결된 멤버는 userId, 친구 그룹의 자리표시는 \"g:<groupId>\", 보통 그룹의 자리표시는 \"m:<memberId>\". 내 멤버 = userId가 me인 모든 멤버(removed 포함). 송금마다 to만 내 멤버면 people[from의 키]에 +amount, from만 내 멤버면 people[to의 키]에 −amount, 둘 다 내 멤버거나 둘 다 아니면 무시. people: person → 통화 → 금액(+ 그 사람이 나에게 줄 돈), byGroup: person → groupId → 통화 → 금액, 0은 빼고 빈 person·그룹도 뺀다. owedToMe / iOwe: 통화별 양수 합 / 음수 합의 절댓값. 불변식(테스트): 통화마다 owedToMe − iOwe = 모든 그룹에서 내 멤버들 잔액의 합. 기본값: fxRateToDefault·category = null, payers = [{paidBy, amount}], deleted = false, status = confirmed, removed = false, simplifyDebts = true.",
+  "cases": [
+    {"name": "friend group and a shared group net out in one currency", "me": "u-anna",
+     "groups": [
+      {"id": "g-friend", "kind": "friend", "defaultCurrency": "EUR",
+       "members": [{"id": "f1", "name": "Anna", "userId": "u-anna"}, {"id": "f2", "name": "Ben", "userId": "u-ben"}],
+       "expenses": [{"id": "x1", "description": "Taxi", "amount": 2000, "currency": "EUR", "paidBy": "f1", "date": "2026-10-01", "shares": [{"memberId": "f1", "amount": 1000}, {"memberId": "f2", "amount": 1000}]}],
+       "payments": []},
+      {"id": "g-rome", "kind": "group", "defaultCurrency": "EUR",
+       "members": [{"id": "r1", "name": "Anna", "userId": "u-anna"}, {"id": "r2", "name": "Ben", "userId": "u-ben"}, {"id": "r3", "name": "Carlo", "userId": null}],
+       "expenses": [{"id": "x2", "description": "Hotel", "amount": 9000, "currency": "EUR", "paidBy": "r2", "date": "2026-10-02", "shares": [{"memberId": "r1", "amount": 3000}, {"memberId": "r2", "amount": 3000}, {"memberId": "r3", "amount": 3000}]}],
+       "payments": []}],
+     "expected": {"people": {"u-ben": {"EUR": -2000}}, "byGroup": {"u-ben": {"g-friend": {"EUR": 1000}, "g-rome": {"EUR": -3000}}},
+                  "owedToMe": {}, "iOwe": {"EUR": 2000}}},
+    {"name": "currencies never mix; a converted expense counts in EUR, an unconverted one stays in USD", "me": "u-anna",
+     "groups": [
+      {"id": "g-friend", "kind": "friend", "defaultCurrency": "EUR",
+       "members": [{"id": "f1", "name": "Anna", "userId": "u-anna"}, {"id": "f2", "name": "Ben", "userId": "u-ben"}],
+       "expenses": [
+        {"id": "x1", "description": "Dinner", "amount": 4000, "currency": "EUR", "paidBy": "f2", "date": "2026-10-01", "shares": [{"memberId": "f1", "amount": 2000}, {"memberId": "f2", "amount": 2000}]},
+        {"id": "x2", "description": "Museum", "amount": 1000, "currency": "USD", "fxRateToDefault": 0.9, "paidBy": "f1", "date": "2026-10-02", "shares": [{"memberId": "f1", "amount": 500}, {"memberId": "f2", "amount": 500}]},
+        {"id": "x3", "description": "Snacks", "amount": 600, "currency": "USD", "paidBy": "f2", "date": "2026-10-03", "shares": [{"memberId": "f1", "amount": 300}, {"memberId": "f2", "amount": 300}]}],
+       "payments": []},
+      {"id": "g-ny", "kind": "group", "defaultCurrency": "USD",
+       "members": [{"id": "n1", "name": "Anna", "userId": "u-anna"}, {"id": "n2", "name": "Ben", "userId": "u-ben"}, {"id": "n3", "name": "Dana", "userId": "u-dana"}],
+       "expenses": [{"id": "x4", "description": "Brunch", "amount": 3000, "currency": "USD", "paidBy": "n1", "date": "2026-10-04", "shares": [{"memberId": "n1", "amount": 1000}, {"memberId": "n2", "amount": 1000}, {"memberId": "n3", "amount": 1000}]}],
+       "payments": []}],
+     "expected": {"people": {"u-ben": {"EUR": -1550, "USD": 700}, "u-dana": {"USD": 1000}},
+                  "byGroup": {"u-ben": {"g-friend": {"EUR": -1550, "USD": -300}, "g-ny": {"USD": 1000}}, "u-dana": {"g-ny": {"USD": 1000}}},
+                  "owedToMe": {"USD": 1700}, "iOwe": {"EUR": 1550}}},
+    {"name": "a debt only in an unconverted bucket stays in its own currency; a payment in that currency settles it (Cara)", "me": "u-anna",
+     "groups": [
+      {"id": "g-tokyo", "kind": "group", "defaultCurrency": "EUR",
+       "members": [{"id": "k1", "name": "Anna", "userId": "u-anna"}, {"id": "k2", "name": "Ben", "userId": "u-ben"}, {"id": "k3", "name": "Cara", "userId": "u-cara"}],
+       "expenses": [
+        {"id": "x1", "description": "Sushi", "amount": 6000, "currency": "JPY", "paidBy": "k1", "date": "2026-10-01", "shares": [{"memberId": "k1", "amount": 2000}, {"memberId": "k2", "amount": 2000}, {"memberId": "k3", "amount": 2000}]}],
+       "payments": [{"id": "y1", "fromMember": "k3", "toMember": "k1", "amount": 2000, "currency": "JPY", "date": "2026-10-02"}]}],
+     "expected": {"people": {"u-ben": {"JPY": 2000}}, "byGroup": {"u-ben": {"g-tokyo": {"JPY": 2000}}},
+                  "owedToMe": {"JPY": 2000}, "iOwe": {}}},
+    {"name": "placeholders get their own keys; payments count", "me": "u-anna",
+     "groups": [
+      {"id": "g-pf", "kind": "friend", "defaultCurrency": "JPY",
+       "members": [{"id": "p1", "name": "Anna", "userId": "u-anna"}, {"id": "p2", "name": "Ben", "userId": null}],
+       "expenses": [{"id": "x1", "description": "Ramen", "amount": 3000, "currency": "JPY", "paidBy": "p1", "date": "2026-10-01", "shares": [{"memberId": "p1", "amount": 1500}, {"memberId": "p2", "amount": 1500}]}],
+       "payments": []},
+      {"id": "g-trip", "kind": "group", "defaultCurrency": "EUR",
+       "members": [{"id": "t1", "name": "Anna", "userId": "u-anna"}, {"id": "t2", "name": "Carlo", "userId": null}],
+       "expenses": [{"id": "x2", "description": "Train", "amount": 1000, "currency": "EUR", "paidBy": "t2", "date": "2026-10-02", "shares": [{"memberId": "t1", "amount": 500}, {"memberId": "t2", "amount": 500}]}],
+       "payments": [{"id": "y1", "fromMember": "t1", "toMember": "t2", "amount": 200, "currency": "EUR", "date": "2026-10-03"}]}],
+     "expected": {"people": {"g:g-pf": {"JPY": 1500}, "m:t2": {"EUR": -300}}, "byGroup": {"g:g-pf": {"g-pf": {"JPY": 1500}}, "m:t2": {"g-trip": {"EUR": -300}}},
+                  "owedToMe": {"JPY": 1500}, "iOwe": {"EUR": 300}}},
+    {"name": "settled with me: other people's transfers are ignored", "me": "u-anna",
+     "groups": [
+      {"id": "g-flat", "kind": "group", "defaultCurrency": "EUR",
+       "members": [{"id": "a1", "name": "Anna", "userId": "u-anna"}, {"id": "a2", "name": "Ben", "userId": "u-ben"}, {"id": "a3", "name": "Carlo", "userId": "u-carlo"}],
+       "expenses": [
+        {"id": "x1", "description": "Groceries", "amount": 2000, "currency": "EUR", "paidBy": "a2", "date": "2026-10-01", "shares": [{"memberId": "a2", "amount": 1000}, {"memberId": "a3", "amount": 1000}]},
+        {"id": "x2", "description": "Wine", "amount": 1000, "currency": "EUR", "paidBy": "a1", "date": "2026-10-02", "shares": [{"memberId": "a1", "amount": 500}, {"memberId": "a2", "amount": 500}]}],
+       "payments": [{"id": "y1", "fromMember": "a2", "toMember": "a1", "amount": 500, "currency": "EUR", "date": "2026-10-03"}]}],
+     "expected": {"people": {}, "byGroup": {}, "owedToMe": {}, "iOwe": {}}},
+    {"name": "simplify debts off: debts as they arose (pairwise), not the simplified transfer", "me": "u-anna",
+     "groups": [
+      {"id": "g-house", "kind": "group", "defaultCurrency": "EUR", "simplifyDebts": false,
+       "members": [{"id": "h1", "name": "Anna", "userId": "u-anna"}, {"id": "h2", "name": "Ben", "userId": "u-ben"}, {"id": "h3", "name": "Cara", "userId": "u-cara"}],
+       "expenses": [
+        {"id": "x1", "description": "Gas bill", "amount": 2000, "currency": "EUR", "paidBy": "h1", "date": "2026-10-01", "shares": [{"memberId": "h2", "amount": 2000}]},
+        {"id": "x2", "description": "Internet", "amount": 2000, "currency": "EUR", "paidBy": "h2", "date": "2026-10-02", "shares": [{"memberId": "h3", "amount": 2000}]}],
+       "payments": []}],
+     "expected": {"people": {"u-ben": {"EUR": 2000}}, "byGroup": {"u-ben": {"g-house": {"EUR": 2000}}},
+                  "owedToMe": {"EUR": 2000}, "iOwe": {}}},
+    {"name": "left and rejoined: every member of mine counts, a transfer between two of them is ignored", "me": "u-anna",
+     "groups": [
+      {"id": "g-club", "kind": "group", "defaultCurrency": "EUR",
+       "members": [{"id": "o1", "name": "Anna", "userId": "u-anna", "removed": true}, {"id": "o2", "name": "Ben", "userId": "u-ben"}, {"id": "o3", "name": "Anna", "userId": "u-anna"}],
+       "expenses": [
+        {"id": "x1", "description": "Court", "amount": 500, "currency": "EUR", "paidBy": "o1", "date": "2026-10-01", "shares": [{"memberId": "o3", "amount": 500}]},
+        {"id": "x2", "description": "Balls", "amount": 1000, "currency": "EUR", "paidBy": "o2", "date": "2026-10-02", "shares": [{"memberId": "o3", "amount": 1000}]}],
+       "payments": []}],
+     "expected": {"people": {"u-ben": {"EUR": -1000}}, "byGroup": {"u-ben": {"g-club": {"EUR": -1000}}},
+                  "owedToMe": {}, "iOwe": {"EUR": 1000}}}
+  ]
+}

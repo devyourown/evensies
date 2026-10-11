@@ -1,6 +1,8 @@
 package dev.nariinfo.evensies
 
+import org.apache.hc.client5.http.impl.classic.HttpClients
 import org.springframework.core.io.ByteArrayResource
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
@@ -10,13 +12,16 @@ import tools.jackson.databind.ObjectMapper
 
 /** Thin real-HTTP client for tests: never throws on 4xx/5xx, returns status + parsed body. */
 class Http(port: Int, private val mapper: ObjectMapper) {
-    data class Resp(val status: Int, val text: String) {
+    /** [bytes]: the raw body (images); [headers]: one value per lowercase name. */
+    data class Resp(val status: Int, val text: String, val bytes: ByteArray = ByteArray(0), val headers: Map<String, String> = emptyMap()) {
         lateinit var mapper: ObjectMapper
         val body: JsonNode get() = mapper.readTree(text)
         fun code(): String? = if (text.startsWith("{")) body.get("code")?.asString() else null
     }
 
-    private val client = RestClient.builder().baseUrl("http://localhost:$port").build()
+    // No automatic retries: Apache HttpClient would otherwise honour a 429's Retry-After (a reminder's is a day).
+    private val client = RestClient.builder().baseUrl("http://localhost:$port")
+        .requestFactory(HttpComponentsClientHttpRequestFactory(HttpClients.custom().disableAutomaticRetries().build())).build()
 
     fun send(method: HttpMethod, path: String, body: Any? = null, token: String? = null): Resp {
         val spec = client.method(method).uri(path).headers { h -> token?.let { h.setBearerAuth(it) } }
@@ -24,15 +29,16 @@ class Http(port: Int, private val mapper: ObjectMapper) {
         return exchange(spec)
     }
 
-    fun upload(path: String, field: String, filename: String, bytes: ByteArray, token: String): Resp {
+    fun upload(path: String, field: String, filename: String, bytes: ByteArray, token: String, method: HttpMethod = HttpMethod.POST): Resp {
         val form = LinkedMultiValueMap<String, Any>()
         form.add(field, object : ByteArrayResource(bytes) { override fun getFilename() = filename })
-        val spec = client.post().uri(path).headers { it.setBearerAuth(token) }.contentType(MediaType.MULTIPART_FORM_DATA).body(form)
+        val spec = client.method(method).uri(path).headers { it.setBearerAuth(token) }.contentType(MediaType.MULTIPART_FORM_DATA).body(form)
         return exchange(spec)
     }
 
     private fun exchange(spec: RestClient.RequestBodySpec): Resp = spec.exchange { _, res ->
-        Resp(res.statusCode.value(), res.body.readAllBytes().decodeToString()).also { it.mapper = mapper }
+        val bytes = res.body.readAllBytes()
+        Resp(res.statusCode.value(), bytes.decodeToString(), bytes, res.headers.toSingleValueMap().mapKeys { it.key.lowercase() }).also { it.mapper = mapper }
     }
 
     fun get(path: String, token: String? = null) = send(HttpMethod.GET, path, null, token)

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/currency_picker.dart';
@@ -12,7 +13,6 @@ import 'package:evensies/core/money.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/domain/categories.dart';
-import 'package:evensies/domain/fx.dart';
 import 'package:evensies/features/expense_form/expense_form_screen.dart';
 import 'package:evensies/core/env.dart';
 import 'package:evensies/providers.dart';
@@ -37,7 +37,7 @@ void main() {
     api = FakeApi(db);
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
-    await db.upsertGroup(const GroupRow(id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben', userId: const Value(null)));
   });
@@ -125,6 +125,7 @@ void main() {
   });
 
   testWidgets('exact mode shows one field per member', (t) async {
+    tall(t);
     await t.pumpWidget(app());
     await t.pumpAndSettle();
     expect(find.byKey(const Key('share-m1')), findsNothing);
@@ -226,6 +227,13 @@ void main() {
       await guess(t); // an overflow fails the test
       expect(auto(), isTrue);
       expect(t.getSize(find.text('Taxi')).width, greaterThan(100));
+      // The currency under the amount, its code whole (not "EL"); split modes as chips, not words broken mid-way.
+      expect(t.getSize(find.byKey(const Key('currency'))).width, greaterThan(300));
+      expect(find.ancestor(of: find.byKey(const Key('mode-equal')), matching: find.byType(ChoiceChip)), findsOneWidget);
+      for (final m in ['equal', 'exact', 'shares']) {
+        expect(t.renderObject<RenderParagraph>(find.byKey(Key('mode-$m'))).didExceedMaxLines, isFalse);
+        expect(t.getSize(find.byKey(Key('mode-$m'))).height, lessThan(80), reason: '$m on one line');
+      }
       await unmount(t);
     });
 

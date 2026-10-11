@@ -62,6 +62,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         myMemberId: dto.myMemberId,
         simplifyDebts: dto.simplifyDebts,
         defaultSplitJson: splitToJson(dto.defaultSplit),
+        kind: dto.kind,
       ));
       await db.into(db.members).insert(MembersCompanion.insert(
           id: memberId, groupId: id, name: _me.text.trim(), userId: Value(ref.read(sessionProvider).value?.userId)));

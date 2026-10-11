@@ -23,7 +23,7 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     await db.upsertGroup(
-      const GroupRow(
+      const GroupRow(kind: 'group', 
         id: 'g1',
         name: 'Rome',
         defaultCurrency: 'EUR',

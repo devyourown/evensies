@@ -34,8 +34,21 @@ class UserRepository(private val jdbc: JdbcClient) {
         """
     ).param("name", name).param("currency", homeCurrency).param("id", id).query(mapper).single()
 
+    /** Phase 6 friend codes (`users.friend_code`, one namespace with group invite codes). */
+    fun friendCode(id: UUID): String? =
+        jdbc.sql("SELECT friend_code FROM users WHERE id = :id").param("id", id).query(String::class.java).optional().orElse(null)
+
+    /** [onlyIfNone]: the first `GET /me/friend-code` keeps a code another request set meanwhile. */
+    fun setFriendCode(id: UUID, code: String, onlyIfNone: Boolean) {
+        jdbc.sql("UPDATE users SET friend_code = :c WHERE id = :id" + if (onlyIfNone) " AND friend_code IS NULL" else "")
+            .param("c", code).param("id", id).update()
+    }
+
+    fun findByFriendCode(code: String): User? =
+        jdbc.sql("SELECT * FROM users WHERE friend_code = :c AND deleted_at IS NULL").param("c", code).query(mapper).optional().orElse(null)
+
     fun markDeleted(id: UUID) {
-        jdbc.sql("UPDATE users SET deleted_at = :now WHERE id = :id AND deleted_at IS NULL")
+        jdbc.sql("UPDATE users SET deleted_at = :now, friend_code = NULL WHERE id = :id AND deleted_at IS NULL")
             .param("now", OffsetDateTime.now()).param("id", id).update()
     }
 }

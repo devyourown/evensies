@@ -1,6 +1,7 @@
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:drift/drift.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/env.dart';
@@ -53,6 +54,15 @@ final commentsProvider = StreamProvider.family<List<CommentRow>, String>((ref, i
   return (db.select(db.comments)..where((c) => c.groupId.equals(id))).watch();
 });
 
+/// Whether the expense was deleted by a move (docs/API.md 지출 옮기기): restoring it would count it in both groups, so
+/// the app offers no Restore (and the appliers ignore one, rule 13).
+final movedAwayProvider = StreamProvider.family<bool, ({String groupId, String expenseId})>((ref, k) {
+  final db = ref.watch(dbProvider);
+  return (db.select(db.expenses)..where((e) => e.id.equals(k.expenseId)))
+      .watchSingleOrNull()
+      .map((r) => r?.moved ?? false);
+});
+
 /// Offline chip state, mirrored from SyncService.
 final offlineProvider = Provider<bool>((ref) {
   final n = ref.watch(syncProvider).offline;
@@ -61,3 +71,51 @@ final offlineProvider = Provider<bool>((ref) {
   ref.onDispose(() => n.removeListener(listener));
   return n.value;
 });
+
+/// A user's profile photo through the API (token refresh included), kept until the app comes back to the front; null
+/// when there is none, it isn't visible to me, or the server can't be reached (initials then). Mine is invalidated
+/// after a change.
+final avatarProvider = FutureProvider.family<Uint8List?, String>((ref, userId) async {
+  try {
+    return await ref.read(apiProvider).avatar(userId);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Unread activity (docs/API.md 읽지 않은 활동); null when unknown or when the server has no such endpoint (badges
+/// hidden). Online only: a failed refresh keeps what is shown.
+class UnreadNotifier extends Notifier<ActivityUnread?> {
+  static const _badge = MethodChannel('evensies/badge');
+
+  @override
+  ActivityUnread? build() => null;
+
+  Future<void> refresh() => _run(() => ref.read(apiProvider).activityUnread());
+
+  /// Signed out or another account: no counts, and no icon badge left from the previous account.
+  void reset() {
+    state = null;
+    _badge.invokeMethod('set', 0).catchError((_) => null);
+  }
+
+  /// After the first page of a feed: marks it seen up to [feedId] ([groupId] for a group's tab).
+  Future<void> seen(int feedId, {String? groupId}) =>
+      _run(() => ref.read(apiProvider).activitySeen(feedId, groupId: groupId));
+
+  Future<void> _run(Future<ActivityUnread> Function() f) async {
+    try {
+      final u = await f();
+      state = u;
+      // iOS app icon; no-op elsewhere (Android launchers count the notifications).
+      await _badge.invokeMethod('set', u.total).catchError((_) => null);
+    } on ApiException catch (e) {
+      if (e.status == 404) state = null; // a server before Phase 6
+    } catch (_) {}
+  }
+}
+
+final unreadProvider = NotifierProvider<UnreadNotifier, ActivityUnread?>(UnreadNotifier.new);
+
+/// "3", or "99+" past 99.
+String badgeLabel(int n) => n > 99 ? '99+' : '$n';

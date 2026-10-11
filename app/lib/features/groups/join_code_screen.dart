@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/invite_code.dart';
 import '../../data/api/dto.dart';
 import '../../providers.dart';
+import '../friends/add_friend_screen.dart' show addFriendByCode;
 
 /// Keeps the field as a formatted code (`ABC-DEF`); a pasted link collapses to its code.
 class _CodeFormatter extends TextInputFormatter {
@@ -31,6 +32,9 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
   String _looked = ''; // code of the latest preview request
   bool _loading = false;
   InvitePreview? _preview;
+  /// A friend code (Phase 6, one namespace with group codes): the person's display name.
+  String? _friend;
+  bool _adding = false;
   String? _error;
 
   String get _code => normalizeInviteCode(_ctl.text);
@@ -62,14 +66,27 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
     _looked = code;
     setState(() {
       _preview = null;
+      _friend = null;
       _error = null;
       _loading = code.length == 6 || code.length == 10;
     });
     if (!_loading) return;
+    final api = ref.read(apiProvider);
     try {
-      final p = await ref.read(apiProvider).invitePreview(code);
+      final p = await api.invitePreview(code);
       if (mounted && _looked == code) setState(() => _preview = p);
     } on ApiException catch (e) {
+      // Not a group: maybe a friend code (docs/API.md: invites first, then friend-invites).
+      if (e.status == 404 && code.length == 6) {
+        try {
+          final name = await api.friendInvite(code);
+          if (mounted && _looked == code) setState(() => _friend = name);
+          return;
+        } on ApiException catch (f) {
+          if (mounted && _looked == code) setState(() => _error = _message(f));
+          return;
+        }
+      }
       if (mounted && _looked == code) setState(() => _error = _message(e));
     } finally {
       if (mounted && _looked == code) setState(() => _loading = false);
@@ -77,7 +94,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
   }
 
   String _message(ApiException e) => switch (e) {
-        ApiException(status: 404) => 'No group found for this code',
+        ApiException(status: 404) => 'No group or friend found for this code',
         ApiException(status: 429) => 'Too many tries. Wait a minute and try again.',
         ApiException(code: 'NETWORK') => 'Joining a group needs a connection.',
         _ => e.message,
@@ -89,11 +106,12 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
     final text = Theme.of(context).textTheme;
     final p = _preview;
     return Scaffold(
-      appBar: AppBar(title: const Text('Join a group')),
+      appBar: AppBar(title: const Text('Enter a code')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          Text('Ask someone in the group for the 6-character code. They can find it in the group → Members.',
+          Text(
+              'A group code is in the group → Members. A friend code is on their Friends tab → Add a friend.',
               textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 24),
           TextField(
@@ -119,13 +137,40 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
           const SizedBox(height: 24),
           if (_loading) const Center(child: CircularProgressIndicator()),
           if (_error != null) Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: cs.error)),
+          if (_friend != null)
+            Card(
+              key: const Key('friend-code-preview'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('$_friend · on Evensies', style: text.titleMedium, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _adding
+                        ? null
+                        : () async {
+                            setState(() => _adding = true);
+                            await addFriendByCode(context, ref, _code);
+                            if (mounted) setState(() => _adding = false);
+                          },
+                    child: Text('Add $_friend as a friend'),
+                  ),
+                ]),
+              ),
+            ),
           if (p != null)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('${p.name} · ${p.memberCount} ${p.memberCount == 1 ? 'member' : 'members'}',
-                      style: text.titleMedium, textAlign: TextAlign.center),
+                  // A placeholder friend's code: the friend group's name is internal (docs/API.md 친구), say who added me.
+                  Text(
+                      p.kind == 'friend'
+                          ? '${p.members.where((m) => m.linked).firstOrNull?.name ?? 'Someone'} added you as a friend'
+                          : '${p.name} · ${p.memberCount} ${p.memberCount == 1 ? 'member' : 'members'}',
+                      key: const Key('group-code-preview'),
+                      style: text.titleMedium,
+                      textAlign: TextAlign.center),
                   const SizedBox(height: 12),
                   FilledButton(onPressed: () => context.push('/join/$_code'), child: const Text('Continue')),
                 ]),

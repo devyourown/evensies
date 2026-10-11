@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:evensies/data/api/api_client.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
@@ -64,8 +67,19 @@ class FakeApi extends ApiClient {
     return f(groupId, events);
   }
 
+  /// groupId → memberId → methods; null = unreachable.
+  Map<String, Map<String, List<PaymentMethod>>>? methods;
+
   @override
-  Future<Map<String, List<PaymentMethod>>> groupPaymentMethods(String groupId) async => throw offline;
+  Future<Map<String, List<PaymentMethod>>> groupPaymentMethods(String groupId) async =>
+      (methods ?? (throw offline))[groupId] ?? const {};
+
+  @override
+  Future<Uint8List> avatar(String userId) async => throw offline;
+  @override
+  Future<ActivityUnread> activityUnread() async => throw offline;
+  @override
+  Future<ActivityUnread> activitySeen(int feedId, {String? groupId}) async => throw offline;
 
   /// GET /fx: date (null = today) → table; null = unreachable. Asked dates land in [fxCalls].
   FxTable Function(String? date)? onFx;
@@ -102,13 +116,15 @@ class FakeApi extends ApiClient {
     return UserDto(id: 'u1', displayName: displayName ?? 'Anna', homeCurrency: homeCurrency);
   }
 
-  /// GET /groups ids; null = unreachable.
+  /// GET /groups ids; null = unreachable. [groupKinds]: id → kind (default `group`).
   List<String>? groupIds;
+  Map<String, String> groupKinds = const {};
 
   @override
   Future<List<GroupSummaryDto>> listGroups() async => [
         for (final id in groupIds ?? (throw offline))
-          GroupSummaryDto(id: id, name: id, defaultCurrency: 'EUR', latestSeq: 0, memberCount: 1),
+          GroupSummaryDto(
+              id: id, name: id, defaultCurrency: 'EUR', latestSeq: 0, memberCount: 1, kind: groupKinds[id] ?? 'group'),
       ];
 
   /// GET /groups/{id}: a status to fail with (403, 404), or null to answer 200; [groupCode] overrides the server's
@@ -143,9 +159,89 @@ class FakeApi extends ApiClient {
   }
 }
 
+/// Phase 6 endpoints: each answers from its field, or throws like an unreachable server when it is null.
+class FakeApi6 extends FakeApi {
+  FakeApi6(super.db);
+
+  ActivityUnread? unread;
+  final seenCalls = <(int, String?)>[];
+  @override
+  Future<ActivityUnread> activityUnread() async => unread ?? (throw FakeApi.offline);
+  @override
+  Future<ActivityUnread> activitySeen(int feedId, {String? groupId}) async {
+    seenCalls.add((feedId, groupId));
+    return unread ?? (throw FakeApi.offline);
+  }
+
+  /// GET /invites/{code}; a missing code is a 404.
+  final invites = <String, InvitePreview>{};
+  @override
+  Future<InvitePreview> invitePreview(String code) async =>
+      invites[code] ?? (throw const ApiException(status: 404, code: 'NOT_FOUND', message: 'no'));
+
+  /// POST /invites/{code}/join {memberId}: (code, memberId) calls; answers [joined].
+  final joins = <(String, String)>[];
+  GroupDto? joined;
+  @override
+  Future<GroupDto> joinExisting(String code, String memberId) async {
+    joins.add((code, memberId));
+    return joined ?? (throw FakeApi.offline);
+  }
+
+  FriendCode? code;
+  int rotations = 0;
+  @override
+  Future<FriendCode> friendCode() async => code ?? (throw FakeApi.offline);
+  @override
+  Future<FriendCode> rotateFriendCode() async {
+    rotations++;
+    return code = (friendCode: 'NEW234', link: 'https://e.test/f/NEW234');
+  }
+
+  /// code → display name; a missing code is a 404.
+  Map<String, String>? friendNames;
+  @override
+  Future<String> friendInvite(String code) async {
+    final n = friendNames ?? (throw FakeApi.offline);
+    return n[code] ?? (throw const ApiException(status: 404, code: 'NOT_FOUND', message: 'no'));
+  }
+
+  /// POST /friends bodies; [onAddFriend] answers (null = unreachable).
+  final friendCalls = <Map<String, String?>>[];
+  GroupDto Function(Map<String, String?> body)? onAddFriend;
+  @override
+  Future<GroupDto> addFriend(
+      {required String id, required String defaultCurrency, String? code, String? userId, String? name}) async {
+    final body = {'id': id, 'defaultCurrency': defaultCurrency, 'code': code, 'userId': userId, 'name': name};
+    friendCalls.add(body);
+    return (onAddFriend ?? (throw FakeApi.offline))(body);
+  }
+
+  /// POST /friends/{userId}/remind: the answer, or an error to throw.
+  final reminded = <String>[];
+  Object? remindResult;
+  @override
+  Future<Map<String, int>> remind(String userId) async {
+    reminded.add(userId);
+    final r = remindResult ?? (throw FakeApi.offline);
+    if (r is Map<String, int>) return r;
+    throw r;
+  }
+
+  final avatars = <String, Uint8List>{};
+  final avatarUploads = <String>[];
+  int avatarDeletes = 0;
+  @override
+  Future<Uint8List> avatar(String userId) async => avatars[userId] ?? (throw FakeApi.offline);
+  @override
+  Future<void> putAvatar(File jpeg) async => avatarUploads.add(jpeg.path);
+  @override
+  Future<void> deleteAvatar() async => avatarDeletes++;
+}
+
 /// SyncService that never touches the network from local writes; [later] records syncLater calls.
 class NoSync extends SyncService {
-  NoSync(AppDatabase db) : super(db: db, api: FakeApi(db));
+  NoSync(AppDatabase db, [ApiClient? api]) : super(db: db, api: api ?? FakeApi(db));
   final later = <String>[];
   @override
   void syncLater(String groupId) => later.add(groupId);

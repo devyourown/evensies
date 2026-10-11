@@ -230,6 +230,15 @@ class SplitEditor extends StatelessWidget {
     this.modes = SplitMode.values,
   });
 
+  static String? _tooltip(SplitMode m) => splitModeReady(m)
+      ? switch (m) {
+          SplitMode.percent => 'By percent',
+          SplitMode.shares => 'By shares',
+          SplitMode.adjustment => 'Adjust: extra or less for someone, the rest equally',
+          _ => null,
+        }
+      : notImplementedLabel;
+
   static const _labels = {
     SplitMode.equal: 'Equal',
     SplitMode.exact: 'Exact',
@@ -314,27 +323,32 @@ class SplitEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SegmentedButton<SplitMode>(
-          showSelectedIcon: false,
-          segments: [
+        // The largest text sizes: chips that wrap, not segments that break the words mid-way.
+        if (MediaQuery.textScalerOf(context).scale(1) > 2)
+          Wrap(spacing: 8, runSpacing: 4, children: [
             for (final m in modes)
-              ButtonSegment(
-                value: m,
+              ChoiceChip(
                 label: Text(_labels[m]!, key: Key('mode-${m.name}')),
-                enabled: splitModeReady(m),
-                tooltip: splitModeReady(m)
-                    ? switch (m) {
-                        SplitMode.percent => 'By percent',
-                        SplitMode.shares => 'By shares',
-                        SplitMode.adjustment => 'Adjust: extra or less for someone, the rest equally',
-                        _ => null,
-                      }
-                    : notImplementedLabel,
+                tooltip: _tooltip(m),
+                selected: m == mode,
+                onSelected: splitModeReady(m) ? (_) => c.mode = m : null,
               ),
-          ],
-          selected: {mode},
-          onSelectionChanged: (s) => c.mode = s.first,
-        ),
+          ])
+        else
+          SegmentedButton<SplitMode>(
+            showSelectedIcon: false,
+            segments: [
+              for (final m in modes)
+                ButtonSegment(
+                  value: m,
+                  label: Text(_labels[m]!, key: Key('mode-${m.name}')),
+                  enabled: splitModeReady(m),
+                  tooltip: _tooltip(m),
+                ),
+            ],
+            selected: {mode},
+            onSelectionChanged: (s) => c.mode = s.first,
+          ),
         if (mode == SplitMode.adjustment)
           Padding(
             padding: const EdgeInsets.only(top: 8),

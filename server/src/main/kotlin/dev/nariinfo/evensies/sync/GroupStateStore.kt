@@ -16,11 +16,12 @@ import java.util.UUID
 @Repository
 class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMapper) {
     fun load(groupId: UUID): GroupState {
-        val group = jdbc.sql("SELECT name, default_currency, simplify_debts, default_split FROM groups WHERE id = :id").param("id", groupId)
+        val group = jdbc.sql("SELECT name, default_currency, simplify_debts, default_split, kind FROM groups WHERE id = :id").param("id", groupId)
             .query { rs, _ ->
                 GroupState(
                     name = rs.getString("name"), defaultCurrency = rs.getString("default_currency"),
                     simplifyDebts = rs.getBoolean("simplify_debts"), defaultSplit = json(rs.getString("default_split")),
+                    kind = rs.getString("kind"),
                 )
             }.optional().orElse(GroupState())
         val members = jdbc.sql("SELECT * FROM members WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -50,6 +51,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                     payers = payers[rs.getString("id")] ?: listOf(ShareDto(rs.getString("paid_by"), rs.getLong("amount"))),
                     refund = rs.getBoolean("refund"),
                     split = json(rs.getString("split")),
+                    moved = rs.getBoolean("moved"),
                 )
             }.list()
         val payments = jdbc.sql("SELECT * FROM payments WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -70,6 +72,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                 CommentDto(
                     id = rs.getString("id"),
                     expenseId = rs.getString("expense_id"),
+                    paymentId = rs.getString("payment_id"),
                     authorMemberId = rs.getString("author_member_id"),
                     text = rs.getString("text"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java).toInstant().toString(),
@@ -117,12 +120,13 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
         val now = OffsetDateTime.now()
         jdbc.sql(
             """
-            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, refund, split, created_by, updated_at, deleted_at)
-            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :refund, CAST(:split AS jsonb), :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, refund, split, moved, created_by, updated_at, deleted_at)
+            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :refund, CAST(:split AS jsonb), :moved, :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET
               description = EXCLUDED.description, amount = EXCLUDED.amount, currency = EXCLUDED.currency,
               fx_rate_to_default = EXCLUDED.fx_rate_to_default, paid_by = EXCLUDED.paid_by, date = EXCLUDED.date,
-              category = EXCLUDED.category, notes = EXCLUDED.notes, refund = EXCLUDED.refund, split = EXCLUDED.split, updated_at = EXCLUDED.updated_at,
+              category = EXCLUDED.category, notes = EXCLUDED.notes, refund = EXCLUDED.refund, split = EXCLUDED.split,
+              moved = EXCLUDED.moved, updated_at = EXCLUDED.updated_at,
               deleted_at = CASE WHEN :deleted THEN COALESCE(expenses.deleted_at, EXCLUDED.updated_at) ELSE NULL END
             WHERE expenses.group_id = EXCLUDED.group_id
             """
@@ -130,7 +134,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             .param("amount", e.amount).param("currency", e.currency).param("fx", e.fxRateToDefault)
             .param("paidBy", UUID.fromString(e.paidBy)).param("date", LocalDate.parse(e.date)).param("category", e.category)
             .param("notes", e.notes).param("refund", e.refund).param("split", e.split?.let(mapper::writeValueAsString))
-            .param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
+            .param("moved", e.moved).param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
         replaceLines("expense_shares", e.id, e.shares)
         replaceLines("expense_payers", e.id, e.payers)
     }
@@ -168,13 +172,14 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     private fun upsertComment(groupId: UUID, c: CommentDto) {
         jdbc.sql(
             """
-            INSERT INTO comments (id, group_id, expense_id, author_member_id, text, created_at, deleted_at)
-            VALUES (:id, :groupId, :expenseId, :author, :text, :createdAt, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO comments (id, group_id, expense_id, payment_id, author_member_id, text, created_at, deleted_at)
+            VALUES (:id, :groupId, :expenseId, :paymentId, :author, :text, :createdAt, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text,
               deleted_at = CASE WHEN :deleted THEN COALESCE(comments.deleted_at, :now) ELSE NULL END
             WHERE comments.group_id = EXCLUDED.group_id
             """
-        ).param("id", UUID.fromString(c.id)).param("groupId", groupId).param("expenseId", UUID.fromString(c.expenseId))
+        ).param("id", UUID.fromString(c.id)).param("groupId", groupId).param("expenseId", c.expenseId?.let(UUID::fromString))
+            .param("paymentId", c.paymentId?.let(UUID::fromString))
             .param("author", UUID.fromString(c.authorMemberId)).param("text", c.text)
             .param("createdAt", Instant.parse(c.createdAt).atOffset(ZoneOffset.UTC)).param("deleted", c.deleted)
             .param("now", OffsetDateTime.now()).update().requireOwnRow()

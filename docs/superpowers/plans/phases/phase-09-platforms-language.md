@@ -214,7 +214,7 @@ One Flutter codebase runs on phones and in the browser. The app is translated in
 4. **`PATCH /me`:** `{"displayName"?, "homeCurrency"?, "language"?: "ko" | null}`.
    - At least one key; `language` must match `^[a-z]{2,3}$`; null clears it (English).
    - A language without strings is stored and rendered as English.
-5. **Migration `V10__user_language.sql`:**
+5. **Migration `V11__user_language.sql`:**
    ```sql
    -- Language for server-rendered text (push now, email in Phase 10). NULL = English.
    ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');

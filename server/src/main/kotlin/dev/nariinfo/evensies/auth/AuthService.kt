@@ -2,12 +2,18 @@ package dev.nariinfo.evensies.auth
 
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.JwtService
+import dev.nariinfo.evensies.friend.FriendRepository
 import dev.nariinfo.evensies.group.MemberRepository
 import dev.nariinfo.evensies.money.Money
 import dev.nariinfo.evensies.payment.PaymentMethodRepository
 import dev.nariinfo.evensies.push.NotificationPrefsRepository
+import dev.nariinfo.evensies.storage.AvatarController
+import dev.nariinfo.evensies.storage.FileStore
+import dev.nariinfo.evensies.sync.EventRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
@@ -25,6 +31,9 @@ class AuthService(
     private val members: MemberRepository,
     private val paymentMethods: PaymentMethodRepository,
     private val notificationPrefs: NotificationPrefsRepository,
+    private val friends: FriendRepository,
+    private val events: EventRepository,
+    private val files: FileStore,
     private val jwt: JwtService,
 ) {
     private val random = SecureRandom()
@@ -61,7 +70,10 @@ class AuthService(
         return users.update(userId, name, homeCurrency).dto()
     }
 
-    /** Soft-deletes the user; their member rows become placeholders so group history stays intact. */
+    /**
+     * Soft-deletes the user; their member rows become placeholders so group history stays intact (a friend sees a
+     * placeholder friend). The friend code, pairs, reminders and unread marks go; the photo file goes after commit.
+     */
     @Transactional
     fun deleteAccount(userId: UUID) {
         users.markDeleted(userId)
@@ -70,6 +82,11 @@ class AuthService(
         devices.deleteByUser(userId)
         paymentMethods.deleteByUser(userId)
         notificationPrefs.deleteByUser(userId)
+        friends.deleteByUser(userId)
+        events.deleteSeenByUser(userId)
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() = files.delete(AvatarController.key(userId))
+        })
     }
 
     private fun issue(userId: UUID): TokenPair {

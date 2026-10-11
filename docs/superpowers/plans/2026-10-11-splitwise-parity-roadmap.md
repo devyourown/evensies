@@ -159,8 +159,8 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 15 | Expense | Notes | Free | have (Phase 2) |
 | 16 | Expense | Receipt photo | Free (Pro 10 GB) | Phase 7 |
 | 17 | Expense | Repeat | Free | Phase 8 |
-| 18 | Expense | Group or "no group" | Free | Phase 6 |
-| 19 | Expense | Move between groups / to a friend | Free | Phase 6 (+ receipts and items in Phase 7) |
+| 18 | Expense | Group or "no group" | Free | have (Phase 6) |
+| 19 | Expense | Move between groups / to a friend | Free | have (Phase 6) |
 | 20 | Expense | Edit / delete | Free | have |
 | 21 | Expense | Restore a deleted expense | Free | have (Phase 2) |
 | 22 | Expense | Edit history on the expense | Free | have (Phase 5): History on the expense screen in the Activity sentences, cached for offline |
@@ -184,31 +184,31 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 40 | Groups | Personal (solo) group | Free | have |
 | 41 | Invite | Invite link | Free | have |
 | 42 | Invite | Short code | n/a | have (extra) |
-| 43 | Invite | QR code | n/a | Phase 6 (group and friend codes) |
+| 43 | Invite | QR code | n/a | have (Phase 6) |
 | 44 | Invite | Invite by email | Free | Phase 10 |
 | 45 | Invite | Invite by phone / from contacts | Free | have (system share sheet suggests contacts); phone numbers out of scope (SMS cost) |
 | 46 | Invite | Placeholder, claimed later | Free | have |
 | 47 | Invite | Merge duplicates | Free (support) | out of scope (would rewrite history; claim flow + Phase 10 preselected invites prevent duplicates) |
-| 48 | Friends | 1:1 expenses outside groups | Free | Phase 6 |
-| 49 | Friends | Friend balance across groups | Free | Phase 6 |
-| 50 | Friends | Settle all balances with a friend | Free | Phase 6 |
-| 51 | Friends | Filters; hide settled friends/groups | Free | Phase 6 |
+| 48 | Friends | 1:1 expenses outside groups | Free | have (Phase 6) |
+| 49 | Friends | Friend balance across groups | Free | have (Phase 6) |
+| 50 | Friends | Settle all balances with a friend | Free | have (Phase 6) |
+| 51 | Friends | Filters; hide settled friends/groups | Free | have (Phase 6) |
 | 52 | Friends | Delete friend | Free | Phase 10 |
 | 53 | Friends | Block / report user | Free | Phase 10 |
-| 54 | Dashboard | Overall you owe / you are owed | Free | Phase 6 |
+| 54 | Dashboard | Overall you owe / you are owed | Free | have (Phase 6) |
 | 55 | Dashboard | "Who should pay next" | Free | have (Phase 5): one line on Balances, from the group-currency balances |
-| 56 | Dashboard | Global add-expense button | Free | Phase 6 |
+| 56 | Dashboard | Global add-expense button | Free | have (Phase 6) |
 | 57 | Activity | Activity feed | Free | have (Phase 2) |
 | 58 | Activity | Overall activity | Free | have (Phase 2) |
 | 59 | Notifications | Push for others' changes | Free | have (Phase 2); new kinds in Phases 3, 6, 7, 8, 10; localized in Phase 9 |
 | 60 | Notifications | Delay against noise | Free | have (30 s batching) |
-| 61 | Notifications | Per-type settings | Free | have (push); Phase 6 (reminders); Phase 10 (email summary choice) |
+| 61 | Notifications | Per-type settings | Free | have (push per type in Phases 2 and 6); email summary choice in Phase 10 |
 | 62 | Notifications | Email notifications | Free | Phase 10 (as a digest; per-event emails out of scope) |
 | 63 | Notifications | Monthly summary email | Free | Phase 10 |
 | 64 | Notifications | Email before a recurring bill posts | Free | Phase 10 |
-| 65 | Reminders | Remind a friend to pay | Free | Phase 6 |
-| 66 | Settle | Record a payment, any payer and receiver | Free | Phase 6 (Phase 1 had simplified transfers only) |
-| 67 | Settle | Custom amount, date, edit payment | Free | Phase 6 (edit = delete + create) |
+| 65 | Reminders | Remind a friend to pay | Free | have (Phase 6) |
+| 66 | Settle | Record a payment, any payer and receiver | Free | have (Phase 6) |
+| 67 | Settle | Custom amount, date, edit payment | Free | have (Phase 6) |
 | 68 | Settle | Undo settlement | Free | have |
 | 69 | Settle | PayPal / Venmo | Free | have (+ Wise, Revolut, KakaoPay, EPC QR, IBAN, KR bank) |
 | 70 | Settle | Request payment | Free | have |
@@ -217,7 +217,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 73 | Settle | Splitwise Pay / Pay by Bank / Card | Free | out of scope (moves money, needs a licence) |
 | 74 | Currency | Any currency per expense | Free | have (Phase 4): 155 ISO codes, searchable picker, automatic daily rate via Frankfurter (ECB and other central banks; editable, cached offline); crypto out of scope |
 | 75 | Currency | Default (home) currency | Free | partly (Phase 4): set in Settings and stored on the account; the "≈" lines wait for Hyojun's `convertAmount` |
-| 76 | Currency | Convert to one currency | Pro | partly (Phase 4, free): the Convert sheet with Undo is built and stays hidden until Hyojun's `convertAmount`/`convertExpense` (pending cases in `shared/fx-cases.json`); until then a foreign-currency debt can't be settled in the app, so leaving that group stays blocked |
+| 76 | Currency | Convert to one currency | Pro | have (Phase 4 conversion by Hyojun; Phase 6 records payments in any currency) |
 | 77 | Currency | Change an expense's currency label | Free | have |
 | 78 | Search | Search all expenses | Pro | have (Phase 5, free): all groups or one, offline, accents ignored, amounts, category and month filters; payments and member names are not searched |
 | 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | Phase 8 (incl. every 2 weeks and "stop repeating") |
@@ -236,7 +236,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 92 | Account | Facebook login | Free | out of scope (Meta review and tracking; Apple/Google/email cover users) |
 | 93 | Account | Phone number on account | Free | out of scope (SMS cost) |
 | 94 | Account | Name | Free | have |
-| 95 | Account | Profile photo | Free | Phase 6 |
+| 95 | Account | Profile photo | Free | have (Phase 6) |
 | 96 | Account | Time zone | Free | Phase 8 (per repeating series, from the device) |
 | 97 | Account | Log out on all devices | Free | Phase 10 |
 | 98 | Account | Passcode / Face ID lock | Free | Phase 9 |
@@ -246,7 +246,9 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 102 | Support | In-app help / contact | Free | Phase 10 |
 | 103 | Pro | Ad-free | Pro | have (never ads) |
 | 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
-| 105 | Activity | Unread activity indicator and app-icon badge | Free | Phase 6 (found in the Phase 2 check): per-user unread count on the server from the last-seen `feedId`, Activity tab badge, APNs badge on visible pushes |
-| 106 | Settle | Comments on payments | Free | Phase 6, to design with "record any payment" (contract change: comments on a `paymentId`, a new activity sentence) |
+| 105 | Activity | Unread activity indicator and app-icon badge | Free | have (Phase 6) |
+| 106 | Settle | Comments on payments | Free | have (Phase 6) |
 | 107 | Expense | List row for an expense with several payers says how many paid (e.g. "2 people paid €300.00"), not "paid by Anna +1" | Free | have (Phase 5) |
 | 108 | Expense | Read-only expense detail: who paid how much, each person's share, then Edit | Free | have (Phase 5): with notes, History and comments; Edit opens the form |
+| 109 | Friends | Friend page lists shared-group transactions too | Free | Phase 7 (found in the Phase 6 check) |
+| 110 | Settle | Restore a deleted payment | Free | Phase 7 (found in the Phase 6 check) |

@@ -58,7 +58,7 @@ class CommentsNotesRestoreTest : IntegrationTestBase() {
         val c1 = UUID.randomUUID().toString()
         assertStatus(200, null, push(s.ben, s.id, comment(c1, s.expense, s.benMember)))
         assertEquals(
-            listOf(mapOf("id" to c1, "expenseId" to s.expense, "authorMemberId" to s.benMember, "text" to "Is breakfast included?",
+            listOf(mapOf("id" to c1, "expenseId" to s.expense, "paymentId" to null, "authorMemberId" to s.benMember, "text" to "Is breakfast included?",
                 "createdAt" to "2026-10-11T09:00:00Z", "deleted" to false)).let(SharedJson::canon),
             SharedJson.canon(comments(s.anna, s.id)),
         )

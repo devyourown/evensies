@@ -208,7 +208,7 @@ class SyncService {
       EventTypes.expenseUpdated => 'a change to $x',
       EventTypes.expenseDeleted => 'deleting $x',
       EventTypes.expenseRestored => 'restoring $x',
-      EventTypes.commentAdded => 'a comment on $x',
+      EventTypes.commentAdded => p['paymentId'] != null ? 'a comment on a payment' : 'a comment on $x',
       EventTypes.commentDeleted => 'deleting a comment',
       EventTypes.paymentCreated => 'a payment',
       EventTypes.paymentDeleted => 'deleting a payment',
@@ -217,6 +217,28 @@ class SyncService {
       EventTypes.memberAdded => 'adding ${p['name'] ?? 'a member'}',
       EventTypes.memberRemoved => 'removing a member',
       _ => 'a change',
+    };
+  }
+
+  /// While [offline], runs [syncAll] every [every], so changes saved offline go out once the server answers again,
+  /// not only on the next resume or write. Returns the stop function.
+  /// ponytail: a fixed interval; a connectivity listener would need a new dependency.
+  VoidCallback retryWhileOffline({Duration every = const Duration(seconds: 30)}) {
+    Timer? timer;
+    void check() {
+      if (offline.value) {
+        timer ??= Timer.periodic(every, (_) => syncAll());
+      } else {
+        timer?.cancel();
+        timer = null;
+      }
+    }
+
+    offline.addListener(check);
+    check();
+    return () {
+      offline.removeListener(check);
+      timer?.cancel();
     };
   }
 
@@ -230,14 +252,21 @@ class SyncService {
     // Read before asking: a group created while the request runs is not in the answer but must stay.
     final local = (await db.select(db.groups).get()).map((g) => g.id).toSet();
     try {
-      final remote = (await api.listGroups()).map((g) => g.id).toSet();
+      final listed = await api.listGroups();
+      final remote = listed.map((g) => g.id).toSet();
       // Left or removed on another device, or removed by someone else.
       for (final id in local.difference(remote)) {
         await db.deleteGroupData(id);
       }
-      // Pick up groups joined on another device.
-      for (final id in remote) {
-        if (await db.getGroup(id) == null) await adoptFromSnapshot(id);
+      for (final g in listed) {
+        final row = await db.getGroup(g.id);
+        if (row == null) {
+          await adoptFromSnapshot(g.id); // joined on another device
+        } else if (row.kind != g.kind) {
+          // A friend group stored before schema v6 reads 'group' (no replay then, docs/API.md 호환 6단계); kind never
+          // changes afterwards, so the list's is right.
+          await db.upsertGroup(row.copyWith(kind: g.kind));
+        }
       }
       offline.value = false;
     } catch (e) {
@@ -265,6 +294,7 @@ class SyncService {
       myMemberId: g.myMemberId,
       simplifyDebts: g.simplifyDebts,
       defaultSplitJson: splitToJson(g.defaultSplit),
+      kind: g.kind,
     ));
     await store.save(g.id, state, latestSeq);
   }

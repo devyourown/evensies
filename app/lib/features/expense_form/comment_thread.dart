@@ -3,15 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
+import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
 
-/// Comments under an expense (docs/API.md `comment.*`). Local first like every write; deleted ones are hidden.
+/// Comments under an expense or (Phase 6) a payment (docs/API.md `comment.*`): pass exactly one of [expenseId] and
+/// [paymentId]. Local first like every write; deleted ones are hidden.
 class CommentThread extends ConsumerStatefulWidget {
   final String groupId;
-  final String expenseId;
-  const CommentThread({super.key, required this.groupId, required this.expenseId});
+  final String? expenseId;
+  final String? paymentId;
+  const CommentThread({super.key, required this.groupId, this.expenseId, this.paymentId})
+      : assert((expenseId == null) != (paymentId == null));
   @override
   ConsumerState<CommentThread> createState() => _CommentThreadState();
 }
@@ -30,7 +34,9 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
   Future<void> _send() async {
     setState(() => _sending = true);
     try {
-      await ref.read(localWritesProvider).addComment(widget.groupId, widget.expenseId, _ctl.text.trim());
+      await ref
+          .read(localWritesProvider)
+          .addComment(widget.groupId, _ctl.text.trim(), expenseId: widget.expenseId, paymentId: widget.paymentId);
       _ctl.clear();
     } catch (e) {
       if (mounted) showError(context, e);
@@ -49,10 +55,13 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final me = ref.watch(groupProvider(widget.groupId)).value?.myMemberId;
-    final names = {for (final m in ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[]) m.id: m.name};
+    final members = ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[];
+    final names = {for (final m in members) m.id: m.name};
+    final users = {for (final m in members) m.id: m.userId};
     DateTime at(CommentRow c) => DateTime.tryParse(c.createdAt)?.toLocal() ?? DateTime(0);
     final comments = (ref.watch(commentsProvider(widget.groupId)).value ?? const <CommentRow>[])
-        .where((c) => c.expenseId == widget.expenseId && !c.deleted)
+        .where((c) =>
+            (widget.expenseId != null ? c.expenseId == widget.expenseId : c.paymentId == widget.paymentId) && !c.deleted)
         .toList()
       ..sort((a, b) => at(a).compareTo(at(b)));
     final draft = _ctl.text.trim();
@@ -70,12 +79,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: c.authorMemberId == me ? cs.primaryContainer : cs.secondaryContainer,
-              foregroundColor: c.authorMemberId == me ? cs.onPrimaryContainer : cs.onSecondaryContainer,
-              child: Text(_initial(c.authorMemberId == me ? 'You' : names[c.authorMemberId]), style: text.labelLarge),
-            ),
+            PersonAvatar(userId: users[c.authorMemberId], name: names[c.authorMemberId] ?? '?', radius: 16),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -133,5 +137,3 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
     ]);
   }
 }
-
-String _initial(String? name) => name == null || name.isEmpty ? '?' : name.characters.first.toUpperCase();

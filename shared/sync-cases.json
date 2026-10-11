@@ -1,5 +1,5 @@
 {
-  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null.",
+  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null. 6단계: expected.group.kind 기본값 \"group\"(group.created에 kind가 없으면 \"group\", 그 뒤 어떤 이벤트도 바꾸지 않는다 — 적용 규칙 13). comments[].paymentId 기본값 null(comments 모양: {id, expenseId, paymentId, authorMemberId, text, createdAt, deleted}; 송금 댓글은 expenseId가 null). expenses[].moved 기본값 false: movedTo가 객체인 expense.deleted가 true로 만들고(그 뒤 지우지 않는다), moved인 지출에 오는 expense.restored는 무시한다(적용 규칙 13).",
   "cases": [
     {
       "name": "create expense then update description only",
@@ -2965,6 +2965,495 @@
           }
         ],
         "payments": []
+      }
+    },
+    {
+      "name": "friend kind: set by group.created and kept by group.updated (a kind key there is ignored)",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Anna & Ben",
+            "defaultCurrency": "EUR",
+            "kind": "friend"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "group.updated",
+          "payload": {
+            "name": "Ben & Anna",
+            "kind": "group"
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Ben & Anna",
+          "defaultCurrency": "EUR",
+          "kind": "friend"
+        },
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          }
+        ],
+        "expenses": [],
+        "payments": []
+      }
+    },
+    {
+      "name": "group.created without kind is a normal group",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Trip",
+            "defaultCurrency": "EUR"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Trip",
+          "kind": "group"
+        },
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": []
+      }
+    },
+    {
+      "name": "expense.deleted with movedTo marks deleted and moved; a later update stays ignored",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1",
+            "movedTo": {
+              "groupId": "g2",
+              "expenseId": "x9"
+            }
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "description": "Lunch"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "deleted": true,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ],
+            "moved": true
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "expense.restored on a moved expense is ignored, also after a later plain delete; a plain delete still restores",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Taxi",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1",
+            "movedTo": {
+              "groupId": "g2",
+              "expenseId": "x9"
+            }
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1",
+            "movedTo": null
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x2",
+            "movedTo": null
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x2"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 3000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "deleted": true,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ],
+            "moved": true
+          },
+          {
+            "id": "x2",
+            "description": "Taxi",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-11",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "comments on a payment: paymentId kept, expenseId null; delete blanks the text; a deleted payment keeps its comments",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "confirmed"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "paymentId": "p1",
+            "authorMemberId": "m1",
+            "text": "Thanks!",
+            "createdAt": "2026-10-11T09:00:00Z"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c2",
+            "paymentId": "p1",
+            "authorMemberId": "m2",
+            "text": "Any time",
+            "createdAt": "2026-10-11T09:05:00Z"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "comment.deleted",
+          "payload": {
+            "commentId": "c2"
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "comment.added",
+          "payload": {
+            "commentId": "c1",
+            "paymentId": "p1",
+            "authorMemberId": "m1",
+            "text": "Edited",
+            "createdAt": "2026-10-11T09:10:00Z"
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": [
+          {
+            "id": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": true,
+            "status": "confirmed"
+          }
+        ],
+        "comments": [
+          {
+            "id": "c1",
+            "expenseId": null,
+            "paymentId": "p1",
+            "authorMemberId": "m1",
+            "text": "Thanks!",
+            "createdAt": "2026-10-11T09:00:00Z",
+            "deleted": false
+          },
+          {
+            "id": "c2",
+            "expenseId": null,
+            "paymentId": "p1",
+            "authorMemberId": "m2",
+            "text": "",
+            "createdAt": "2026-10-11T09:05:00Z",
+            "deleted": true
+          }
+        ]
       }
     }
   ]

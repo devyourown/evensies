@@ -72,4 +72,23 @@ object Settlement {
         }
         return result
     }
+
+    /**
+     * Debts as they arose, for groups with "simplify debts" off (port of Dart pairwiseDebts; settlement-cases
+     * `expectedPairwise`). Each expense line and each payment is settled on its own with simplify(balances(...)); the
+     * transfers are summed per (from, to) and netted per pair of people. Zero pairs are dropped; sorted by from, then to.
+     */
+    fun pairwiseDebts(members: List<String>, lines: List<ExpenseLine>, payments: List<PaymentLine>): List<Transfer> {
+        val net = LinkedHashMap<Pair<String, String>, Long>() // (lo, hi) → what lo owes hi (negative: hi owes lo)
+        fun add(t: Transfer) {
+            val lo = t.from < t.to
+            val key = if (lo) t.from to t.to else t.to to t.from
+            net[key] = (net[key] ?: 0L) + if (lo) t.amount else -t.amount
+        }
+        for (l in lines) simplify(balances(members, listOf(l), emptyList())).forEach(::add)
+        for (p in payments) simplify(balances(members, emptyList(), listOf(p))).forEach(::add)
+        return net.filterValues { it != 0L }
+            .map { (k, v) -> if (v > 0) Transfer(k.first, k.second, v) else Transfer(k.second, k.first, -v) }
+            .sortedWith(compareBy<Transfer> { it.from }.thenBy { it.to })
+    }
 }

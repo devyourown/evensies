@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
 import '../../core/env.dart';
 import '../../core/invite_code.dart';
+import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
 import '../../data/db/database.dart';
@@ -41,7 +43,22 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Text('Invite code', textAlign: TextAlign.center, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      // A QR code needs a light quiet zone, in dark mode too.
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                      child: QrImageView(
+                        key: const Key('invite-qr'),
+                        data: link,
+                        size: 160,
+                        backgroundColor: Colors.white,
+                        semanticsLabel: 'QR code of the invite link',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   SelectableText(formatInviteCode(code!),
                       textAlign: TextAlign.center,
                       style: text.displaySmall?.copyWith(fontFamily: 'monospace', letterSpacing: 4, fontWeight: FontWeight.w600)),
@@ -97,11 +114,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           for (final m in members)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: m.userId == null ? cs.surfaceContainerHighest : cs.primaryContainer,
-                child: Icon(m.userId == null ? Icons.person_outline : Icons.person,
-                    color: m.userId == null ? cs.onSurfaceVariant : cs.onPrimaryContainer),
-              ),
+              leading: PersonAvatar(userId: m.userId, name: m.name),
               title: Text(m.id == group?.myMemberId ? '${m.name} (you)' : m.name),
               subtitle: Text(
                 m.userId == null ? 'not joined yet — share the invite code' : 'linked',

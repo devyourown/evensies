@@ -17,7 +17,7 @@
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
 | GET | `/me` | | `UserDto`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
 | PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string}` — 하나 이상 필요. `displayName`은 공백 제거 후 1~30자(이모지 허용), `homeCurrency`는 `shared/currencies.json`의 코드(대문자 그대로) | `UserDto`(바꾼 뒤). 아래 규칙 |
-| DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
+| DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환). 6단계: `friend_code`를 `NULL`로 하고 그 사용자의 `friendships`·`reminders`(보낸 것·받은 것)·`activity_seen` 행을 지우며, 커밋 뒤 프로필 사진 파일을 지운다(친구에게는 기록이 그대로인 자리표시 친구로 보인다) |
 | POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다) |
 | DELETE | `/devices/{deviceId}` | | 204. 호출자 본인의 그 기기 행만 지운다(없거나 다른 사용자의 기기면 아무것도 안 하고 204). 앱은 로그아웃할 때 세션을 지우기 **전에** 보낸다. 오프라인이면 실패해도 로그아웃은 진행한다. 앱은 세션이 사라지면(로그아웃, 계정 삭제, 토큰 갱신 실패) 그 폰의 FCM 토큰도 지운다(FCM `deleteToken`, 오프라인이면 로그아웃 상태로 다음 실행·복귀 때 다시 시도). 그러면 서버의 다음 발송이 `UNREGISTERED`를 받아 남은 행을 지운다 |
 
@@ -37,19 +37,22 @@ access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 | GET | `/groups` | | `[GroupSummaryDto]` |
 | GET | `/groups/{id}` | | `GroupDto` |
 | POST | `/groups/{id}/invite/rotate` | | `{"inviteCode"}` |
-| GET | `/invites/{code}` | 인증 불필요 | `{"groupId","name","memberCount","members":[{"id","name","linked":bool}]}` |
-| POST | `/invites/{code}/join` | `{"memberId": "<기존 자리표시 멤버>"}` 또는 `{"newMemberId","name"}` | `GroupDto`. `member.linked` 또는 `member.added`(userId 포함) 이벤트 기록 |
+| GET | `/invites/{code}` | 인증 불필요 | `{"groupId","name","kind","memberCount","members":[{"id","name","linked":bool}]}` |
+| POST | `/invites/{code}/join` | `{"memberId": "<기존 자리표시 멤버>"}` 또는 `{"newMemberId","name"}` | `GroupDto`. `member.linked` 또는 `member.added`(userId 포함) 이벤트 기록. 6단계: 친구 그룹이면 `newMemberId`는 409 `LIMIT_EXCEEDED`(멤버는 2명), 자리표시 claim은 그룹 상한 검사 없이 받고 `friendships` 행을 넣는다(아래 "친구") |
 
 ```
-GroupDto        {"id","name","defaultCurrency","inviteCode","createdAt","latestSeq","myMemberId","simplifyDebts","defaultSplit"}
-GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
+GroupDto        {"id","name","defaultCurrency","inviteCode","createdAt","latestSeq","myMemberId","simplifyDebts","defaultSplit","kind"}
+GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 ```
+- `kind`(6단계): `"group"`(보통 그룹) 또는 `"friend"`(친구 그룹, 아래 "친구"). `GroupDto`·`GroupSummaryDto`·snapshot의 `group`·`GET /invites/{code}`에 있다. 앱은 키가 없는 응답(이전 서버)을 `"group"`으로 읽는다. 그룹을 만들 때 정해지고 바뀌지 않는다(적용 규칙 13). `POST /groups`는 언제나 `"group"`이고 친구 그룹은 `POST /friends`만 만든다. 앱의 Groups 탭은 `"group"`만 보이고, 친구 그룹은 Friends 탭에서 사람으로 보인다(`/groups/{id}`로 열면 친구 페이지로 보낸다).
 - `simplifyDebts`(boolean, 기본 `true`)와 `defaultSplit`(`SplitSpec|null`, 기본 `null`, 아래 "SplitSpec")은 그룹 설정이다. `POST /groups`·`GET /groups/{id}`·`POST /invites/{code}/join` 응답과 snapshot의 `group`에 있다(`GroupSummaryDto`에는 없다). 앱은 두 키가 없는 응답을 기본값으로 읽는다. `POST /groups`는 기본값으로 만든다(요청에 두 키 없음).
 - 그룹 설정(이름, 기본 통화, 부채 단순화, 기본 분할)을 바꾸는 엔드포인트는 없다. `group.updated` 이벤트로 바꾸고, 그룹 멤버 누구나 보낼 수 있다(관리자 없음). 기본 통화는 지출이나 송금이 하나라도 생기면(삭제된 것 포함) 더 바뀌지 않는다(적용 규칙 12).
 - **그룹 나가기** = 자기 멤버에 대한 `member.removed`. 서버는 다른 멤버를 빼는 것과 똑같이 처리한다(잔액이 0인지는 앱만 확인한다. 4단계부터는 모든 통화 칸에서 0, "통화별 잔액"). 그 뒤 그 그룹은 `GET /groups`에서 빠지고 그 그룹의 엔드포인트는 403이다. 나간 멤버는 removed로 남고(사용자 연결도 남는다) 잔액 계산에도 남는다(규칙 5). 초대로 다시 들어오면 새 멤버(또는 다른 자리표시 멤버)가 된다.
-상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`.
+상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`. 6단계: 사용자당 100은 `kind = 'group'`만 센다(`POST /friends`와 친구 그룹 claim은 이 검사를 하지 않는다). 대신 자리표시 친구는 사용자당 200(아래 "`POST /friends`"). 친구 그룹의 멤버는 정확히 2명이다.
 
 초대 코드: **6자, 알파벳 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`**(0/O, 1/I/L 제외). 이전에 발급된 10자 코드도 계속 유효하다. `/invites/{code}`, `/invites/{code}/join`, `/j/{code}`는 코드를 정규화한다(대문자로 바꾸고 영문·숫자 외 문자는 제거: `k7p-4qx` = `K7P4QX`). 세 엔드포인트는 **클라이언트 IP당 분당 10회**(`EVENSIES_INVITE_RATE_PER_MINUTE`)로 제한되며 초과 시 429 `RATE_LIMITED`.
+
+친구 코드(6단계, `users.friend_code`)도 같은 알파벳·길이·정규화를 쓴다. 그룹 초대 코드와 이름 공간이 하나다: 새 코드는 `groups.invite_code`와 `users.friend_code` 어디에도 없는 것만 쓴다(`GroupService.newInviteCode`도 두 표를 본다). 그래서 한 코드는 그룹이거나 친구이고 둘 다는 아니다. IP당 버킷은 **하나**를 초대 세 엔드포인트와 친구 코드 조회(`GET /friend-invites/{code}`, `GET /f/{code}`, `POST /friends {code}`)가 함께 쓴다(`InviteController`의 필드에서 bean으로 옮긴다). 앱의 코드 입력 칸은 `/invites/{code}`를 먼저 부르고 404면 `/friend-invites/{code}`를 부르므로 친구 코드 하나에 2회를 쓴다.
 
 ## 이벤트 (동기화)
 ### push
@@ -61,7 +64,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 - 배열 전체가 한 트랜잭션. 그룹 행 `SELECT ... FOR UPDATE`로 잠근 뒤 seq 부여.
 - `(group_id, client_id)` UNIQUE. 중복은 기존 seq를 돌려준다(오류 아님).
 - 서버는 같은 트랜잭션에서 이벤트를 테이블(member/expense/expense_share/payment/comment)에 반영하고, 활동 피드용 `meta`를 이벤트 행에 기록한다("활동·알림").
-- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 새로 만드는 이벤트(`*.created`·`member.added`·`comment.added`)의 id가 다른 그룹에 이미 있음)는 배열 전체 거부 400. 다른 이벤트(`updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`)가 다른 그룹의 id를 가리키면 이 그룹에는 없는 대상이므로 통과하고 적용 규칙 4로 무시된다(다른 그룹은 바뀌지 않음). 속도 제한: 사용자당 분당 120 이벤트 → 429.
+- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 새로 만드는 이벤트(`*.created`·`member.added`·`comment.added`)의 id가 다른 그룹에 이미 있음)는 배열 전체 거부 400. `group.created`는 서버만 만든다(앱이 push하면 400 `VALIDATION`). 다른 이벤트(`updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`)가 다른 그룹의 id를 가리키면 이 그룹에는 없는 대상이므로 통과하고 적용 규칙 4로 무시된다(다른 그룹은 바뀌지 않음). 속도 제한: 사용자당 분당 120 이벤트 → 429.
 - 결제자·분할·그룹 설정의 검증과 오류 코드는 아래 "결제자·분할·그룹 설정 검증".
 - 오프라인 기기가 알 수 없는 상태(다른 사람이 먼저 한 변경) 때문에 400을 내지 않는다. 그런 경우는 적용 규칙(예: 규칙 12)이나 서버의 정규화(예: `paidBy`를 주요 결제자로 고침)로 처리한다.
 
@@ -95,30 +98,31 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 ```
 {"group": GroupDto,
  "members":  [{"id","name","userId","removed":bool}],
- "expenses": [{"id","description","amount","currency","fxRateToDefault","paidBy","payers":[{"memberId","amount"}],"refund":bool,"split","date","category","notes","deleted":bool,"shares":[{"memberId","amount"}]}],
+ "expenses": [{"id","description","amount","currency","fxRateToDefault","paidBy","payers":[{"memberId","amount"}],"refund":bool,"split","date","category","notes","deleted":bool,"moved":bool,"shares":[{"memberId","amount"}]}],
  "payments": [{"id","fromMember","toMember","amount","currency","date","deleted":bool,"status"}],
- "comments": [{"id","expenseId","authorMemberId","text","createdAt","deleted":bool}],
+ "comments": [{"id","expenseId","paymentId","authorMemberId","text","createdAt","deleted":bool}],
  "latestSeq": 57}
 ```
 - `paidBy`는 주요 결제자(적용 규칙 10), `payers`는 1개 이상(보낸 순서), `refund`는 boolean, `split`은 `SplitSpec|null`. 이 단계 전의 지출은 `payers: [{paidBy, amount}]`, `refund: false`, `split: null`.
-- `notes`는 `string|null`. `comments`는 삭제된 댓글도 `deleted: true`로 포함한다(지출·송금과 같음). pull 응답의 이벤트 모양은 바뀌지 않는다(서버 내부 `meta`는 보내지 않음).
+- `moved`(6단계)는 옮겨서 삭제된 지출이면 `true`(적용 규칙 13, 언제나 `deleted: true`와 함께), 아니면 `false`. 앱은 키가 없는 응답(이전 서버)을 `false`로 읽는다.
+- `notes`는 `string|null`. `comments`는 삭제된 댓글도 `deleted: true`로 포함한다(지출·송금과 같음). `expenseId`·`paymentId`(6단계, 송금 댓글)는 하나만 문자열이고 다른 하나는 `null`이다. 이 단계 전의 댓글은 `paymentId: null`. snapshot의 `group`(`GroupDto`)에는 `kind`가 있다. pull 응답의 이벤트 모양은 바뀌지 않는다(서버 내부 `meta`는 보내지 않음).
 - 삭제된 댓글의 `text`는 `""`(빈 문자열)이다(적용 규칙 8). 서버는 `comment.deleted`를 저장하는 push 트랜잭션에서 그 댓글의 저장된 `comment.added` 이벤트 payload `text`도 `""`로 바꾼다(로그에서 저장 뒤에 바뀌는 유일한 값. seq·clientId·나머지 payload는 그대로). 그래서 snapshot·내보내기·pull 어디에도 남지 않는다. 앱은 댓글 행의 글과 그 댓글의 활동 캐시 행을 지우고, 서버가 받은(push 성공한) outbox 행은 지운다.
 
 ### 이벤트 종류와 payload
 | type | payload |
 |---|---|
-| `group.created` | `{"name","defaultCurrency"}` (서버가 POST /groups에서 생성) |
-| `group.updated` | `{"name"?: string, "defaultCurrency"?: string, "simplifyDebts"?: bool, "defaultSplit"?: SplitSpec\|null}` — 없는 키는 그대로, `"defaultSplit": null`은 지운다(규칙 11). `defaultSplit`의 mode는 `percent`·`shares`만. 지출·송금이 있는 그룹의 `defaultCurrency`는 400 없이 받아 저장하지만 적용하지 않는다(규칙 12) |
-| `member.added` | `{"memberId","name","userId": string|null}` |
+| `group.created` | `{"name","defaultCurrency","kind"?: "group"\|"friend"}` (서버가 POST /groups·POST /friends에서 생성). `kind`(6단계)는 POST /friends만 `"friend"`로 넣는다. 없으면 `"group"`(적용 규칙 13) |
+| `group.updated` | `{"name"?: string, "defaultCurrency"?: string, "simplifyDebts"?: bool, "defaultSplit"?: SplitSpec\|null}` — 없는 키는 그대로, `"defaultSplit": null`은 지운다(규칙 11). `defaultSplit`의 mode는 `percent`·`shares`만. 지출·송금이 있는 그룹의 `defaultCurrency`는 400 없이 받아 저장하지만 적용하지 않는다(규칙 12). `kind` 키가 있으면(값과 상관없이, 모든 그룹) 400 `VALIDATION`(6단계) |
+| `member.added` | `{"memberId","name","userId": string|null}` — 친구 그룹(6단계)에 셋째 멤버를 더하면 409 `LIMIT_EXCEEDED` |
 | `member.linked` | `{"memberId","userId"}` — `userId`는 보낸 사람 본인. 이미 사용자에 연결된 멤버이거나 보낸 사람이 이 그룹에 이미 (removed 아닌) 멤버를 가지고 있으면 400 `MEMBER_TAKEN`. 앱은 보내지 않고 `/invites/{code}/join`이 만든다. `member.added`에 `userId`(본인)를 넣을 때도 이미 멤버가 있으면 같은 400 |
-| `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님). 보낸 사람 자신의 멤버면 그룹 나가기(활동 `member_left`) |
+| `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님). 보낸 사람 자신의 멤버면 그룹 나가기(활동 `member_left`). 친구 그룹(6단계)에서는 400 `VALIDATION`(나가기·빼기 없음, 친구 삭제는 10단계) |
 | `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","payers":[{"memberId","amount"}],"refund": bool,"split": SplitSpec|null,"date","category": string|null,"notes": string|null,"shares":[{"memberId","amount"}]}` — `description` 1~200자. `notes`(메모) 없으면 `null`(이전 이벤트 호환). 문자열이면 500자 이하. `payers` 없으면 `[{"memberId": paidBy, "amount": amount}]`, `refund` 없으면 `false`, `split` 없으면 `null`(이전 이벤트 호환). `paidBy`는 계속 보낸다(주요 결제자). `payers`가 있으면 서버가 저장 전에 `paidBy`를 주요 결제자로 고친다(pull되는 payload도 고친 값) |
 | `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares·notes·payers·refund·split 포함 가능}}` — `"notes": null`은 메모를, `"split": null`은 분할 입력을 지운다. 앱은 돈에 관한 필드(`amount`·`paidBy`·`payers`·`shares`·`split`·`refund`) 중 하나라도 바뀌면 여섯 개를 모두 보낸다. `fields.payers`가 있으면 서버가 `fields.paidBy`를 주요 결제자로 고치거나 넣는다 |
-| `expense.deleted` | `{"expenseId"}` |
-| `expense.restored` | `{"expenseId"}` — 삭제된 지출을 되살린다. 그룹 멤버 누구나 보낼 수 있다(삭제와 같음) |
-| `comment.added` | `{"commentId","expenseId","authorMemberId","text","createdAt"}` — `authorMemberId`는 **호출자 본인의 멤버**(아니면 403 `FORBIDDEN`). `expenseId`는 그룹에 있는 지출(삭제된 지출도 가능, 없으면 400 `VALIDATION`). `text`는 공백만이 아닌 1~1000자. `createdAt`은 ISO-8601 UTC 시각(앱이 이벤트의 createdAt과 같은 값을 넣는다) |
+| `expense.deleted` | `{"expenseId","movedTo"?: {"groupId","expenseId"}\|null}` — `movedTo`(6단계, "지출 옮기기"): 이 지출을 다른 그룹(친구 포함)의 새 지출로 옮겼다는 표시. 없거나 `null`이면 보통 삭제. 있으면 객체이고 두 값 모두 UUID 문자열(아니면 400 `VALIDATION`, 다른 키는 무시). 서버는 대상 그룹·지출이 있는지 보지 않는다. 적용은 보통 삭제에 더해 `moved=true`(규칙 13: 그 뒤 `expense.restored`는 무시). 활동은 `expense_moved` |
+| `expense.restored` | `{"expenseId"}` — 삭제된 지출을 되살린다. 그룹 멤버 누구나 보낼 수 있다(삭제와 같음). 옮긴(`moved`) 지출에는 아무것도 바꾸지 않는다(규칙 13) |
+| `comment.added` | `{"commentId","expenseId"?,"paymentId"?,"authorMemberId","text","createdAt"}` — `expenseId`와 `paymentId`(6단계, 송금 댓글) 가운데 **정확히 하나**(둘 다 있거나 둘 다 없으면 400 `VALIDATION`. `null`은 없는 것, 있으면 UUID 문자열). `authorMemberId`는 **호출자 본인의 멤버**(아니면 403 `FORBIDDEN`). `expenseId`는 그룹에 있는 지출, `paymentId`는 그룹에 있는 송금(둘 다 삭제된 것도 가능, 없으면 400 `VALIDATION`). `text`는 공백만이 아닌 1~1000자. `createdAt`은 ISO-8601 UTC 시각(앱이 이벤트의 createdAt과 같은 값을 넣는다) |
 | `comment.deleted` | `{"commentId"}` — **작성자 본인만**(아니면 403 `FORBIDDEN`). 없는 댓글이면 통과하고 적용기가 무시. 댓글의 `text`를 `""`로 지운다(규칙 8) |
-| `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date","status"?: "sent"\|"confirmed"}` — `status` 없으면 `confirmed`(이전 이벤트 호환). 받는 멤버가 자리표시자이거나 보내는 사람이 받는 사람 본인이면 서버가 `confirmed`로 저장 |
+| `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date","status"?: "sent"\|"confirmed"}` — `status` 없으면 `confirmed`(이전 이벤트 호환). 받는 멤버가 자리표시자이거나 보내는 사람이 받는 사람 본인이면 서버가 `confirmed`로 저장. 6단계: `fromMember`와 `toMember`가 같으면 400 `VALIDATION`. `currency`는 목록의 어느 통화든 된다(지금처럼, 앱은 6단계부터 고르게 한다 — "송금 기록·편집") |
 | `payment.confirmed` | `{"paymentId"}` — **받는 멤버에 연결된 사용자만** 보낼 수 있다(아니면 403 `FORBIDDEN`) |
 | `payment.deleted` | `{"paymentId"}` — 보낸 사람 또는 받는 사람("받지 못함")이 보낼 수 있다 |
 
@@ -166,6 +170,7 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 
 - 호환(3단계): drift가 schemaVersion 4로 올라갈 때 `expense_payers`를 `paid_by`·`amount`로 채우고(오프라인에서도 잔액이 맞게) lastSeq를 0으로 되돌린다(이전 앱 코드가 모른 채 건너뛴 `payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit`을 로그에서 다시 적용). 이 단계 전의 앱은 여러 명이 낸 지출과 환불을 `paidBy`가 전액 낸 보통 지출로 보인다(출시 전이라 받아들인다).
 - 호환(5단계): 이벤트 모양과 저장소가 그대로다. Flyway 마이그레이션 없음(마지막은 V6), drift schemaVersion 5 그대로, lastSeq도 되돌리지 않는다. 이전 앱은 새 앱이 쓴 key(`food.dining_out`)를 자유 입력 칸에 글자 그대로 보이고, 고치지 않으면 그대로 다시 보낸다(출시 전이라 받아들인다). 새 앱이 이전 서버를 만나면 `GET /groups/{id}/activity`의 `expenseId`가 무시되므로 앱은 받은 항목 중 `expenseId`가 같은 것만 보여 준다(아래 "피드").
+- 호환(6단계): Flyway V7·V8, drift schemaVersion 6·7(`Groups.kind` 기본 `'group'`, `Comments.paymentId`, `Comments.expenseId`는 null 허용, `Expenses.moved` 기본 `false`). 이전 이벤트에는 `kind`·`paymentId`·`movedTo`가 없고 그 기본값이 맞다. 6단계 개발 빌드가 저장한 옮기기에는 `moved`가 없으므로 V8은 `movedTo`가 객체인 `expense.deleted`가 로그에 있는 지출을 `moved = true`·삭제로 채우고(로그를 다시 적용한 결과와 같다), schemaVersion 7은 lastSeq를 0으로 되돌린다(출시된 앱은 schemaVersion 3·4 단계에서 어차피 다시 적용하므로 추가 비용이 없다). 출시된 앱(출시 1)은 `comment.*`를 모르는 type으로 건너뛰고, `kind`를 몰라 친구 그룹을 이름이 `Anna & Ben`인 보통 그룹으로 보이며(멤버 추가는 409), `movedTo`가 있는 삭제를 보통 삭제로 본다(출시 전이라 받아들인다). 2~5단계 앱은 출시되지 않았다(빌드 보류). 그 코드의 적용기는 `expenseId` 없는 `comment.added`에서 멈추므로(`as String`) 개발 기기는 새 앱으로 올린다. 서버를 먼저 올린다: 이전 서버는 송금 댓글을 400으로 거부하고 `/friends`·`/activity/unread`가 없다(앱은 404를 기능 없음으로 본다: 배지 숨김).
 - 호환(4단계): 이벤트 모양이 그대로이므로 lastSeq를 되돌리지 않는다. drift schemaVersion 5는 `FxDays` 표와 `Session.homeCurrency`만 더한다. 서버를 먼저 올린다: 이전 서버는 새 통화 코드를 400 `UNKNOWN_CURRENCY`로 거부한다(앱은 "거부된 이벤트"대로 "the currency isn't supported"). 이전 앱은 모르는 통화를 소수 2자리로 보이고(`Money.digits` 기본값) `homeCurrency`를 무시한다(출시 전이라 받아들인다).
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
@@ -175,8 +180,8 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`는 무시한다.
 5. `member.removed`는 `removed=true`만 표시한다. 잔액 계산에는 계속 포함된다.
 6. `payment.confirmed`는 `status`를 `confirmed`로 바꾼다. 없거나 삭제된 송금이면 무시한다. 잔액은 `sent`와 `confirmed` 송금을 똑같이 반영한다(앱은 `sent`를 "확인 대기"로 표시).
-7. `expense.restored`는 `deleted=false`로 되돌린다. 삭제되지 않은 지출이면 아무것도 바꾸지 않는다. 삭제와 복원이 엇갈리면 seq 순서상 나중 것이 이긴다.
-8. `comment.added`는 `commentId`가 처음일 때만 댓글을 뒤에 추가한다(이미 있으면 — 삭제된 댓글 포함 — 무시, 멱등). `comment.deleted`는 `deleted=true`로 표시하고 `text`를 `""`로 비운다(목록에서 빼지 않는다). 서버 로그의 `comment.added`도 `text: ""`로 오므로(snapshot 아래), 글을 본 기기와 못 본 기기가 같은 상태가 된다. 적용기는 지출 존재 여부를 확인하지 않는다(서버 검증이 보장).
+7. `expense.restored`는 `deleted=false`로 되돌린다. 삭제되지 않은 지출이면 아무것도 바꾸지 않는다. 삭제와 복원이 엇갈리면 seq 순서상 나중 것이 이긴다. 예외(6단계): 옮긴(`moved`) 지출은 되살리지 않는다(규칙 13).
+8. `comment.added`는 `commentId`가 처음일 때만 댓글을 뒤에 추가한다(이미 있으면 — 삭제된 댓글 포함 — 무시, 멱등). `comment.deleted`는 `deleted=true`로 표시하고 `text`를 `""`로 비운다(목록에서 빼지 않는다). 서버 로그의 `comment.added`도 `text: ""`로 오므로(snapshot 아래), 글을 본 기기와 못 본 기기가 같은 상태가 된다. 적용기는 지출 존재 여부를 확인하지 않는다(서버 검증이 보장). 6단계: 댓글은 `expenseId`와 `paymentId`를 받은 그대로 저장한다(없으면 `null`, 송금 댓글은 `expenseId: null`). 송금 존재 여부도 확인하지 않는다.
 9. 빠진 필드: `expense.created`에 `notes`가 없으면 `null`. `expense.updated`는 `fields`에 있는 키만 바꾸며(규칙 10의 `payers`·`paidBy`·`split` 예외), `notes`·`category`·`fxRateToDefault`·`split`은 `null`이 오면 지우고, 나머지 키(`payers`·`refund` 포함)의 `null`은 무시한다.
 10. 결제자·환불·분할 입력.
     - 기준은 `payers`이고 `paidBy`는 거기서 정한다. **주요 결제자** = 금액이 가장 큰 결제자, 같으면 memberId가 가장 작은 결제자(문자열 오름차순). 적용기는 payload의 `paidBy`를 믿지 않고 언제나 다시 정한다. `payers`는 보낸 순서를 지킨다.
@@ -186,8 +191,9 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
     - `split`: `fields`에 `split` 키가 있으면 그 값(null이면 지움). 없고 `fields`에 `shares`나 `amount`가 (null 아닌 값으로) 있으면 `null`(값이 같아도 키만 보고 정한다). 그 밖에는 그대로.
 11. 그룹 설정: `group.updated`에서 없는 키는 그대로, `simplifyDebts`는 그 값으로, `"defaultSplit": null`은 지운다. 기본값 `simplifyDebts = true`, `defaultSplit = null`. `group.created`는 이 둘을 바꾸지 않는다.
 12. 통화 잠금: 상태에 지출이나 송금이 하나라도 있으면(삭제된 것 포함 — 복원될 수 있다) `group.updated`의 `defaultCurrency`를 무시한다. 같은 이벤트의 다른 키는 적용한다. 서버는 이 이벤트를 400 없이 받아 저장한다. 이유: 모든 `fxRateToDefault`와 송금 금액이 그룹 통화 기준이다. 이 규칙은 상태를 보므로 "로그 전체를 최종 상태 위에 한 번 더 적용"하면 결과가 다를 수 있다(`group.created`가 통화를 되돌린 뒤 변경이 무시됨). 동기화는 그렇게 하지 않는다(seq 순서로 한 번씩, 또는 빈 상태부터).
+13. 그룹 종류(6단계): `group.created`가 `kind`를 정한다(없거나 문자열이 아니면 `"group"`). 그 뒤 어떤 이벤트도 바꾸지 않는다(`group.updated`의 `kind` 키는 서버가 400으로 막고 적용기도 무시한다). 기본값 `kind = "group"`. 옮기기: `movedTo`가 객체인 `expense.deleted`는 보통 삭제처럼 `deleted=true`로 만들고 `moved=true`도 표시한다(그 뒤 어떤 이벤트도 지우지 않는다. `movedTo` 없는 삭제가 다시 와도 그대로). `moved`인 지출에 오는 `expense.restored`는 무시한다(규칙 7의 예외: 그 지출은 이제 다른 그룹에서 계산되므로 되살리면 두 번 센다). 서버는 그 `expense.restored`를 400 없이 받아 저장하고(오프라인에서 옮기기보다 먼저 넣은 복원일 수 있다), 상태가 바뀌지 않으므로 활동에서 숨긴다(숨김 1). 앱은 옮긴 지출에 Restore를 보이지 않는다. 기본값 `moved = false`.
 
-4·5단계는 적용 규칙을 더하지 않는다.
+4·5단계는 적용 규칙을 더하지 않는다. 6단계는 규칙 13을 더하고(규칙 7에 옮긴 지출 예외) 규칙 8을 송금 댓글로 넓힌다.
 - 4단계: `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
 - 5단계: `category`는 받은 문자열 그대로 저장한다(key로 바꾸지 않음, `null`은 규칙 9대로 지움, `shared/sync-cases.json`의 category 케이스). 뜻은 아래 "카테고리".
 
@@ -213,11 +219,13 @@ D = 그룹 기본 통화. 지출은 삭제 안 된 것만.
 1. D 지출은 그대로 D 칸에 들어간다(남아 있는 환율은 무시).
 2. 외화 지출이고 `fxRateToDefault > 0`이면 `convertExpense`로 D로 바꿔 D 칸에 넣는다. 몫(`shares`)에 한 번, 결제자(`payers`)에 한 번, 같은 amount·rate·자릿수로 부른다(둘의 total은 같다). 하나라도 던지면(구현 전 `UnimplementedError`, `FxException`) 3으로 간다.
 3. 그 밖의 지출은 자기 통화의 칸에 들어가고 `unconverted[통화]`가 1 오른다.
-4. 송금은 `payment.currency`의 칸에 들어간다(Settle up은 언제나 D로 만든다. 다른 통화 송금은 이전 클라이언트가 만든 것).
+4. 송금은 `payment.currency`의 칸에 들어간다. 4·5단계의 Settle up은 언제나 D로 만들었고, 6단계부터는 칸마다 그 칸의 통화로 만든다(아래).
 5. D 칸은 언제나 있다. 다른 칸은 누군가의 잔액이 0이 아닐 때만 남는다. 칸마다 잔액의 합은 0이다.
 - 칸마다 따로 `computeBalances`, 그리고 부채 단순화(`simplifyDebts`) 또는 끈 그룹은 pairwise를 한다. 3단계의 여러 결제자·환불 지출은 `computeBalances`가 구현될 때까지 지금처럼 그 칸에서 빼고 개수(`unsupported`)를 보여 준다.
-- Settle up에서 보낼 수 있는 송금은 D 칸에서만 나온다. 다른 칸은 카드 하나("¥3,000 isn't converted yet · Convert"). 송금은 D로 남으므로 결제 링크와 EPC QR은 그대로다.
-- 그룹 나가기: 모든 칸에서 내 잔액이 0이고 `unsupported`가 0이어야 한다(환산 안 된 지출 자체는 막지 않는다).
+- Settle up(4·5단계)은 D 칸의 송금만 보였고 다른 칸은 카드 하나("¥3,000 isn't converted yet · Convert")였다. **6단계**: 모든 칸의 송금을 보이고 그 칸의 통화로 기록한다(D 칸 먼저, 다른 칸은 통화 코드 순으로 "Not converted · JPY" 아래). 그래서 그룹 통화가 아닌 빚도 환산 없이 그 통화로 정산할 수 있다(parity #76). 그 칸에 환율 없는 지출이 있고 `fxReady`면 Convert도 함께 보인다. 결제 링크는 그 칸의 통화로 연다(1단계 링크 규칙 그대로: EPC QR은 EUR만, 다른 통화의 IBAN은 복사만).
+- Convert는 송금을 바꾸지 않는다: X로 정산한 뒤 X 지출을 환산하면 X 송금만 X 칸에 남아 반대 방향의 빚으로 보인다. 그래서 Convert 시트는 그 통화에 삭제 안 된 송금이 있으면 `Payments in JPY stay in JPY` 한 줄을 보인다.
+- 서버(6단계) `money/Balances.kt`: `ofGroup(state)` = `balancesOf`의 이식, `transfers(result, simplify)` = `groupTransfers`(끈 그룹은 `pairwiseDebts` 이식. `shared/settlement-cases.json`의 `expectedPairwise`를 Kotlin도 검사). 환산이 `NotImplementedError`(효준님 `Fx` 이식 전)나 `FxException`을 던지면 Dart `tryFx`처럼 그 지출은 자기 통화 칸에 남는다. `Settlement.balances`는 여러 결제자·환불을 세므로 `unsupported`는 없다.
+- 그룹 나가기: 모든 칸에서 내 잔액이 0이고 `unsupported`가 0이어야 한다(환산 안 된 지출 자체는 막지 않는다). 6단계부터 다른 칸도 그 통화로 정산할 수 있으므로 나가는 데 환산이 필요 없다(앱 안내 `You owe ¥3,000 · settle up in JPY first`).
 - 홈 통화 H의 "≈": 내 칸 X마다 `convertAmount(잔액, digits(X), digits(H), crossRate(최신 표, X, H))`의 합. 환율이 하나라도 없거나 H만 관련되면 숨긴다. `convertAmount`가 구현 전이면 Convert 버튼과 모든 "≈"를 숨기고 외화 지출은 모두 자기 칸에 남는다(자동 환율은 그래도 채우고 저장한다).
 
 ## 환율 (4단계)
@@ -326,6 +334,133 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 
 상한: 사용자당 8개, `iban`·`kr_bank`는 각 3개, 나머지 유형은 1개.
 
+## 송금 기록·편집 (6단계)
+새 이벤트 종류는 없다. `payment.created`·`payment.deleted`·`comment.added`를 쓴다.
+- **아무 송금 기록**(Settle up의 **Record a payment**, 앱 `features/settle/payment_sheet.dart`): From·To(서로 다른, removed 아닌 아무 멤버), Amount(> 0), Currency(`shared/currencies.json`의 아무 통화, 기본 D. Settle up의 송금 카드에서 열면 그 카드의 from·to·금액·통화로 채운다), Date(기본 오늘, 바꿀 수 있다). `payment.created` 하나.
+- **status**(앱이 정한다): From이 내 멤버이고 To가 다른 사용자에 연결된 멤버면 `"sent"`(받는 사람이 1단계대로 확인), 그 밖(내가 받는 사람, 자리표시에게 보냄, 다른 두 사람 사이의 기록)은 `"confirmed"`. 서버 정규화(받는 사람이 자리표시이거나 보낸 사람 본인이면 `confirmed`)는 그대로다.
+- **편집** = 이전 송금의 `payment.deleted` + 새 id의 `payment.created`를 한 로컬 트랜잭션으로 outbox에 넣는다(`payment.updated`는 없다). 송금을 누르면 같은 시트가 편집으로 열린다. 편집·삭제는 그 송금의 From이나 To에 연결된 사용자에게만 보인다(앱. 서버의 `payment.deleted` 권한은 1단계 그대로). 새 송금의 status는 위 규칙으로 다시 정한다(보낸 사람이 고치면 다시 확인 대기). 보통 한 push로 가므로 받는 사람에게는 표시 알림 하나 `{A} made 2 changes`.
+- 편집하면 이전 송금의 댓글은 이전(삭제된) 송금에 남는다(옮기지 않는다). 댓글이 있는 송금을 고칠 때 시트는 `Comments stay with the old payment` 한 줄을 보인다.
+- **송금 상세** `/groups/:id/payments/:pid`(앱): From → To, 금액, 날짜, status와 1단계 Confirm received / Not received, Edit·Delete(위 권한), 댓글 스레드(`comment.added {paymentId}`. 지출 댓글과 같은 규칙: 삭제된 송금에도 달 수 있고 작성자만 지운다). 활동의 `payment_*` 항목, 송금 댓글 항목, Settle up의 기록된 송금을 누르면 여기로 온다.
+- **친구와 한 번에 정산**(친구 페이지 **Settle up**): 아래 "개요"의 원장(`GroupLedger.transfers`)에서 나와 그 사람 사이의 송금을 그룹·통화별로 모은다(내 멤버 하나와 그 사람의 멤버 하나 사이). 통화마다 net = Σ(그 사람이 나에게 줄 금액). 통화마다 한 줄이고, 환산 안 된 칸만 있는 통화도 그 통화로 정산한다(Convert는 `fxReady`일 때 함께).
+  - 기록 = 그 송금마다 `payment.created` 하나(그 그룹, 그 통화, 그 송금의 from·to·amount). 내가 내는 송금이고 그 통화의 net < 0이면 `"sent"`(1단계 **I've sent it**), 그 밖(내가 받는 쪽 **Mark as received**, 그리고 net과 반대 방향인 상계 송금 — 실제로 돈이 오가지 않는다)은 `"confirmed"`.
+  - 그룹마다 따로 outbox에 넣고 push한다(그룹 로그는 따로다).
+  - net < 0이면 결제 수단 칩(1단계): 친구 그룹의 `GET /groups/{id}/payment-methods`, 친구 그룹이 없으면 공유 그룹 하나에서 그 사람의 멤버 id로 읽는다. `_pay`·`_bankSheet`는 `features/settle/pay_sheet.dart`로 옮긴다.
+
+## 친구 (6단계)
+친구 = 숨은 2인 그룹(`kind: "friend"`). 그룹 밖 지출(non-group)도 같은 이벤트 로그·outbox·두 적용기·내보내기·Settle up을 쓴다. 따로 된 장부는 없다. 사람별로 보이는 금액(Friends 탭, 전체 카드, 친구 페이지, 리마인더)은 모두 그룹마다의 Settle up 송금에서 아래 "개요" 규칙으로 만든다.
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/me/friend-code` | | `FriendCode`. 처음 부를 때 만든다 |
+| POST | `/me/friend-code/rotate` | | `FriendCode`(새 코드). 이전 코드는 그때부터 404 |
+| GET | `/friend-invites/{code}` | 인증 불필요, 코드 정규화 | `{"displayName": "Anna"}`. 없는 코드 404 `NOT_FOUND`, IP 제한 429 `RATE_LIMITED` |
+| GET | `/f/{code}` | 인증 불필요, 코드 정규화 | HTML 랜딩 "{displayName} wants to split expenses with you"와 **Open in app** → `evensies://f/{code}`(`/j/`와 같은 템플릿 함수, 이름은 HTML escape). 없는 코드 404, 429 |
+| POST | `/friends` | `{"id", "defaultCurrency"}` + `"code"`·`"userId"`·`"name"` 가운데 정확히 하나 | `GroupDto`(`kind: "friend"`, `myMemberId` = 호출자의 멤버). 아래 |
+| POST | `/friends/{userId}/remind` | | 아래 "리마인더" |
+
+```
+FriendCode {"friendCode": "K7P4QX", "link": "https://evensies.nariinfo.dev/f/K7P4QX"}
+```
+- `link` = `EVENSIES_PUBLIC_URL`(끝의 `/`는 뺀다) + `/f/` + 코드. 앱의 링크 해석(`extractInviteCode`)은 `/f/<code>`와 `evensies://f/<code>`를 친구 코드로 읽는다. Universal Links(`apple-app-site-association`의 `"/f/*"`)와 App Links(`host="f"`, `pathPrefix="/f/"`).
+- 친구 코드: 6자(위 "초대 코드"), 사용자당 하나(`users.friend_code`, UNIQUE). 계정을 지우면 `NULL`.
+- **공유 그룹** = 두 사용자가 모두 `user_id`로 연결된 member 행을 가진 그룹(removed 포함, `kind`와 상관없음). 프로필 사진과 리마인더의 권한이 이 정의를 쓴다. `userId`로 친구 추가는 더 좁게 두 행이 모두 removed 아닌 공유 그룹만 센다(친구 그룹은 나갈 수 없고 서로의 결제 수단을 보이므로, 나간 사람·내보낸 사람을 동의 없이 넣지 않는다).
+
+**`POST /friends`**
+- `id`: 앱이 만든 새 그룹 UUID(재시도 멱등, `POST /groups`와 같다). 그 id의 그룹이 이미 있으면 다른 검사 없이 그 그룹을 돌려준다(호출자가 멤버가 아니면 403).
+- `defaultCurrency`: 새로 만들 때의 기본 통화(앱은 홈 통화). 필수, 목록에 없으면 400 `UNKNOWN_CURRENCY`. 이미 있는 친구 그룹을 돌려줄 때는 쓰지 않는다.
+- 셋 가운데 하나(`null`은 없는 것. 셋 다 없거나 둘 이상이면, 또는 문자열이 아니면 400 `VALIDATION`):
+  - `code`: 친구 코드(정규화). 없는 코드 404 `NOT_FOUND`. 위 IP당 버킷을 쓴다(429).
+  - `userId`: 호출자와 지금 함께 있는(두 멤버 모두 removed 아님) 공유 그룹이 있는 사용자. 모르는 id, 삭제된 계정, 그런 공유 그룹 없음은 모두 403 `FORBIDDEN`(있는지 알리지 않는다).
+  - `name`: 아직 Evensies를 쓰지 않는 사람(자리표시 친구). trim 뒤 1~30 code point, 아니면 400 `VALIDATION`.
+- 코드나 userId가 호출자 본인이면 400 `SELF_FRIEND`.
+- 속도: 호출마다 사용자당 이벤트 버킷(분당 120, `POST /groups/{id}/events`와 같은 버킷)에서 3개를 쓴다. 넘으면 429 `RATE_LIMITED`. `code`·`userId` 친구 수 상한은 없다(사람마다 하나). `name`(자리표시 친구)은 사용자당 200: 호출자가 removed 아닌 멤버이고 상대 멤버가 연결 안 된(claim 전이거나 계정을 지운) 친구 그룹이 이미 200개면 409 `LIMIT_EXCEEDED`(재시도 `id`는 위대로 그 그룹). claim되면 다시 자리가 난다.
+- `code`·`userId`(A = 호출자, B = 상대). 한 트랜잭션:
+  1. `SELECT id FROM users WHERE id IN (:a, :b) AND deleted_at IS NULL ORDER BY id FOR UPDATE`(두 사람의 동시 요청이 한 줄로 선다). 2행이 아니면(잠금을 기다리는 사이 계정이 지워졌으면) 앞의 조회와 같은 오류(`code` 404, `userId` 403).
+  2. `friendships(user_lo, user_hi)` 행이 있으면 그 그룹을 돌려준다. 같은 두 사람은 어느 쪽에서 몇 번 해도 같은 그룹이다.
+  3. 없으면 그룹 행(`kind = 'friend'`, 새 초대 코드)을 넣고 서버가 만든 이벤트 셋을 **검증 없이**(trusted, 같은 잠금·seq·적용·meta 경로) 저장한다: seq 1 `group.created {"name": "{A 이름} & {B 이름}", "defaultCurrency", "kind": "friend"}`, seq 2 `member.added {"memberId": 새 UUID, "name": A 이름, "userId": A}`, seq 3 `member.added {"memberId": 새 UUID, "name": B 이름, "userId": B}`. 이름은 `users.display_name`(비었으면 `Friend`). 세 이벤트의 actor는 A. 그다음 `friendships`에 (lo, hi, groupId)를 넣는다.
+  4. 커밋한 **뒤** 푸시(`PushNotifier.notify`): B의 기기는 `friend_added` 표시 알림과 sync data를 받는다(B의 앱은 모르는 groupId라 `syncAll()`로 새 그룹을 받아들인다).
+- `user_lo`·`user_hi`: 두 UUID를 **소문자 문자열**로 비교해 작은 쪽이 lo(Postgres uuid 순서와 같다. Kotlin `UUID.compareTo`는 부호 있는 long 비교라 쓰지 않는다).
+- `name`: 사용자 잠금과 `friendships` 행 없이 같은 방법으로 만든다. seq 3은 `member.added {"memberId": 새 UUID, "name": name, "userId": null}`. 친구는 이 그룹의 초대 코드(`GroupDto.inviteCode`, `/j/{code}`)로 그 자리표시를 claim한다. 친구 그룹의 `/j/{code}` 랜딩은 그룹 이름 대신 연결된 멤버 이름으로 "{name} added you as a friend on Evensies."를 보인다(없으면 `Someone`).
+- 응답은 언제나 200 `GroupDto`. 앱은 그 뒤 snapshot으로 그룹을 받아들인다(초대 참여와 같다). 온라인일 때만(친구가 생긴 뒤의 지출은 오프라인에서도 된다).
+
+**친구 그룹 규칙** (검증기는 `state.kind`를 본다)
+- 멤버는 정확히 2명. 셋째 `member.added`는 409 `LIMIT_EXCEEDED`(그래서 친구 그룹의 `/invites/{code}/join {newMemberId}`와 Splitwise 가져오기의 새 이름도 409). `member.removed`는 400 `VALIDATION`(나가기 없음. 친구 삭제는 10단계).
+- 자리표시 친구 claim(`/invites/{code}/join {memberId}` → `member.linked`)은 그룹 상한 검사를 하지 않고, 같은 요청에서 `GroupService.join`이 두 연결 사용자의 `friendships` 행을 `ON CONFLICT DO NOTHING`으로 넣는다. 두 사람에게 이미 친구 그룹이 있었으면 둘 다 남고 `POST /friends`는 계속 `friendships`의 그룹을 돌려준다. 앱은 같은 userId의 친구 그룹을 한 사람으로 합쳐 보인다.
+- 이름(`"Anna & Ben"`)은 내보내기에서만 보인다(앱 내보내기 목록은 `Non-group · Ben`). 앱은 상대 멤버의 이름을 쓴다. `group.updated`는 보통 그룹과 같게 받지만 앱에는 친구 그룹의 설정 화면이 없다.
+- 활동: seq 1·2는 숨기고 seq 3은 `friend_added`(위 "피드"). 푸시 제목은 상대 이름.
+
+## 개요 (6단계)
+Friends 탭, 전체 카드, 친구 페이지, 리마인더가 쓰는 하나의 규칙. 앱 `domain/overview.dart`, 서버 `money/Overview.kt`, 양쪽이 `shared/overview-cases.json`을 읽는다(케이스마다 상태 → `balancesOf`/`Balances.ofGroup` → `groupTransfers`/`Balances.transfers` → 개요이므로 Kotlin `Balances` 이식도 함께 검사한다).
+
+```
+GroupLedger {
+  groupId,
+  myMemberId,                          // 새 송금에 쓰는 내 멤버: removed 아닌 내 멤버, 없으면 상태 순서로 첫 내 멤버
+  personOf: {memberId: person},        // 모든 멤버(내 멤버 포함). 연결 → userId, 친구 그룹의 자리표시 → "g:<groupId>", 보통 그룹의 자리표시 → "m:<memberId>"
+  transfers: {currency: [Transfer]}    // groupTransfers(state) (4단계 칸, 환산 안 된 칸 포함): Settle up이 보이는 그대로
+}
+Overview {
+  people:   {person: {currency: amount}},             // + = 그 사람이 나에게 줄 돈, − = 내가 줄 돈
+  byGroup:  {person: {groupId: {currency: amount}}},
+  owedToMe: {currency: amount}, iOwe: {currency: amount}
+}
+```
+- `GroupLedger.of(groupId, state, myUserId)`: `userId == myUserId`인 멤버가 없거나 잔액을 계산할 수 없으면(`balancesOf`가 null, `tryCore`) `null`. 앱 전체 카드는 null인 그룹 수를 `{n} group(s) not included yet`으로 보인다.
+- `computeOverview(ledgers)`:
+  1. 내 멤버 = `personOf[m] == myUserId`인 모든 멤버(removed 포함. 나갔다 다시 들어온 사용자는 둘이다).
+  2. 송금마다 `a = personOf[from]`, `b = personOf[to]`. `b`만 나면 `people[a][통화] += amount`, `a`만 나면 `people[b][통화] −= amount`. 둘 다 나거나 둘 다 내가 아니면 무시한다.
+  3. 사람·통화별(`people`), 사람·그룹·통화별(`byGroup`)로 더한다. 환산·반올림은 없다.
+  4. 0을 빼고, 그다음 빈 사람·빈 그룹을 뺀다.
+  5. `owedToMe[c]` = Σ max(0, people[p][c]), `iOwe[c]` = Σ max(0, −people[p][c]). 0이면 키가 없다.
+  6. 불변식(테스트): 통화마다 `owedToMe[c] − iOwe[c]` = 모든 원장에서 내 멤버들 잔액의 합.
+- 설계(phase-06)의 "상태 순서로 첫 내 멤버만 나"를 1·2로 정했다: 첫 멤버만 보면 다시 들어온 멤버의 송금이 빠지고, 내 두 멤버 사이의 송금이 나와의 빚처럼 보인다(`overview-cases` "left and rejoined").
+- 서버 리마인더는 같은 규칙으로 계산한다. `Balances.ofGroup`이 `NotImplementedError`를 던지는 그룹은 뺀다.
+- 화면(앱, 9단계 번역 전 영어):
+  - 사람 = 모든 원장의 `personOf` 값 가운데 나를 뺀 것. `m:` 키(보통 그룹의 자리표시)는 `people`에 있을 때(잔액이 있을 때)만 보이고 부제는 그 그룹 이름이다. `g:` 키(자리표시 친구)와 연결 사용자는 정산됐어도 보인다(Settled up 아래). 이름 = 친구 그룹의 그 멤버 이름, 없으면 그룹 이름순으로 첫 공유 그룹의 멤버 이름. 라우트 `/friends/:key`(`key` = userId, `g:<groupId>`, `m:<memberId>`).
+  - 같은 userId의 친구 그룹이 여럿이면 한 페이지로 합치고, 새 non-group 지출은 id(문자열)가 가장 작은 친구 그룹에 넣는다. 친구 그룹이 없는 연결 사용자에게 지출을 더하면 먼저 `POST /friends {userId, defaultCurrency: 홈 통화}`(온라인만).
+  - 행: 통화가 하나면 `owes you €12.00` 또는 `you owe $5.00`. 여럿이면 가장 큰 것 뒤에 `*`. "가장 큰 것" = 최신 로컬 환율 표(4단계 `FxDays`)로 EUR 주 단위로 바꾼 절댓값(`|amount| / 10^digits / perEur[c]`, 정렬에만 쓰고 보이지 않는다)이 가장 큰 통화. 환율이 없는 통화는 뒤로, 같으면 통화 코드순.
+  - 칩 All · Owes me(어느 통화든 > 0) · I owe(어느 통화든 < 0)는 두 탭(사람, 그룹의 내 잔액)에 같다. 모든 통화에서 0인 사람·그룹은 **Settled up (n)** 아래(기본 닫힘).
+  - 전체 카드(두 탭 위): `You are owed €42.10 · $15.00`(`owedToMe`, 통화 코드순), `You owe €8.00`(`iOwe`), `≈ €61.20 overall`(홈 통화 H로 통화마다 `convertAmount(owedToMe − iOwe, …, crossRate(최신 표, c, H))`의 합. `tryCore`가 null이거나 환율이 하나라도 없으면 숨긴다).
+  - `overviewProvider`는 로컬 그룹이 바뀔 때마다 모두 다시 계산한다(`ponytail:` 전체 재계산. 그룹이 수백 개면 그룹별 캐시).
+  - 친구 페이지: 머리(사진, 통화별 net), 그룹별 줄(`byGroup`, 누르면 그 그룹. 친구 그룹 줄은 `Non-group`), non-group 지출 목록, **Settle up**(위 "송금 기록·편집"), **Remind**(연결된 사람이 나에게 줄 돈이 있을 때) 또는 **Request**(자리표시), 자리표시 친구면 **Invite**(그 그룹의 `/j/` 링크), 더 보기에서 non-group 지출 CSV·JSON 내보내기.
+
+## 지출 옮기기 (6단계)
+편집 중 *With*(그룹 또는 친구)를 바꾸면 옮긴다. 온라인일 때만.
+- `remapForMove(Expense e, List<Member> source, List<Member> target) → Expense?`(앱, 순수): 금액이 0보다 큰 `payers`·`shares`의 멤버(관련된 사람)마다 같은 `userId`를 가진 대상 그룹의 removed 아닌 멤버로 바꾼다. 관련된 사람 가운데 자리표시(`userId` 없음)가 있거나 대상에 그 사용자의 활성 멤버가 없으면 `null`(앱: `Only people on Evensies who are in both can be moved`). 0인 `payers`·`shares` 항목과 대상 멤버가 없는 `split.input` 키는 뺀다. `paidBy`는 주요 결제자로 다시 정한다(규칙 10). `fxRateToDefault`는 두 그룹의 기본 통화가 같을 때만 남기고 아니면 `null`. 그 뒤 수정 화면이 지출 통화가 대상 기본 통화와 다르고 환율이 `null`이면 새 지출처럼 그 날짜의 자동 환율(`GET /fx`)을 넣는다(없으면 `null`, 대상에서 환산 안 됨). 설명·금액·통화·날짜·카테고리·메모·환불·분할 모드는 그대로, expenseId는 새로 만든다.
+- 순서: 1. 대상 그룹에 그 `expense.created`를 바로 push한다(outbox를 거치지 않는다). 2. 성공한 뒤에만 원래 그룹의 outbox에 `expense.deleted {"expenseId", "movedTo": {"groupId": 대상, "expenseId": 새 id}}`를 넣는다. 1이 실패하면 아무것도 바뀌지 않는다(`Couldn't move it. Try again when you're online`).
+- 다시 시도(같은 대상): 1의 `expenseId`·`clientId`를 그대로 쓴다(첫 시도가 저장되고 응답만 잃었으면 서버가 중복으로 보고 그 seq를 돌려준다). 같은 배치에 그 지출의 지금 값 전부(`expense.created` payload에서 `expenseId`를 뺀 것)를 `fields`로 하는 `expense.updated`(새 `clientId`)를 붙인다. 첫 시도가 저장됐으면 그 사이 고친 값이 이것으로 들어가고, 아니면 같은 값이라 상태가 바뀌지 않는다(활동 숨김 1).
+- 댓글·편집 기록은 원래(삭제된) 지출에 남는다. 활동은 원래 그룹에 `expense_moved`(Restore 없음), 대상 그룹에 `expense_added`. 원래 지출은 `moved`가 되어 복원되지 않는다(적용 규칙 13: 다른 기기가 오프라인에서 넣어 둔 `expense.restored`가 나중에 와도 두 그룹에서 세지 않는다).
+- 대상이 친구 그룹이 아직 없는 연결 사용자면 먼저 `POST /friends {userId}`.
+
+## 프로필 사진 (6단계)
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| PUT | `/me/avatar` | multipart `file`: JPEG, 307,200바이트(300 KB) 이하, 가로·세로 1024px 이하 | 204(있던 사진은 바꾼다) |
+| DELETE | `/me/avatar` | | 204(없어도) |
+| GET | `/users/{userId}/avatar` | | 200 `image/jpeg` |
+- 보는 사람: 본인, 그리고 그 사용자와 공유 그룹이 있는 사용자. 아니면 403 `FORBIDDEN`(사진이 있는지 알리지 않도록 404보다 먼저 본다). 사진이 없으면 404 `NOT_FOUND`. 삭제된 계정은 멤버 연결이 풀려 공유 그룹이 없으므로 다른 사람에게는 403이다(사진 파일도 지워진다). 응답 헤더 `Cache-Control: private, max-age=3600`, `X-Content-Type-Options: nosniff`. 내려받기는 언제나 API를 거친다(Bearer 토큰).
+- `PUT` 검사 순서: 속도(사용자당 시간당 10회, 실패한 시도도 센다, 메모리 `RateLimiter`) → 429 `RATE_LIMITED`. 크기: 307,200바이트 초과, 또는 5 MB multipart 상한 초과(`GlobalExceptionHandler`가 `MaxUploadSizeExceededException`을 413으로 바꾼다. 지금은 500) → 413 `TOO_LARGE`. `file` 파트가 없으면 400 `VALIDATION`. 그다음 `Jpeg.clean(bytes, 1024)`: SOI(`FF D8`)로 시작하지 않거나 구조가 깨졌으면(세그먼트 길이가 넘침, 잘림, SOS 전에 SOFn 없음) 400 `NOT_JPEG`. SOFn의 가로나 세로가 1024를 넘으면 400 `IMAGE_TOO_LARGE`. 서버는 믿을 수 없는 픽셀을 디코딩하지 않는다(앱이 이미 다시 인코딩했다). Content-Type 헤더는 보지 않는다.
+- `Jpeg.clean`은 마커를 따라가며 APP0·APP14는 남기고 APP1~APP13·APP15·COM(EXIF와 GPS, XMP, IPTC, 내장 썸네일)은 버린다. 다른 세그먼트(DQT, DHT, SOFn, DRI, SOS…)는 그대로. SOS 뒤 엔트로피 데이터에서 `FF 00`과 `FF D0`~`FF D7`은 데이터이고, 마커 앞의 연속된 `FF`는 채움 바이트. progressive JPEG(SOS 여러 개)도 된다. EOI에서 멈추고 그 뒤의 바이트는 버린다. 결과는 같은 크기로 디코딩되어야 한다(테스트).
+- 저장: `storage/FileStore.kt` `write(key, bytes)`(같은 디렉터리의 임시 파일 → `Files.move(…, ATOMIC_MOVE)`), `path(key): Path?`, `delete(key)`. 루트는 `EVENSIES_STORAGE_DIR`. 키는 Spring이 이미 파싱한 UUID로만 만든다(경로 탐색 불가): `avatars/{userId}.jpg`, 7단계 `attachments/{groupId}/{id}.jpg`·`{id}_thumb.jpg`, 10단계 `covers/{groupId}/{coverId}.jpg`. `ponytail:` 로컬 디스크만. 디스크가 70%쯤 차면 S3 호환 저장소를 비용과 함께 제안한다.
+- 계정 삭제는 커밋 뒤 `avatars/{userId}.jpg`를 지운다.
+- 앱: Settings에서 내 사진을 누르면 Take photo / Choose from library / Remove. `data/images.dart` `prepareJpeg(XFile picked, {required int maxEdge, required int quality})`(방향을 픽셀에 적용, EXIF 제거, HEIC → JPEG. 새 의존성 `image_picker`·`flutter_image_compress`, iOS `NSCameraUsageDescription`·`NSPhotoLibraryUsageDescription`). 사진은 `maxEdge: 512, quality: 85`(약 50 KB). `PersonAvatar(userId?, name)`: 원 안에 `BoxFit.cover`, 없거나 오류면 이름 머리글자. `avatarProvider(userId)`는 `ApiClient`로 받아(토큰 갱신) 세션 동안 기억하고, 내 사진은 올리거나 지운 뒤 다시 받는다. `docs/privacy.md`에 프로필 사진 항목(누가 보는지, 서버 디스크의 512px JPEG, 계정과 함께 삭제).
+
+## 리마인더 (6단계)
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/friends/{userId}/remind` | | `{"amounts": [{"currency": "EUR", "amount": 1500}]}` |
+1. 호출자와 `{userId}`의 공유 그룹을 모두 읽는다(removed 포함, 친구 그룹 포함). `{userId}`가 본인이거나 공유 그룹이 없으면 403 `FORBIDDEN`.
+2. 그룹마다 `Balances.ofGroup` → `Balances.transfers` → `GroupLedger`(나 = 호출자), 그리고 `Overview.compute`("개요"). `NotImplementedError`를 던지는 그룹은 뺀다.
+3. `people[userId]`에서 양수인 통화(그 사람이 나에게 줄 돈)만 남긴다. 없으면 409 `NOTHING_OWED`(오늘의 기회를 쓰지 않는다. 내가 그 사람에게 줄 돈만 있어도 409).
+4. 기회를 원자적으로 잡는다: `INSERT INTO reminders (from_user, to_user, sent_at) VALUES (:me, :them, now()) ON CONFLICT (from_user, to_user) DO UPDATE SET sent_at = now() WHERE reminders.sent_at < now() - interval '24 hours'`. 바뀐 행이 0이면 429 `RATE_LIMITED`, `Retry-After` = 남은 초(올림, 1 이상).
+5. 상대의 `notification_prefs.reminders`가 `true`면 상대의 모든 기기로 표시 알림을 보낸다(`PushSender`, 죽은 토큰은 다른 푸시처럼 지운다). `false`면 보내지 않는다. 응답은 어느 쪽이든 같은 200이다.
+- `amounts`: 통화 코드 오름차순, 금액은 최소 단위 양수.
+- 푸시: title `{A} sent a reminder`. body: 통화 1개 `You owe {A} {M1}.`, 2개 `You owe {A} {M1} and {M2}.`, 3개 이상 `You owe {A} {M1}, {M2} and more.`(`amounts` 순서). `{A}` = 보낸 사람의 `displayName`(비었으면 `Someone`), 금액 표기와 title/body 자르기는 "문장"·"푸시"와 같다(`ActivityText`). data `{"type": "remind", "fromUserId": "<uuid>"}`. 배지 없음, APNs `thread-id` 없음.
+- 앱: 친구 페이지의 **Remind**(연결된 사람이 나에게 줄 돈이 있을 때). 429면 `You can remind {name} again tomorrow`, 409면 `{name} doesn't owe you anything`. 자리표시에게는 1단계 **Request** 공유 텍스트. 알림을 누르면 `/friends/{fromUserId}`. Settings의 알림 스위치에 Reminders(`PUT /me/notifications`의 `reminders`).
+
+## 6단계 오류 코드
+새 코드: `SELF_FRIEND`(400), `NOTHING_OWED`(409), `NOT_JPEG`(400), `IMAGE_TOO_LARGE`(400), `TOO_LARGE`(413). 다시 쓰는 코드: `LIMIT_EXCEEDED`(409), `RATE_LIMITED`(429), `FORBIDDEN`(403), `NOT_FOUND`(404), `VALIDATION`(400), `UNKNOWN_CURRENCY`(400). 앱의 "거부된 이벤트" 표는 그대로다(새 이벤트 오류는 `VALIDATION`·`LIMIT_EXCEEDED`).
+
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
 - `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
@@ -362,15 +497,17 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 |---|---|---|
 | `group_created` | `group.created` | `name`(그룹 이름) |
 | `group_updated` | `group.updated` | `changes`(`name`, `defaultCurrency`, `simplifyDebts`, `defaultSplit`) |
-| `member_added` | `member.added`(payload `userId`가 보낸 사람이 아님 — 자리표시 추가) | `memberId` |
+| `member_added` | 보통 그룹의 `member.added`(payload `userId`가 보낸 사람이 아님 — 자리표시 추가) | `memberId` |
 | `member_joined` | `member.added`(payload `userId` = 보낸 사람, 초대로 새 멤버), `member.linked` | `memberId` |
 | `member_removed` | `member.removed`(빠지는 멤버가 보낸 사용자의 멤버가 아님) | `memberId` |
 | `member_left` | `member.removed`(직전 상태에서 `members[memberId].userId == actorUserId` — 그룹 나가기). 이때 `actorMemberId`는 언제나 그 `memberId`다(나갔다 다시 들어와 또 나간 사용자의 이전 멤버가 아님) | `memberId` |
+| `friend_added` | 친구 그룹(6단계)의 `member.added`(seq 2 제외 — 친구 그룹에서는 seq 3 하나뿐, 상대가 연결 사용자든 자리표시든) | `memberId` |
 | `expense_added` | `expense.created` | `expenseId`, `description`, `amount`, `currency`, `myDelta`, `refund`(환불이면 `true`, 아니면 `null`) |
 | `expense_updated` | `expense.updated` | 위와 같음 + `changes` |
-| `expense_deleted` | `expense.deleted` | `expenseId`, `description`, `amount`, `currency`, `myDelta` |
+| `expense_deleted` | `expense.deleted`(`movedTo` 없음·`null`) | `expenseId`, `description`, `amount`, `currency`, `myDelta` |
 | `expense_restored` | `expense.restored` | `expenseId`, `description`, `amount`, `currency`, `myDelta` |
-| `comment_added` | `comment.added` | `expenseId`, `commentId`, `description`(그 지출의), `text`(댓글) |
+| `expense_moved` | `movedTo`가 객체인 `expense.deleted`(6단계, "지출 옮기기") | `expense_deleted`와 같음 |
+| `comment_added` | `comment.added` | 지출 댓글: `expenseId`, `commentId`, `description`(그 지출의), `text`(댓글). 송금 댓글(6단계, payload에 `paymentId`): `paymentId`, `commentId`, `fromMember`, `toMember`, `amount`, `currency`(댓글 시점의 송금 값), `text`. `expenseId`·`description`·`status`는 `null` |
 | `payment_added` | `payment.created` | `paymentId`, `fromMember`, `toMember`, `amount`, `currency`, `status` |
 | `payment_confirmed` | `payment.confirmed` | 위와 같음 |
 | `payment_deleted` | `payment.deleted` | 위와 같음 |
@@ -381,11 +518,12 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 - `myDelta`: 보는 사람(호출자의 그 그룹 멤버)에게 이 지출이 주는 잔액 변화, 적용 직후 값으로 `sign × ((payers의 내 금액, 없으면 0) − (내 share, 없으면 0))`, `sign = refund ? −1 : +1`, `currency`의 최소 단위. 내가 `payers`에도 `shares`에도 없으면 `null`.
 - `changes`(`expense_updated`): 직전 값과 직후 값이 다른 필드 전부(규칙 10 때문에 `fields`에 없는 `payers`·`paidBy`·`split`도 바뀔 수 있다), 단 결제자는 하나만: 직전·직후 모두 결제자가 한 명이면 `payers`는 넣지 않고(`amount`·`paidBy` 수정을 따라 바뀐 것), 어느 한쪽이라도 여럿이면 `paidBy`를 넣지 않는다(`payers`에서 정해진 주요 결제자라 동점이나 작은 금액 수정으로도 뒤집힌다). 순서 `description, amount, currency, fxRateToDefault, paidBy, payers, refund, date, category, shares, split, notes`. `from`/`to`는 직전/직후 값이고 `payers`·`shares`·`split`·`notes`는 둘 다 `null`(목록에는 이름으로만 나온다), `refund`는 boolean. `group_updated`는 `name, defaultCurrency, simplifyDebts, defaultSplit` 순서이고 `simplifyDebts`는 boolean, `defaultSplit`은 둘 다 `null`. 규칙 12로 무시된 `defaultCurrency`는 바뀐 것이 아니다.
 - 숨김(항목을 만들지 않고 푸시도 없음):
-  1. 적용기가 상태를 바꾸지 않은 이벤트 — 이미 있는 id의 `created`·`added`, 삭제된 지출의 `updated`, 같은 값으로의 `updated`, 삭제 안 된 지출의 `restored`, 없거나 삭제된 송금의 `confirmed` 등.
-  2. seq 2의 `member.added`(POST /groups가 만든 사람 자신을 넣는 이벤트. `group_created`와 겹친다).
+  1. 적용기가 상태를 바꾸지 않은 이벤트 — 이미 있는 id의 `created`·`added`, 삭제된 지출의 `updated`, 같은 값으로의 `updated`, 삭제 안 된 지출이나 옮긴 지출(규칙 13)의 `restored`, 없거나 삭제된 송금의 `confirmed` 등.
+  2. seq 2의 `member.added`(POST /groups·POST /friends가 만든 사람 자신을 넣는 이벤트. `group_created`와 겹친다).
   3. `comment.deleted`.
   4. 모르는 type.
   5. 댓글이 **지금** 삭제되어 있는 `comment_added`(삭제하면 글이 피드와 아직 묶여 있던 푸시에서 빠진다. 같은 push에서 쓰고 지운 댓글은 알리지 않는다). 이것만 현재 상태를 보므로 `shared/activity-cases.json`(이벤트 시점 규칙)에는 없고 서버 테스트가 검증한다.
+  6. 친구 그룹의 seq 1 `group.created`(6단계. seq 2는 2로 이미 숨김). 서버는 이벤트 적용 직후 상태의 `kind == "friend"`를 `EventMeta.friend`(이전 meta는 `false` — 친구 그룹은 6단계부터 있다)에 기록하고 6과 `friend_added`를 그것으로 정한다. 그래서 검증기·`Activity.meta`·푸시 제목이 모두 `state.kind`(= `groups.kind`) 하나를 본다.
 - 서버는 push 트랜잭션 안에서 이벤트마다 직전·직후 상태를 알고 있으므로 피드에 필요한 값(actorMemberId, 대상 지출·송금의 직전·직후 값, 상태 변화 여부)을 이벤트 행의 `meta`(서버 내부, pull에 없음)에 기록하고 피드는 그것만 읽는다. 이 기능 이전에 저장된 이벤트는 서버가 시작할 때 그룹 로그를 seq 1부터 다시 적용해 `meta`를 채운다.
 
 ### 문장 (영어, 앱 목록·서버 푸시 공통)
@@ -406,7 +544,9 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `expense_updated` | `{A} changed “{description}”: {변경들}` (아래, `, `로 잇는다) |
 | `expense_deleted` | `{A} deleted “{description}”` |
 | `expense_restored` | `{A} restored “{description}”` |
-| `comment_added` | `{A} commented on “{description}”: {text}` |
+| `expense_moved` | `{A} moved “{description}” to another group` (대상 이름은 쓰지 않는다: 보는 사람이 대상 그룹에 없을 수 있다) |
+| `comment_added` | `{A} commented on “{description}”: {text}`. 송금 댓글(`paymentId`가 있음): `{A} commented on a payment of {M(amount)} from {from} to {to}: {text}` |
+| `friend_added` | `{A} added {member} as a friend` (`You added Ben as a friend`, `Anna added you as a friend`) |
 | `payment_added` | `{from} paid {to} {M(amount)}` (from이 맨 앞) + `status`가 `sent`면 ` · waiting for {to} to confirm` |
 | `payment_confirmed` | `{A} confirmed receiving {M(amount)} from {from}` |
 | `payment_deleted` | `{A} deleted a payment of {M(amount)} from {from} to {to}` |
@@ -415,28 +555,44 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 
 ### 푸시
 - 이벤트가 **새로 저장된** push가 커밋되면(clientId 중복만 있는 재시도는 알림 없음) 그룹의 연결된·removed 아닌 멤버 가운데 **보낸 사용자가 아닌** 사용자의 기기(FCM 토큰 있는)로 보낸다. 내 변경은 내 기기에 알리지 않는다(지금과 같음).
-- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`, `comments` = `comment_added`, `members` = `member_*`(`member_left` 포함)·`group_updated`.
-- 남은 항목이 있으면 **표시 알림**(FCM notification + data): title = 그룹 이름(보낼 때의 이름), body = 항목이 1개면 그 문장, 2개 이상이면 묶음 문장.
+- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`, `comments` = `comment_added`(송금 댓글 포함), `members` = `member_*`(`member_left` 포함)·`friend_added`(6단계)·`group_updated`.
+- 남은 항목이 있으면 **표시 알림**(FCM notification + data): title = 그룹 이름(보낼 때의 이름. 친구 그룹(6단계)이면 수신자의 멤버가 아닌 쪽 멤버의 이름), body = 항목이 1개면 그 문장, 2개 이상이면 묶음 문장. 표시 알림에는 수신자의 그때 읽지 않은 수 `total`을 배지로 넣는다(6단계, 아래 "읽지 않은 활동").
 - 묶음: 수신자·그룹마다 마지막 표시 알림 뒤 `EVENSIES_PUSH_BATCH_SECONDS`(기본 30)초 안에 생긴 항목은 바로 보내지 않고 모아 두었다가, 그 시간이 지나는 순간 모은 항목 전부를 표시 알림 하나로 보낸다. 서버 메모리에만 두므로 재시작하면 모은 항목은 버려진다.
 - 표시 알림을 보내지 않는 push(남은 항목 없음, 알림 꺼짐, 묶는 중)에도 **data만 있는 메시지**는 바로 보낸다(동기화용, 지금과 같음).
-- data는 언제나 `{"type":"sync","groupId":"...","seq":"<보낼 때의 latestSeq>"}`(FCM data 값은 문자열).
+- 그룹 이벤트 알림의 data는 언제나 `{"type":"sync","groupId":"...","seq":"<보낼 때의 latestSeq>"}`(FCM data 값은 문자열). 6단계 리마인더는 `{"type":"remind","fromUserId"}`(아래 "리마인더"). 앱은 모르는 `groupId`의 sync를 받으면(새 친구 그룹) `syncAll()`을 한다.
 - 묶음 문장(항목 2개 이상, 수신자는 actor가 아니므로 `You`는 나오지 않는다): 모든 항목의 `actorMemberId`가 같고 모두 `expense_added`면 `{A} added {n} expenses`, 모두 `comment_added`면 `{A} added {n} comments`, 그 밖이면 `{A} made {n} changes`. actor가 섞이면 `{n} new changes`.
-- 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다. 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
+- 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다(친구 그룹이면 친구 페이지, `remind`면 `/friends/{fromUserId}`). 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
 - 길이: title은 100자, body는 200자(UTF-16)를 넘으면 잘라서 끝을 `…`로 한다(`…` 포함 그 길이, 서로게이트 쌍은 자르지 않음). 긴 댓글·설명·그룹 이름이 FCM/APNs 4096바이트 한도를 넘겨 data까지 잃지 않게 하기 위해서다. 앱 목록의 문장은 자르지 않는다.
 - FCM 멀티캐스트는 토큰 500개씩 나눠 보낸다. FCM이 `UNREGISTERED`로 답한 토큰과, 같은 멀티캐스트에서 다른 토큰은 성공했는데 `INVALID_ARGUMENT`로 답한 토큰은 기기 행을 지운다.
-- iOS(APNs): 표시 알림은 `sound: default`, `thread-id: <groupId>`(그룹별로 묶임). data만 있는 메시지는 `content-available: 1`, `apns-priority: 5`, `apns-push-type: background`(앱이 백그라운드에서 깨어 sync).
+- iOS(APNs): 표시 알림은 `sound: default`, `thread-id: <groupId>`(그룹별로 묶임), 6단계부터 `badge: <total>`(Android는 `notification.notification_count`). 수신자마다 배지가 다르므로 `PushNotifier`는 (body, badge)가 같은 토큰끼리 묶어 멀티캐스트한다. data만 있는 메시지는 `content-available: 1`, `apns-priority: 5`, `apns-push-type: background`(앱이 백그라운드에서 깨어 sync).
 - FCM 자격 증명(`EVENSIES_FCM_CREDENTIALS_FILE`)이 없으면 조용히 건너뛴다.
+
+### 읽지 않은 활동 (6단계)
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/activity/unread` | | `ActivityUnread` |
+| POST | `/activity/seen` | `{"feedId": number, "groupId"?: "<uuid>"}` | `ActivityUnread`(바꾼 뒤) |
+
+```
+ActivityUnread {"total": 3, "groups": {"<groupId>": 2, "<groupId>": 1}}
+```
+- 기준점: (사용자, 그룹)마다 `activity_seen.feed_id`(행 없음 = 0). `POST /activity/seen`은 `groupId`가 있으면 그 그룹(그룹 없음 404, 지금 멤버가 아니면 403), 없으면 호출자가 지금(removed 아님) 멤버인 모든 그룹의 기준점을 `GREATEST(저장값, LEAST(feedId, 지금 events의 최대 feed_id))`로 올린다(내려가지 않는다. 너무 큰 값으로 앞으로의 항목을 미리 읽음 처리할 수 없다). `feedId`가 0 이상 정수가 아니면 400 `VALIDATION`, `groupId`가 UUID가 아니면 400 `VALIDATION`.
+- 읽지 않은 항목 = 전체 피드(`GET /activity`)와 같은 그룹·같은 `me`·같은 숨김 규칙(숨김 5 포함)으로 만든 항목 가운데 (a) `feedId > 그 그룹의 기준점`, (b) 이벤트의 `actorUserId`가 호출자가 아님, (c) 이벤트의 `received_at` ≥ 그 그룹에서 피드가 고른 내 멤버 행의 `created_at`(초대로 새로 들어오면 들어오기 전 기록은 세지 않는다. 자리표시를 claim하면 그 자리표시가 생긴 뒤의 기록은 센다 — 나에 관한 기록이다). `groups`는 0인 그룹을 빼고, `total` = `groups`의 합.
+- 그룹마다 기준점 뒤의 이벤트만 읽는다(인덱스 `events (group_id, feed_id)`, V7). 다 읽은 사용자는 그룹당 인덱스 조회 한 번이다.
+- `ponytail:` 최신부터 후보 최대 500행만 훑는다(그보다 많으면 덜 센다). 앱은 99를 넘으면 `99+`.
+- 앱: 그룹 활동 탭 배지 = `groups[groupId]`, 전체 활동 버튼 배지 = `total`. 활동 탭이나 전체 활동 화면의 첫 페이지를 받으면 그 페이지의 가장 큰 `feedId`로 `POST /activity/seen`(그룹 탭은 `groupId`와 함께, 전체 화면은 없이. 빈 페이지면 보내지 않는다). 앱을 켤 때, 앞으로 돌아올 때, 푸시를 받을 때 `GET /activity/unread`. 온라인일 때만(오프라인 큐 없음, 실패하면 배지를 그대로 둔다. 404면 이전 서버이므로 배지를 숨긴다). 받은 `total`로 앱 아이콘 배지를 맞춘다(iOS: 작은 platform channel `evensies/badge`, `UNUserNotificationCenter.setBadgeCount`. Android는 no-op — 런처가 알림의 개수를 보인다). 새 의존성 없음.
+- 푸시 배지: 그룹 이벤트의 표시 알림에만 수신자의 그때 `total`을 넣는다(위 "푸시"). data만 있는 메시지와 리마인더에는 넣지 않는다(iOS는 배지가 없는 알림이면 지금 배지를 둔다).
 
 ### 알림 설정
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | GET | `/me/notifications` | | `NotificationPrefs` — 저장한 적 없으면 모두 `true` |
-| PUT | `/me/notifications` | `NotificationPrefs` (세 키 모두 필수 boolean, 전체 교체) | `NotificationPrefs`. 키가 빠지거나 boolean이 아니면 400 `VALIDATION` |
+| PUT | `/me/notifications` | `NotificationPrefs` (`expenses`·`comments`·`members`는 필수 boolean, 전체 교체. `reminders`(6단계)는 선택: 없으면 저장된 값 그대로, 있으면 boolean) | `NotificationPrefs`(네 키 모두). 필수 키가 빠지거나 boolean이 아니면, `reminders`가 boolean이 아니면(`null` 포함) 400 `VALIDATION` |
 
 ```
-NotificationPrefs {"expenses": bool, "comments": bool, "members": bool}
+NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminders": bool}
 ```
-`expenses` = 지출·송금, `comments` = 댓글, `members` = 멤버 참여·추가·제외·나감과 그룹 설정(이름·통화·부채 단순화·기본 분할) 변경. 꺼도 동기화용 data 메시지는 계속 온다. `DELETE /me`는 설정도 지운다.
+`expenses` = 지출·송금, `comments` = 댓글, `members` = 멤버 참여·추가·제외·나감과 그룹 설정(이름·통화·부채 단순화·기본 분할) 변경. `reminders`(6단계) = 다른 사람이 보낸 리마인더 표시 알림(저장한 적 없으면 `true`). 2~5단계 앱은 `reminders`를 보내지 않으므로 그 값이 바뀌지 않는다. 꺼도 동기화용 data 메시지는 계속 온다. `DELETE /me`는 설정도 지운다.
 
 ## 환경 변수 (서버)
 | 변수 | 기본 | 설명 |
@@ -452,3 +608,4 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool}
 | `EVENSIES_INVITE_RATE_PER_MINUTE` | `10` | 초대 조회·참여·랜딩의 IP당 분당 허용 횟수 |
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |
 | `EVENSIES_FX_URL` | `https://api.frankfurter.dev/v2` | 환율 출처(`{url}/rates?base=EUR&date=`, Frankfurter v2 응답 모양). 빈 값이면 자동 환율 끔(`GET /fx`는 언제나 503). 키 없음, 무료 |
+| `EVENSIES_STORAGE_DIR` | `./data` | 6단계: 올린 파일(프로필 사진, 7단계 영수증, 10단계 그룹 표지)의 디렉터리. Docker 이미지는 `ENV EVENSIES_STORAGE_DIR=/data`, `deploy/docker-compose.yml`이 `./data:/data`를 마운트한다. DB 덤프와 함께 백업한다(출시 때 효준님이 호스트의 rclone cron에 `deploy/data`를 더한다. 자체 호스팅은 `./data`를 백업) |

@@ -30,7 +30,7 @@ void main() {
   late bool fcmOffline;
 
   const session = SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna');
-  const rome = GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true);
+  const rome = GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true);
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -133,7 +133,10 @@ void main() {
   });
 
   testWidgets('in the foreground: a banner with the same title/body whose View opens the activity tab', (t) async {
-    await t.runAsync(() => db.saveSession(session));
+    await t.runAsync(() async {
+      await db.saveSession(session);
+      await db.upsertGroup(rome);
+    });
     await t.pumpWidget(app());
     await settle(t);
 

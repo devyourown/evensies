@@ -91,7 +91,7 @@ This phase also brings **the one storage and image pipeline** that avatars, rece
 - **Validator** (rules read `state.kind`):
   - In a friend group, `member.added` beyond 2 members → 409 `LIMIT_EXCEEDED`; `member.removed` → 400 `VALIDATION`; a `kind` key in `group.updated` → 400 `VALIDATION`.
   - `expense.deleted.movedTo` is optional; when present, both ids must be UUIDs.
-  - Friend groups don't count toward the 100-group abuse cap (`countGroupsOfUser` filters `kind = 'group'`). There is no cap on friends.
+  - Friend groups don't count toward the 100-group abuse cap (`countGroupsOfUser` filters `kind = 'group'`). Linked friends have no cap (one per person); placeholder friends are capped at 200 per user (409 `LIMIT_EXCEEDED`, see docs/API.md).
 - **Avatars:** `PUT /me/avatar` → `Jpeg.clean(bytes, 1024)` → `FileStore.write("avatars/{userId}.jpg")`.
   - Limited to 10 uploads per user per hour (an in-memory `RateLimiter`).
   - Readable by the user and by anyone with a member row in a common group, with `Cache-Control: private, max-age=3600`.
@@ -110,7 +110,7 @@ This phase also brings **the one storage and image pipeline** that avatars, rece
 - **Account deletion** also deletes the avatar file (after commit), `reminders` in both directions and the user's `friendships`, and sets `friend_code = NULL`. A deleted friend then shows as a placeholder friend with the history intact.
 
 ### How (app)
-- **drift (schemaVersion 6):** `Groups.kind` (text, default `'group'`).
+- **drift (schemaVersion 6, then 7):** `Groups.kind` (text, default `'group'`). Version 7 adds `Expenses.moved` (default false) and replays every group (rule 13).
   - Every `GroupRow` built from a `GroupDto` sets it.
   - The Groups tab filters `kind == 'group'`.
   - `GroupState` gains `kind`.
@@ -178,7 +178,7 @@ This phase also brings **the one storage and image pipeline** that avatars, rece
 | `group.updated` | must not contain `kind` (400 `VALIDATION`) |
 | `expense.deleted` | `+ "movedTo": {"groupId", "expenseId"} \| null`. Optional. Activity shows "moved … to …" with no Restore. |
 
-Applier rule **13**: `group.created` sets `kind` (missing = `"group"`); nothing changes it afterwards. `movedTo` doesn't change how a delete applies.
+Applier rule **13**: `group.created` sets `kind` (missing = `"group"`); nothing changes it afterwards. An `expense.deleted` with a `movedTo` object deletes like a plain delete and also sets `moved = true`, which nothing clears; `expense.restored` on a moved expense is ignored (it counts in the other group now). Snapshots and exports carry `moved`.
 
 **DTOs.** `GroupDto`, `GroupSummaryDto`, the snapshot's group and `GET /invites/{code}` gain `"kind"`. `NotificationPrefs` gains `"reminders": bool`, which is optional in `PUT` (missing = unchanged), so Phase 2 clients keep working.
 
@@ -228,6 +228,8 @@ CREATE TABLE reminders (
 
 ALTER TABLE notification_prefs ADD COLUMN reminders boolean NOT NULL DEFAULT true;
 ```
+
+**Migration `V8__moved_expenses.sql`** (rule 13): `expenses.moved boolean NOT NULL DEFAULT false`, backfilled from the log: every expense with an `expense.deleted` whose `movedTo` is an object becomes moved and deleted, as a replay gives.
 
 **Config:** `EVENSIES_STORAGE_DIR` (default `./data`; `/data` in Docker). Back it up together with the database.
 
@@ -322,7 +324,8 @@ Overview computeOverview(List<GroupLedger> ledgers);
 ```
 - **`shared/sync-cases.json`:**
   - `_doc` default `group.kind` = `"group"`.
-  - Case "expense.deleted with movedTo marks deleted like a plain delete": a member, an expense, then `expense.deleted {expenseId: "x1", movedTo: {"groupId": "g2", "expenseId": "x9"}}` → the expense is `deleted: true`.
+  - Case "expense.deleted with movedTo marks deleted and moved": a member, an expense, then `expense.deleted {expenseId: "x1", movedTo: {"groupId": "g2", "expenseId": "x9"}}` → the expense is `deleted: true, moved: true` (`_doc` default `moved = false`).
+  - Case "expense.restored on a moved expense is ignored".
   - Case "friend kind set on create; missing kind is group", using `expected.group.kind`.
 - **`shared/activity-cases.json`:** `friend_added` in its three variants; a hidden friend-group seq 1; a payment edit (`payment_deleted` + `payment_added` batched as "made 2 changes").
 

@@ -102,6 +102,9 @@ class Expense {
   final SplitSpec? split;
   final List<Share> shares;
 
+  /// Deleted by a move (`expense.deleted` with `movedTo`): it counts in the other group, so it stays deleted (rule 13).
+  final bool moved;
+
   /// Pass [payers], or [paidBy] alone for a single payer of the whole [amount].
   Expense({
     required this.id,
@@ -118,6 +121,7 @@ class Expense {
     this.refund = false,
     this.split,
     required this.shares,
+    this.moved = false,
   }) : payers = payers ?? [Share(memberId: paidBy!, amount: amount)];
 
   String get paidBy => primaryPayer(payers);
@@ -139,6 +143,7 @@ class Expense {
     SplitSpec? split,
     bool clearSplit = false,
     List<Share>? shares,
+    bool? moved,
   }) =>
       Expense(
         id: id,
@@ -154,6 +159,7 @@ class Expense {
         refund: refund ?? this.refund,
         split: clearSplit ? null : (split ?? this.split),
         shares: shares ?? this.shares,
+        moved: moved ?? this.moved,
       );
 
   /// Missing `payers` = `[{paidBy, amount}]`, `refund` = false, `split` = null (events and snapshots before Phase 3).
@@ -176,6 +182,7 @@ class Expense {
         refund: j['refund'] == true,
         split: SplitSpec.fromJson(j['split']),
         shares: (j['shares'] as List).cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
+        moved: j['moved'] == true,
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -192,6 +199,7 @@ class Expense {
         'notes': notes,
         'deleted': deleted,
         'shares': shares.map((s) => s.toJson()).toList(),
+        'moved': moved,
       };
 }
 
@@ -250,14 +258,18 @@ class Payment {
 
 class Comment {
   final String id;
-  final String expenseId;
+
+  /// Exactly one of [expenseId] and [paymentId] is set (docs/API.md `comment.added`, Phase 6 payment comments).
+  final String? expenseId;
+  final String? paymentId;
   final String authorMemberId;
   final String text;
   final String createdAt; // ISO-8601 UTC
   final bool deleted;
   const Comment({
     required this.id,
-    required this.expenseId,
+    this.expenseId,
+    this.paymentId,
     required this.authorMemberId,
     required this.text,
     required this.createdAt,
@@ -266,14 +278,18 @@ class Comment {
   Comment copyWith({bool? deleted, String? text}) => Comment(
         id: id,
         expenseId: expenseId,
+        paymentId: paymentId,
         authorMemberId: authorMemberId,
         text: text ?? this.text,
         createdAt: createdAt,
         deleted: deleted ?? this.deleted,
       );
+
+  /// Stored as sent (rule 8): a missing key is null.
   factory Comment.fromJson(Map<String, dynamic> j) => Comment(
         id: j['id'] as String,
-        expenseId: j['expenseId'] as String,
+        expenseId: j['expenseId'] as String?,
+        paymentId: j['paymentId'] as String?,
         authorMemberId: j['authorMemberId'] as String,
         text: j['text'] as String,
         createdAt: j['createdAt'] as String,
@@ -282,6 +298,7 @@ class Comment {
   Map<String, dynamic> toJson() => {
         'id': id,
         'expenseId': expenseId,
+        'paymentId': paymentId,
         'authorMemberId': authorMemberId,
         'text': text,
         'createdAt': createdAt,
@@ -294,6 +311,9 @@ class GroupState {
   final String? name;
   final String? defaultCurrency;
 
+  /// `group` or `friend` (a hidden two-person group, Phase 6). Set by group.created only (rule 13).
+  final String kind;
+
   /// Group settings (docs/API.md 적용 규칙 11).
   final bool simplifyDebts;
   final SplitSpec? defaultSplit;
@@ -304,6 +324,7 @@ class GroupState {
   const GroupState({
     this.name,
     this.defaultCurrency,
+    this.kind = 'group',
     this.simplifyDebts = true,
     this.defaultSplit,
     this.members = const [],
@@ -317,6 +338,7 @@ class GroupState {
   GroupState copyWith({
     String? name,
     String? defaultCurrency,
+    String? kind,
     bool? simplifyDebts,
     SplitSpec? defaultSplit,
     bool clearDefaultSplit = false,
@@ -328,6 +350,7 @@ class GroupState {
       GroupState(
         name: name ?? this.name,
         defaultCurrency: defaultCurrency ?? this.defaultCurrency,
+        kind: kind ?? this.kind,
         simplifyDebts: simplifyDebts ?? this.simplifyDebts,
         defaultSplit: clearDefaultSplit ? null : (defaultSplit ?? this.defaultSplit),
         members: members ?? this.members,
@@ -340,6 +363,7 @@ class GroupState {
   Expense? expense(String id) => expenses.where((e) => e.id == id).firstOrNull;
   Payment? payment(String id) => payments.where((p) => p.id == id).firstOrNull;
   Comment? comment(String id) => comments.where((c) => c.id == id).firstOrNull;
+  bool get isFriend => kind == 'friend';
 
   /// Parses a snapshot or a sync-cases `expected` (its `group` is optional there).
   factory GroupState.fromJson(Map<String, dynamic> j) {
@@ -347,6 +371,7 @@ class GroupState {
     return GroupState(
       name: g['name'] as String?,
       defaultCurrency: g['defaultCurrency'] as String?,
+      kind: g['kind'] as String? ?? 'group',
       simplifyDebts: g['simplifyDebts'] as bool? ?? true,
       defaultSplit: SplitSpec.fromJson(g['defaultSplit']),
       members: (j['members'] as List).cast<Map<String, dynamic>>().map(Member.fromJson).toList(),
@@ -367,6 +392,7 @@ class GroupState {
   Map<String, dynamic> groupJson() => {
         'name': name,
         'defaultCurrency': defaultCurrency,
+        'kind': kind,
         'simplifyDebts': simplifyDebts,
         'defaultSplit': defaultSplit?.toJson(),
       };
@@ -396,4 +422,49 @@ class SyncEvent {
         actorUserId: j['actorUserId'] as String?,
         createdAt: j['createdAt'] as String?,
       );
+}
+
+/// [e] for another group (docs/API.md 지출 옮기기), or null when it can't move: every member with a payer or share
+/// amount above 0 must be linked to a user who has an active member in [target]. Zero payers and shares are dropped,
+/// and `split.input` keeps only the keys that map. paidBy follows from the payers (rule 10). The rate stays only when
+/// both groups have the same default currency ([sameCurrency]); everything else is kept, with the new id [id].
+Expense? remapForMove(Expense e, List<Member> source, List<Member> target, {required String id, required bool sameCurrency}) {
+  final userOf = {for (final m in source) m.id: m.userId};
+  final memberOf = {
+    for (final m in target)
+      if (!m.removed && m.userId != null) m.userId!: m.id,
+  };
+  String? map(String memberId) => memberOf[userOf[memberId]];
+  List<Share>? remap(List<Share> list) {
+    final out = <Share>[];
+    for (final s in list.where((s) => s.amount > 0)) {
+      final to = map(s.memberId);
+      if (to == null) return null;
+      out.add(Share(memberId: to, amount: s.amount));
+    }
+    return out;
+  }
+
+  final payers = remap(e.payers), shares = remap(e.shares);
+  if (payers == null || shares == null || payers.isEmpty) return null;
+  final input = e.split?.input;
+  return Expense(
+    id: id,
+    description: e.description,
+    amount: e.amount,
+    currency: e.currency,
+    fxRateToDefault: sameCurrency ? e.fxRateToDefault : null,
+    payers: payers,
+    date: e.date,
+    category: e.category,
+    notes: e.notes,
+    refund: e.refund,
+    split: e.split == null
+        ? null
+        : SplitSpec(e.split!.mode, input == null ? null : {
+            for (final MapEntry(:key, :value) in input.entries)
+              ?map(key): value,
+          }),
+    shares: shares,
+  );
 }

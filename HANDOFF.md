@@ -1,24 +1,23 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (3·4단계 몫 전부 완료, 2026-10-11. 새 몫이 생기면 이 표에 추가)
-규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/fx_test.dart test/balances_test.dart`
-5단계(분류·검색·인사이트·수정 기록·상세 화면)는 효준님 몫이 없습니다. 남은 것은 4단계 환산 두 함수(6–7)와 끝난 TODO 문구 정리(8)뿐입니다.
+## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 6단계 몫 없음. 새 몫이 생기면 이 표에 추가)
+규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart`
+5단계(분류·검색·인사이트·상세 화면)와 6단계(친구·전체 잔액·사진·알림·송금 기록)는 효준님 몫이 없습니다. 코드에 남은 `TODO(효준)` stub은 0개입니다(`grep -rn "TODO(효준)" app server`에 남는 것은 `core_guard.dart`의 안전장치 설명과 `test/hyojun/*`의 `"pending"` 설명뿐).
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
-| 1 | `app/lib/domain/split.dart:38` | `computeSplit` (percent 나머지) | ✅ 완료 (커밋됨) | 통과 |
-| 2 | `app/lib/domain/split.dart:38` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (+ 반올림 케이스 1개 추가) |
-| 3 | `app/lib/domain/split.dart:38` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
-| 4 | `app/lib/domain/settlement.dart:52` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과. 5단계 `test/insights_test.dart:63`의 "올타임 잔액 변화 = 내 잔액" 검사도 `shared/totals-cases.json` 4케이스 전부(환불 3·4번 포함) 이 함수로 돌아갑니다 |
-| 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
-| 6 | `app/lib/domain/fx.dart` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 케이스 1–10 통과 |
-| 7 | `app/lib/domain/fx.dart` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | 케이스 11–20 통과 |
+| 1 | `app/lib/domain/split.dart:28` | `computeSplit` (percent 나머지) | ✅ 완료 (커밋됨) | 통과 |
+| 2 | `app/lib/domain/split.dart:28` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (`shared/split-cases.json` 25케이스, Kotlin `money/Split.kt`) |
+| 3 | `app/lib/domain/split.dart:28` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
+| 4 | `app/lib/domain/settlement.dart:46` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 (`shared/settlement-cases.json` 13케이스, `shared/totals-cases.json` 4케이스, Kotlin `money/Settlement.kt`). 6단계 `Balances.ofGroup`(서버 알림)·`computeOverview`(친구 탭·전체 카드)도 이 함수로 돌아갑니다 |
+| 5 | `app/test/hyojun/settlement_test.dart:35` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
+| 6 | `app/lib/domain/fx.dart:27` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
+| 7 | `app/lib/domain/fx.dart:46` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
 | 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
+| 9 | — | 6단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin 통과 |
 
-끝나면 통과한 케이스의 `"pending": "hyojun"`를 `shared/fx-cases.json`에서 지우세요. Kotlin 이식(`server/src/main/kotlin/dev/nariinfo/evensies/money/Fx.kt:22-23`·`:31-32`의 `TODO(...)`, 서버 `FxCasesTest` 20개가 지금 skip)은 Claude가 같은 push에 넣고, 효준님은 검토만 합니다.
-6–7이 들어가면 따로 켤 것 없이(`fxReady`) 환율 있는 외화 지출이 그룹 통화 잔액·인사이트 합계에 합쳐지고("Not converted" 카드에서 빠짐), Convert 시트와 "≈" 줄이 보입니다. 그때 Claude가 시뮬레이터에서 Convert 합치기, 홈 통화 "≈ $", 로그인 화면의 홈 통화 단계, 인사이트 합계를 다시 확인합니다.
-**확인 방법:** `shared/fx-cases.json` 4–23줄의 `, "pending": "hyojun"`을 지운 뒤 `flutter test test/hyojun/fx_test.dart`. pending이 남아 있으면 실패해도 skip으로 보입니다.
+`"pending": "hyojun"`인 fixture 케이스는 이제 하나도 없고 서버 테스트도 skip 0개입니다. 6단계 마지막 확인에서 남은 stale 주석(`settings_screen.dart`·`balances.dart`·`insights.dart`의 "TODO(효준) stub")을 지웠습니다.
 
 ## 지금 상태 (전부 확인됨)
 - **서버**(Spring Boot 4.1.1 + Kotlin): 인증(dev/Apple/Google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·Splitwise 가져오기, FCM(자격 증명 없으면 no-op). `./gradlew test` **28개 통과**.
@@ -33,7 +32,7 @@
 | 2 | 분할 계산 Kotlin `money/Split.kt` | Claude 이식, 효준님 검토 | 14개 통과 |
 | 3 | 잔액·부채 단순화 Dart `app/lib/domain/settlement.dart` | 효준님 | 23개 통과 |
 | 4 | `app/lib/domain/settlement.dart` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 |
-| 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
+| 5 | `app/test/hyojun/settlement_test.dart:35` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
 | 6 | `app/lib/domain/fx.dart` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 케이스 1–10 통과 |
 
 임시 경로(`NAIVE_APPLY`, `pushNaive`, `tally.sync.naive`, hyojun 태그)는 전부 제거됐고 CI는 모든 테스트를 기본으로 돌립니다.

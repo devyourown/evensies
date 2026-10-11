@@ -89,19 +89,10 @@ class ExpenseDetailScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
                 if (e.deleted)
-                  Card(
-                    color: cs.errorContainer,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
-                      title: Text('This expense was deleted', style: TextStyle(color: cs.onErrorContainer)),
-                      subtitle: Text('Restore it to count it in balances again.',
-                          style: TextStyle(color: cs.onErrorContainer)),
-                      trailing: FilledButton(
-                        onPressed: () => ref.read(localWritesProvider).restoreExpense(groupId, e.id),
-                        child: const Text('Restore'),
-                      ),
-                    ),
+                  DeletedExpenseCard(
+                    groupId: groupId,
+                    expenseId: e.id,
+                    onRestore: () => ref.read(localWritesProvider).restoreExpense(groupId, e.id),
                   ),
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   CategoryAvatar(e.category, size: 56),
@@ -189,6 +180,47 @@ class ExpenseDetailScreen extends ConsumerWidget {
       persist: false, // actions persist by default; Undo is only offered for 10 s
       action: SnackBarAction(label: 'Undo', onPressed: () => writes.restoreExpense(groupId, e.id)),
     ));
+  }
+}
+
+/// The banner on a deleted expense (detail and form): Restore, or for a moved one only where it went. Restoring a moved
+/// expense would count it here and in its new group (docs/API.md 적용 규칙 13).
+class DeletedExpenseCard extends ConsumerWidget {
+  final String groupId;
+  final String expenseId;
+
+  /// Null disables Restore (busy).
+  final VoidCallback? onRestore;
+  const DeletedExpenseCard({super.key, required this.groupId, required this.expenseId, required this.onRestore});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final moved = ref.watch(movedAwayProvider((groupId: groupId, expenseId: expenseId))).value;
+    if (moved == true) {
+      return Card(
+        key: const Key('moved-card'),
+        color: cs.secondaryContainer,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          leading: Icon(Icons.drive_file_move_outline, color: cs.onSecondaryContainer),
+          title: Text('Moved to another group', style: TextStyle(color: cs.onSecondaryContainer)),
+          subtitle: Text('It counts there now. Its comments and history stay here.',
+              style: TextStyle(color: cs.onSecondaryContainer)),
+        ),
+      );
+    }
+    return Card(
+      color: cs.errorContainer,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
+        title: Text('This expense was deleted', style: TextStyle(color: cs.onErrorContainer)),
+        subtitle: Text('Restore it to count it in balances again.', style: TextStyle(color: cs.onErrorContainer)),
+        // Not offered until it is known not to be a move.
+        trailing: moved == null ? null : FilledButton(onPressed: onRestore, child: const Text('Restore')),
+      ),
+    );
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/core_guard.dart';
@@ -47,7 +48,7 @@ void main() {
   testWidgets('tiles name several payers and refunds; my part uses what I paid minus my share', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(
+        const GroupRow(kind: 'group', 
           id: 'g1',
           name: 'Rome',
           defaultCurrency: 'EUR',
@@ -98,7 +99,7 @@ void main() {
   });
 
   Future<void> seedMine() => db
-      .upsertGroup(const GroupRow(
+      .upsertGroup(const GroupRow(kind: 'group', 
           id: 'g1', name: 'Flat 3B', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true))
       .then((_) => GroupStateStore(db).save(
             'g1',
@@ -133,10 +134,22 @@ void main() {
     t.platformDispatcher.textScaleFactorTestValue = 3.12; // iOS accessibility XXXL body text
     addTearDown(t.view.reset);
     addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
-    await t.runAsync(seedMine);
+    await t.runAsync(() async {
+      await seedMine();
+      await db.into(db.payments).insert(PaymentsCompanion.insert(
+          id: 'p1', groupId: 'g1', fromMember: 'm1', toMember: 'm2', amount: 500, currency: 'EUR', date: '2026-10-05'));
+    });
     await open(t); // an overflow fails the test
     expect(t.getSize(find.text('Coffee beans')).width, greaterThan(200)); // not "Cof..."
     expect(find.text('€12.80'), findsOneWidget);
+    expect(t.renderObject<RenderParagraph>(find.text('You paid Leo')).didExceedMaxLines, isFalse); // not "You …"
+    expect(find.text('€5.00'), findsOneWidget);
+    expect(t.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue); // not "Expe / Bala / Acti"
+    for (final tab in ['Expenses', 'Balances']) {
+      expect(t.renderObject<RenderParagraph>(find.text(tab)).didExceedMaxLines, isFalse);
+    }
+    await t.ensureVisible(find.text('Balances')); // the tabs scroll
+    await t.pumpAndSettle();
     await t.tap(find.text('Balances'));
     await t.pumpAndSettle(); // "gets back €…" wraps under the name
     expect(find.text('gets back'), findsOneWidget);
@@ -146,7 +159,7 @@ void main() {
   testWidgets('balances that leave expenses out never read "All settled"', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -207,7 +220,7 @@ void main() {
       (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -233,7 +246,7 @@ void main() {
   testWidgets('pull to refresh syncs from the empty Expenses list and from Balances', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -256,7 +269,7 @@ void main() {
 
   testWidgets('Balances names who should pay next: the most owed among members still in the group', (t) async {
     Future<void> seed(String me) => t.runAsync(() async {
-          await db.upsertGroup(GroupRow(
+          await db.upsertGroup(GroupRow(kind: 'group', 
               id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: me, simplifyDebts: true));
           await GroupStateStore(db).save(
             'g1',

@@ -51,6 +51,7 @@ object ActivityText {
             "member_joined" -> "${who(item.memberId, start = true)} joined"
             "member_removed" -> "$a removed ${who(item.memberId)}"
             "member_left" -> "${who(item.memberId, start = true)} left the group"
+            "friend_added" -> "$a added ${who(item.memberId)} as a friend"
             "expense_added" -> "$a added ${if (item.refund == true) "a refund " else ""}${quote(item.description)}$DOT${money(item.amount)}" + when {
                 delta < 0 -> "${DOT}you owe ${money(-delta)}"
                 delta > 0 -> "${DOT}${if (item.refund == true) "you get back" else "you lent"} ${money(delta)}"
@@ -79,7 +80,12 @@ object ActivityText {
             }
             "expense_deleted" -> "$a deleted ${quote(item.description)}"
             "expense_restored" -> "$a restored ${quote(item.description)}"
-            "comment_added" -> "$a commented on ${quote(item.description)}: ${item.text}"
+            "expense_moved" -> "$a moved ${quote(item.description)} to another group" // the target may be a group the viewer isn't in
+            "comment_added" -> if (item.paymentId != null) {
+                "$a commented on a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}: ${item.text}"
+            } else {
+                "$a commented on ${quote(item.description)}: ${item.text}"
+            }
             "payment_added" -> "${who(item.fromMember, start = true)} paid ${who(item.toMember)} ${money(item.amount)}" +
                 if (item.status == "sent") "${DOT}waiting for ${who(item.toMember)} to confirm" else ""
             "payment_confirmed" -> "$a confirmed receiving ${money(item.amount)} from ${who(item.fromMember)}"
@@ -88,7 +94,19 @@ object ActivityText {
         }
     }
 
-    /** Visible push title: the group name, clipped like [body]. */
+    /** Reminder push (docs/API.md "리마인더"): [amounts] currency → minor units, sorted by currency; [from] the sender's name. */
+    fun reminder(from: String, amounts: List<Pair<String, Long>>): Pair<String, String> {
+        val a = from.ifBlank { "Someone" }
+        val m = amounts.map { (c, v) -> Money.display(v, c) }
+        val owed = when (m.size) {
+            1 -> m[0]
+            2 -> "${m[0]} and ${m[1]}"
+            else -> "${m[0]}, ${m[1]} and more"
+        }
+        return "$a sent a reminder".clip(MAX_TITLE) to "You owe $a $owed.".clip(MAX_BODY)
+    }
+
+    /** Visible push title: the group name (a friend group: the other member's name), clipped like [body]. */
     fun title(groupName: String): String = groupName.clip(MAX_TITLE)
 
     /**

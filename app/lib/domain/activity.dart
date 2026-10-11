@@ -105,6 +105,8 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
       return '$a removed ${who(item.memberId)}';
     case 'member_left':
       return '${who(item.memberId, start: true)} left the group';
+    case 'friend_added':
+      return '$a added ${who(item.memberId)} as a friend';
     case 'expense_added':
       final mine = withDelta ? myDeltaText(item) : null;
       return '$a added ${item.refund ? 'a refund ' : ''}$desc · $amount${mine == null ? '' : ' · $mine'}';
@@ -136,7 +138,13 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
       return '$a deleted $desc';
     case 'expense_restored':
       return '$a restored $desc';
+    case 'expense_moved':
+      return '$a moved $desc to another group';
     case 'comment_added':
+      if (item.paymentId != null) {
+        return '$a commented on a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}: '
+            '${item.text ?? ''}';
+      }
       return '$a commented on $desc: ${item.text ?? ''}';
     case 'payment_added':
       final waiting = item.status == 'sent' ? ' · waiting for ${who(item.toMember)} to confirm' : '';

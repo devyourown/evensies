@@ -81,7 +81,7 @@ Repeating expenses (rent, subscriptions, a weekly cleaner) are added by the **se
   - `firstOccurrenceOnOrAfter(String frequency, String startDate, String onOrAfter, {int minN = 1}) → ({int n, String date})`.
   - Use `DateTime.utc` only: local arithmetic loses a day across DST, and `DateTime(y, m + 1, 31)` overflows. The fixtures catch both.
 - **Sync:** `EventTypes` gains the three types; `applyEvent` implements rules 15–16; `expense.updated` accepts `recurrenceId`/`occurrence` (null clears).
-- **drift (schemaVersion 8):**
+- **drift (schemaVersion 9):**
   - `Recurrences` table (`id`, `groupId`, `frequency`, `startDate`, `timeZone`, `templateJson`, `deleted`);
   - `Expenses.recurrenceId` and `Expenses.occurrence`;
   - `unsentOutbox` orders by `createdAt`, then `rowid`, so `recurrence.created` always precedes its expense.
@@ -146,7 +146,7 @@ Repeating expenses (rent, subscriptions, a weekly cleaner) are added by the **se
 - push to every member;
 - the fx refresh.
 
-**Migration `V9__recurrences.sql`:**
+**Migration `V10__recurrences.sql`:**
 ```sql
 CREATE TABLE recurrences (
     id              uuid PRIMARY KEY,

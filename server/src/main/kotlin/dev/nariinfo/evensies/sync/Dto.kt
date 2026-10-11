@@ -31,6 +31,8 @@ data class ExpenseDto(
     val refund: Boolean = false,
     /** SplitSpec as sent (docs/API.md "SplitSpec"): a hint for the editor, never used to recompute [shares]. null = exact. */
     val split: JsonNode? = null,
+    /** Deleted by a move (`expense.deleted` with `movedTo`): it counts in the other group now, so it stays deleted (rule 13). */
+    val moved: Boolean = false,
 )
 data class PaymentDto(
     val id: String,
@@ -44,10 +46,14 @@ data class PaymentDto(
     val status: String = "confirmed",
 )
 
-/** Deleted comments stay as tombstones (deleted = true), like expenses and payments. */
+/**
+ * Deleted comments stay as tombstones (deleted = true), like expenses and payments. Exactly one of [expenseId] and
+ * [paymentId] (Phase 6, a comment on a payment) is set.
+ */
 data class CommentDto(
     val id: String,
-    val expenseId: String,
+    val expenseId: String?,
+    val paymentId: String? = null,
     val authorMemberId: String,
     val text: String,
     val createdAt: String,

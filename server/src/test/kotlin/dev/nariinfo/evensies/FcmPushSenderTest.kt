@@ -8,13 +8,24 @@ import kotlin.test.assertEquals
 
 /** The FCM-specific parts that run without credentials: the APNs payload and which tokens count as dead. */
 class FcmPushSenderTest {
-    private fun json(visible: Boolean) = SharedJson.mapper.readTree(GsonFactory.getDefaultInstance().toString(FcmPushSender.apns(visible, "g1")))
+    private fun json(visible: Boolean, badge: Int? = null) =
+        SharedJson.mapper.readTree(GsonFactory.getDefaultInstance().toString(FcmPushSender.apns(visible, "g1", badge)))
 
     @Test
     fun apnsConfig() {
         assertEquals(
             SharedJson.canon(mapOf("payload" to mapOf("aps" to mapOf("sound" to "default", "thread-id" to "g1")))),
             SharedJson.canon(json(visible = true)),
+        )
+        // Phase 6: the recipient's unread total on visible pushes
+        assertEquals(
+            SharedJson.canon(mapOf("payload" to mapOf("aps" to mapOf("sound" to "default", "thread-id" to "g1", "badge" to 3)))),
+            SharedJson.canon(json(visible = true, badge = 3)),
+        )
+        // a reminder: no group, so no thread-id, and no badge
+        assertEquals(
+            SharedJson.canon(mapOf("payload" to mapOf("aps" to mapOf("sound" to "default")))),
+            SharedJson.canon(SharedJson.mapper.readTree(GsonFactory.getDefaultInstance().toString(FcmPushSender.apns(true, null)))),
         )
         assertEquals(
             SharedJson.canon(mapOf(
