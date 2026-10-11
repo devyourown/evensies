@@ -48,10 +48,9 @@ Map<String, int> computeSplit({
     int quotient =  amount ~/ members.length;
     int remainder = amount % members.length;
     List<String> sorted = [...members]..sort();
-    for (final member in sorted) {
-      result.putIfAbsent(member, () => (quotient));
+    for (final (index, member) in sorted.indexed) {
+      result.putIfAbsent(member, () => index < remainder ? (quotient+1) : quotient);
     }
-    _giveRemainder(result, sorted, remainder);
   } else if (SplitMode.exact == mode) {
     for (final memberId in members) {
       result.putIfAbsent(memberId, () => input?[memberId]?.toInt() ?? 0);
@@ -66,17 +65,61 @@ Map<String, int> computeSplit({
       int quotient = (amount * (input?[member] ?? 0) / 100).floor();
       result.putIfAbsent(member, () => quotient);
     }
-    final k = amount - result.values.reduce((value, element) => value + element);
-    // TODO(효준): the leftover goes only to members whose percent is > 0 (see the doc comment above).
-    _giveRemainder(result, sorted, k);
-  } else {
-    throw UnimplementedError('TODO(효준): ${mode.name}');
+    int k = amount - result.values.reduce((value, element) => value + element);
+    for (final member in sorted) {
+      if (input?[member] == null || input?[member] == 0) continue;
+      if (k == 0) break;
+      result.update(member, (v) => v + 1);
+      k -= 1;
+    }
+  } else if (SplitMode.shares == mode) {
+    int totalWeights = 0;
+    for (final memberId in members) {
+      if (input?[memberId] == null) continue; 
+      if (input![memberId]!.isNaN || input[memberId]!.isNegative || input[memberId]!.isInfinite) {
+        throw SplitException("INVALID_INPUT");
+      }
+      totalWeights += (input[memberId]! * 100).round();
+    }
+    if (totalWeights == 0) throw SplitException("NO_MEMBERS");
+    int totalShare = 0;
+    for (final memberId in members) {
+      final share = amount * ((input?[memberId] ?? 0) * 100).round() ~/ totalWeights;
+      totalShare += share;
+      result.putIfAbsent(memberId, () => share);
+    }
+    int leftover = amount - totalShare;
+    if (leftover > 0) {
+      final sorted = [...members]..sort();
+      for (final member in sorted) {
+        final w = input?[member] ?? 0.0;
+        if (leftover <= 0) break;
+        if (w > 0) {
+          result.update(member, (v) => v + 1);
+          leftover -= 1;
+        }
+      }
+    }
+  } else if (SplitMode.adjustment == mode) {
+    int totalAdjustment = 0;
+    for (final memberId in members) {
+      if (input?[memberId] == null) continue;
+      final x = input?[memberId] ?? 0;
+      if (x != x.truncateToDouble() || x.isNaN || x.isInfinite) throw SplitException("INVALID_INPUT");
+      totalAdjustment += x.toInt();
+    }
+    final base = amount - totalAdjustment;
+    if (base < 0) throw SplitException("NEGATIVE_SHARE");
+    int quotient =  base ~/ members.length;
+    int remainder = base % members.length;
+    List<String> sorted = [...members]..sort();
+    for (final (index, member) in sorted.indexed) {
+      final x = input?[member]?.toInt() ?? 0;
+      int ret = quotient + x;
+      if (index < remainder) ret += 1;
+      if (ret < 0) throw SplitException("NEGATIVE_SHARE");
+      result.putIfAbsent(member, () => ret);
+    }
   }
   return result;
-}
-
-void _giveRemainder(Map<String,int> result, List<String> sorted, int k) {
-  for (final (index, member) in sorted.indexed) {
-    result.update(member, (v) => index < k ? v+1 : v);
-  }
 }

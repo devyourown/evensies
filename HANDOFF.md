@@ -1,16 +1,16 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (82cdf8e + 효준님 작업 중인 split.dart 기준 줄 번호, 단계가 끝날 때마다 갱신)
+## 효준님 차례 — Splitwise parity (HEAD + 효준님 작업 중인 settlement.dart 기준 줄 번호, 단계가 끝날 때마다 갱신)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/pairwise_test.dart test/balances_test.dart`
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
-| 1 | `app/lib/domain/split.dart:69-72` | `computeSplit` (percent 나머지) | 작업 중. 남은 문제 2개: ① `index`는 0% 멤버까지 센 순번이라 건너뛰어도 자리가 소모됨 → 실제로 준 개수를 따로 셀 것 ② `input`에 없는 멤버(null)도 0%인데 `== 0`으로는 안 걸림 | "percent leftover skips 0% members" (지금 b33 c66, 합 99) |
-| 2 | `app/lib/domain/split.dart:85, 93, 98` | `computeSplit` (shares) | 작업 중. 검증·W 계산(74–82줄)은 맞음. ① 85줄 분자에 count를 곱함 → 80줄과 같은 w = (count×100).round()를 곱할 것(정수 계산) ② 93줄 `toInt()`는 0.5를 0으로 만듦 → w > 0으로 판정 ③ 98줄 `leftover -= 1`이 `if` 밖이라 지분 0인 멤버에서도 줄어듦 | "shares …" 4개 실패 (2/1/0 → 지금 a7 b4 c0), 2개 통과 |
-| 3 | `app/lib/domain/split.dart:101-120` | `computeSplit` (adjustment) | ✅ 완료 | "adjustment …" 5개 전부 통과 |
-| 4 | `app/lib/domain/settlement.dart:62-66` | `computeBalances` (지출 루프) | 62줄 `throw`를 지우고, sign = refund ? −1 : +1 로 모든 payer에 `+sign×payers[m]`, 모든 share에 `−sign×shares[m]` (doc comment 45–50줄) | `shared/settlement-cases.json` "multiple payers", "refund reverses the effect", "multiple payers, simplify off keeps per-expense pairs" |
-| 5 | `app/test/hyojun/settlement_test.dart:98` | 테스트 | 4번을 끝낸 뒤 `skip: 'TODO(효준)',` 지우기 | 무작위 200회 합계 0 |
+| 1 | `app/lib/domain/split.dart` | `computeSplit` (percent 나머지) | ✅ 완료 (커밋됨) | 통과 |
+| 2 | `app/lib/domain/split.dart` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (+ 반올림 케이스 1개 추가) |
+| 3 | `app/lib/domain/split.dart` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
+| 4 | `app/lib/domain/settlement.dart:63` | `computeBalances` (지출 루프) | 작업 중. 환불(sign)은 맞음. 남은 문제: 63줄 `payers.keys.single` / `payers.values.single`은 낸 사람이 **한 명일 때만** 동작하고 두 명 이상이면 `Bad state: Too many elements`로 멈춤 → `expense.payers`의 **모든** 항목을 돌면서 각자 낸 금액 × sign을 더할 것 | `shared/settlement-cases.json` "multiple payers", "refund reverses the effect", "multiple payers, simplify off keeps per-expense pairs" |
+| 5 | `app/test/hyojun/settlement_test.dart:98` | 테스트 | ✅ skip 지움 (4번이 끝나면 통과) | 무작위 200회 합계 0 |
 | 6 | `app/lib/domain/fx.dart:28-29` | `convertAmount` (Phase 4) | `throw`를 지우고 작성. R = `rate.toString()`이 찍는 십진수(`7e-7` 같은 지수형 포함)를 정확히(BigInt 분자, 10의 거듭제곱 분모), 값 = amount×R×10^(to−from), 가장 가까운 정수로, 딱 .5는 0에서 먼 쪽. double 곱셈 금지(100×0.285 → 29). rate가 무한·≤ 0 → `BAD_RATE` (doc comment 17–26줄) | `shared/fx-cases.json` 1–10번 |
 | 7 | `app/lib/domain/fx.dart:43-50` | `convertExpense` (Phase 4) | 검사 순서 `BAD_RATE` → `NEGATIVE_AMOUNT` → `SUM_MISMATCH`. total = convertAmount, 각 part는 정확한 값을 내림, 남는 만큼(0..part 수) 버린 소수가 큰 part부터 +1(같으면 memberId 오름차순, 0인 part는 +1 없음). 결과 키 = parts 키 (doc comment 31–40줄) | `shared/fx-cases.json` 11–20번 |
 

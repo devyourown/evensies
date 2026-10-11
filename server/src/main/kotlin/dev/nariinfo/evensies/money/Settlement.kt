@@ -22,18 +22,16 @@ object Settlement {
      * 모든 members가 결과에 들어간다(활동 없으면 0). shares에만 등장하고 members에 없는 ID는 없다고 가정한다.
      * 불변식: 결과 값의 합 == 0.
      *
-     * Phase 3 (port of Hyojun's Dart computeBalances; cases marked "pending": "hyojun" in shared/settlement-cases.json):
+     * Phase 3 (port of Hyojun's Dart computeBalances, app/lib/domain/settlement.dart):
      * per line sign = refund ? −1 : +1, balance[m] += sign × payers[m], balance[m] −= sign × shares[m].
-     * Until it lands (ported in the same push) several payers or a refund is TODO(); no server code calls this yet.
      */
     fun balances(members: List<String>, expenses: List<ExpenseLine>, payments: List<PaymentLine>): Map<String, Long> {
         val result = LinkedHashMap<String, Long>()
         for (member in members) result[member] = 0L
         for (expense in expenses) {
-            if (expense.payers.size != 1 || expense.refund) TODO("효준: port computeBalances multi-payer / refund from app/lib/domain/settlement.dart")
-            val paidBy = expense.payers.keys.single()
-            result[paidBy] = result.getValue(paidBy) + expense.amount
-            for ((member, share) in expense.shares) result[member] = result.getValue(member) - share
+            val sign = if (expense.refund) -1 else 1
+            for ((member, paid) in expense.payers) result[member] = result.getValue(member) + sign * paid
+            for ((member, share) in expense.shares) result[member] = result.getValue(member) - sign * share
         }
         // A payment is an expense paid by `from` and owed entirely by `to`.
         for (payment in payments) {

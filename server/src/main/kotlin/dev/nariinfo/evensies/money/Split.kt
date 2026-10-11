@@ -25,7 +25,7 @@ object Split {
      * 출력: 모든 members에 대한 memberId → 금액. 합은 반드시 amount.
      * 불변식: 결정적(같은 입력 → 같은 출력), 합 == amount, 각 몫 >= 0.
      *
-     * Phase 3 (port of Hyojun's Dart computeSplit; cases marked "pending": "hyojun" in shared/split-cases.json):
+     * Phase 3 (port of Hyojun's Dart computeSplit, app/lib/domain/split.dart):
      *  - PERCENT: leftover minor units go only to members whose percent is > 0 (a 0% member always gets 0).
      *  - SHARES: input = share counts (>= 0, fractional, missing = 0); negative/NaN/infinite → "INVALID_INPUT".
      *    w = round(count * 100), W = Σ w; W == 0 → "NO_MEMBERS". share = amount * w / W (integer math);
@@ -34,7 +34,6 @@ object Split {
      *    "INVALID_INPUT". base = amount − Σ adj; base < 0 → "NEGATIVE_SHARE". Split base like EQUAL, then add each
      *    adj; any result < 0 → "NEGATIVE_SHARE".
      *  - SHARES/ADJUSTMENT ignore input keys not in members.
-     * Until Hyojun's Dart lands (ported in the same push) they are TODO(); no server code calls them yet.
      */
     fun compute(amount: Long, mode: SplitMode, members: List<String>, input: Map<String, Double>?): Map<String, Long> {
         if (amount < 0) throw SplitException("NEGATIVE_AMOUNT")
@@ -56,15 +55,39 @@ object Split {
                 val totalPercent = input?.values?.sum() ?: 0.0
                 if (abs(totalPercent - 100.0) >= 0.001) throw SplitException("SUM_MISMATCH")
                 for (member in sorted) result[member] = floor(amount * (input?.get(member) ?: 0.0) / 100).toLong()
-                // TODO(효준): the leftover goes only to members whose percent is > 0 (port with the Dart fix).
-                giveRemainder(result, sorted, amount - result.values.sum())
+                giveRemainder(result, sorted.filter { (input?.get(it) ?: 0.0) > 0 }, amount - result.values.sum())
             }
-            SplitMode.SHARES, SplitMode.ADJUSTMENT -> TODO("효준: port computeSplit ${mode.name.lowercase()} from app/lib/domain/split.dart")
+            SplitMode.SHARES -> {
+                val weights = sorted.associateWith { member ->
+                    val count = input?.get(member) ?: 0.0
+                    if (count.isNaN() || count.isInfinite() || count < 0) throw SplitException("INVALID_INPUT")
+                    Math.round(count * 100)
+                }
+                val total = weights.values.sum()
+                if (total == 0L) throw SplitException("NO_MEMBERS")
+                for (member in sorted) result[member] = amount * weights.getValue(member) / total
+                giveRemainder(result, sorted.filter { weights.getValue(it) > 0 }, amount - result.values.sum())
+            }
+            SplitMode.ADJUSTMENT -> {
+                val adjustments = sorted.associateWith { member ->
+                    val adj = input?.get(member) ?: 0.0
+                    if (adj.isNaN() || adj.isInfinite() || adj != Math.rint(adj)) throw SplitException("INVALID_INPUT")
+                    adj.toLong()
+                }
+                val base = amount - adjustments.values.sum()
+                if (base < 0) throw SplitException("NEGATIVE_SHARE")
+                for (member in sorted) result[member] = base / members.size
+                giveRemainder(result, sorted, base % members.size)
+                for (member in sorted) {
+                    result[member] = result.getValue(member) + adjustments.getValue(member)
+                    if (result.getValue(member) < 0) throw SplitException("NEGATIVE_SHARE")
+                }
+            }
         }
         return result
     }
 
-    /** Adds 1 to the first [k] members of [sorted] (member ids ascending). Same rule as the Dart `_giveRemainder`. */
+    /** Adds 1 to the first [k] members of [sorted] (member ids ascending). Same rule as the Dart equal split. */
     private fun giveRemainder(result: MutableMap<String, Long>, sorted: List<String>, k: Long) {
         sorted.forEachIndexed { index, member -> if (index < k) result[member] = result.getValue(member) + 1 }
     }
