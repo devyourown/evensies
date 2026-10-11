@@ -1,18 +1,22 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (535c728 기준 줄 번호, 단계가 끝날 때마다 갱신)
-규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/pairwise_test.dart`
+## 효준님 차례 — Splitwise parity (82cdf8e + 효준님 작업 중인 split.dart 기준 줄 번호, 단계가 끝날 때마다 갱신)
+규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/pairwise_test.dart test/balances_test.dart`
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
-| 1 | `app/lib/domain/split.dart:70-71` | `computeSplit` (percent 분기) | 나머지 `k`를 **percent > 0인 멤버에게만** memberId 오름차순으로 +1. 지금은 `_giveRemainder(result, sorted, k)`가 0% 멤버에게도 1을 줌 | `shared/split-cases.json` "percent leftover skips 0% members" |
-| 2 | `app/lib/domain/split.dart:72-73` | `computeSplit` (`else` → `shares` 분기 새로 작성) | w = (count×100).round(), W = Σw. 음수·NaN·무한 → `INVALID_INPUT`, W == 0 → `NO_MEMBERS`. 몫 = amount×w ~/ W, 나머지는 w > 0 멤버에게 오름차순 +1 (doc comment 26–30줄) | "shares …" 6개 |
-| 3 | `app/lib/domain/split.dart:72-73` | `computeSplit` (`adjustment` 분기 새로 작성) | 정수 아니면 `INVALID_INPUT`. base = amount − Σadj, base < 0 → `NEGATIVE_SHARE`. base를 equal처럼 나눈 뒤 각자 adj를 더함. 결과 < 0 → `NEGATIVE_SHARE` (doc comment 31–34줄) | "adjustment …" 5개 |
+| 1 | `app/lib/domain/split.dart:69-72` | `computeSplit` (percent 나머지) | 작업 중. 남은 문제 2개: ① `index`는 0% 멤버까지 센 순번이라 건너뛰어도 자리가 소모됨 → 실제로 준 개수를 따로 셀 것 ② `input`에 없는 멤버(null)도 0%인데 `== 0`으로는 안 걸림 | "percent leftover skips 0% members" (지금 b33 c66, 합 99) |
+| 2 | `app/lib/domain/split.dart:85, 93, 98` | `computeSplit` (shares) | 작업 중. 검증·W 계산(74–82줄)은 맞음. ① 85줄 분자에 count를 곱함 → 80줄과 같은 w = (count×100).round()를 곱할 것(정수 계산) ② 93줄 `toInt()`는 0.5를 0으로 만듦 → w > 0으로 판정 ③ 98줄 `leftover -= 1`이 `if` 밖이라 지분 0인 멤버에서도 줄어듦 | "shares …" 4개 실패 (2/1/0 → 지금 a7 b4 c0), 2개 통과 |
+| 3 | `app/lib/domain/split.dart:101-120` | `computeSplit` (adjustment) | ✅ 완료 | "adjustment …" 5개 전부 통과 |
 | 4 | `app/lib/domain/settlement.dart:62-66` | `computeBalances` (지출 루프) | 62줄 `throw`를 지우고, sign = refund ? −1 : +1 로 모든 payer에 `+sign×payers[m]`, 모든 share에 `−sign×shares[m]` (doc comment 45–50줄) | `shared/settlement-cases.json` "multiple payers", "refund reverses the effect", "multiple payers, simplify off keeps per-expense pairs" |
 | 5 | `app/test/hyojun/settlement_test.dart:98` | 테스트 | 4번을 끝낸 뒤 `skip: 'TODO(효준)',` 지우기 | 무작위 200회 합계 0 |
+| 6 | `app/lib/domain/fx.dart:28-29` | `convertAmount` (Phase 4) | `throw`를 지우고 작성. R = `rate.toString()`이 찍는 십진수(`7e-7` 같은 지수형 포함)를 정확히(BigInt 분자, 10의 거듭제곱 분모), 값 = amount×R×10^(to−from), 가장 가까운 정수로, 딱 .5는 0에서 먼 쪽. double 곱셈 금지(100×0.285 → 29). rate가 무한·≤ 0 → `BAD_RATE` (doc comment 17–26줄) | `shared/fx-cases.json` 1–10번 |
+| 7 | `app/lib/domain/fx.dart:43-50` | `convertExpense` (Phase 4) | 검사 순서 `BAD_RATE` → `NEGATIVE_AMOUNT` → `SUM_MISMATCH`. total = convertAmount, 각 part는 정확한 값을 내림, 남는 만큼(0..part 수) 버린 소수가 큰 part부터 +1(같으면 memberId 오름차순, 0인 part는 +1 없음). 결과 키 = parts 키 (doc comment 31–40줄) | `shared/fx-cases.json` 11–20번 |
 
-끝나면 통과한 케이스의 `"pending": "hyojun"`를 `shared/*.json`에서 지우세요. Kotlin 이식(`server/.../money/Split.kt`, `Settlement.kt`)은 Claude가 같은 push에 넣고, 효준님은 검토만 합니다.
+끝나면 통과한 케이스의 `"pending": "hyojun"`를 `shared/*.json`에서 지우세요. Kotlin 이식(`server/.../money/Split.kt`, `Settlement.kt`, `Fx.kt`)은 Claude가 같은 push에 넣고, 효준님은 검토만 합니다.
+6–7이 들어가면 따로 켤 것 없이(`fxReady`) 환율 있는 외화 지출이 그룹 통화 잔액에 합쳐지고, Convert 시트와 "≈" 줄이 보입니다. 그때 Claude가 시뮬레이터에서 Convert 합치기, 홈 통화 "≈ $", 로그인 화면의 홈 통화 단계를 다시 확인합니다.
+**확인 방법:** `shared/split-cases.json` 16–27줄의 `, "pending": "hyojun"`을 지운 뒤 `flutter test test/hyojun/split_test.dart`. pending이 남아 있으면 실패해도 skip으로 보입니다.
 
 ## 지금 상태 (전부 확인됨)
 - **서버**(Spring Boot 4.1.1 + Kotlin): 인증(dev/Apple/Google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·Splitwise 가져오기, FCM(자격 증명 없으면 no-op). `./gradlew test` **28개 통과**.
