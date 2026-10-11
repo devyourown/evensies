@@ -278,8 +278,8 @@ class SplitEditor extends StatelessWidget {
       final (String? prefix, String? suffix, String hint) = switch (mode) {
         SplitMode.percent => (null, '%', '0'),
         SplitMode.shares => (null, null, '0'),
-        SplitMode.adjustment => ('±', currency, '0.00'),
-        _ => (null, currency, '0.00'),
+        SplitMode.adjustment => ('±', currency, minorToText(0, currency)),
+        _ => (null, currency, minorToText(0, currency)), // 0, 0.00 or 0.000: the currency's decimals
       };
       final field = TextField(
         key: Key('share-${m.id}'),

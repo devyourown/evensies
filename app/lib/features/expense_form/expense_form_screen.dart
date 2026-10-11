@@ -6,11 +6,17 @@ import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
 import '../../core/core_guard.dart';
+import '../../core/currency_picker.dart';
+import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
+import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
+import '../../data/fx_rates.dart';
 import '../../data/sync/group_state_store.dart';
+import '../../domain/balances.dart' show tryFx;
+import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
@@ -48,6 +54,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   bool _loaded = false;
   bool _busy = false;
 
+  /// The rate field was typed in this session (or holds a stored rate): kept when the date changes.
+  bool _fxTyped = false;
+
+  /// The rate table for [_date] (server or cache) while the currency is foreign; null = no automatic rate.
+  FxTable? _fxTable;
+  bool _fxLoading = false;
+  int _fxAsk = 0; // a newer lookup drops the answer of an older one
+
+  static String lastCurrencyKey(String groupId) => 'lastCurrency.$groupId';
+
   @override
   void initState() {
     super.initState();
@@ -71,15 +87,26 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _loaded = true;
     final db = ref.read(dbProvider);
     final id = widget.expenseId;
-    if (id == null) return _startFromDefault(db);
+    if (id == null) {
+      // A new expense starts in the last currency used in this group.
+      final last = ref.read(sharedPreferencesProvider).getString(lastCurrencyKey(widget.groupId));
+      final d = (await db.getGroup(widget.groupId))?.defaultCurrency;
+      if (last != null && Money.decimals.containsKey(last) && last != d && mounted) {
+        setState(() => _currency = last);
+        _lookupRate(apply: true);
+      }
+      return _startFromDefault(db);
+    }
     final state = await GroupStateStore(db).load(widget.groupId);
     final e = state.expense(id);
     if (e == null || !mounted) return;
+    final rated = (e.fxRateToDefault ?? 0) > 0; // 0 = not converted, like null
     setState(() {
       _editing = e;
       _amount.text = minorToText(e.amount, e.currency);
       _description.text = e.description;
-      _fx.text = e.fxRateToDefault?.toString() ?? '';
+      _fx.text = rated ? e.fxRateToDefault.toString() : '';
+      _fxTyped = rated;
       _category.text = e.category ?? '';
       _notes.text = e.notes ?? '';
       _currency = e.currency;
@@ -92,6 +119,39 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
       _openSplit(e, [for (final m in state.members) m.id]);
     });
+    // Opening changes nothing: the automatic rate is offered ("Use automatic rate"); a date change fills it in
+    // unless a rate is stored.
+    if (e.currency != state.defaultCurrency) _lookupRate(apply: false);
+  }
+
+  /// Looks up the automatic rate for the form's currency on [_date] (docs/API.md 환율: server, else this device's
+  /// cache). With [apply] it goes into the rate field unless the user typed one.
+  Future<void> _lookupRate({required bool apply}) async {
+    final ask = ++_fxAsk;
+    setState(() => _fxLoading = true);
+    final table = await ref.read(fxRatesProvider).lookup(_date);
+    final d = (await ref.read(dbProvider).getGroup(widget.groupId))?.defaultCurrency;
+    if (!mounted || ask != _fxAsk) return;
+    setState(() {
+      _fxLoading = false;
+      _fxTable = table;
+      final auto = d == null || _currency == null ? null : _autoRate(_currency!, d);
+      if (apply && !_fxTyped) _fx.text = auto?.toString() ?? '';
+    });
+  }
+
+  double? _autoRate(String currency, String d) => _fxTable == null ? null : crossRate(_fxTable!.rates, currency, d);
+
+  void _setCurrency(String c, String d) {
+    _fxAsk++; // an answer for the old currency is stale
+    setState(() {
+      _currency = c;
+      _fxTyped = false; // a rate typed for another currency means nothing for this one
+      _fxTable = null;
+      _fxLoading = false;
+      _fx.clear();
+    });
+    if (c != d) _lookupRate(apply: true);
   }
 
   /// The stored mode with the typed numbers when they still give the stored shares (zeros aside); otherwise, or
@@ -183,7 +243,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
-    if (d != null) setState(() => _date = d.toIso8601String().substring(0, 10));
+    if (d == null) return;
+    setState(() => _date = d.toIso8601String().substring(0, 10));
+    final group = ref.read(groupProvider(widget.groupId)).value;
+    if (group != null && (_currency ?? group.defaultCurrency) != group.defaultCurrency) _lookupRate(apply: true);
   }
 
   /// "Ben owes the full amount" / "I owe Ben the full amount": one payer, equal with only [owes] ticked.
@@ -212,6 +275,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final text = Theme.of(context).textTheme;
     final ids = [for (final m in members) m.id];
     final currency = _currency ?? group.defaultCurrency;
+    final d = group.defaultCurrency;
+    final foreign = currency != d;
+    final fxText = _fx.text.trim();
+    final fxValue = fxText.isEmpty ? null : double.tryParse(fxText.replaceAll(',', '.'));
+    // Empty is fine (the expense stays under Not converted); 0 is refused: it would mean the same, but silently.
+    final fxBad = foreign && fxText.isNotEmpty && (fxValue == null || !fxValue.isFinite || fxValue <= 0);
+    final autoRate = foreign ? _autoRate(currency, d) : null;
     final paidBy = _paidBy ?? group.myMemberId ?? members.firstOrNull?.id;
     final amount = parseMoney(_amount.text, currency);
     final deleted = _editing?.deleted ?? false;
@@ -224,6 +294,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         !deleted &&
         notesLength <= _maxNotes &&
         !descriptionTooLong &&
+        !fxBad &&
         amount != null &&
         amount > 0 &&
         _description.text.trim().isNotEmpty &&
@@ -286,35 +357,69 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       autofocus: widget.expenseId == null,
                       style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(hintText: '0.00', border: InputBorder.none, isDense: true),
+                      decoration: InputDecoration(hintText: minorToText(0, currency), border: InputBorder.none, isDense: true),
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: currency,
-                      style: text.titleMedium?.copyWith(color: cs.onSurface),
-                      items: [for (final c in Money.currencies) DropdownMenuItem(value: c, child: Text(c))],
-                      onChanged: (v) => setState(() => _currency = v),
-                    ),
+                  CurrencyPicker(
+                    key: const Key('currency'),
+                    value: currency,
+                    pinned: [
+                      d,
+                      ref.watch(homeCurrencyProvider),
+                      ?ref.read(sharedPreferencesProvider).getString(lastCurrencyKey(widget.groupId)),
+                    ],
+                    width: 116,
+                    bare: true,
+                    textStyle: text.titleMedium?.copyWith(color: cs.onSurface),
+                    onChanged: (c) => _setCurrency(c, d),
                   ),
                 ]),
                 const Divider(height: 1),
-                if (currency != group.defaultCurrency)
+                if (foreign) ...[
+                  if (_approx(amount, currency, d, fxBad ? null : fxValue) case final approx?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text('≈ ${formatMoney(approx, d)}',
+                          key: const Key('fx-approx'), style: text.titleSmall?.copyWith(color: cs.onSurfaceVariant)),
+                    ),
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: TextField(
+                      key: const Key('fx'),
                       controller: _fx,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Rate: 1 $currency in ${group.defaultCurrency}',
-                        helperText: 'Needed to count this expense in balances',
+                        labelText: 'Rate: 1 $currency in $d',
                         prefixIcon: const Icon(Icons.currency_exchange),
+                        helperText: _fxLoading ? 'Looking up the rate…' : _fxSource(currency, d, fxValue, autoRate),
+                        helperMaxLines: 3,
+                        errorText: fxBad ? 'Enter a rate above 0, or leave it empty' : null,
+                        suffixIcon: _fxLoading
+                            ? const Padding(
+                                padding: EdgeInsets.all(14),
+                                child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                              )
+                            : null,
                       ),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState(() => _fxTyped = true),
                     ),
                   ),
+                  if (!_fxLoading && autoRate != null && fxValue != autoRate)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const Key('fx-auto'),
+                        onPressed: () => setState(() {
+                          _fx.text = autoRate.toString();
+                          _fxTyped = false;
+                        }),
+                        icon: const Icon(Icons.restart_alt, size: 18),
+                        label: Text('Use automatic rate: $autoRate (${_fxDay()})'),
+                      ),
+                    ),
+                ],
                 const SizedBox(height: 16),
                 TextField(
                   key: const Key('description'),
@@ -365,8 +470,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         key: Key('payer-${m.id}'),
                         controller: _payer(m.id),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration:
-                            InputDecoration(labelText: m.name, isDense: true, suffixText: currency, hintText: '0.00'),
+                        decoration: InputDecoration(
+                            labelText: m.name, isDense: true, suffixText: currency, hintText: minorToText(0, currency)),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -462,12 +567,46 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     );
   }
 
+  /// "≈ €69.55" under the amount; null without a usable rate or while convertAmount is a stub.
+  int? _approx(int? amount, String currency, String d, double? rate) => amount == null || rate == null || !fxReady
+      ? null
+      : tryFx(() => convertAmount(
+          amount: amount, fromDecimals: Money.digits(currency), toDecimals: Money.digits(d), rate: rate));
+
+  /// The line under the rate field (docs Phase 4): where the rate comes from.
+  String _fxSource(String currency, String d, double? value, double? auto) {
+    final day = _fxDay();
+    if (value == null || value <= 0 || !value.isFinite) {
+      return auto == null
+          ? 'No automatic rate. Enter one, or leave it empty to keep this under Not converted.'
+          : 'Empty: this stays under Not converted';
+    }
+    final inverse = NumberFormat('#,##0.######').format(double.parse((1 / value).toStringAsPrecision(6)));
+    return '1 $currency = $value $d (1 $d = $inverse $currency) · ${value == auto ? day : 'your rate'}';
+  }
+
+  String _fxDay() {
+    final t = _fxTable;
+    return t == null ? '' : '${t.offline ? 'offline · ' : ''}rate of ${_day(t.date)}';
+  }
+
+  static String _day(String iso) {
+    final x = DateTime.tryParse(iso);
+    return x == null ? iso : DateFormat('d MMM').format(x);
+  }
+
   Future<void> _save(
       GroupRow group, List<String> ids, String currency, int amount, List<Share> payers, Map<String, int> split) async {
-    final fx = currency == group.defaultCurrency ? null : double.tryParse(_fx.text.trim());
+    final old = _editing;
+    final d = group.defaultCurrency;
+    // A stray rate on an expense in the group currency stays as it was (it's ignored, docs/API.md 통화 환산).
+    double? fx = currency != d
+        ? double.tryParse(_fx.text.trim().replaceAll(',', '.'))
+        : (old?.currency == d ? old?.fxRateToDefault : null);
+    // Same currency, and 0 vs null (both "not converted"): unchanged.
+    if (old != null && currency == old.currency && (fx ?? 0) == (old.fxRateToDefault ?? 0)) fx = old.fxRateToDefault;
     final cat = _category.text.trim().isEmpty ? null : _category.text.trim();
     final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
-    final old = _editing;
     var e = Expense(
       id: old?.id ?? newId(),
       description: _description.text.trim(),
@@ -498,6 +637,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     setState(() => _busy = true);
     try {
       final w = ref.read(localWritesProvider);
+      await ref.read(sharedPreferencesProvider).setString(lastCurrencyKey(group.id), currency);
       if (old == null) {
         await w.createExpense(group.id, e);
       } else {
@@ -509,8 +649,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             e.refund != old.refund;
         await w.updateExpense(group.id, e, {
           if (e.description != old.description) 'description': e.description,
-          if (e.currency != old.currency) 'currency': e.currency,
-          if (e.fxRateToDefault != old.fxRateToDefault) 'fxRateToDefault': e.fxRateToDefault,
+          // Both or neither: `currency` alone would keep the old currency's rate (rule 9, docs/API.md 통화 환산).
+          if (e.currency != old.currency || e.fxRateToDefault != old.fxRateToDefault) ...{
+            'currency': e.currency,
+            'fxRateToDefault': e.fxRateToDefault,
+          },
           if (e.date != old.date) 'date': e.date,
           if (e.category != old.category) 'category': e.category,
           if (e.notes != old.notes) 'notes': e.notes,

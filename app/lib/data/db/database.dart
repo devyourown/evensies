@@ -139,8 +139,20 @@ class Session extends Table {
   TextColumn get refreshToken => text()();
   TextColumn get userId => text()();
   TextColumn get displayName => text()();
+  /// UserDto.homeCurrency (docs/API.md); null until the user picks one (the app then uses the region's currency).
+  TextColumn get homeCurrency => text().nullable()();
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Rate tables from `GET /fx` (docs/API.md 환율), keyed by the response's `date`. [ratesJson]: units per 1 EUR.
+@DataClassName('FxDayRow')
+class FxDays extends Table {
+  TextColumn get day => text()();
+  TextColumn get ratesJson => text()();
+  TextColumn get fetchedAt => text()();
+  @override
+  Set<Column> get primaryKey => {day};
 }
 
 @DriftDatabase(tables: [
@@ -155,13 +167,14 @@ class Session extends Table {
   Outbox,
   SyncState,
   Session,
+  FxDays,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -187,6 +200,11 @@ class AppDatabase extends _$AppDatabase {
                 'INSERT INTO expense_payers (expense_id, member_id, amount) SELECT id, paid_by, amount FROM expenses');
             // Older code skipped payers, refund, split and the group settings in pulled events: replay every group.
             await delete(syncState).go();
+          }
+          if (from < 5) {
+            // Event shapes are unchanged (docs/API.md 호환 4단계): no replay.
+            await m.createTable(fxDays);
+            await m.addColumn(session, session.homeCurrency);
           }
         },
       );

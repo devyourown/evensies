@@ -3,6 +3,7 @@ package dev.nariinfo.evensies.auth
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.JwtService
 import dev.nariinfo.evensies.group.MemberRepository
+import dev.nariinfo.evensies.money.Money
 import dev.nariinfo.evensies.payment.PaymentMethodRepository
 import dev.nariinfo.evensies.push.NotificationPrefsRepository
 import org.springframework.stereotype.Service
@@ -31,7 +32,7 @@ class AuthService(
     fun login(provider: String, subject: String, displayName: String): AuthResponse {
         val user = users.findOrCreate(provider, subject, displayName)
         val tokens = issue(user.id)
-        return AuthResponse(tokens.accessToken, tokens.refreshToken, UserDto(user.id, user.displayName))
+        return AuthResponse(tokens.accessToken, tokens.refreshToken, user.dto())
     }
 
     @Transactional
@@ -45,17 +46,19 @@ class AuthService(
     fun me(userId: UUID): UserDto {
         val user = users.find(userId)
         if (user == null || user.deleted) throw ApiException.unauthorized("Account no longer exists")
-        return UserDto(user.id, user.displayName)
+        return user.dto()
     }
 
-    fun rename(userId: UUID, displayName: String): UserDto {
-        val name = displayName.trim()
-        if (name.isEmpty() || name.codePointCount(0, name.length) > MAX_NAME) {
+    /** PATCH /me: null = leave as is; at least one is required. Everything is checked before anything is written. */
+    fun updateMe(userId: UUID, displayName: String?, homeCurrency: String?): UserDto {
+        if (displayName == null && homeCurrency == null) throw ApiException.badRequest("VALIDATION", "Send displayName or homeCurrency")
+        val name = displayName?.trim()
+        if (name != null && (name.isEmpty() || name.codePointCount(0, name.length) > MAX_NAME)) {
             throw ApiException.badRequest("VALIDATION", "Name must be 1 to $MAX_NAME characters")
         }
+        if (homeCurrency != null && !Money.isKnown(homeCurrency)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Unknown currency $homeCurrency")
         me(userId) // 401 for deleted accounts
-        users.rename(userId, name)
-        return UserDto(userId, name)
+        return users.update(userId, name, homeCurrency).dto()
     }
 
     /** Soft-deletes the user; their member rows become placeholders so group history stays intact. */

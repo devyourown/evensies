@@ -17,6 +17,7 @@ class EvensiesApp extends ConsumerStatefulWidget {
 
 class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingObserver {
   StreamSubscription<String>? _rejections;
+  bool _fxFetched = false;
 
   @override
   void initState() {
@@ -29,7 +30,13 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
         ?.showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 8))));
     // At launch with a session, and after every sign-in: a returning user's groups come from the server.
     ref.listenManual(sessionProvider.select((s) => s.value?.userId), (prev, userId) {
-      if (userId != null && userId != prev) ref.read(syncProvider).syncAll();
+      if (userId == null || userId == prev) return;
+      ref.read(syncProvider).syncAll();
+      // The latest rate table once per app start, for the "≈" lines and offline expenses (docs/API.md 환율).
+      if (!_fxFetched) {
+        _fxFetched = true;
+        ref.read(fxRatesProvider).lookup();
+      }
     }, fireImmediately: true);
   }
 

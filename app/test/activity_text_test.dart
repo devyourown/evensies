@@ -29,7 +29,7 @@ void main() {
 
   test('formatMoney starts with the shared symbol for every currency', () {
     final symbols = (loadShared('currencies.json')['symbols'] as Map).cast<String, String>();
-    expect(symbols.keys.toSet(), Money.decimals.keys.toSet());
+    expect(Money.decimals.keys.toSet().containsAll(symbols.keys), isTrue); // codes without a symbol show the ISO code (Phase 4)
     for (final e in symbols.entries) {
       final f = formatMoney(123456, e.key);
       expect(f.startsWith(e.value), isTrue, reason: '${e.key}: $f');

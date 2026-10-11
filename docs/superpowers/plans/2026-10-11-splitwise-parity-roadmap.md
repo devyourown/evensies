@@ -17,7 +17,7 @@
 | 1 | **Settle up via payment apps** | "Pay Anna €15" opens PayPal / Wise / Venmo with the amount filled in, Revolut / KakaoPay links, EU bank QR (EPC) and IBAN copy, Korean bank account copy; request money by message; sent → received confirmation | per-user payment methods, visibility to group members only, `payment.confirmed` event, status on payments | payment methods screen, pay sheet on Settle up, request share, confirm/decline | 0 |
 | 2 | **Activity & notifications** | Activity feed per group and overall; visible push ("Ben added Dinner €30"); comments on expenses; notes field; restore a deleted expense; notification settings | activity read model over the event log, FCM notification payloads, comment events | Activity tab, comment thread on expense, notes, undo/restore, settings toggles | 0 |
 | 3 | **Splitting power** | Split by shares; +/- adjustments; multiple payers; per-group default split; "simplify debts" toggle per group | validation for new payload shape | split UI, payer UI; `computeSplit` gains `shares`/`adjustment` modes (**Hyojun's core logic**) | 0 |
-| 4 | **Currencies** | Automatic exchange rates on foreign expenses (editable); each user's home currency; balances shown converted | daily ECB rates (Frankfurter, no key) cached in DB, `GET /fx` | auto-fill rate, home currency setting, converted totals | 0 |
+| 4 | **Currencies** | Automatic exchange rates on foreign expenses (editable); each user's home currency; balances shown converted | daily rates via Frankfurter (ECB and other central banks, no key) cached in DB, `GET /fx` | auto-fill rate, home currency setting, converted totals | 0 |
 | 5 | **Organize & insights** | Categories with icons (auto-guessed from description); search; charts by category/month/person; group totals | — (client-side over local DB) | category picker, search screen, charts tab | 0 |
 | 6 | **People** | Friends: 1:1 expenses outside groups; overall balance across all groups and friends; profile photo; "remind to pay" | friend pairs as 2-person hidden groups (reuses sync), reminders, avatar upload | Friends tab, overall dashboard, reminders | object storage (Phase 6 shares it) |
 | 7 | **Receipts** | Attach receipt photos; on-device OCR to itemize a receipt and assign items to people | presigned upload to object storage, attachments table | camera/gallery, viewer, ML Kit text recognition, itemized split | Hetzner Object Storage ≈ €5/month (or local volume to start: 0) |
@@ -125,7 +125,7 @@ Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one des
 | Phase | Design |
 |---|---|
 | 3 | [Splitting power](phases/phase-03-splitting-power.md) — shares, adjustment, multiple payers, refunds, "full amount" shortcuts, default split, simplify toggle, group settings, leave group |
-| 4 | [Currencies](phases/phase-04-currencies.md) — ECB rates via Frankfurter, home currency, per-currency balances, convert to one currency |
+| 4 | [Currencies](phases/phase-04-currencies.md) — daily rates via Frankfurter, home currency, per-currency balances, convert to one currency |
 | 5 | [Organize & insights](phases/phase-05-organize-insights.md) — categories, search, totals, charts, edit history, who pays next |
 | 6 | [People](phases/phase-06-people.md) — friends and non-group expenses, overall dashboard, avatars, reminders, record any payment |
 | 7 | [Receipts](phases/phase-07-receipts.md) — receipt photos, on-device OCR, itemized split |
@@ -151,7 +151,7 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 10 | Split | Multiple payers | Free | partly (Phase 3): the payers editor and sync are in; Balances and Settle up leave these expenses out until Hyojun's `computeBalances` |
 | 11 | Split | Default split per group | Pro | have (Phase 3); a shares or ± default waits for Hyojun's `computeSplit` |
 | 12 | Expense | Description, amount, date, payer | Free | have |
-| 13 | Expense | Currency per expense, last one remembered | Free | have; Phase 4 adds per-group memory |
+| 13 | Expense | Currency per expense, last one remembered | Free | have (per group since Phase 4) |
 | 14 | Expense | Category with icon, auto-guessed | Free | Phase 5 |
 | 15 | Expense | Notes | Free | have (Phase 2) |
 | 16 | Expense | Receipt photo | Free (Pro 10 GB) | Phase 7 |
@@ -167,13 +167,13 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 26 | Groups | Create; add people by name | Free | have |
 | 27 | Groups | Group type | Free | Phase 10 |
 | 28 | Groups | Cover photo | Free | Phase 10 |
-| 29 | Groups | Simplify debts toggle | Free | have (Phase 3; per currency from Phase 4) |
+| 29 | Groups | Simplify debts toggle | Free | have (Phase 3; per currency since Phase 4) |
 | 30 | Groups | Simplify-debts explanation | Free | have (Phase 3) |
 | 31 | Groups | Settings: rename, default currency | Free | have (Phase 3; currency locked after the first expense or payment) |
 | 32 | Groups | Leave group | Free | have (Phase 3) |
 | 33 | Groups | Delete / undelete group | Free | Phase 10 |
 | 34 | Groups | Remove member | Free | have |
-| 35 | Groups | Balances per member, per currency | Free | Phase 4 |
+| 35 | Groups | Balances per member, per currency | Free | have (Phase 4): one "Not converted · JPY" section per currency on Balances, Settle up and the groups list; folding rated expenses into the group currency waits for Hyojun's `convertExpense` |
 | 36 | Groups | Totals screen | Free | Phase 5 |
 | 37 | Groups | Charts | Pro | Phase 5 |
 | 38 | Groups | Printable summary | Free (web) | Phase 5 (share text) + Phase 9 (browser print) |
@@ -212,9 +212,9 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 | 71 | Settle | Sent → confirmed | n/a | have (extra) |
 | 72 | Settle | Paytm / UPI | Free | Phase 10 (UPI links; Paytm supports UPI) |
 | 73 | Settle | Splitwise Pay / Pay by Bank / Card | Free | out of scope (moves money, needs a licence) |
-| 74 | Currency | Any currency per expense | Free | Phase 4 (~155 ISO codes; crypto out of scope) |
-| 75 | Currency | Default (home) currency | Free | Phase 4 |
-| 76 | Currency | Convert to one currency | Pro | Phase 4 (free) |
+| 74 | Currency | Any currency per expense | Free | have (Phase 4): 155 ISO codes, searchable picker, automatic daily rate via Frankfurter (ECB and other central banks; editable, cached offline); crypto out of scope |
+| 75 | Currency | Default (home) currency | Free | partly (Phase 4): set in Settings and stored on the account; the "≈" lines wait for Hyojun's `convertAmount` |
+| 76 | Currency | Convert to one currency | Pro | partly (Phase 4, free): the Convert sheet with Undo is built and stays hidden until Hyojun's `convertAmount`/`convertExpense` (pending cases in `shared/fx-cases.json`); until then a foreign-currency debt can't be settled in the app, so leaving that group stays blocked |
 | 77 | Currency | Change an expense's currency label | Free | have |
 | 78 | Search | Search all expenses | Pro | Phase 5 (free) |
 | 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | Phase 8 (incl. every 2 weeks and "stop repeating") |

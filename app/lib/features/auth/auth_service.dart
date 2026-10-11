@@ -20,6 +20,7 @@ class AuthService {
         refreshToken: r.refreshToken,
         userId: r.user.id,
         displayName: r.user.displayName,
+        homeCurrency: r.user.homeCurrency,
       ));
 
   Future<void> dev(String name) async => _store(await ref.read(apiProvider).authDev(name));

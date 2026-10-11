@@ -2562,6 +2562,216 @@
           }
         ]
       }
+    },
+    {
+      "name": "fx rate: set, changed, kept by an update without the key, then cleared; 0 is stored as 0 (not converted)",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Japan",
+            "defaultCurrency": "EUR"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Ramen",
+            "amount": 1000,
+            "currency": "JPY",
+            "fxRateToDefault": 0.00616,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "fxRateToDefault": 0.0056
+            }
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "description": "Ramen bar"
+            }
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x2",
+            "description": "Taxi",
+            "amount": 5000,
+            "currency": "JPY",
+            "fxRateToDefault": 0.00616,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "fxRateToDefault": 0.0056
+            }
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x2",
+            "fields": {
+              "fxRateToDefault": null
+            }
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x3",
+            "description": "Sushi",
+            "amount": 3000,
+            "currency": "JPY",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 10,
+          "clientId": "e10",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x3",
+            "fields": {
+              "fxRateToDefault": 0
+            }
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Japan",
+          "defaultCurrency": "EUR"
+        },
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Ramen bar",
+            "amount": 1000,
+            "currency": "JPY",
+            "fxRateToDefault": 0.0056,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          },
+          {
+            "id": "x2",
+            "description": "Taxi",
+            "amount": 5000,
+            "currency": "JPY",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 5000
+              }
+            ]
+          },
+          {
+            "id": "x3",
+            "description": "Sushi",
+            "amount": 3000,
+            "currency": "JPY",
+            "fxRateToDefault": 0.0,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 3000
+              }
+            ]
+          }
+        ],
+        "payments": []
+      }
     }
   ]
 }

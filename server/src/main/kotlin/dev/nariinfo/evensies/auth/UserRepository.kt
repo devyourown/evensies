@@ -9,7 +9,7 @@ import java.util.UUID
 @Repository
 class UserRepository(private val jdbc: JdbcClient) {
     private val mapper = { rs: ResultSet, _: Int ->
-        User(rs.getObject("id", UUID::class.java), rs.getString("display_name"), rs.getObject("deleted_at") != null)
+        User(rs.getObject("id", UUID::class.java), rs.getString("display_name"), rs.getObject("deleted_at") != null, rs.getString("home_currency"))
     }
 
     fun find(id: UUID): User? =
@@ -26,9 +26,13 @@ class UserRepository(private val jdbc: JdbcClient) {
     ).param("id", UUID.randomUUID()).param("provider", provider).param("subject", subject).param("name", displayName)
         .query(mapper).single()
 
-    fun rename(id: UUID, name: String) {
-        jdbc.sql("UPDATE users SET display_name = :name WHERE id = :id").param("name", name).param("id", id).update()
-    }
+    /** A null argument keeps that column. */
+    fun update(id: UUID, name: String?, homeCurrency: String?): User = jdbc.sql(
+        """
+        UPDATE users SET display_name = COALESCE(:name, display_name), home_currency = COALESCE(:currency, home_currency)
+        WHERE id = :id RETURNING *
+        """
+    ).param("name", name).param("currency", homeCurrency).param("id", id).query(mapper).single()
 
     fun markDeleted(id: UUID) {
         jdbc.sql("UPDATE users SET deleted_at = :now WHERE id = :id AND deleted_at IS NULL")

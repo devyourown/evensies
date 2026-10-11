@@ -18,15 +18,18 @@ class LocalWrites {
   LocalWrites(this.db, this.sync);
 
   Future<void> _enqueue(String groupId, String type, Map<String, dynamic> payload, {String? createdAt}) async {
-    await db.into(db.outbox).insert(OutboxCompanion.insert(
-          clientId: newId(),
-          groupId: groupId,
-          type: type,
-          payloadJson: jsonEncode(payload),
-          createdAt: createdAt ?? nowIsoUtc(),
-        ));
+    await _outbox(groupId, type, payload, createdAt: createdAt);
     sync.syncLater(groupId);
   }
+
+  Future<void> _outbox(String groupId, String type, Map<String, dynamic> payload, {String? createdAt}) =>
+      db.into(db.outbox).insert(OutboxCompanion.insert(
+            clientId: newId(),
+            groupId: groupId,
+            type: type,
+            payloadJson: jsonEncode(payload),
+            createdAt: createdAt ?? nowIsoUtc(),
+          ));
 
   Future<void> createExpense(String groupId, Expense e) async {
     await db.transaction(() async {
@@ -170,6 +173,50 @@ class LocalWrites {
     await _enqueue(groupId, EventTypes.memberRemoved, {'memberId': memberId});
   }
 
+  /// Convert (docs/API.md 통화 환산): every non-deleted expense in [currency] (not the group's) whose rate is null or 0
+  /// gets [rate] (> 0), in one local transaction so it usually goes in one push. Returns each changed expense's previous
+  /// rate (null or 0), which [setRates] puts back (Undo).
+  Future<Map<String, double?>> convertCurrency(String groupId, String currency, double rate) async {
+    if (!(rate > 0) || !rate.isFinite) throw ArgumentError.value(rate, 'rate', 'must be above 0');
+    final before = await db.transaction(() async {
+      final g = await db.getGroup(groupId);
+      if (g == null || g.defaultCurrency == currency) return <String, double?>{};
+      final xs = await (db.select(db.expenses)
+            ..where((e) =>
+                e.groupId.equals(groupId) &
+                e.currency.equals(currency) &
+                e.deleted.equals(false) &
+                (e.fxRateToDefault.isNull() | e.fxRateToDefault.equals(0))))
+          .get();
+      await _writeRates(groupId, currency, {for (final x in xs) x.id: rate});
+      return {for (final x in xs) x.id: x.fxRateToDefault};
+    });
+    if (before.isNotEmpty) sync.syncLater(groupId);
+    return before;
+  }
+
+  /// expenseId → rate on expenses in [currency], in one local transaction (Undo of a Convert).
+  Future<void> setRates(String groupId, String currency, Map<String, double?> rates) async {
+    await db.transaction(() => _writeRates(groupId, currency, rates));
+    if (rates.isNotEmpty) sync.syncLater(groupId);
+  }
+
+  /// One `expense.updated` each, with the currency next to the rate (docs/API.md: both keys whenever either is sent),
+  /// so a concurrent currency change can't end up carrying this rate under per-field LWW.
+  /// ponytail: a Convert from a stale device that races a change to a currency with other decimals (JPY→USD) puts the
+  /// currency back while the amount stays in the new units. Rare; closing it means sending every money field, which
+  /// would also undo other people's split edits.
+  Future<void> _writeRates(String groupId, String currency, Map<String, double?> rates) async {
+    final at = nowIsoUtc();
+    for (final MapEntry(key: id, value: r) in rates.entries) {
+      await (db.update(db.expenses)..where((e) => e.id.equals(id))).write(ExpensesCompanion(fxRateToDefault: Value(r)));
+      await _outbox(groupId, EventTypes.expenseUpdated, {
+        'expenseId': id,
+        'fields': {'currency': currency, 'fxRateToDefault': r},
+      }, createdAt: at);
+    }
+  }
+
   /// Group settings (docs/API.md `group.updated`): only the given keys are sent; [clearDefaultSplit] sends
   /// `"defaultSplit": null`. The currency is applied optimistically; when my event comes back in the pull the app
   /// takes the server's state, which has ignored it if an expense or payment got there first (rule 12).
@@ -210,7 +257,7 @@ class LocalWrites {
         throw const LeaveException('Still syncing. Try again in a moment.');
       }
       final state = await sync.store.load(groupId);
-      final why = leaveBlocker(balancesOf(state), me, state.defaultCurrency ?? '');
+      final why = leaveBlocker(balancesOf(state), me);
       if (why != null) throw LeaveException(why);
       await sync.api.pushEvents(groupId, [
         OutboundEvent(

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:evensies/core/currency_picker.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/domain/models.dart';
@@ -133,7 +134,8 @@ void main() {
     await expense(t, 'x1', 500, deleted: true);
     await open(t);
     expect(find.text("Can't change after the first expense or payment"), findsOneWidget);
-    expect(t.widget<DropdownButton<String>>(find.byKey(const Key('currency'))).onChanged, isNull);
+    expect(t.widget<CurrencyPicker>(find.byKey(const Key('currency'))).onChanged, isNull);
+    expect(t.widget<DropdownMenu<String>>(find.byType(DropdownMenu<String>)).enabled, isFalse);
     await unmount(t);
   });
 

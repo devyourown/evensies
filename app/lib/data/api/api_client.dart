@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -9,7 +10,7 @@ import '../db/database.dart';
 import 'dto.dart';
 
 /// Typed client for every endpoint in docs/API.md. Bearer token from the session table;
-/// a 401 triggers one refresh + retry.
+/// a 401 triggers one refresh (shared by concurrent requests) + retry.
 class ApiClient {
   final AppDatabase db;
   final String Function() baseUrl;
@@ -29,24 +30,43 @@ class ApiClient {
     h.next(o);
   }
 
+  /// The refresh in flight: every 401 waits for this one, since a refresh token works only once (rotation).
+  Future<bool>? _refreshing;
+
   Future<void> _onError(DioException e, ErrorInterceptorHandler h) async {
     final o = e.requestOptions;
     if (e.response?.statusCode == 401 && o.extra['retried'] != true && o.extra['noAuth'] != true) {
       final s = await db.getSession();
-      if (s != null) {
+      // A token other than the one this request went with means another request already refreshed it.
+      if (s != null &&
+          (o.headers['Authorization'] != 'Bearer ${s.accessToken}' ||
+              await (_refreshing ??= _refresh(s).whenComplete(() => _refreshing = null)))) {
+        o.extra['retried'] = true;
         try {
-          final r = await _dio.post<Map<String, dynamic>>('/auth/refresh',
-              data: {'refreshToken': s.refreshToken}, options: Options(extra: {'noAuth': true}));
-          await db.saveSession(s.copyWith(
-              accessToken: r.data!['accessToken'] as String, refreshToken: r.data!['refreshToken'] as String));
-          o.extra['retried'] = true;
           return h.resolve(await _dio.fetch(o));
-        } catch (_) {
-          await db.clearSession();
+        } on DioException catch (retry) {
+          return h.next(retry);
         }
       }
     }
     h.next(e);
+  }
+
+  /// False if it failed. Signs out only when the server refused [s]'s refresh token and nothing replaced it meanwhile
+  /// (not when offline).
+  Future<bool> _refresh(SessionRow s) async {
+    try {
+      final r = await _dio.post<Map<String, dynamic>>('/auth/refresh',
+          data: {'refreshToken': s.refreshToken}, options: Options(extra: {'noAuth': true}));
+      await db.saveSession(s.copyWith(
+          accessToken: r.data!['accessToken'] as String, refreshToken: r.data!['refreshToken'] as String));
+      return true;
+    } on DioException catch (x) {
+      if (x.response?.statusCode == 401 && (await db.getSession())?.refreshToken == s.refreshToken) {
+        await db.clearSession();
+      }
+      return false;
+    }
   }
 
   Future<T> _call<T>(Future<Response<dynamic>> Function() f, T Function(dynamic) parse) async {
@@ -60,6 +80,8 @@ class ApiClient {
       }
       throw ApiException(
           status: e.response?.statusCode, code: 'NETWORK', message: e.message ?? 'Network error');
+    } on TimeoutException {
+      throw const ApiException(code: 'NETWORK', message: 'Timed out');
     }
   }
 
@@ -78,8 +100,15 @@ class ApiClient {
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
   Future<UserDto> me() => _call(() => _dio.get('/me'), (d) => UserDto.fromJson(_map(d)));
-  Future<UserDto> updateMe(String displayName) =>
-      _call(() => _dio.patch('/me', data: {'displayName': displayName}), (d) => UserDto.fromJson(_map(d)));
+  /// Only the given keys are sent (docs/API.md PATCH /me); at least one is needed.
+  Future<UserDto> updateMe({String? displayName, String? homeCurrency}) => _call(
+      () => _dio.patch('/me', data: {'displayName': ?displayName, 'homeCurrency': ?homeCurrency}),
+      (d) => UserDto.fromJson(_map(d)));
+
+  /// Rates per 1 EUR for [date] (YYYY-MM-DD; null = today). Gives up after 3 s so the form falls back to the cache.
+  Future<FxTable> fx([String? date]) => _call(
+      () => _dio.get('/fx', queryParameters: {'date': ?date}).timeout(const Duration(seconds: 3)),
+      (d) => FxTable.fromJson(_map(d)));
   Future<void> deleteMe() => _call(() => _dio.delete('/me'), (_) {});
   Future<void> registerDevice(String deviceId, String fcmToken) =>
       _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});

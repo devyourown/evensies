@@ -32,3 +32,6 @@ evensies:
     credentials-file: ${EVENSIES_FCM_CREDENTIALS_FILE:}
   push:
     batch-seconds: ${EVENSIES_PUSH_BATCH_SECONDS:30}
+  fx:
+    # Frankfurter v2 shape ({url}/rates?base=EUR&date=); empty turns automatic rates off.
+    url: ${EVENSIES_FX_URL:https://api.frankfurter.dev/v2}

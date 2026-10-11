@@ -3,7 +3,7 @@
 서버(Spring Boot)와 앱(Flutter)이 공유하는 계약. 양쪽 구현은 이 문서를 따른다. 바꾸려면 이 문서부터 고친다.
 
 ## 공통 규칙
-- 모든 ID는 UUID 문자열(앱이 생성). 금액은 정수(최소 단위, `shared/currencies.json`). 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC.
+- 모든 ID는 UUID 문자열(앱이 생성). 금액은 정수(최소 단위, `shared/currencies.json` — 4단계부터 ISO 4217 155개, "통화 환산"). 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC.
 - JSON 키는 camelCase. null 허용 필드는 명시적으로 `null`로 보낸다.
 - 인증: `Authorization: Bearer <access>`. 미인증 → 401. 그룹 멤버가 아님 → 403. 없음 → 404.
 - 오류 본문: `{"code": "SUM_MISMATCH", "message": "..."}`. 검증 오류는 400.
@@ -11,15 +11,21 @@
 ## 인증
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
-| POST | `/auth/apple` | `{"idToken": "...", "displayName"?: "..."}` — Apple은 이름을 토큰에 넣지 않고 첫 로그인 때만 앱에 주므로 앱이 함께 보낸다 | `{"accessToken","refreshToken","user":{"id","displayName"}}` |
+| POST | `/auth/apple` | `{"idToken": "...", "displayName"?: "..."}` — Apple은 이름을 토큰에 넣지 않고 첫 로그인 때만 앱에 주므로 앱이 함께 보낸다 | `{"accessToken","refreshToken","user": UserDto}` |
 | POST | `/auth/google` | `{"idToken": "..."}` | 위와 같음 |
 | POST | `/auth/dev` | `{"name": "Anna"}` — **`evensies.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
-| GET | `/me` | | `{"id","displayName"}`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
-| PATCH | `/me` | `{"displayName"}` (공백 제거 후 1~30자, 이모지 허용) | `{"id","displayName"}`. 범위 밖이면 400 `VALIDATION` |
+| GET | `/me` | | `UserDto`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
+| PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string}` — 하나 이상 필요. `displayName`은 공백 제거 후 1~30자(이모지 허용), `homeCurrency`는 `shared/currencies.json`의 코드(대문자 그대로) | `UserDto`(바꾼 뒤). 아래 규칙 |
 | DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환) |
 | POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다) |
 | DELETE | `/devices/{deviceId}` | | 204. 호출자 본인의 그 기기 행만 지운다(없거나 다른 사용자의 기기면 아무것도 안 하고 204). 앱은 로그아웃할 때 세션을 지우기 **전에** 보낸다. 오프라인이면 실패해도 로그아웃은 진행한다. 앱은 세션이 사라지면(로그아웃, 계정 삭제, 토큰 갱신 실패) 그 폰의 FCM 토큰도 지운다(FCM `deleteToken`, 오프라인이면 로그아웃 상태로 다음 실행·복귀 때 다시 시도). 그러면 서버의 다음 발송이 `UNREGISTERED`를 받아 남은 행을 지운다 |
+
+```
+UserDto {"id","displayName","homeCurrency": string|null}
+```
+- `homeCurrency`(4단계): 사용자의 표시용 통화("≈ $13.46"). 저장한 적 없으면 `null`이고 앱은 기기 지역의 통화(`Money.currencyForLocale`)를 쓴다. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽는다.
+- `PATCH /me` 검사(모두 검사한 뒤 한꺼번에 저장): `null`인 키는 없는 것으로 본다. 두 키가 모두 없으면(`{}` 포함) 400 `VALIDATION`. `displayName`이 범위 밖이면 400 `VALIDATION`. `homeCurrency`가 문자열이 아니면 400 `VALIDATION`, 목록에 없는 코드면(`"usd"` 포함) 400 `UNKNOWN_CURRENCY`. 홈 통화는 지울 수 없다(바꾸기만). 이전 본문 `{"displayName"}`은 그대로 동작한다. 앱은 온라인일 때만 보낸다(오프라인 큐 없음). 삭제된 계정은 401(지금과 같음).
 
 access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 
@@ -39,7 +45,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 ```
 - `simplifyDebts`(boolean, 기본 `true`)와 `defaultSplit`(`SplitSpec|null`, 기본 `null`, 아래 "SplitSpec")은 그룹 설정이다. `POST /groups`·`GET /groups/{id}`·`POST /invites/{code}/join` 응답과 snapshot의 `group`에 있다(`GroupSummaryDto`에는 없다). 앱은 두 키가 없는 응답을 기본값으로 읽는다. `POST /groups`는 기본값으로 만든다(요청에 두 키 없음).
 - 그룹 설정(이름, 기본 통화, 부채 단순화, 기본 분할)을 바꾸는 엔드포인트는 없다. `group.updated` 이벤트로 바꾸고, 그룹 멤버 누구나 보낼 수 있다(관리자 없음). 기본 통화는 지출이나 송금이 하나라도 생기면(삭제된 것 포함) 더 바뀌지 않는다(적용 규칙 12).
-- **그룹 나가기** = 자기 멤버에 대한 `member.removed`. 서버는 다른 멤버를 빼는 것과 똑같이 처리한다(잔액이 0인지는 앱만 확인한다). 그 뒤 그 그룹은 `GET /groups`에서 빠지고 그 그룹의 엔드포인트는 403이다. 나간 멤버는 removed로 남고(사용자 연결도 남는다) 잔액 계산에도 남는다(규칙 5). 초대로 다시 들어오면 새 멤버(또는 다른 자리표시 멤버)가 된다.
+- **그룹 나가기** = 자기 멤버에 대한 `member.removed`. 서버는 다른 멤버를 빼는 것과 똑같이 처리한다(잔액이 0인지는 앱만 확인한다. 4단계부터는 모든 통화 칸에서 0, "통화별 잔액"). 그 뒤 그 그룹은 `GET /groups`에서 빠지고 그 그룹의 엔드포인트는 403이다. 나간 멤버는 removed로 남고(사용자 연결도 남는다) 잔액 계산에도 남는다(규칙 5). 초대로 다시 들어오면 새 멤버(또는 다른 자리표시 멤버)가 된다.
 상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`.
 
 초대 코드: **6자, 알파벳 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`**(0/O, 1/I/L 제외). 이전에 발급된 10자 코드도 계속 유효하다. `/invites/{code}`, `/invites/{code}/join`, `/j/{code}`는 코드를 정규화한다(대문자로 바꾸고 영문·숫자 외 문자는 제거: `k7p-4qx` = `K7P4QX`). 세 엔드포인트는 **클라이언트 IP당 분당 10회**(`EVENSIES_INVITE_RATE_PER_MINUTE`)로 제한되며 초과 시 429 `RATE_LIMITED`.
@@ -139,7 +145,7 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 
 - 글자 수(`description` 200, `notes` 500, `text` 1000, 그룹 `name` 100, 멤버 `name` 100)는 UTF-16 길이(Kotlin·Dart `String.length`)로 센다. `notes`가 문자열·null이 아니거나 너무 길면, `text`·`createdAt`이 규칙에 맞지 않으면, 그룹 `name`(`group.created`·`group.updated`, 그래서 POST /groups도)이나 멤버 `name`(`member.added`, 그래서 POST /groups의 `memberName`과 초대 참여의 `name`도)이 100자를 넘으면 400 `VALIDATION`. 이미 저장된 긴 멤버 이름 이벤트는 그대로 읽힌다(보낼 때만 검사).
 - 금액 상한: 지출 `amount`·`payers[].amount`·`shares[].amount`와 `payment.created`의 `amount`는 `10000000000000`(10^13 최소 단위) 이하. 넘으면 400 `VALIDATION`. 멤버가 50명까지이므로 결제자·몫의 합이 64비트 정수를 넘어 한 바퀴 돌아 `amount`와 같아지는 일이 없다. 200자 제한은 새로 보내는 `description`에만 적용한다(이미 저장된 긴 설명의 지출도 다른 필드는 고칠 수 있다). Splitwise 가져오기는 200자로 자른다.
-- JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 숫자, `shares`와 `payers`는 `[{"memberId": 문자열, "amount": 정수}]`, `refund`는 boolean, `split`은 객체. `group.updated`의 `simplifyDebts`는 boolean(null도 400), `defaultSplit`은 객체 또는 null. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다).
+- JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 유한한 숫자(`1e999`처럼 무한대로 읽히는 값은 400), `shares`와 `payers`는 `[{"memberId": 문자열, "amount": 정수}]`, `refund`는 boolean, `split`은 객체. `group.updated`의 `simplifyDebts`는 boolean(null도 400), `defaultSplit`은 객체 또는 null. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다).
 - `comment.added`의 `text` 1~1000자 검증은 보낼 때만 적용한다. 삭제된 댓글의 저장된 이벤트는 `text: ""`로 pull된다(적용 규칙 8).
 - 호환: 출시 1 앱은 `comment.*`·`expense.restored`를 모르는 type으로 건너뛰고 `notes`를 버린 채 lastSeq를 올렸다. 그래서 앱 DB가 schemaVersion 3으로 올라갈 때 모든 그룹의 lastSeq를 0으로 되돌리고, lastSeq 0에서 시작하는 pull은 **빈 상태부터** 로그 전체를 다시 적용한다(저장된 상태 위에 다시 적용하면 `expense.created`의 notes가 돌아오지 않는다). 구 앱이 계속 쓰이는 동안 그 앱에서는 복원된 지출이 삭제된 채로 보인다.
 
@@ -157,6 +163,7 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
 통화 잠금(규칙 12)은 오류가 아니다. `payers` 등이 `null`이면 타입 검사를 통과한다(규칙 9: 무시).
 
 - 호환(3단계): drift가 schemaVersion 4로 올라갈 때 `expense_payers`를 `paid_by`·`amount`로 채우고(오프라인에서도 잔액이 맞게) lastSeq를 0으로 되돌린다(이전 앱 코드가 모른 채 건너뛴 `payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit`을 로그에서 다시 적용). 이 단계 전의 앱은 여러 명이 낸 지출과 환불을 `paidBy`가 전액 낸 보통 지출로 보인다(출시 전이라 받아들인다).
+- 호환(4단계): 이벤트 모양이 그대로이므로 lastSeq를 되돌리지 않는다. drift schemaVersion 5는 `FxDays` 표와 `Session.homeCurrency`만 더한다. 서버를 먼저 올린다: 이전 서버는 새 통화 코드를 400 `UNKNOWN_CURRENCY`로 거부한다(앱은 "거부된 이벤트"대로 "the currency isn't supported"). 이전 앱은 모르는 통화를 소수 2자리로 보이고(`Money.digits` 기본값) `homeCurrency`를 무시한다(출시 전이라 받아들인다).
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
 1. `applyEvent(state, event)`는 순수 함수. 같은 이벤트 두 번 적용 = 한 번 적용.
@@ -176,6 +183,64 @@ SplitSpec {"mode": "equal" | "percent" | "shares" | "adjustment", "input"?: {"<m
     - `split`: `fields`에 `split` 키가 있으면 그 값(null이면 지움). 없고 `fields`에 `shares`나 `amount`가 (null 아닌 값으로) 있으면 `null`(값이 같아도 키만 보고 정한다). 그 밖에는 그대로.
 11. 그룹 설정: `group.updated`에서 없는 키는 그대로, `simplifyDebts`는 그 값으로, `"defaultSplit": null`은 지운다. 기본값 `simplifyDebts = true`, `defaultSplit = null`. `group.created`는 이 둘을 바꾸지 않는다.
 12. 통화 잠금: 상태에 지출이나 송금이 하나라도 있으면(삭제된 것 포함 — 복원될 수 있다) `group.updated`의 `defaultCurrency`를 무시한다. 같은 이벤트의 다른 키는 적용한다. 서버는 이 이벤트를 400 없이 받아 저장한다. 이유: 모든 `fxRateToDefault`와 송금 금액이 그룹 통화 기준이다. 이 규칙은 상태를 보므로 "로그 전체를 최종 상태 위에 한 번 더 적용"하면 결과가 다를 수 있다(`group.created`가 통화를 되돌린 뒤 변경이 무시됨). 동기화는 그렇게 하지 않는다(seq 순서로 한 번씩, 또는 빈 상태부터).
+
+4단계는 적용 규칙을 더하지 않는다. `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
+
+## 통화 환산 (4단계)
+지출마다 자기 통화를 가진다. 그룹 통화(D)와 다르면 D로 바꾸는 환율 `fxRateToDefault`를 함께 가진다. 새 이벤트 종류는 없다.
+
+### `fxRateToDefault`
+- 뜻: **지출 통화 1 주 단위당 D의 주 단위**(EUR 그룹의 JPY 지출: 1 JPY = 0.00563349 EUR → `0.00563349`). 최소 단위끼리의 비율이 아니다. 처음부터 이 뜻이었고(이전 앱은 잔액에서 자릿수 차이를 빠뜨렸다), 저장된 값은 고치지 않는다.
+- `null` 또는 `0` = 환산 안 됨("Not converted"). 지출 통화가 D와 같으면 값과 상관없이 무시한다.
+- 서버 검증: 유한한 숫자 또는 `null`(무한대도 400), 음수면 400 `VALIDATION`. `0`은 받는다(이전 클라이언트가 보냈을 수 있다). 앱은 0을 입력받지 않는다(폼에서 거부).
+- 자동 환율 = `crossRate(perEur, from, to)` = `perEur[to] / perEur[from]`(아래 `GET /fx`의 `rates`)를 유효숫자 6자리로 반올림한 값(`double.parse(x.toStringAsPrecision(6))`, 1/177.51 → `0.00563349`). 둘 중 하나가 없거나 0 이하면 자동 환율 없음. 직접 입력한 환율은 그대로 저장한다.
+- 앱은 `currency`나 `fxRateToDefault` 중 하나라도 바뀌면 `expense.updated.fields`에 **둘 다** 넣는다(D로 바꾸면 `"fxRateToDefault": null`). `currency`만 보내면 규칙 9 때문에 이전 통화의 환율이 남기 때문이다.
+- **Convert(한 통화로 환산)**: 그 통화(≠ D)의 삭제 안 된 지출 가운데 환율이 `null`이나 `0`인 것마다 `expense.updated {"expenseId", "fields": {"currency": 그 통화, "fxRateToDefault": r}}`(r > 0, 위 규칙대로 둘 다)를 한 로컬 트랜잭션으로 outbox에 넣는다. 스낵바의 Undo는 같은 모양으로 지출마다 이전 값(`null` 또는 `0`)을 다시 보낸다. 보통 한 push(outbox는 100개씩 보낸다)로 가므로 받는 사람에게는 표시 알림 하나(2개 이상이면 묶음 문장 `{A} made {n} changes`)이고, 활동 피드에는 지출마다 `exchange rate` 변경이 나온다. 사용자당 분당 120 이벤트 제한은 그대로다(넘는 것은 outbox에 남아 나중에 간다).
+- 환산한 금액은 어디에도 저장하지 않는다. 언제나 지출 통화의 금액과 환율에서 다시 계산한다.
+
+### 환산 규칙 (효준님 함수, `shared/fx-cases.json`)
+Dart `app/lib/domain/fx.dart`의 `convertAmount`·`convertExpense`(효준님), Kotlin `money/Fx.kt`(Claude가 같은 push에서 이식, 6단계 리마인더·10단계 요약부터 서버가 쓴다). 구현 전에는 Dart가 `UnimplementedError`(호출자는 `tryCore`), Kotlin이 `TODO()`이고 fixture 케이스는 모두 `"pending": "hyojun"`이다. 순수 함수이고 자릿수는 인자로 받는다(`shared/currencies.json`).
+- `convertAmount(amount, fromDecimals, toDecimals, rate) → int`: 정확한 값 = `amount × R × 10^(toDecimals − fromDecimals)`. R은 `rate.toString()`이 찍는 십진수(Dart는 최단 왕복 표기라 `7e-7`처럼 지수 표기도 나온다. Kotlin은 `BigDecimal(rate.toString())` — JDK 19+의 `Double.toString`도 최단 왕복이라 같은 수다). double 곱셈은 쓰지 않는다(100 × 0.285 = 28.499999999999996이지만 답은 29). 가장 가까운 정수로 반올림하고 정확히 .5는 0에서 먼 쪽(28.5 → 29, −28.5 → −29). rate가 유한하지 않거나 0 이하면 `FxException('BAD_RATE')`. amount는 음수일 수 있다(잔액).
+- `convertExpense(amount, parts, fromDecimals, toDecimals, rate) → {amount, parts}`: 검사 순서 `BAD_RATE` → amount나 part가 음수면 `NEGATIVE_AMOUNT` → Σ parts ≠ amount면 `SUM_MISMATCH`. total = `convertAmount(amount)`. part마다 정확한 값을 내림하고, 남는 `total − Σ 내림` 개(0 이상 part 수 이하)를 버린 소수가 큰 part부터 1씩(같으면 memberId 오름차순, 0인 part는 받지 않음). 결과의 키는 `parts`와 같고 합은 total이다.
+
+### 통화별 잔액 (앱 `domain/balances.dart`; 6단계 서버 `Balances.ofGroup`도 같은 규칙)
+D = 그룹 기본 통화. 지출은 삭제 안 된 것만.
+1. D 지출은 그대로 D 칸에 들어간다(남아 있는 환율은 무시).
+2. 외화 지출이고 `fxRateToDefault > 0`이면 `convertExpense`로 D로 바꿔 D 칸에 넣는다. 몫(`shares`)에 한 번, 결제자(`payers`)에 한 번, 같은 amount·rate·자릿수로 부른다(둘의 total은 같다). 하나라도 던지면(구현 전 `UnimplementedError`, `FxException`) 3으로 간다.
+3. 그 밖의 지출은 자기 통화의 칸에 들어가고 `unconverted[통화]`가 1 오른다.
+4. 송금은 `payment.currency`의 칸에 들어간다(Settle up은 언제나 D로 만든다. 다른 통화 송금은 이전 클라이언트가 만든 것).
+5. D 칸은 언제나 있다. 다른 칸은 누군가의 잔액이 0이 아닐 때만 남는다. 칸마다 잔액의 합은 0이다.
+- 칸마다 따로 `computeBalances`, 그리고 부채 단순화(`simplifyDebts`) 또는 끈 그룹은 pairwise를 한다. 3단계의 여러 결제자·환불 지출은 `computeBalances`가 구현될 때까지 지금처럼 그 칸에서 빼고 개수(`unsupported`)를 보여 준다.
+- Settle up에서 보낼 수 있는 송금은 D 칸에서만 나온다. 다른 칸은 카드 하나("¥3,000 isn't converted yet · Convert"). 송금은 D로 남으므로 결제 링크와 EPC QR은 그대로다.
+- 그룹 나가기: 모든 칸에서 내 잔액이 0이고 `unsupported`가 0이어야 한다(환산 안 된 지출 자체는 막지 않는다).
+- 홈 통화 H의 "≈": 내 칸 X마다 `convertAmount(잔액, digits(X), digits(H), crossRate(최신 표, X, H))`의 합. 환율이 하나라도 없거나 H만 관련되면 숨긴다. `convertAmount`가 구현 전이면 Convert 버튼과 모든 "≈"를 숨기고 외화 지출은 모두 자기 칸에 남는다(자동 환율은 그래도 채우고 저장한다).
+
+## 환율 (4단계)
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/fx?date=YYYY-MM-DD` | `date` 선택. 없거나 미래면 오늘(UTC) | `FxTable` |
+
+```
+FxTable {"date": "2026-10-10", "base": "EUR", "rates": {"EUR": 1.0, "USD": 1.1217, "JPY": 177.51, ...}}
+```
+- `rates`: EUR 1 주 단위당 그 통화의 주 단위. `shared/currencies.json`에 있는 코드만 나오고, 출처가 내지 않은 코드는 빠질 수 있다. `EUR`은 언제나 `1`. 출처가 준 값 그대로(반올림 없음).
+- `date`: 표에 든 환율 날짜 가운데 가장 늦은 날(요청한 날 이하). 출처(Frankfurter v2)는 통화마다 마지막 발표일이 다를 수 있다(주말·휴일·출처별 발표). 앱은 이 값을 "rate of {date}"로 보여 주고 로컬 캐시의 키로 쓴다.
+- `base`는 언제나 `"EUR"`.
+- 인증 필요(401). 그룹과 무관하게 로그인한 사용자 누구나.
+- 오류: 날짜 형식이 `YYYY-MM-DD`가 아니거나 없는 날짜 → 400 `VALIDATION`. 사용자당 버킷 30, 초당 0.5 회복(분당 30) — 캐시에서 답하는 요청도 센다 → 429 `RATE_LIMITED`. 환율이 없으면 503 `FX_UNAVAILABLE`(아래).
+- 앱은 Frankfurter를 직접 부르지 않는다. 서버만 부른다.
+
+서버 캐시 `fx_days`(요청한 날 D 한 행, D = `date`를 오늘(UTC)로 자른 값):
+1. `EVENSIES_FX_URL`이 비어 있으면 DB도 출처도 보지 않고 503 `FX_UNAVAILABLE`(자동 환율 끔).
+2. D 행이 있고 **확정**(`fetched_at ≥ D + 2일 00:00 UTC`, 즉 D의 다음 날이 끝난 뒤 받음)이거나 **최근**(`fetched_at > 지금 − 6시간`)이면 그대로 돌려준다. (설계의 "어제 이전이면 그대로"를 이렇게 정했다. D 당일 일찍 받은 행이 그 전날 환율로 굳지 않게 하기 위해서다.)
+3. 아니면 `GET {EVENSIES_FX_URL}/rates?base=EUR&date={D}`(끝의 `/`는 무시, 연결·읽기 시간 제한 각 5초). 성공 = 200이고 본문이 JSON 배열 `[{"date","base","quote","rate"}]`이며 `quote`가 우리 목록에 있고(EUR 제외) `rate`가 양수인 항목이 하나 이상. 그 항목만 남기고 `EUR: 1`을 넣어 `rates`로, 남은 항목 `date`의 최댓값을 `rate_date`로, `fetched_at = 지금`으로 D 행을 upsert하고 돌려준다.
+4. 실패(연결 실패·시간 초과, 200 아님, 파싱 실패, 남는 항목 없음 — 출처는 데이터가 없는 날(1999년 이전 등)에 `[]`를 준다)면 D 행이 있으면 오래됐어도 그것을, 없으면 503 `FX_UNAVAILABLE`. 다른 날의 행으로 대신하지 않는다(앱이 자기 캐시에서 고른다). 실패한 D는 5분 동안 출처에 다시 묻지 않고 바로 같은 답(오래된 행 또는 503)을 준다(서버 메모리, 재시작하면 잊는다). 출처가 멈춰도 요청마다 최대 10초씩 붙잡히지 않게 하기 위해서다.
+- 그래서 지난 날은 한 번(확정되면 끝), 오늘·어제는 6시간에 한 번까지만 출처를 부른다. 스케줄러는 없다. 같은 D를 동시에 받으면 둘 다 부를 수 있고 upsert라 안전하다.
+- 서버에서 `fx_days`를 읽는 곳은 `FxService` 하나다(8단계 반복 지출 스케줄러가 재사용).
+
+앱(로컬 캐시 drift `FxDays`, 키 = 응답의 `date`):
+- 온라인: 서버에 묻고(3초 시간 제한) 받은 표를 저장한다. 앱을 켤 때 온라인이면 최신 표(`date` 없이)를 한 번 받아 둔다.
+- 오프라인·오류(503·429 포함): 키가 그 날 이하인 행 중 가장 늦은 것, 없으면 가장 늦은 행, 없으면 자동 환율 없음("offline · rate of {date}" 또는 "No automatic rate. Enter one, or leave it empty to keep this under Not converted.").
 
 ## 결제 수단 (송금 안내)
 우리는 돈을 보관하거나 옮기지 않는다. 사용자가 "나에게 돈 보내는 방법"을 등록하면 같은 그룹 멤버의 앱이 해당 결제 앱을 연다.
@@ -202,7 +267,7 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 상한: 사용자당 8개, `iban`·`kr_bank`는 각 3개, 나머지 유형은 1개.
 
 ## 내보내기·가져오기
-- `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,amount,currency,paidBy,<멤버이름별 share>...`). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다.
+- `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다.
 - `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
   - 이름 칸은 그 행에서 그 사람의 순액(낸 돈 − 부담)이다. 순액이 양수인 사람은 모두 그 순액만큼 낸다. 순액이 가장 큰 사람(같으면 memberId가 가장 작은 사람)은 남는 금액 `s = Cost − Σ 양수 순액`도 내고 `Cost − Σ 다른 사람들의 부담`을 부담한다(순액의 합이 0이면 `s`와 같고, 합이 0이 아닌 행도 몫의 합이 Cost가 된다). 순액이 음수인 사람은 `−순액`을 부담한다. `s < 0`이거나 그 부담이 음수면 400 `IMPORT_FAILED`. 0인 결제자·몫은 넣지 않는다. 결제자가 둘 이상이면 `payers`를 넣는다(`paidBy`는 주요 결제자). 예: Cost 100.00, Anna +26.66, Ben +6.67, Cara −33.33 → payers Anna 93.33·Ben 6.67, shares Cara 33.33·Anna 66.67. 양수 순액이 하나인 행은 지금과 같게 들어온다. Cost가 음수인 환불 행은 아직 가져오지 않는다.
 
@@ -261,7 +326,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 ### 문장 (영어, 앱 목록·서버 푸시 공통)
 보는 사람을 `me`(그 그룹의 내 멤버)로 두고 만든다. 9단계(언어)에서 번역할 때까지 영어 한 가지.
 - 이름: `me`이면 문장 맨 앞 `You`, 그 밖 `you`. id가 `null`이거나 이름을 모르면 `Someone`/`someone`. 그 밖에는 멤버 이름 그대로.
-- 금액 표기: `shared/currencies.json`의 `symbols[통화]` + 정수부 3자리마다 `,` + (소수 자릿수가 0이 아니면) `.`과 소수부(자릿수만큼 0 채움). 기호와 숫자 사이 공백 없음: `€30.00`, `₩15,000`, `CHF12.50`, `din1,234.567`. 앱의 `formatMoney`(intl en_US)와 같은 결과다. 음수는 쓰지 않는다(`myDelta`는 절댓값).
+- 금액 표기: `shared/currencies.json`의 `symbols[통화]` + 정수부 3자리마다 `,` + (소수 자릿수가 0이 아니면) `.`과 소수부(자릿수만큼 0 채움). 기호와 숫자 사이 공백 없음: `€30.00`, `₩15,000`, `CHF12.50`, `din1,234.567`. 앱의 `formatMoney`(intl en_US)와 같은 결과다. `symbols`에 없는 통화(4단계의 새 통화)는 ISO 코드가 기호 자리에 온다: `ZAR1,234.56`, `OMR1,234.567`, `XOF1,500`(앱 `formatMoney`도 intl의 기호 대신 코드를 쓴다. 9단계가 최종 표기를 정한다). 음수는 쓰지 않는다(`myDelta`는 절댓값).
 - 따옴표는 `“ ”`(U+201C/U+201D), 구분점은 ` · `(U+00B7 앞뒤 공백), 화살표는 ` → `(U+2192 앞뒤 공백). `{A}` = actor 이름(문장 맨 앞 규칙), `{M(x)}` = 금액 표기.
 
 | kind | 문장 |
@@ -321,3 +386,4 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool}
 | `EVENSIES_PUSH_BATCH_SECONDS` | `30` | 수신자·그룹마다 표시 알림 사이의 최소 간격(그 안의 변경은 묶어서 보냄) |
 | `EVENSIES_INVITE_RATE_PER_MINUTE` | `10` | 초대 조회·참여·랜딩의 IP당 분당 허용 횟수 |
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |
+| `EVENSIES_FX_URL` | `https://api.frankfurter.dev/v2` | 환율 출처(`{url}/rates?base=EUR&date=`, Frankfurter v2 응답 모양). 빈 값이면 자동 환율 끔(`GET /fx`는 언제나 503). 키 없음, 무료 |

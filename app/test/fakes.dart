@@ -65,6 +65,35 @@ class FakeApi extends ApiClient {
   @override
   Future<Map<String, List<PaymentMethod>>> groupPaymentMethods(String groupId) async => throw offline;
 
+  /// GET /fx: date (null = today) → table; null = unreachable. Asked dates land in [fxCalls].
+  FxTable Function(String? date)? onFx;
+  final fxCalls = <String?>[];
+
+  @override
+  Future<FxTable> fx([String? date]) async {
+    fxCalls.add(date);
+    final f = onFx;
+    if (f == null) throw offline;
+    return f(date);
+  }
+
+  /// The account POST /auth/dev signs in as.
+  UserDto signInAs = const UserDto(id: 'u1', displayName: 'Anna');
+
+  @override
+  Future<AuthResponse> authDev(String name) async => AuthResponse(accessToken: 'a', refreshToken: 'r', user: signInAs);
+
+  /// PATCH /me bodies; [meOffline] makes it unreachable.
+  final meUpdates = <({String? displayName, String? homeCurrency})>[];
+  bool meOffline = false;
+
+  @override
+  Future<UserDto> updateMe({String? displayName, String? homeCurrency}) async {
+    meUpdates.add((displayName: displayName, homeCurrency: homeCurrency));
+    if (meOffline) throw offline;
+    return UserDto(id: 'u1', displayName: displayName ?? 'Anna', homeCurrency: homeCurrency);
+  }
+
   /// GET /groups ids; null = unreachable.
   List<String>? groupIds;
 

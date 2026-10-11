@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.context.annotation.Import
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
@@ -27,6 +29,13 @@ abstract class IntegrationTestBase {
     protected lateinit var mapper: ObjectMapper
 
     protected val http: Http by lazy { Http(port, mapper) }
+
+    companion object {
+        /** Exchange rates come from the local [FxStub], never the network. */
+        @JvmStatic
+        @DynamicPropertySource
+        fun fxSource(registry: DynamicPropertyRegistry) = registry.add("evensies.fx.url") { FxStub.url }
+    }
 
     protected fun login(name: String): String = http.post("/auth/dev", mapOf("name" to name)).body["accessToken"].asString()
 

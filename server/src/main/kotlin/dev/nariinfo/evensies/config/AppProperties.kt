@@ -11,6 +11,7 @@ data class AppProperties(
     val auth: Auth = Auth(),
     val fcm: Fcm = Fcm(),
     val push: Push = Push(),
+    val fx: Fx = Fx(),
 ) {
     data class Auth(
         val devLogin: Boolean = false,
@@ -22,5 +23,8 @@ data class AppProperties(
 
     /** [batchSeconds]: minimum gap between visible pushes per recipient and group; changes inside it are batched. */
     data class Push(val batchSeconds: Long = 30)
+
+    /** [url]: exchange-rate source in Frankfurter v2 shape (`{url}/rates?base=EUR&date=`); empty turns GET /fx off. */
+    data class Fx(val url: String = "https://api.frankfurter.dev/v2")
 
 }

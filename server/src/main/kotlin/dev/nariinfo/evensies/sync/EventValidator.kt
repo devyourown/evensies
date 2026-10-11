@@ -190,7 +190,8 @@ class EventValidator {
         node.field("description")?.let { if (it.asString().length > MAX_DESCRIPTION) bad("description must be at most $MAX_DESCRIPTION characters") }
         node.field("notes")?.let { if (it.asString().length > MAX_NOTES) bad("notes must be a string of at most $MAX_NOTES characters") }
         node.field("amount")?.let { if (!isMinorUnits(it)) bad("amount must be an integer") }
-        node.field("fxRateToDefault")?.let { if (!it.isNumber) bad("fxRateToDefault must be a number or null") }
+        // `1e999` reads as Infinity, which passes isNumber but is stored as the string "Infinity".
+        node.field("fxRateToDefault")?.let { if (!it.isNumber || !it.asDouble().isFinite()) bad("fxRateToDefault must be a finite number or null") }
         node.field("shares")?.let { if (!isShareList(it)) bad("shares must be an array of {memberId: string, amount: integer}") }
         node.field("payers")?.let {
             if (!isShareList(it) || it.isEmpty) bad("payers must be a non-empty array of {memberId: string, amount: integer}")

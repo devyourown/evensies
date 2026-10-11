@@ -3,6 +3,7 @@ package dev.nariinfo.evensies
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class AuthTest : IntegrationTestBase() {
     @Test
@@ -61,5 +62,60 @@ class AuthTest : IntegrationTestBase() {
         assertEquals(400, http.patch("/me", mapOf("displayName" to "x".repeat(31)), token).status)
         assertEquals(200, http.patch("/me", mapOf("displayName" to "🍕".repeat(30)), token).status, "30 emoji are 30 characters")
         assertEquals(401, http.patch("/me", mapOf("displayName" to "Nope"), null).status)
+    }
+
+    /** Phase 4: homeCurrency in UserDto (login, GET and PATCH /me). PATCH needs a key, checks everything, then writes. */
+    @Test
+    fun homeCurrency() {
+        val login = http.post("/auth/dev", mapOf("name" to "Home")).body
+        val token = login["accessToken"].asString()
+        assertTrue(login["user"].has("homeCurrency") && login["user"]["homeCurrency"].isNull, "never set: null")
+        assertTrue(http.get("/me", token).body["homeCurrency"].isNull)
+
+        val set = http.patch("/me", mapOf("homeCurrency" to "USD"), token)
+        assertEquals(200, set.status, set.text)
+        assertEquals("USD", set.body["homeCurrency"].asString())
+        assertEquals("Home", set.body["displayName"].asString(), "the name is kept")
+        assertEquals("USD", http.get("/me", token).body["homeCurrency"].asString())
+        assertEquals("USD", http.post("/auth/dev", mapOf("name" to "Home")).body["user"]["homeCurrency"].asString(), "login returns it")
+
+        val both = http.patch("/me", mapOf("displayName" to " Hjome ", "homeCurrency" to "ZAR"), token)
+        assertEquals(200, both.status, both.text)
+        assertEquals(listOf("Hjome", "ZAR"), listOf(both.body["displayName"].asString(), both.body["homeCurrency"].asString()))
+        val old = http.patch("/me", mapOf("displayName" to "Home"), token)
+        assertEquals(200, old.status, "the Phase 1 body still works")
+        assertEquals("ZAR", old.body["homeCurrency"].asString(), "and keeps the currency")
+        val nullKey = http.patch("/me", mapOf("displayName" to "Home", "homeCurrency" to null), token)
+        assertEquals(200, nullKey.status, nullKey.text)
+        assertEquals("ZAR", nullKey.body["homeCurrency"].asString(), "null counts as absent: it can't be cleared")
+
+        for ((body, code) in listOf(
+            emptyMap<String, Any?>() to "VALIDATION",
+            mapOf("homeCurrency" to null) to "VALIDATION",
+            mapOf("displayName" to null, "homeCurrency" to null) to "VALIDATION",
+            listOf("USD") to "VALIDATION",
+            null to "VALIDATION",
+            mapOf("homeCurrency" to 840) to "VALIDATION",
+            mapOf("homeCurrency" to listOf("USD")) to "VALIDATION",
+            mapOf("homeCurrency" to true) to "VALIDATION",
+            mapOf("displayName" to 5) to "VALIDATION",
+            mapOf("homeCurrency" to "usd") to "UNKNOWN_CURRENCY",
+            mapOf("homeCurrency" to "XXX") to "UNKNOWN_CURRENCY",
+            mapOf("homeCurrency" to "XAU") to "UNKNOWN_CURRENCY",
+            mapOf("homeCurrency" to "") to "UNKNOWN_CURRENCY",
+            // nothing is written when any part is bad
+            mapOf("displayName" to "Changed", "homeCurrency" to "usd") to "UNKNOWN_CURRENCY",
+            mapOf("displayName" to "  ", "homeCurrency" to "JPY") to "VALIDATION",
+        )) {
+            val res = http.patch("/me", body, token)
+            assertEquals(400, res.status, "$body: ${res.text}")
+            assertEquals(code, res.code(), "$body")
+        }
+        val me = http.get("/me", token).body
+        assertEquals(listOf("Home", "ZAR"), listOf(me["displayName"].asString(), me["homeCurrency"].asString()))
+
+        assertEquals(401, http.patch("/me", mapOf("homeCurrency" to "USD"), null).status)
+        assertEquals(204, http.delete("/me", token).status)
+        assertEquals(401, http.patch("/me", mapOf("homeCurrency" to "USD"), token).status, "deleted account")
     }
 }

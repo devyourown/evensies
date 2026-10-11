@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,9 +10,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
+import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/snack.dart';
+import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
+import '../../domain/fx.dart';
 import '../../providers.dart';
 import '../auth/auth_service.dart';
 
@@ -27,6 +31,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// GET/PUT /me/notifications; null while loading or when it failed ([_prefsFailed]).
   Map<String, bool>? _prefs;
   bool _prefsFailed = false;
+  bool _savingHome = false;
+  int _homeTry = 0; // a refused change rebuilds the picker with the saved value
   static const _prefLabels = [
     ('expenses', 'Expenses and payments', Icons.receipt_long_outlined),
     ('comments', 'Comments', Icons.chat_bubble_outline),
@@ -63,9 +69,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// PATCH /me, online only (docs/API.md): the session keeps what the server saved.
+  Future<void> _setHome(String code) async {
+    setState(() => _savingHome = true);
+    try {
+      final user = await ref.read(apiProvider).updateMe(homeCurrency: code);
+      final db = ref.read(dbProvider);
+      final s = await db.getSession();
+      if (s != null) await db.saveSession(s.copyWith(homeCurrency: Value(user.homeCurrency ?? code)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _homeTry++);
+      showError(context,
+          e is ApiException && e.code == 'NETWORK' ? 'Changing your home currency needs a connection.' : e);
+    } finally {
+      if (mounted) setState(() => _savingHome = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionProvider).value;
+    final home = ref.watch(homeCurrencyProvider);
     final groups = ref.watch(groupsProvider).value ?? const <GroupRow>[];
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
@@ -91,6 +116,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: const Text('PayPal, Wise, IBAN, bank account…'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/payment-methods'),
+          ),
+          ListTile(
+            key: const Key('home-currency'),
+            leading: const Icon(Icons.public),
+            title: const Text('Home currency'),
+            // The "≈" lines need convertAmount (TODO(효준)); no promise before they show.
+            subtitle: Text(session?.homeCurrency == null
+                ? 'From your region · ${fxReady ? 'balances also show ≈ in it' : 'totals in it are coming soon'}'
+                : fxReady
+                    ? 'Balances also show ≈ in it'
+                    : 'Totals in it are coming soon'),
+            trailing: _savingHome
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : CurrencyPicker(
+                    key: ValueKey('home-$_homeTry'),
+                    value: home,
+                    width: 124,
+                    bare: true,
+                    textStyle: text.titleMedium?.copyWith(color: cs.onSurface),
+                    onChanged: _setHome,
+                  ),
           ),
           header('Notifications'),
           for (final (key, label, icon) in _prefLabels)

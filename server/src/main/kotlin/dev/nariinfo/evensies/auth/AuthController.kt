@@ -1,5 +1,6 @@
 package dev.nariinfo.evensies.auth
 
+import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.userId
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
@@ -12,10 +13,10 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.JsonNode
 
 /** [displayName]: Apple sends the user's name only once, outside the id token, so the app forwards it. */
 data class IdTokenRequest(val idToken: String, val displayName: String? = null)
-data class UpdateMeRequest(val displayName: String)
 data class RefreshRequest(val refreshToken: String)
 data class DeviceRequest(val deviceId: String, val fcmToken: String)
 
@@ -40,9 +41,15 @@ class AuthController(
     @GetMapping("/me")
     fun me(authentication: Authentication): UserDto = auth.me(authentication.userId)
 
+    /** `{"displayName"?, "homeCurrency"?}`: a null key counts as absent; anything else but a JSON string is VALIDATION. */
     @PatchMapping("/me")
-    fun updateMe(authentication: Authentication, @RequestBody req: UpdateMeRequest): UserDto =
-        auth.rename(authentication.userId, req.displayName)
+    fun updateMe(authentication: Authentication, @RequestBody body: JsonNode): UserDto {
+        fun text(key: String): String? = body.get(key)?.takeUnless { it.isNull }?.let {
+            if (!it.isString) throw ApiException.badRequest("VALIDATION", "$key must be a string")
+            it.asString()
+        }
+        return auth.updateMe(authentication.userId, text("displayName"), text("homeCurrency"))
+    }
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)

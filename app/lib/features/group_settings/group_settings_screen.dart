@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/confirm.dart';
-import '../../core/money.dart';
+import '../../core/currency_picker.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
@@ -33,7 +33,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   Widget build(BuildContext context) {
     final group = ref.watch(groupProvider(_id)).value;
     final state = ref.watch(groupStateProvider(_id)).value;
-    final res = ref.watch(balancesProvider(_id)).value;
+    final res = ref.watch(balancesProvider(_id));
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     Widget header(String s) => Padding(
@@ -66,23 +66,14 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                 ? const Text("Can't change after the first expense or payment")
                 : const Text('Balances and payments use it'),
             enabled: !locked,
-            trailing: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                key: const Key('currency'),
-                value: group.defaultCurrency,
-                style: text.titleMedium?.copyWith(color: locked ? cs.onSurfaceVariant : cs.onSurface),
-                items: [
-                  for (final c in {...Money.currencies, group.defaultCurrency})
-                    DropdownMenuItem(value: c, child: Text(c)),
-                ],
-                onChanged: locked
-                    ? null
-                    : (v) {
-                        if (v != null && v != group.defaultCurrency) {
-                          ref.read(localWritesProvider).updateGroup(_id, defaultCurrency: v);
-                        }
-                      },
-              ),
+            trailing: CurrencyPicker(
+              key: const Key('currency'),
+              value: group.defaultCurrency,
+              width: 124,
+              bare: true,
+              pinned: [ref.watch(homeCurrencyProvider)],
+              textStyle: text.titleMedium?.copyWith(color: locked ? cs.onSurfaceVariant : cs.onSurface),
+              onChanged: locked ? null : (v) => ref.read(localWritesProvider).updateGroup(_id, defaultCurrency: v),
             ),
           ),
           header('Splitting'),
@@ -139,10 +130,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     );
   }
 
-  /// Leaving needs a zero balance and every expense counted (leaveGroup checks again after its sync).
-  (bool, String?) _leaveState(GroupRow group, BalanceResult? res) {
-    if (res == null) return (false, null);
-    final why = leaveBlocker(res, group.myMemberId, group.defaultCurrency);
+  /// Leaving needs a zero balance in every currency and every expense counted (leaveGroup checks again after its
+  /// sync).
+  (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult?> res) {
+    if (!res.hasValue) return (false, null);
+    final why = leaveBlocker(res.value, group.myMemberId);
     return (why == null, why ?? 'Your balance is settled');
   }
 

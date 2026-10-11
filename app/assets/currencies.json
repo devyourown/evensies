@@ -1,5 +1,37 @@
 {
-  "_doc": "통화별 소수 자릿수. 금액은 이 자릿수의 최소 단위 정수로 저장한다 (EUR 1234 = €12.34, KRW 1234 = ₩1,234). symbols: 활동 문장·푸시의 금액 표기 접두어(앱 intl en_US simpleCurrency와 같은 값) — 기호 + 3자리 쉼표 + 소수점 '.' (docs/API.md '금액 표기').",
-  "decimals": {"EUR": 2, "USD": 2, "GBP": 2, "CHF": 2, "CAD": 2, "AUD": 2, "SGD": 2, "HKD": 2, "CNY": 2, "TWD": 2, "THB": 2, "PHP": 2, "MYR": 2, "INR": 2, "BRL": 2, "MXN": 2, "PLN": 2, "CZK": 2, "SEK": 2, "NOK": 2, "DKK": 2, "TRY": 2, "AED": 2, "KRW": 0, "JPY": 0, "VND": 0, "IDR": 0, "HUF": 0, "ISK": 0, "CLP": 0, "KWD": 3, "BHD": 3},
-  "symbols": {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "CAD": "$", "AUD": "$", "SGD": "$", "HKD": "$", "CNY": "¥", "TWD": "NT$", "THB": "฿", "PHP": "₱", "MYR": "RM", "INR": "₹", "BRL": "R$", "MXN": "$", "PLN": "zł", "CZK": "Kč", "SEK": "kr", "NOK": "kr", "DKK": "kr", "TRY": "₺", "AED": "dh", "KRW": "₩", "JPY": "¥", "VND": "₫", "IDR": "Rp", "HUF": "Ft", "ISK": "kr", "CLP": "$", "KWD": "din", "BHD": "din"}
+  "_doc": "통화별 소수 자릿수. 금액은 이 자릿수의 최소 단위 정수로 저장한다 (EUR 1234 = €12.34, KRW 1234 = ₩1,234). symbols: 활동 문장·푸시의 금액 표기 접두어(앱 intl en_US simpleCurrency와 같은 값) — 기호 + 3자리 쉼표 + 소수점 '.' (docs/API.md '금액 표기'). 4단계: Frankfurter v2가 내는 ISO 4217 통화 전부(비ISO CNH·CMD·GGP·IMP·JEP와 금속·SDR XAU·XAG·XPT·XPD·XDR 제외, 155개). 자릿수: BIF·DJF·GNF·KMF·PYG·RWF·UGX·VUV·XAF·XOF·XPF 0, IQD·JOD·LYD·OMR·TND 3, 나머지 2. 원래 32개는 자릿수를 바꾸지 않는다(HUF·IDR 0은 ISO와 다르지만 저장된 금액이 그 자릿수다). 새 통화에는 symbols가 없고, symbols에 없는 통화는 ISO 코드를 접두어로 쓴다(ZAR 123456 = 'ZAR1,234.56'). names: 통화 선택기 검색용 영어 이름(4단계, 현지화한 이름은 9단계).",
+  "decimals": {
+    "EUR": 2, "USD": 2, "GBP": 2, "CHF": 2, "CAD": 2, "AUD": 2, "SGD": 2, "HKD": 2, "CNY": 2, "TWD": 2, "THB": 2, "PHP": 2, "MYR": 2, "INR": 2, "BRL": 2, "MXN": 2, "PLN": 2, "CZK": 2, "SEK": 2, "NOK": 2, "DKK": 2, "TRY": 2, "AED": 2, "KRW": 0, "JPY": 0, "VND": 0, "IDR": 0, "HUF": 0, "ISK": 0, "CLP": 0, "KWD": 3, "BHD": 3,
+    "AFN": 2, "ALL": 2, "AMD": 2, "ANG": 2, "AOA": 2, "ARS": 2, "AWG": 2, "AZN": 2, "BAM": 2, "BBD": 2, "BDT": 2, "BIF": 0, "BMD": 2, "BND": 2, "BOB": 2, "BSD": 2,
+    "BTN": 2, "BWP": 2, "BYN": 2, "BZD": 2, "CDF": 2, "COP": 2, "CRC": 2, "CUP": 2, "CVE": 2, "DJF": 0, "DOP": 2, "DZD": 2, "EGP": 2, "ERN": 2, "ETB": 2, "FJD": 2,
+    "FKP": 2, "GEL": 2, "GHS": 2, "GIP": 2, "GMD": 2, "GNF": 0, "GTQ": 2, "GYD": 2, "HNL": 2, "HTG": 2, "ILS": 2, "IQD": 3, "IRR": 2, "JMD": 2, "JOD": 3, "KES": 2,
+    "KGS": 2, "KHR": 2, "KMF": 0, "KPW": 2, "KYD": 2, "KZT": 2, "LAK": 2, "LBP": 2, "LKR": 2, "LRD": 2, "LSL": 2, "LYD": 3, "MAD": 2, "MDL": 2, "MGA": 2, "MKD": 2,
+    "MMK": 2, "MNT": 2, "MOP": 2, "MRU": 2, "MUR": 2, "MVR": 2, "MWK": 2, "MZN": 2, "NAD": 2, "NGN": 2, "NIO": 2, "NPR": 2, "NZD": 2, "OMR": 3, "PAB": 2, "PEN": 2,
+    "PGK": 2, "PKR": 2, "PYG": 0, "QAR": 2, "RON": 2, "RSD": 2, "RUB": 2, "RWF": 0, "SAR": 2, "SBD": 2, "SCR": 2, "SDG": 2, "SHP": 2, "SLE": 2, "SOS": 2, "SRD": 2,
+    "SSP": 2, "STN": 2, "SVC": 2, "SYP": 2, "SZL": 2, "TJS": 2, "TMT": 2, "TND": 3, "TOP": 2, "TTD": 2, "TZS": 2, "UAH": 2, "UGX": 0, "UYU": 2, "UZS": 2, "VES": 2,
+    "VUV": 0, "WST": 2, "XAF": 0, "XCD": 2, "XCG": 2, "XOF": 0, "XPF": 0, "YER": 2, "ZAR": 2, "ZMW": 2, "ZWG": 2
+  },
+  "symbols": {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "CAD": "$", "AUD": "$", "SGD": "$", "HKD": "$", "CNY": "¥", "TWD": "NT$", "THB": "฿", "PHP": "₱", "MYR": "RM", "INR": "₹", "BRL": "R$", "MXN": "$", "PLN": "zł", "CZK": "Kč", "SEK": "kr", "NOK": "kr", "DKK": "kr", "TRY": "₺", "AED": "dh", "KRW": "₩", "JPY": "¥", "VND": "₫", "IDR": "Rp", "HUF": "Ft", "ISK": "kr", "CLP": "$", "KWD": "din", "BHD": "din"},
+  "names": {
+    "EUR": "Euro", "USD": "US dollar", "GBP": "British pound", "CHF": "Swiss franc", "CAD": "Canadian dollar", "AUD": "Australian dollar", "SGD": "Singapore dollar", "HKD": "Hong Kong dollar",
+    "CNY": "Chinese yuan", "TWD": "New Taiwan dollar", "THB": "Thai baht", "PHP": "Philippine peso", "MYR": "Malaysian ringgit", "INR": "Indian rupee", "BRL": "Brazilian real", "MXN": "Mexican peso",
+    "PLN": "Polish zloty", "CZK": "Czech koruna", "SEK": "Swedish krona", "NOK": "Norwegian krone", "DKK": "Danish krone", "TRY": "Turkish lira", "AED": "UAE dirham", "KRW": "South Korean won",
+    "JPY": "Japanese yen", "VND": "Vietnamese dong", "IDR": "Indonesian rupiah", "HUF": "Hungarian forint", "ISK": "Icelandic krona", "CLP": "Chilean peso", "KWD": "Kuwaiti dinar", "BHD": "Bahraini dinar",
+    "AFN": "Afghan afghani", "ALL": "Albanian lek", "AMD": "Armenian dram", "ANG": "Netherlands Antillean guilder", "AOA": "Angolan kwanza", "ARS": "Argentine peso", "AWG": "Aruban florin", "AZN": "Azerbaijani manat",
+    "BAM": "Bosnia-Herzegovina convertible mark", "BBD": "Barbadian dollar", "BDT": "Bangladeshi taka", "BIF": "Burundian franc", "BMD": "Bermudian dollar", "BND": "Brunei dollar", "BOB": "Bolivian boliviano", "BSD": "Bahamian dollar",
+    "BTN": "Bhutanese ngultrum", "BWP": "Botswana pula", "BYN": "Belarusian ruble", "BZD": "Belize dollar", "CDF": "Congolese franc", "COP": "Colombian peso", "CRC": "Costa Rican colon", "CUP": "Cuban peso",
+    "CVE": "Cape Verdean escudo", "DJF": "Djiboutian franc", "DOP": "Dominican peso", "DZD": "Algerian dinar", "EGP": "Egyptian pound", "ERN": "Eritrean nakfa", "ETB": "Ethiopian birr", "FJD": "Fijian dollar",
+    "FKP": "Falkland Islands pound", "GEL": "Georgian lari", "GHS": "Ghanaian cedi", "GIP": "Gibraltar pound", "GMD": "Gambian dalasi", "GNF": "Guinean franc", "GTQ": "Guatemalan quetzal", "GYD": "Guyanese dollar",
+    "HNL": "Honduran lempira", "HTG": "Haitian gourde", "ILS": "Israeli new shekel", "IQD": "Iraqi dinar", "IRR": "Iranian rial", "JMD": "Jamaican dollar", "JOD": "Jordanian dinar", "KES": "Kenyan shilling",
+    "KGS": "Kyrgyzstani som", "KHR": "Cambodian riel", "KMF": "Comorian franc", "KPW": "North Korean won", "KYD": "Cayman Islands dollar", "KZT": "Kazakhstani tenge", "LAK": "Lao kip", "LBP": "Lebanese pound",
+    "LKR": "Sri Lankan rupee", "LRD": "Liberian dollar", "LSL": "Lesotho loti", "LYD": "Libyan dinar", "MAD": "Moroccan dirham", "MDL": "Moldovan leu", "MGA": "Malagasy ariary", "MKD": "Macedonian denar",
+    "MMK": "Myanmar kyat", "MNT": "Mongolian tugrik", "MOP": "Macanese pataca", "MRU": "Mauritanian ouguiya", "MUR": "Mauritian rupee", "MVR": "Maldivian rufiyaa", "MWK": "Malawian kwacha", "MZN": "Mozambican metical",
+    "NAD": "Namibian dollar", "NGN": "Nigerian naira", "NIO": "Nicaraguan cordoba", "NPR": "Nepalese rupee", "NZD": "New Zealand dollar", "OMR": "Omani rial", "PAB": "Panamanian balboa", "PEN": "Peruvian sol",
+    "PGK": "Papua New Guinean kina", "PKR": "Pakistani rupee", "PYG": "Paraguayan guarani", "QAR": "Qatari riyal", "RON": "Romanian leu", "RSD": "Serbian dinar", "RUB": "Russian ruble", "RWF": "Rwandan franc",
+    "SAR": "Saudi riyal", "SBD": "Solomon Islands dollar", "SCR": "Seychellois rupee", "SDG": "Sudanese pound", "SHP": "Saint Helena pound", "SLE": "Sierra Leonean leone", "SOS": "Somali shilling", "SRD": "Surinamese dollar",
+    "SSP": "South Sudanese pound", "STN": "Sao Tome and Principe dobra", "SVC": "Salvadoran colon", "SYP": "Syrian pound", "SZL": "Eswatini lilangeni", "TJS": "Tajikistani somoni", "TMT": "Turkmenistani manat", "TND": "Tunisian dinar",
+    "TOP": "Tongan paanga", "TTD": "Trinidad and Tobago dollar", "TZS": "Tanzanian shilling", "UAH": "Ukrainian hryvnia", "UGX": "Ugandan shilling", "UYU": "Uruguayan peso", "UZS": "Uzbekistani sum", "VES": "Venezuelan bolivar",
+    "VUV": "Vanuatu vatu", "WST": "Samoan tala", "XAF": "Central African CFA franc", "XCD": "East Caribbean dollar", "XCG": "Caribbean guilder", "XOF": "West African CFA franc", "XPF": "CFP franc", "YER": "Yemeni rial",
+    "ZAR": "South African rand", "ZMW": "Zambian kwacha", "ZWG": "Zimbabwe Gold"
+  }
 }

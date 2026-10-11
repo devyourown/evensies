@@ -14,8 +14,8 @@ class ExportImportTest : IntegrationTestBase() {
         push(token, id, expenseCreated(me, 1234, mapOf(me to 1234), description = "Pizza"))
         val csv = http.get("/groups/$id/export?format=csv", token)
         assertEquals(200, csv.status)
-        assertTrue(csv.text.startsWith("\"date\",\"description\",\"amount\",\"currency\",\"paidBy\",\"Me\""), csv.text)
-        assertTrue(csv.text.contains("\"2026-10-10\",\"Pizza\",\"12.34\",\"EUR\",\"Me\",\"12.34\""), csv.text)
+        assertTrue(csv.text.startsWith("\"date\",\"description\",\"amount\",\"currency\",\"fxRateToDefault\",\"paidBy\",\"Me\""), csv.text)
+        assertTrue(csv.text.contains("\"2026-10-10\",\"Pizza\",\"12.34\",\"EUR\",\"\",\"Me\",\"12.34\""), csv.text)
 
         val splitwise = """
             Date,Description,Category,Cost,Currency,Me,Carla
@@ -53,13 +53,46 @@ class ExportImportTest : IntegrationTestBase() {
                 extra = mapOf("payers" to lines(mapOf(me to 6000)), "refund" to true, "split" to mapOf("mode" to "equal"))),
         ).status)
         val csv = http.get("/groups/$id/export?format=csv", token).text
-        assertTrue(csv.contains("\"Hotel\",\"100.00\",\"EUR\",\"Ben 40.00; Me 60.00\",\"50.00\",\"50.00\""), csv)
-        assertTrue(csv.contains("\"Hotel refund\",\"-60.00\",\"EUR\",\"Me\",\"-30.00\",\"-30.00\""), csv)
+        assertTrue(csv.contains("\"Hotel\",\"100.00\",\"EUR\",\"\",\"Ben 40.00; Me 60.00\",\"50.00\",\"50.00\""), csv)
+        assertTrue(csv.contains("\"Hotel refund\",\"-60.00\",\"EUR\",\"\",\"Me\",\"-30.00\",\"-30.00\""), csv)
 
         val json = http.get("/groups/$id/export?format=json", token).body
         assertEquals(SharedJson.canon(snapshot(token, id)), SharedJson.canon(json))
         assertEquals(true, json["expenses"].values().first { it["description"].asString() == "Hotel refund" }["refund"].asBoolean())
         assertEquals(true, json["group"]["simplifyDebts"].asBoolean())
+    }
+
+    /**
+     * Phase 4: the fxRateToDefault column after currency holds the stored rate as a plain decimal (no exponent, no
+     * trailing zeros), empty when null; 0 and a leftover rate on a group-currency expense are written as stored.
+     * Amounts stay in the expense currency, with its own decimals (OMR has 3, a new code from the 155 list).
+     */
+    @Test
+    fun csvHasTheRateColumn() {
+        val token = login("Csv4")
+        val group = createGroup(token)
+        val id = group["id"].asString()
+        val me = group["myMemberId"].asString()
+        fun expense(description: String, amount: Long, currency: String, rate: Any?) =
+            expenseCreated(me, amount, mapOf(me to amount), description = description, currency = currency, extra = mapOf("fxRateToDefault" to rate))
+        val res = push(token, id,
+            expense("Sushi", 1000, "JPY", 0.00616),
+            expense("Tiny", 300000, "USD", 7e-7),
+            expense("Unconverted", 500, "JPY", 0),
+            expense("Leftover", 1250, "EUR", 1.0),
+            expense("Plain", 1250, "EUR", null),
+            expense("Muscat", 1234567, "OMR", 2.38),
+        )
+        assertEquals(200, res.status, res.text)
+        val csv = http.get("/groups/$id/export?format=csv", token).text
+        for (row in listOf(
+            "\"Sushi\",\"1000\",\"JPY\",\"0.00616\",\"Me\",\"1000\"",
+            "\"Tiny\",\"3000.00\",\"USD\",\"0.0000007\",\"Me\"",
+            "\"Unconverted\",\"500\",\"JPY\",\"0\",\"Me\"",
+            "\"Leftover\",\"12.50\",\"EUR\",\"1\",\"Me\"",
+            "\"Plain\",\"12.50\",\"EUR\",\"\",\"Me\"",
+            "\"Muscat\",\"1234.567\",\"OMR\",\"2.38\",\"Me\",\"1234.567\"",
+        )) assertTrue(csv.contains(row), "$row in\n$csv")
     }
 
     /**

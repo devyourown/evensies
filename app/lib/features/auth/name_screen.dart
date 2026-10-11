@@ -36,7 +36,7 @@ class _NameScreenState extends ConsumerState<NameScreen> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      final user = await ref.read(apiProvider).updateMe(_value);
+      final user = await ref.read(apiProvider).updateMe(displayName: _value);
       final db = ref.read(dbProvider);
       final s = await db.getSession();
       if (s != null) await db.saveSession(s.copyWith(displayName: user.displayName));

@@ -2,8 +2,13 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:evensies/core/currency_picker.dart';
 import 'package:evensies/core/env.dart';
+import 'package:evensies/core/money.dart';
+import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
+import 'package:evensies/domain/fx.dart';
+import 'package:evensies/features/auth/auth_service.dart';
 import 'package:evensies/features/settings/settings_screen.dart';
 import 'package:evensies/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +18,8 @@ import 'fakes.dart';
 void main() {
   late AppDatabase db;
   late FakeApi api;
+
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0}}'));
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
@@ -78,5 +85,45 @@ void main() {
     await settle(t);
     expect(t.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Comments')).onChanged, isNotNull);
     await unmount(t);
+  });
+
+  testWidgets('home currency: the region\'s until picked, saved with PATCH /me; offline keeps the saved one', (t) async {
+    await t.runAsync(() => db.saveSession(
+        const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna')));
+    await t.pumpWidget(await app());
+    await settle(t);
+    String shown() => t.widget<CurrencyPicker>(find.descendant(
+        of: find.byKey(const Key('home-currency')), matching: find.byType(CurrencyPicker))).value;
+    expect(shown(), 'USD'); // en_US in tests
+    expect(
+        find.text('From your region · ${fxReady ? 'balances also show ≈ in it' : 'totals in it are coming soon'}'),
+        findsOneWidget);
+
+    await t.tap(find.descendant(of: find.byKey(const Key('home-currency')), matching: find.byType(TextField)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('JPY').last);
+    await settle(t);
+    expect(api.meUpdates, [(displayName: null, homeCurrency: 'JPY')]);
+    expect((await t.runAsync(db.getSession))!.homeCurrency, 'JPY');
+    expect(shown(), 'JPY');
+    expect(find.text(fxReady ? 'Balances also show ≈ in it' : 'Totals in it are coming soon'), findsOneWidget);
+
+    api.meOffline = true;
+    await t.tap(find.descendant(of: find.byKey(const Key('home-currency')), matching: find.byType(TextField)));
+    await t.pumpAndSettle();
+    await t.tap(find.text('EUR').last);
+    await settle(t);
+    expect(find.text('Changing your home currency needs a connection.'), findsOneWidget);
+    expect((await t.runAsync(db.getSession))!.homeCurrency, 'JPY');
+    expect(shown(), 'JPY');
+    await unmount(t);
+  });
+
+  test('signing in keeps the home currency saved on the account (another phone set it)', () async {
+    api.signInAs = const UserDto(id: 'u1', displayName: 'Anna', homeCurrency: 'JPY');
+    final c = ProviderContainer(overrides: [dbProvider.overrideWithValue(db), apiProvider.overrideWithValue(api)]);
+    addTearDown(c.dispose);
+    await c.read(authServiceProvider).dev('Anna');
+    expect((await db.getSession())!.homeCurrency, 'JPY');
   });
 }

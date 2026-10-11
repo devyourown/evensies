@@ -9,9 +9,27 @@ typedef ActivityPage = ({List<ActivityItem> items, int? nextBefore});
 class UserDto {
   final String id;
   final String displayName;
-  const UserDto({required this.id, required this.displayName});
-  factory UserDto.fromJson(Map<String, dynamic> j) =>
-      UserDto(id: j['id'] as String, displayName: j['displayName'] as String);
+
+  /// Null until the user picks one, and from servers before Phase 4 (no key).
+  final String? homeCurrency;
+  const UserDto({required this.id, required this.displayName, this.homeCurrency});
+  factory UserDto.fromJson(Map<String, dynamic> j) => UserDto(
+      id: j['id'] as String, displayName: j['displayName'] as String, homeCurrency: j['homeCurrency'] as String?);
+}
+
+/// `GET /fx` (docs/API.md 환율): [rates] = units per 1 EUR; [date] = the latest quote date in it.
+class FxTable {
+  final String date;
+  final Map<String, double> rates;
+
+  /// True when the table came from this device's cache because the server couldn't answer.
+  final bool offline;
+  const FxTable({required this.date, required this.rates, this.offline = false});
+  factory FxTable.fromJson(Map<String, dynamic> j, {bool offline = false}) => FxTable(
+        date: j['date'] as String,
+        rates: {for (final e in (j['rates'] as Map).entries) e.key as String: (e.value as num).toDouble()},
+        offline: offline,
+      );
 }
 
 class AuthResponse {

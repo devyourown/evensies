@@ -17,6 +17,16 @@ void main() {
   test('parse "1,234" KRW → 1234', () => expect(parseMoney('1,234', 'KRW'), 1234));
   test('parse too many decimals → null', () => expect(parseMoney('12.345', 'EUR'), isNull));
   test('parse decimals for KRW → null', () => expect(parseMoney('12.3', 'KRW'), isNull));
+  test('the 32 codes from before Phase 4 keep their decimals (stored amounts use them)', () {
+    final before = {
+      for (final c in 'EUR USD GBP CHF CAD AUD SGD HKD CNY TWD THB PHP MYR INR BRL MXN PLN CZK SEK NOK DKK TRY AED'.split(' ')) c: 2,
+      for (final c in 'KRW JPY VND IDR HUF ISK CLP'.split(' ')) c: 0,
+      'KWD': 3,
+      'BHD': 3,
+    };
+    expect({for (final c in before.keys) c: Money.decimals[c]}, before);
+    expect(Money.decimals.length, 155);
+  });
   test('parse invalid → null', () {
     expect(parseMoney('abc', 'EUR'), isNull);
     expect(parseMoney('', 'EUR'), isNull);

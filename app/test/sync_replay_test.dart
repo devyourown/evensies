@@ -48,9 +48,25 @@ void main() {
         '"payload_json" TEXT NOT NULL, "created_at" TEXT NOT NULL, "sent_at" TEXT NULL, PRIMARY KEY ("client_id"))');
     raw.execute('CREATE TABLE "sync_state" ("group_id" TEXT NOT NULL, "last_seq" INTEGER NOT NULL DEFAULT 0, '
         'PRIMARY KEY ("group_id"))');
+    raw.execute('CREATE TABLE "session" ("id" INTEGER NOT NULL DEFAULT 1, "access_token" TEXT NOT NULL, '
+        '"refresh_token" TEXT NOT NULL, "user_id" TEXT NOT NULL, "display_name" TEXT NOT NULL, PRIMARY KEY ("id"))');
     raw.execute("INSERT INTO groups (id, name, default_currency) VALUES ('g1', 'Rome', 'EUR')");
     raw.execute("INSERT INTO sync_state VALUES ('g1', 57)");
+    raw.execute("INSERT INTO session VALUES (1, 'a', 'r', 'u1', 'Anna')");
   }
+
+  test('schema 4 → 5 adds the rate cache and the home currency, keeps the session and lastSeq', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      raw.execute('PRAGMA user_version = 4');
+    }));
+    addTearDown(db.close);
+
+    final s = (await db.getSession())!;
+    expect((s.userId, s.displayName, s.homeCurrency), ('u1', 'Anna', null));
+    expect(await db.select(db.fxDays).get(), isEmpty);
+    expect(await db.lastSeq('g1'), 57); // event shapes are unchanged: no replay
+  });
 
   test('schema 2 → 4 keeps rows, adds notes/comments/activity and resets lastSeq', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {

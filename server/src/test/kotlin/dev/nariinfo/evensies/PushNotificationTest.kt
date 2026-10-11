@@ -179,6 +179,19 @@ class PushNotificationTest : IntegrationTestBase() {
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM notification_prefs WHERE user_id = :u").param("u", benId).query(Long::class.java).single())
     }
 
+    /** Phase 4 Convert: rate updates for several expenses in one push reach each other member as one visible push. */
+    @Test
+    fun aConvertIsOneVisiblePush() {
+        val s = setup("convert")
+        val ids = List(3) { UUID.randomUUID().toString() }
+        push(s.anna.token, s.id, *ids.map { expenseCreated(s.a, 1000, mapOf(s.a to 500, s.b to 500), expenseId = it, currency = "JPY") }.toTypedArray())
+        assertEquals("Me added 3 expenses", awaitBody(s.ben))
+        push(s.anna.token, s.id, *ids.map { expenseUpdated(it, "fxRateToDefault" to 0.00563349) }.toTypedArray())
+        assertEquals("Me made 3 changes", awaitBody(s.ben))
+        drain(s, s.ben)
+        assertTrue(take(s.ben).all { it.body == null }, "nothing visible after the batch")
+    }
+
     @Test
     fun burstsWithinTheWindowAreBatched() {
         val s = setup("batch")

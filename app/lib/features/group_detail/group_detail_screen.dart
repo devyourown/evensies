@@ -7,10 +7,13 @@ import '../../core/core_guard.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
+import '../../data/fx_rates.dart';
+import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 import '../activity/activity_screen.dart';
 import 'balances.dart';
+import 'convert_sheet.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   final String groupId;
@@ -124,7 +127,8 @@ class _ExpensesTab extends ConsumerWidget {
     if (expenses.isEmpty && payments.isEmpty) {
       return RefreshIndicator(
         onRefresh: refresh,
-        child: ListView(children: [
+        // Short content: without it there is nothing to pull.
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(32, 96, 32, 32),
             child: Column(children: [
@@ -176,8 +180,15 @@ class _ExpenseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = expense;
     final cs = Theme.of(context).colorScheme;
-    final foreign = e.currency != group.defaultCurrency;
-    final fxMissing = foreign && e.fxRateToDefault == null;
+    final d = group.defaultCurrency;
+    final foreign = e.currency != d;
+    final rate = e.fxRateToDefault ?? 0;
+    final fxMissing = foreign && !(rate > 0); // null or 0: not converted
+    // "≈ €69.55" under a converted foreign amount (hidden while convertAmount is a stub).
+    final approx = !foreign || fxMissing || !fxReady
+        ? null
+        : tryFx(() => convertAmount(
+            amount: e.amount, fromDecimals: Money.digits(e.currency), toDecimals: Money.digits(d), rate: rate));
 
     int mineIn(List<Share> l) => l.where((s) => s.memberId == myMemberId).fold(0, (a, s) => a + s.amount);
     final myShare = mineIn(e.shares);
@@ -218,10 +229,10 @@ class _ExpenseTile extends StatelessWidget {
           if (foreign)
             Row(mainAxisSize: MainAxisSize.min, children: [
               if (fxMissing) ...[
-                Icon(Icons.warning_amber_rounded, size: 14, color: cs.error),
+                Icon(Icons.warning_amber_rounded, size: 14, color: cs.error, semanticLabel: 'Not converted'),
                 const SizedBox(width: 2),
               ],
-              Text(e.currency,
+              Text(approx == null ? e.currency : '≈ ${formatMoney(approx, d)}',
                   style: Theme.of(context)
                       .textTheme
                       .labelSmall
@@ -269,76 +280,177 @@ class _BalancesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final res = ref.watch(balancesProvider(group.id)).value;
+    final async = ref.watch(balancesProvider(group.id));
     final members = ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[];
     final cs = Theme.of(context).colorScheme;
-    if (res == null) return const Center(child: CircularProgressIndicator());
-    final b = res.balances;
-    if (b == null) {
-      return const Center(child: ListTile(leading: Icon(Icons.construction), title: Text(notImplementedLabel)));
+    final text = Theme.of(context).textTheme;
+    // Short content: AlwaysScrollable, or there is nothing to pull.
+    Widget list(List<Widget> children) => RefreshIndicator(
+          onRefresh: () => ref.read(syncProvider).sync(group.id).catchError((_) {}),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+            children: children,
+          ),
+        );
+    if (!async.hasValue) return const Center(child: CircularProgressIndicator());
+    final res = async.value;
+    if (res == null) {
+      return list([const ListTile(leading: Icon(Icons.construction), title: Text(notImplementedLabel))]);
     }
-    final rows = members.where((m) => !m.removed || (b[m.id] ?? 0) != 0).toList()
-      ..sort((x, y) => (b[y.id] ?? 0).compareTo(b[x.id] ?? 0));
+    final d = group.defaultCurrency;
+    final b = res.balances;
+    final others = res.others;
+    final rows = _rows(members, b);
     final maxAbs = rows.fold(0, (acc, m) => (b[m.id] ?? 0).abs() > acc ? (b[m.id] ?? 0).abs() : acc);
     final unsettled = maxAbs > 0;
-    final incomplete = res.unsupported > 0 || res.missingFx > 0; // never "All settled" next to the cards above
     final me = group.myMemberId;
     final myPending = (ref.watch(groupStateProvider(group.id)).value?.payments ?? const <Payment>[])
         .where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me))
         .length;
+    final home = ref.watch(homeCurrencyProvider);
+    final approx = approxIn(home, res.mine(me), ref.watch(latestFxProvider).value?.rates);
 
-    return RefreshIndicator(
-      onRefresh: () => ref.read(syncProvider).sync(group.id).catchError((_) {}),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-        children: [
-          if (res.missingFx > 0)
-            Card(
-              color: cs.errorContainer,
-              child: ListTile(
-                leading: Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer),
-                title: Text('${res.missingFx} expense${res.missingFx == 1 ? '' : 's'} missing an fx rate',
-                    style: TextStyle(color: cs.onErrorContainer)),
-                subtitle: Text('Not counted in balances. Edit the expense to add a rate.',
-                    style: TextStyle(color: cs.onErrorContainer)),
-              ),
+    return list([
+      if (approx != null && approx != 0)
+        Card(
+          key: const Key('approx-total'),
+          color: cs.secondaryContainer,
+          child: ListTile(
+            leading: Icon(Icons.currency_exchange, color: cs.onSecondaryContainer),
+            title: Text('${approx < 0 ? 'You owe' : 'You are owed'} ≈ ${formatMoney(approx.abs(), home)} in total',
+                style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600)),
+            subtitle: Text('In your home currency, at the latest rates',
+                style: TextStyle(color: cs.onSecondaryContainer)),
+          ),
+        ),
+      if (res.unsupported > 0)
+        Card(
+          color: cs.tertiaryContainer,
+          child: ListTile(
+            leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
+            title: Text(
+                '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
+                "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
+                style: TextStyle(color: cs.onTertiaryContainer)),
+            subtitle: Text(notImplementedLabel, style: TextStyle(color: cs.onTertiaryContainer)),
+          ),
+        ),
+      if (!unsettled)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 48),
+          child: Column(children: [
+            Icon(
+                res.unsupported > 0
+                    ? Icons.hourglass_empty
+                    : others.isNotEmpty
+                        ? Icons.currency_exchange
+                        : Icons.check_circle_outline,
+                size: 64,
+                color: res.unsupported > 0 ? cs.onSurfaceVariant : cs.primary),
+            const SizedBox(height: 16),
+            // Never "All settled" next to the cards above or the sections below.
+            Text(
+                res.unsupported > 0
+                    ? 'Balances are incomplete'
+                    : others.isNotEmpty
+                        ? 'Nothing owed in $d'
+                        : 'All settled',
+                style: text.titleMedium),
+            Text(
+                res.unsupported > 0
+                    ? 'Nothing to settle among the expenses counted so far.'
+                    : others.isNotEmpty
+                        ? 'Expenses in other currencies are below.'
+                        : 'Nobody owes anything.',
+                style: TextStyle(color: cs.onSurfaceVariant)),
+          ]),
+        ),
+      for (final m in rows)
+        _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: d),
+      if (unsettled || myPending > 0) ...[
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: () => context.push('/groups/${group.id}/settle'),
+          icon: const Icon(Icons.handshake_outlined),
+          label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
+        ),
+      ],
+      for (final x in others) _NotConverted(group: group, res: res, currency: x, members: members),
+    ]);
+  }
+}
+
+/// Members to list for a bucket: everyone still in the group, plus people who left with a balance; largest first.
+List<MemberRow> _rows(List<MemberRow> members, Map<String, int> b) =>
+    members.where((m) => !m.removed || (b[m.id] ?? 0) != 0).toList()
+      ..sort((x, y) => (b[y.id] ?? 0).compareTo(b[x.id] ?? 0));
+
+String _name(MemberRow m) => m.name + (m.removed ? ' (removed)' : '');
+
+/// "Not converted · JPY": one bucket outside the group currency (docs/API.md 통화별 잔액), with Convert.
+class _NotConverted extends StatelessWidget {
+  final GroupRow group;
+  final BalanceResult res;
+  final String currency;
+  final List<MemberRow> members;
+  const _NotConverted({required this.group, required this.res, required this.currency, required this.members});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final d = group.defaultCurrency;
+    final b = res.byCurrency[currency] ?? const <String, int>{};
+    final rows = _rows(members, b).where((m) => (b[m.id] ?? 0) != 0).toList();
+    final maxAbs = rows.fold(0, (acc, m) => (b[m.id] ?? 0).abs() > acc ? (b[m.id] ?? 0).abs() : acc);
+    final n = res.unconverted[currency] ?? 0;
+    final unrated = res.unrated[currency] ?? 0; // what Convert fills in
+    final rated = n - unrated; // has a rate that can't be used yet
+    final ready = fxReady;
+    String count(int k) => '$k expense${k == 1 ? '' : 's'}';
+    return Padding(
+      key: Key('not-converted-$currency'),
+      padding: const EdgeInsets.only(top: 32),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(Icons.currency_exchange, size: 20, color: cs.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Not converted · $currency', style: text.titleSmall)),
+        ]),
+        const SizedBox(height: 2),
+        Text(
+          [
+            if (unrated > 0) '${count(unrated)} without a rate to $d',
+            if (rated > 0)
+              ready
+                  ? "${count(rated)} with a rate that can't be converted"
+                  : '${count(rated)} with a rate, counted in $d once conversion is ready',
+            if (n == 0) 'Payments in $currency',
+            if (rows.isEmpty) 'everyone is even in $currency',
+          ].join(' · '),
+          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        for (final m in rows) _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: currency),
+        const SizedBox(height: 8),
+        if (!ready && n > 0)
+          // Not a button: there is nothing to tap yet.
+          Row(children: [
+            Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text('Converting to $d: $notImplementedLabel',
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             ),
-          if (res.unsupported > 0)
-            Card(
-              color: cs.tertiaryContainer,
-              child: ListTile(
-                leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
-                title: Text(
-                    '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
-                    "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
-                    style: TextStyle(color: cs.onTertiaryContainer)),
-                subtitle: Text(notImplementedLabel, style: TextStyle(color: cs.onTertiaryContainer)),
-              ),
-            ),
-          if (!unsettled)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48),
-              child: Column(children: [
-                Icon(incomplete ? Icons.hourglass_empty : Icons.check_circle_outline,
-                    size: 64, color: incomplete ? cs.onSurfaceVariant : cs.primary),
-                const SizedBox(height: 16),
-                Text(incomplete ? 'Balances are incomplete' : 'All settled',
-                    style: Theme.of(context).textTheme.titleMedium),
-                Text(incomplete ? "Nothing to settle among the expenses counted so far." : 'Nobody owes anything.',
-                    style: TextStyle(color: cs.onSurfaceVariant)),
-              ]),
-            ),
-          for (final m in rows) _BalanceRow(name: m.name + (m.removed ? ' (removed)' : ''), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: group.defaultCurrency),
-          if (unsettled || myPending > 0) ...[
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => context.push('/groups/${group.id}/settle'),
-              icon: const Icon(Icons.handshake_outlined),
-              label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
-            ),
-          ],
-        ],
-      ),
+          ])
+        else if (ready && unrated > 0)
+          OutlinedButton.icon(
+            key: Key('convert-$currency'),
+            onPressed: () => showConvertSheet(context, groupId: group.id, currencies: [currency]),
+            icon: const Icon(Icons.currency_exchange),
+            label: Text('Convert to $d'),
+          ),
+      ]),
     );
   }
 }

@@ -4310,6 +4310,17 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _homeCurrencyMeta = const VerificationMeta(
+    'homeCurrency',
+  );
+  @override
+  late final GeneratedColumn<String> homeCurrency = GeneratedColumn<String>(
+    'home_currency',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4317,6 +4328,7 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
     refreshToken,
     userId,
     displayName,
+    homeCurrency,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4374,6 +4386,15 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
     } else if (isInserting) {
       context.missing(_displayNameMeta);
     }
+    if (data.containsKey('home_currency')) {
+      context.handle(
+        _homeCurrencyMeta,
+        homeCurrency.isAcceptableOrUnknown(
+          data['home_currency']!,
+          _homeCurrencyMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4403,6 +4424,10 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
         DriftSqlType.string,
         data['${effectivePrefix}display_name'],
       )!,
+      homeCurrency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}home_currency'],
+      ),
     );
   }
 
@@ -4418,12 +4443,16 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
   final String refreshToken;
   final String userId;
   final String displayName;
+
+  /// UserDto.homeCurrency (docs/API.md); null until the user picks one (the app then uses the region's currency).
+  final String? homeCurrency;
   const SessionRow({
     required this.id,
     required this.accessToken,
     required this.refreshToken,
     required this.userId,
     required this.displayName,
+    this.homeCurrency,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4433,6 +4462,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     map['refresh_token'] = Variable<String>(refreshToken);
     map['user_id'] = Variable<String>(userId);
     map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || homeCurrency != null) {
+      map['home_currency'] = Variable<String>(homeCurrency);
+    }
     return map;
   }
 
@@ -4443,6 +4475,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       refreshToken: Value(refreshToken),
       userId: Value(userId),
       displayName: Value(displayName),
+      homeCurrency: homeCurrency == null && nullToAbsent
+          ? const Value.absent()
+          : Value(homeCurrency),
     );
   }
 
@@ -4457,6 +4492,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       refreshToken: serializer.fromJson<String>(json['refreshToken']),
       userId: serializer.fromJson<String>(json['userId']),
       displayName: serializer.fromJson<String>(json['displayName']),
+      homeCurrency: serializer.fromJson<String?>(json['homeCurrency']),
     );
   }
   @override
@@ -4468,6 +4504,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       'refreshToken': serializer.toJson<String>(refreshToken),
       'userId': serializer.toJson<String>(userId),
       'displayName': serializer.toJson<String>(displayName),
+      'homeCurrency': serializer.toJson<String?>(homeCurrency),
     };
   }
 
@@ -4477,12 +4514,14 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     String? refreshToken,
     String? userId,
     String? displayName,
+    Value<String?> homeCurrency = const Value.absent(),
   }) => SessionRow(
     id: id ?? this.id,
     accessToken: accessToken ?? this.accessToken,
     refreshToken: refreshToken ?? this.refreshToken,
     userId: userId ?? this.userId,
     displayName: displayName ?? this.displayName,
+    homeCurrency: homeCurrency.present ? homeCurrency.value : this.homeCurrency,
   );
   SessionRow copyWithCompanion(SessionCompanion data) {
     return SessionRow(
@@ -4497,6 +4536,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       displayName: data.displayName.present
           ? data.displayName.value
           : this.displayName,
+      homeCurrency: data.homeCurrency.present
+          ? data.homeCurrency.value
+          : this.homeCurrency,
     );
   }
 
@@ -4507,14 +4549,21 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           ..write('accessToken: $accessToken, ')
           ..write('refreshToken: $refreshToken, ')
           ..write('userId: $userId, ')
-          ..write('displayName: $displayName')
+          ..write('displayName: $displayName, ')
+          ..write('homeCurrency: $homeCurrency')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, accessToken, refreshToken, userId, displayName);
+  int get hashCode => Object.hash(
+    id,
+    accessToken,
+    refreshToken,
+    userId,
+    displayName,
+    homeCurrency,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4523,7 +4572,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           other.accessToken == this.accessToken &&
           other.refreshToken == this.refreshToken &&
           other.userId == this.userId &&
-          other.displayName == this.displayName);
+          other.displayName == this.displayName &&
+          other.homeCurrency == this.homeCurrency);
 }
 
 class SessionCompanion extends UpdateCompanion<SessionRow> {
@@ -4532,12 +4582,14 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
   final Value<String> refreshToken;
   final Value<String> userId;
   final Value<String> displayName;
+  final Value<String?> homeCurrency;
   const SessionCompanion({
     this.id = const Value.absent(),
     this.accessToken = const Value.absent(),
     this.refreshToken = const Value.absent(),
     this.userId = const Value.absent(),
     this.displayName = const Value.absent(),
+    this.homeCurrency = const Value.absent(),
   });
   SessionCompanion.insert({
     this.id = const Value.absent(),
@@ -4545,6 +4597,7 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     required String refreshToken,
     required String userId,
     required String displayName,
+    this.homeCurrency = const Value.absent(),
   }) : accessToken = Value(accessToken),
        refreshToken = Value(refreshToken),
        userId = Value(userId),
@@ -4555,6 +4608,7 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     Expression<String>? refreshToken,
     Expression<String>? userId,
     Expression<String>? displayName,
+    Expression<String>? homeCurrency,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4562,6 +4616,7 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
       if (refreshToken != null) 'refresh_token': refreshToken,
       if (userId != null) 'user_id': userId,
       if (displayName != null) 'display_name': displayName,
+      if (homeCurrency != null) 'home_currency': homeCurrency,
     });
   }
 
@@ -4571,6 +4626,7 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     Value<String>? refreshToken,
     Value<String>? userId,
     Value<String>? displayName,
+    Value<String?>? homeCurrency,
   }) {
     return SessionCompanion(
       id: id ?? this.id,
@@ -4578,6 +4634,7 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
       refreshToken: refreshToken ?? this.refreshToken,
       userId: userId ?? this.userId,
       displayName: displayName ?? this.displayName,
+      homeCurrency: homeCurrency ?? this.homeCurrency,
     );
   }
 
@@ -4599,6 +4656,9 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     if (displayName.present) {
       map['display_name'] = Variable<String>(displayName.value);
     }
+    if (homeCurrency.present) {
+      map['home_currency'] = Variable<String>(homeCurrency.value);
+    }
     return map;
   }
 
@@ -4609,7 +4669,271 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
           ..write('accessToken: $accessToken, ')
           ..write('refreshToken: $refreshToken, ')
           ..write('userId: $userId, ')
-          ..write('displayName: $displayName')
+          ..write('displayName: $displayName, ')
+          ..write('homeCurrency: $homeCurrency')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FxDaysTable extends FxDays with TableInfo<$FxDaysTable, FxDayRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FxDaysTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dayMeta = const VerificationMeta('day');
+  @override
+  late final GeneratedColumn<String> day = GeneratedColumn<String>(
+    'day',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ratesJsonMeta = const VerificationMeta(
+    'ratesJson',
+  );
+  @override
+  late final GeneratedColumn<String> ratesJson = GeneratedColumn<String>(
+    'rates_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
+    'fetchedAt',
+  );
+  @override
+  late final GeneratedColumn<String> fetchedAt = GeneratedColumn<String>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [day, ratesJson, fetchedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'fx_days';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FxDayRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('day')) {
+      context.handle(
+        _dayMeta,
+        day.isAcceptableOrUnknown(data['day']!, _dayMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayMeta);
+    }
+    if (data.containsKey('rates_json')) {
+      context.handle(
+        _ratesJsonMeta,
+        ratesJson.isAcceptableOrUnknown(data['rates_json']!, _ratesJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ratesJsonMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {day};
+  @override
+  FxDayRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FxDayRow(
+      day: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}day'],
+      )!,
+      ratesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rates_json'],
+      )!,
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FxDaysTable createAlias(String alias) {
+    return $FxDaysTable(attachedDatabase, alias);
+  }
+}
+
+class FxDayRow extends DataClass implements Insertable<FxDayRow> {
+  final String day;
+  final String ratesJson;
+  final String fetchedAt;
+  const FxDayRow({
+    required this.day,
+    required this.ratesJson,
+    required this.fetchedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['day'] = Variable<String>(day);
+    map['rates_json'] = Variable<String>(ratesJson);
+    map['fetched_at'] = Variable<String>(fetchedAt);
+    return map;
+  }
+
+  FxDaysCompanion toCompanion(bool nullToAbsent) {
+    return FxDaysCompanion(
+      day: Value(day),
+      ratesJson: Value(ratesJson),
+      fetchedAt: Value(fetchedAt),
+    );
+  }
+
+  factory FxDayRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FxDayRow(
+      day: serializer.fromJson<String>(json['day']),
+      ratesJson: serializer.fromJson<String>(json['ratesJson']),
+      fetchedAt: serializer.fromJson<String>(json['fetchedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'day': serializer.toJson<String>(day),
+      'ratesJson': serializer.toJson<String>(ratesJson),
+      'fetchedAt': serializer.toJson<String>(fetchedAt),
+    };
+  }
+
+  FxDayRow copyWith({String? day, String? ratesJson, String? fetchedAt}) =>
+      FxDayRow(
+        day: day ?? this.day,
+        ratesJson: ratesJson ?? this.ratesJson,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+      );
+  FxDayRow copyWithCompanion(FxDaysCompanion data) {
+    return FxDayRow(
+      day: data.day.present ? data.day.value : this.day,
+      ratesJson: data.ratesJson.present ? data.ratesJson.value : this.ratesJson,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FxDayRow(')
+          ..write('day: $day, ')
+          ..write('ratesJson: $ratesJson, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(day, ratesJson, fetchedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FxDayRow &&
+          other.day == this.day &&
+          other.ratesJson == this.ratesJson &&
+          other.fetchedAt == this.fetchedAt);
+}
+
+class FxDaysCompanion extends UpdateCompanion<FxDayRow> {
+  final Value<String> day;
+  final Value<String> ratesJson;
+  final Value<String> fetchedAt;
+  final Value<int> rowid;
+  const FxDaysCompanion({
+    this.day = const Value.absent(),
+    this.ratesJson = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FxDaysCompanion.insert({
+    required String day,
+    required String ratesJson,
+    required String fetchedAt,
+    this.rowid = const Value.absent(),
+  }) : day = Value(day),
+       ratesJson = Value(ratesJson),
+       fetchedAt = Value(fetchedAt);
+  static Insertable<FxDayRow> custom({
+    Expression<String>? day,
+    Expression<String>? ratesJson,
+    Expression<String>? fetchedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (day != null) 'day': day,
+      if (ratesJson != null) 'rates_json': ratesJson,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FxDaysCompanion copyWith({
+    Value<String>? day,
+    Value<String>? ratesJson,
+    Value<String>? fetchedAt,
+    Value<int>? rowid,
+  }) {
+    return FxDaysCompanion(
+      day: day ?? this.day,
+      ratesJson: ratesJson ?? this.ratesJson,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (day.present) {
+      map['day'] = Variable<String>(day.value);
+    }
+    if (ratesJson.present) {
+      map['rates_json'] = Variable<String>(ratesJson.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<String>(fetchedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FxDaysCompanion(')
+          ..write('day: $day, ')
+          ..write('ratesJson: $ratesJson, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -4629,6 +4953,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
   late final $SessionTable session = $SessionTable(this);
+  late final $FxDaysTable fxDays = $FxDaysTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4645,6 +4970,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     outbox,
     syncState,
     session,
+    fxDays,
   ];
 }
 
@@ -6873,6 +7199,7 @@ typedef $$SessionTableCreateCompanionBuilder =
       required String refreshToken,
       required String userId,
       required String displayName,
+      Value<String?> homeCurrency,
     });
 typedef $$SessionTableUpdateCompanionBuilder =
     SessionCompanion Function({
@@ -6881,6 +7208,7 @@ typedef $$SessionTableUpdateCompanionBuilder =
       Value<String> refreshToken,
       Value<String> userId,
       Value<String> displayName,
+      Value<String?> homeCurrency,
     });
 
 class $$SessionTableFilterComposer
@@ -6914,6 +7242,11 @@ class $$SessionTableFilterComposer
 
   ColumnFilters<String> get displayName => $composableBuilder(
     column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get homeCurrency => $composableBuilder(
+    column: $table.homeCurrency,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6951,6 +7284,11 @@ class $$SessionTableOrderingComposer
     column: $table.displayName,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get homeCurrency => $composableBuilder(
+    column: $table.homeCurrency,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SessionTableAnnotationComposer
@@ -6980,6 +7318,11 @@ class $$SessionTableAnnotationComposer
 
   GeneratedColumn<String> get displayName => $composableBuilder(
     column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get homeCurrency => $composableBuilder(
+    column: $table.homeCurrency,
     builder: (column) => column,
   );
 }
@@ -7020,12 +7363,14 @@ class $$SessionTableTableManager
                 Value<String> refreshToken = const Value.absent(),
                 Value<String> userId = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
+                Value<String?> homeCurrency = const Value.absent(),
               }) => SessionCompanion(
                 id: id,
                 accessToken: accessToken,
                 refreshToken: refreshToken,
                 userId: userId,
                 displayName: displayName,
+                homeCurrency: homeCurrency,
               ),
           createCompanionCallback:
               ({
@@ -7034,12 +7379,14 @@ class $$SessionTableTableManager
                 required String refreshToken,
                 required String userId,
                 required String displayName,
+                Value<String?> homeCurrency = const Value.absent(),
               }) => SessionCompanion.insert(
                 id: id,
                 accessToken: accessToken,
                 refreshToken: refreshToken,
                 userId: userId,
                 displayName: displayName,
+                homeCurrency: homeCurrency,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -7061,6 +7408,162 @@ typedef $$SessionTableProcessedTableManager =
       $$SessionTableUpdateCompanionBuilder,
       (SessionRow, BaseReferences<_$AppDatabase, $SessionTable, SessionRow>),
       SessionRow,
+      PrefetchHooks Function()
+    >;
+typedef $$FxDaysTableCreateCompanionBuilder =
+    FxDaysCompanion Function({
+      required String day,
+      required String ratesJson,
+      required String fetchedAt,
+      Value<int> rowid,
+    });
+typedef $$FxDaysTableUpdateCompanionBuilder =
+    FxDaysCompanion Function({
+      Value<String> day,
+      Value<String> ratesJson,
+      Value<String> fetchedAt,
+      Value<int> rowid,
+    });
+
+class $$FxDaysTableFilterComposer
+    extends Composer<_$AppDatabase, $FxDaysTable> {
+  $$FxDaysTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ratesJson => $composableBuilder(
+    column: $table.ratesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FxDaysTableOrderingComposer
+    extends Composer<_$AppDatabase, $FxDaysTable> {
+  $$FxDaysTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ratesJson => $composableBuilder(
+    column: $table.ratesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fetchedAt => $composableBuilder(
+    column: $table.fetchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FxDaysTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FxDaysTable> {
+  $$FxDaysTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get day =>
+      $composableBuilder(column: $table.day, builder: (column) => column);
+
+  GeneratedColumn<String> get ratesJson =>
+      $composableBuilder(column: $table.ratesJson, builder: (column) => column);
+
+  GeneratedColumn<String> get fetchedAt =>
+      $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+}
+
+class $$FxDaysTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FxDaysTable,
+          FxDayRow,
+          $$FxDaysTableFilterComposer,
+          $$FxDaysTableOrderingComposer,
+          $$FxDaysTableAnnotationComposer,
+          $$FxDaysTableCreateCompanionBuilder,
+          $$FxDaysTableUpdateCompanionBuilder,
+          (FxDayRow, BaseReferences<_$AppDatabase, $FxDaysTable, FxDayRow>),
+          FxDayRow,
+          PrefetchHooks Function()
+        > {
+  $$FxDaysTableTableManager(_$AppDatabase db, $FxDaysTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FxDaysTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FxDaysTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FxDaysTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> day = const Value.absent(),
+                Value<String> ratesJson = const Value.absent(),
+                Value<String> fetchedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FxDaysCompanion(
+                day: day,
+                ratesJson: ratesJson,
+                fetchedAt: fetchedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String day,
+                required String ratesJson,
+                required String fetchedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => FxDaysCompanion.insert(
+                day: day,
+                ratesJson: ratesJson,
+                fetchedAt: fetchedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FxDaysTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FxDaysTable,
+      FxDayRow,
+      $$FxDaysTableFilterComposer,
+      $$FxDaysTableOrderingComposer,
+      $$FxDaysTableAnnotationComposer,
+      $$FxDaysTableCreateCompanionBuilder,
+      $$FxDaysTableUpdateCompanionBuilder,
+      (FxDayRow, BaseReferences<_$AppDatabase, $FxDaysTable, FxDayRow>),
+      FxDayRow,
       PrefetchHooks Function()
     >;
 
@@ -7089,4 +7592,6 @@ class $AppDatabaseManager {
       $$SyncStateTableTableManager(_db, _db.syncState);
   $$SessionTableTableManager get session =>
       $$SessionTableTableManager(_db, _db.session);
+  $$FxDaysTableTableManager get fxDays =>
+      $$FxDaysTableTableManager(_db, _db.fxDays);
 }

@@ -11,11 +11,14 @@ import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
+import '../../data/fx_rates.dart';
+import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../domain/payment_methods.dart';
 import '../../domain/settlement.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart';
+import '../group_detail/convert_sheet.dart';
 import '../settings/payment_methods_screen.dart' show methodIcon;
 
 class SettleScreen extends ConsumerStatefulWidget {
@@ -49,22 +52,25 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
   @override
   Widget build(BuildContext context) {
     final group = ref.watch(groupProvider(widget.groupId)).value;
-    final res = ref.watch(balancesProvider(widget.groupId)).value;
+    final async = ref.watch(balancesProvider(widget.groupId));
+    final res = async.value;
     final state = ref.watch(groupStateProvider(widget.groupId)).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     Widget body;
-    if (group == null || res == null || state == null) {
+    if (group == null || !async.hasValue || state == null) {
       body = const Center(child: CircularProgressIndicator());
-    } else if (res.balances == null) {
+    } else if (res == null) {
       body = const Center(child: Text(notImplementedLabel));
     } else {
-      final transfers = res.transfers(simplify: group.simplifyDebts);
+      // Payable transfers come from the group currency only; payments stay in it (docs/API.md 통화별 잔액).
+      final transfers = res.transfers(simplify: group.simplifyDebts)[group.defaultCurrency];
       final me = group.myMemberId;
       final pending = state.payments.where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me)).toList();
+      final others = [for (final c in res.byCurrency.keys) if (c != group.defaultCurrency) c]..sort();
       if (transfers == null) {
         body = const Center(child: Text(notImplementedLabel));
-      } else if (transfers.isEmpty && pending.isEmpty && res.unsupported == 0) {
+      } else if (transfers.isEmpty && pending.isEmpty && res.unsupported == 0 && others.isEmpty) {
         body = Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.check_circle_outline, size: 64, color: cs.primary),
@@ -98,14 +104,15 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                       style: TextStyle(color: cs.onTertiaryContainer)),
                 ),
               ),
+            for (final c in others) _notConvertedCard(group, res, c),
             if (transfers.isNotEmpty)
               header(!group.simplifyDebts
                   ? 'Debts as recorded · simplify debts is off'
                   : res.unsupported > 0
                       ? '${transfers.length} transfer${transfers.length == 1 ? '' : 's'} (some expenses not counted yet)'
-                      : transfers.length == 1
-                          ? '1 transfer settles everything'
-                          : '${transfers.length} transfers settle everything'),
+                      : '${transfers.length} transfer${transfers.length == 1 ? ' settles' : 's settle'} '
+                          // Other currencies' cards are above: this pays only the group currency.
+                          '${others.isEmpty ? 'everything' : 'the ${group.defaultCurrency} balance'}'),
             for (final t in transfers) _transferCard(group, state, t),
           ],
         );
@@ -204,6 +211,10 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(formatMoney(t.amount, cur), style: text.titleLarge?.copyWith(color: cs.primary)),
+                if (iPay || iReceive)
+                  if (approxIn(ref.watch(homeCurrencyProvider), {cur: t.amount}, ref.watch(latestFxProvider).value?.rates)
+                      case final approx?)
+                    Text('≈ ${formatMoney(approx, ref.watch(homeCurrencyProvider))}', style: muted),
               ]),
             ),
             const SizedBox(width: 8),
@@ -228,6 +239,31 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               ]),
           ],
         ]),
+      ),
+    );
+  }
+
+  /// "¥3,000 isn't converted yet · Convert": a bucket Settle up can't pay (payments stay in the group currency).
+  Widget _notConvertedCard(GroupRow group, BalanceResult res, String currency) {
+    final cs = Theme.of(context).colorScheme;
+    final owed = (res.byCurrency[currency] ?? const <String, int>{}).values.where((v) => v > 0).fold(0, (a, v) => a + v);
+    final canConvert = fxReady && (res.unrated[currency] ?? 0) > 0;
+    return Card(
+      key: Key('not-converted-$currency'),
+      color: cs.surfaceContainerHigh,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(Icons.currency_exchange, color: cs.onSurfaceVariant),
+        title: Text("${formatMoney(owed, currency)} isn't converted yet"),
+        subtitle: Text(fxReady
+            ? 'Convert it to ${group.defaultCurrency} to settle it here'
+            : 'Converting to ${group.defaultCurrency}: $notImplementedLabel'),
+        trailing: canConvert
+            ? FilledButton.tonal(
+                onPressed: () => showConvertSheet(context, groupId: group.id, currencies: [currency]),
+                child: const Text('Convert'),
+              )
+            : null,
       ),
     );
   }

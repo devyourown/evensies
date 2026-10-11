@@ -1,10 +1,9 @@
 import 'package:drift/drift.dart' show Value;
-import 'dart:ui' show PlatformDispatcher;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
@@ -35,10 +34,9 @@ class _State extends ConsumerState<_CreateGroupDialog> {
   void initState() {
     super.initState();
     _me.text = ref.read(sessionProvider).value?.displayName ?? '';
+    // The last currency a group was created in, then the home currency.
     final last = ref.read(sharedPreferencesProvider).getString(_lastCurrencyKey);
-    _currency = last != null && Money.decimals.containsKey(last)
-        ? last
-        : Money.currencyForLocale(PlatformDispatcher.instance.locale.toString());
+    _currency = last != null && Money.decimals.containsKey(last) ? last : ref.read(homeCurrencyProvider);
   }
 
   Future<void> _create() async {
@@ -101,11 +99,13 @@ class _State extends ConsumerState<_CreateGroupDialog> {
                 onChanged: (_) => setState(() {}),
                 decoration: limitedDecoration(
                     const InputDecoration(labelText: 'Your name in this group'), _me.text, maxMemberName)),
-            DropdownButtonFormField<String>(
-              initialValue: _currency,
-              decoration: const InputDecoration(labelText: 'Default currency'),
-              items: [for (final c in Money.currencies) DropdownMenuItem(value: c, child: Text(c))],
-              onChanged: (v) => setState(() => _currency = v ?? _currency),
+            const SizedBox(height: 16),
+            CurrencyPicker(
+              key: const Key('group-currency'),
+              value: _currency,
+              label: 'Default currency',
+              pinned: [ref.read(homeCurrencyProvider)],
+              onChanged: (v) => setState(() => _currency = v),
             ),
           ],
         ),

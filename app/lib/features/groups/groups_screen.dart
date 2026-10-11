@@ -6,6 +6,7 @@ import '../../core/core_guard.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
+import '../../data/fx_rates.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart';
 import 'create_group_dialog.dart';
@@ -95,28 +96,33 @@ class _GroupCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final res = ref.watch(balancesProvider(group.id)).value;
+    final async = ref.watch(balancesProvider(group.id));
+    final res = async.value;
     final memberCount =
         (ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[]).where((m) => !m.removed).length;
-    String status;
-    Color color = cs.onSurfaceVariant;
-    if (res == null) {
-      status = '…';
-    } else if (res.balances == null) {
-      status = notImplementedLabel;
+    final muted = TextStyle(color: cs.onSurfaceVariant);
+    // One line per currency I have a balance in (group currency first), each in its own colour, then "≈" in my home
+    // currency on its own line: nothing is cut off.
+    final lines = <TextSpan>[];
+    if (!async.hasValue) {
+      lines.add(TextSpan(text: '…', style: muted));
+    } else if (res == null) {
+      lines.add(TextSpan(text: notImplementedLabel, style: muted));
     } else {
-      final mine = res.balances![group.myMemberId] ?? 0;
-      final cur = group.defaultCurrency;
-      if (mine == 0) {
-        status = 'Settled up';
-      } else if (mine > 0) {
-        status = 'You are owed ${formatMoney(mine, cur)}';
-        color = cs.primary;
-      } else {
-        status = 'You owe ${formatMoney(-mine, cur)}';
-        color = cs.error;
+      final mine = res.mine(group.myMemberId);
+      if (mine.isEmpty) lines.add(TextSpan(text: 'Settled up', style: muted));
+      for (final MapEntry(key: cur, value: v) in mine.entries) {
+        lines.add(TextSpan(
+            text: owedText(v, cur),
+            style: TextStyle(color: v > 0 ? cs.primary : cs.error, fontWeight: FontWeight.w500)));
       }
-      if (res.unsupported > 0 || res.missingFx > 0) status = '$status so far'; // some expenses aren't counted
+      if (res.unsupported > 0) lines.last = TextSpan(text: '${lines.last.text} so far', style: lines.last.style);
+      final home = ref.watch(homeCurrencyProvider);
+      final approx = mine.isEmpty ? null : approxIn(home, mine, ref.watch(latestFxProvider).value?.rates);
+      if (approx != null) {
+        final a = formatMoney(approx.abs(), home);
+        lines.add(TextSpan(text: mine.length == 1 ? '≈ $a' : 'Net ≈ ${approx < 0 ? '−' : '+'}$a', style: muted));
+      }
     }
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -124,14 +130,10 @@ class _GroupCard extends ConsumerWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: CircleAvatar(child: Text(group.name.isEmpty ? '?' : group.name[0].toUpperCase())),
         title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text.rich(
-          TextSpan(children: [
-            TextSpan(text: '$memberCount ${memberCount == 1 ? 'member' : 'members'} · '),
-            TextSpan(text: status, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
-          ]),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        subtitle: Text.rich(TextSpan(children: [
+          TextSpan(text: '$memberCount ${memberCount == 1 ? 'member' : 'members'} · '),
+          for (final (i, l) in lines.indexed) ...[if (i > 0) const TextSpan(text: '\n'), l],
+        ])),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.push('/groups/${group.id}'),
       ),

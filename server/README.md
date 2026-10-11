@@ -39,6 +39,7 @@ curl -s localhost:8080/groups/<groupId>/snapshot -H "Authorization: Bearer $TOKE
 | `EVENSIES_GOOGLE_CLIENT_IDS` | | comma separated audiences for Google id tokens |
 | `EVENSIES_FCM_CREDENTIALS_FILE` | | Firebase service-account JSON; empty = push disabled (logged at startup) |
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | used in the `/j/{code}` invite page |
+| `EVENSIES_FX_URL` | `https://api.frankfurter.dev/v2` | exchange-rate source for `GET /fx` (Frankfurter v2 shape, no key); empty = automatic rates off |
 
 `/actuator/health` is public.
 
@@ -49,7 +50,8 @@ config/   AppProperties, JwtService, SecurityConfig (stateless bearer filter)
 auth/     dev/apple/google/refresh login, /me, /devices, IdTokenVerifier (JWKS, RS256)
 group/    groups, members, invites (/invites/{code}, /j/{code} HTML page)
 sync/     events push/pull/snapshot, EventApplier (pure, mirrors the Dart one), EventValidator, GroupStateStore
-money/    Money (currency decimals), Split, Settlement
+money/    Money (currency decimals), Split, Settlement, Fx (conversion, Hyojun's port pending)
+fx/       GET /fx: daily EUR rates from EVENSIES_FX_URL, cached per day in fx_days
 payment/  "ways to get paid": GET/PUT /me/payment-methods, GET /groups/{id}/payment-methods (validation incl. IBAN mod-97)
 export/   JSON/CSV export, Splitwise CSV import (goes through the normal push path)
 push/     FcmNotifier (no-op without credentials)

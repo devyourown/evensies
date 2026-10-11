@@ -13,17 +13,24 @@ import 'package:evensies/domain/models.dart';
 import 'package:evensies/domain/split.dart';
 import 'package:evensies/features/expense_form/expense_form_screen.dart';
 import 'package:evensies/features/expense_form/split_editor.dart';
+import 'package:evensies/core/env.dart';
 import 'package:evensies/providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
 void main() {
   late AppDatabase db;
+  late FakeApi api;
+  late SharedPreferences prefs;
 
   setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0}}'));
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
+    api = FakeApi(db);
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
     await db.upsertGroup(
       const GroupRow(
         id: 'g1',
@@ -41,7 +48,12 @@ void main() {
   tearDown(() => db.close());
 
   Widget app({String? expenseId}) => ProviderScope(
-    overrides: [dbProvider.overrideWithValue(db), syncProvider.overrideWithValue(NoSync(db))],
+    overrides: [
+      dbProvider.overrideWithValue(db),
+      syncProvider.overrideWithValue(NoSync(db)),
+      apiProvider.overrideWithValue(api),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+    ],
     child: MaterialApp.router(
       routerConfig: GoRouter(
         initialLocation: '/e',
