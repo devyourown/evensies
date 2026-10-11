@@ -78,8 +78,9 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 | `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","date","category": string|null,"shares":[{"memberId","amount"}]}` |
 | `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares 포함 가능}}` |
 | `expense.deleted` | `{"expenseId"}` |
-| `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date"}` |
-| `payment.deleted` | `{"paymentId"}` |
+| `payment.created` | `{"paymentId","fromMember","toMember","amount","currency","date","status"?: "sent"\|"confirmed"}` — `status` 없으면 `confirmed`(이전 이벤트 호환). 받는 멤버가 자리표시자이거나 보내는 사람이 받는 사람 본인이면 서버가 `confirmed`로 저장 |
+| `payment.confirmed` | `{"paymentId"}` — **받는 멤버에 연결된 사용자만** 보낼 수 있다(아니면 403 `FORBIDDEN`) |
+| `payment.deleted` | `{"paymentId"}` — 보낸 사람 또는 받는 사람("받지 못함")이 보낼 수 있다 |
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
 1. `applyEvent(state, event)`는 순수 함수. 같은 이벤트 두 번 적용 = 한 번 적용.
@@ -87,6 +88,31 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount"}
 3. 삭제 vs 수정: `deleted=true`인 지출·송금에 오는 `updated`는 무시한다(삭제가 이김).
 4. 없는 대상에 오는 `updated`·`deleted`·`linked`·`removed`는 무시한다.
 5. `member.removed`는 `removed=true`만 표시한다. 잔액 계산에는 계속 포함된다.
+6. `payment.confirmed`는 `status`를 `confirmed`로 바꾼다. 없거나 삭제된 송금이면 무시한다. 잔액은 `sent`와 `confirmed` 송금을 똑같이 반영한다(앱은 `sent`를 "확인 대기"로 표시).
+
+## 결제 수단 (송금 안내)
+우리는 돈을 보관하거나 옮기지 않는다. 사용자가 "나에게 돈 보내는 방법"을 등록하면 같은 그룹 멤버의 앱이 해당 결제 앱을 연다.
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/me/payment-methods` | | `[PaymentMethod]` |
+| PUT | `/me/payment-methods` | `[PaymentMethod]` (전체 교체) | `[PaymentMethod]`. 검증 실패 400 `VALIDATION` |
+| GET | `/groups/{id}/payment-methods` | | `{"<memberId>": [PaymentMethod]}` — 그 그룹의 **연결된** 멤버만, 호출자는 멤버여야 함(403) |
+
+```
+PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string}
+```
+| type | value | 추가 필드 | 검증 |
+|---|---|---|---|
+| `paypal` | PayPal.me 사용자명 | | `[A-Za-z0-9._-]{1,40}` |
+| `revolut` | Revolut.me 사용자명 | | 위와 같음 |
+| `venmo` | Venmo 사용자명 | | 위와 같음 |
+| `wise` | Wise Quick Pay 링크 | | `https://wise.com/`로 시작, 200자 이하 |
+| `kakaopay` | 카카오페이 송금코드 링크 | | `https://qr.kakaopay.com/`로 시작, 200자 이하 |
+| `iban` | IBAN(공백 제거, 대문자) | `holder` 필수(1~70자), `bic` 선택(8 또는 11자) | mod-97 검사 |
+| `kr_bank` | 계좌번호(숫자·하이픈) | `bank` 필수(1~30자), `holder` 필수 | 숫자 8~20자리 |
+
+상한: 사용자당 8개, `iban`·`kr_bank`는 각 3개, 나머지 유형은 1개.
 
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON. `format=csv` → 지출 CSV (`date,description,amount,currency,paidBy,<멤버이름별 share>...`).
