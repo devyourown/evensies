@@ -9,7 +9,6 @@ import '../../data/db/database.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart';
 import 'create_group_dialog.dart';
-import 'paste_invite_dialog.dart';
 
 class GroupsScreen extends ConsumerWidget {
   const GroupsScreen({super.key});
@@ -21,6 +20,10 @@ class GroupsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
+          IconButton(
+              tooltip: 'Join with a code',
+              onPressed: () => context.push('/join-code'),
+              icon: const Icon(Icons.group_add_outlined)),
           IconButton(onPressed: () => context.push('/settings'), icon: const Icon(Icons.settings_outlined)),
         ],
       ),
@@ -31,7 +34,7 @@ class GroupsScreen extends ConsumerWidget {
             onRefresh: () => ref.read(syncProvider).syncAll(),
             child: groups.isEmpty
                 ? ListView(children: [
-                    _Empty(onCreate: () => showCreateGroupDialog(context), onPaste: () => showPasteInviteDialog(context))
+                    _Empty(onCreate: () => showCreateGroupDialog(context), onJoin: () => context.push('/join-code'))
                   ])
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
@@ -54,8 +57,8 @@ class GroupsScreen extends ConsumerWidget {
 
 class _Empty extends StatelessWidget {
   final VoidCallback onCreate;
-  final VoidCallback onPaste;
-  const _Empty({required this.onCreate, required this.onPaste});
+  final VoidCallback onJoin;
+  const _Empty({required this.onCreate, required this.onJoin});
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -68,12 +71,12 @@ class _Empty extends StatelessWidget {
           const SizedBox(height: 16),
           Text('No groups yet', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text('Create one for a trip or a flat, or join a friend\'s group with their invite link.',
+          Text('Create one for a trip or a flat, or join a friend\'s group with their invite code.',
               textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
           const SizedBox(height: 32),
           FilledButton(onPressed: onCreate, child: const Text('Create group')),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: onPaste, child: const Text('Paste invite link')),
+          OutlinedButton(onPressed: onJoin, child: const Text('Join with a code')),
         ],
       ),
     );

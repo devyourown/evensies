@@ -2,7 +2,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/groups/paste_invite_dialog.dart';
+import 'core/invite_code.dart';
 import 'providers.dart';
 import 'push.dart';
 import 'router.dart';
@@ -38,7 +38,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     final links = AppLinks();
     void handle(Uri? uri) {
       if (uri == null) return;
-      final code = inviteCodeFrom(uri.toString());
+      final code = extractInviteCode(uri.toString());
       if (code != null) ref.read(routerProvider).push('/join/$code');
     }
 

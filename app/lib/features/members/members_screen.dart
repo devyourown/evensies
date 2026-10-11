@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
 import '../../core/env.dart';
+import '../../core/invite_code.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
@@ -24,7 +25,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Widget build(BuildContext context) {
     final group = ref.watch(groupProvider(widget.groupId)).value;
     final members = (ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[]).where((m) => !m.removed);
-    final link = group?.inviteCode == null ? null : '${ref.watch(serverUrlProvider)}/j/${group!.inviteCode}';
+    final code = group?.inviteCode;
+    final link = code == null ? null : '${ref.watch(serverUrlProvider)}/j/$code';
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Scaffold(
@@ -36,48 +38,52 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Icon(Icons.link, color: cs.primary),
-                    const SizedBox(width: 8),
-                    Text('Invite link', style: text.titleMedium),
-                  ]),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('Invite code', textAlign: TextAlign.center, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 4),
-                  Text('Anyone with this link can join and pick their name.',
-                      style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                  const SizedBox(height: 12),
-                  SelectableText(link, style: text.bodyMedium?.copyWith(fontFamily: 'monospace')),
+                  SelectableText(formatInviteCode(code!),
+                      textAlign: TextAlign.center,
+                      style: text.displaySmall?.copyWith(fontFamily: 'monospace', letterSpacing: 4, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text('Anyone with this code can join and pick their name.',
+                      textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Row(children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          await Clipboard.setData(ClipboardData(text: link));
-                          if (context.mounted) showInfo(context, 'Link copied');
+                          await Clipboard.setData(ClipboardData(text: code));
+                          if (context.mounted) showInfo(context, 'Code copied');
                         },
                         icon: const Icon(Icons.copy, size: 18),
-                        label: const Text('Copy'),
+                        label: const Text('Copy code'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => SharePlus.instance.share(ShareParams(text: 'Join my Evensies group: $link')),
+                        onPressed: () => SharePlus.instance.share(ShareParams(
+                            text: 'Join my group "${group!.name}" on Evensies: $link\n'
+                                'Or open the app and enter code ${formatInviteCode(code)}')),
                         icon: const Icon(Icons.share, size: 18),
-                        label: const Text('Share'),
+                        label: const Text('Share link'),
                       ),
                     ),
                   ]),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: SelectableText(link,
+                          style: text.bodySmall?.copyWith(fontFamily: 'monospace', color: cs.onSurfaceVariant)),
+                    ),
+                    TextButton.icon(
                       onPressed: _rotating ? null : _rotate,
                       icon: _rotating
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.refresh, size: 18),
                       label: const Text('Rotate code'),
                     ),
-                  ),
+                  ]),
                 ]),
               ),
             ),
@@ -97,7 +103,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               ),
               title: Text(m.id == group?.myMemberId ? '${m.name} (you)' : m.name),
               subtitle: Text(
-                m.userId == null ? 'not joined yet — share the invite link' : 'linked',
+                m.userId == null ? 'not joined yet — share the invite code' : 'linked',
                 style: TextStyle(color: m.userId == null ? cs.onSurfaceVariant : cs.primary),
               ),
               trailing: m.id == group?.myMemberId
@@ -154,7 +160,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Future<void> _rotate() async {
     final ok = await confirm(context,
         title: 'Rotate invite code?',
-        message: 'The current link stops working. People who already joined are not affected.',
+        message: 'The current code and link stop working. People who already joined are not affected.',
         confirmLabel: 'Rotate',
         destructive: false);
     if (!ok) return;
@@ -164,7 +170,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final db = ref.read(dbProvider);
       final g = await db.getGroup(widget.groupId);
       if (g != null) await db.upsertGroup(g.copyWith(inviteCode: Value(code)));
-      if (mounted) showInfo(context, 'New invite link ready');
+      if (mounted) showInfo(context, 'New invite code ready');
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
