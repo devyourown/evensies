@@ -13,12 +13,12 @@ Screenshots: `ios-6.9/` (iPhone 16 Pro Max, 1320×2868, light), `ios-6.9-dark/` 
 `Share expenses, no limits`
 
 ### Promotional text (170)
-Open-source expense splitting for trips, flats and friends. Add as many expenses as you like, settle with the fewest transfers, export anytime. No ads, no paywall.
+Expense splitting for trips, flats and friends. Add as many expenses as you like, settle with the fewest transfers, export anytime. No ads, no paywall.
 
 ### Description (4000)
 Day one of the trip, dinner is paid, and the app you use to split it tells you that you have hit today's limit. Evensies exists so that never happens again.
 
-Evensies is an open-source app for splitting shared costs with friends, roommates and travel companions. Create a group, add what you paid, and everyone sees who owes whom. When the trip is over, Settle up tells you the smallest set of transfers that clears every balance.
+Evensies is an app for splitting shared costs with friends, roommates and travel companions. Create a group, add what you paid, and everyone sees who owes whom. When the trip is over, Settle up tells you the smallest set of transfers that clears every balance.
 
 WHAT YOU GET
 • Groups for a trip, a flat, a weekend or a long-running friend circle
@@ -34,21 +34,21 @@ WHAT YOU GET
 OUR PROMISES
 These are written into the project so they cannot quietly change later:
 1. No input limits, ever. Not per day, not per group.
-2. Self-hosting is free forever, using the same Docker image as the hosted service.
+2. No ads and no tracking.
 3. Export is always available. Your data leaves whenever you do.
-4. Existing features never move behind a paywall.
-5. If hosting the public server ever costs more than €30 a month, we will first limit new sign-ups, and only then add an optional supporter tier for the hosted server only.
+4. No paywall. Every feature is free; Evensies is funded by optional tips, and a tip never unlocks anything.
+5. The source code stays public.
 
 NO ADS, NO TRACKING
 Evensies has no advertising and no analytics SDKs. The server stores your display name, the identifier your sign-in provider gives us, and the expenses your groups enter. That is it.
 
-OPEN SOURCE AND SELF-HOSTABLE
-The app and the server are published under the AGPL-3.0 license. If you would rather keep your data on your own machine, run the server with a single docker compose command and point the app at your domain from Settings → Server URL.
+PUBLIC SOURCE, FUNDED BY TIPS
+The source code of the app and the server is public on GitHub, so anyone can check how balances are computed and what is stored. If Evensies saves you an argument, you can leave a tip from Settings → Support Evensies. Tips are optional and unlock nothing.
 
 Evensies is built by one developer who got tired of being nickel-and-dimed for adding a receipt. If something is wrong, open an issue on GitHub and it will be read.
 
 ### Keywords (100, comma-separated, no spaces)
-`split,expenses,bills,trip,roommates,group,settle,shared,iou,travel,open source,friends,budget,debts`
+`split,expenses,bills,trip,roommates,group,settle,shared,iou,travel,friends,budget,debts`
 
 ### What's New (1.0)
 First release.
@@ -88,7 +88,7 @@ Derived from `docs/privacy.md`.
 - Data deletion: Settings → Delete account (name removed; expenses stay as placeholders so other members' balances remain correct).
 
 ### Review notes for Apple
-Evensies is a group expense-splitting app. Backend: `https://evensies.nariinfo.dev` (EU, Hetzner). Open source: https://github.com/devyourown/evensies.
+Evensies is a group expense-splitting app. Backend: `https://evensies.nariinfo.dev` (EU, Hetzner). Source code: https://github.com/devyourown/evensies.
 
 How to test:
 1. Tap "Continue with Apple" and sign in with any Apple ID (Hide My Email is fine). No separate test account is needed; the first sign-in creates the account.
@@ -99,7 +99,7 @@ How to test:
 6. Account deletion: Settings (gear on the Groups screen) → "Delete account".
 7. Export: Settings → group row → "Export JSON" / "Export CSV".
 
-The app works offline; expenses added without a connection sync when it returns. No in-app purchases, no ads, no third-party analytics.
+The app works offline; expenses added without a connection sync when it returns. The only in-app purchases are optional tips (Settings → Support Evensies); they unlock nothing. No ads, no third-party analytics.
 
 ---
 
@@ -109,12 +109,12 @@ The app works offline; expenses added without a connection sync when it returns.
 Evensies: Split & Settle Up
 
 ### Short description (80)
-Split trip and flat expenses with friends. Open source, no limits, no ads.
+Split trip and flat expenses with friends. No limits, no ads, no paywall.
 
 ### Full description (4000)
 Day one of the trip, dinner is paid, and the app you use to split it tells you that you have hit today's limit. Evensies exists so that never happens again.
 
-Evensies is an open-source app for splitting shared costs with friends, roommates and travel companions. Create a group, add what you paid, and everyone sees who owes whom. When the trip is over, Settle up tells you the smallest set of transfers that clears every balance.
+Evensies is an app for splitting shared costs with friends, roommates and travel companions. Create a group, add what you paid, and everyone sees who owes whom. When the trip is over, Settle up tells you the smallest set of transfers that clears every balance.
 
 <b>What you get</b>
 • Groups for a trip, a flat, a weekend or a long-running friend circle
@@ -130,16 +130,16 @@ Evensies is an open-source app for splitting shared costs with friends, roommate
 <b>Our promises</b>
 These are written into the project so they cannot quietly change later:
 1. No input limits, ever. Not per day, not per group.
-2. Self-hosting is free forever, using the same Docker image as the hosted service.
+2. No ads and no tracking.
 3. Export is always available. Your data leaves whenever you do.
-4. Existing features never move behind a paywall.
-5. If hosting the public server ever costs more than €30 a month, we will first limit new sign-ups, and only then add an optional supporter tier for the hosted server only.
+4. No paywall. Every feature is free; Evensies is funded by optional tips, and a tip never unlocks anything.
+5. The source code stays public.
 
 <b>No ads, no tracking</b>
 Evensies has no advertising and no analytics SDKs. The server stores your display name, the identifier your sign-in provider gives us, and the expenses your groups enter. That is it.
 
-<b>Open source and self-hostable</b>
-The app and the server are published under the AGPL-3.0 license. If you would rather keep your data on your own machine, run the server with a single docker compose command and point the app at your domain from Settings → Server URL.
+<b>Public source, funded by tips</b>
+The source code of the app and the server is public on GitHub, so anyone can check how balances are computed and what is stored. If Evensies saves you an argument, you can leave a tip from Settings → Support Evensies. Tips are optional and unlock nothing.
 
 Source code and issue tracker: https://github.com/devyourown/evensies
 

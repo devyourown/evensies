@@ -1,7 +1,8 @@
 # Evensies — Splitwise parity roadmap
 
 - Written: 2026-10-11 · Status: **approved 2026-10-11; settle-up moved to Phase 1 at Hyojun's request ("송금이 가장 중요")**
-- Goal (set by Hyojun 2026-10-11): reach feature parity with Splitwise, keeping our promises (no limits, no ads, export always free, open source, self-hostable). Splitwise Pro features are included and stay free in Evensies.
+- Goal (set by Hyojun 2026-10-11): reach feature parity with Splitwise, keeping our promises (no limits, no ads, no paywall, export always free, public source). Splitwise Pro features are included and stay free in Evensies.
+- Licence and funding (decided by Hyojun 2026-10-11): code under FSL-1.1-ALv2 (no competing hosted services; each version becomes Apache-2.0 after two years) with a trademark policy (`TRADEMARKS.md`); the store app talks only to the official server; funded by optional in-app tips (Phase 11). Self-hosting is no longer promoted.
 - Each phase is independently shippable and has a design before work starts (Phases 1–2 below, Phases 3–10 in [`phases/`](phases/)) (builds are on hold until parity, see Rules). Phases are ordered by what users hit first on a real trip.
 
 ## Out of scope (deliberately)
@@ -24,6 +25,7 @@
 | 8 | **Recurring expenses** | Repeat weekly/monthly/yearly (rent, subscriptions) | scheduler that emits `expense.created` on schedule | recurrence picker, "next on …" | 0 |
 | 9 | **Platforms & language** | Web app (same Flutter code); Korean, Italian, English (+ ES/FR/DE); home-screen widget with balance | CORS, web auth (Apple/Google on web) | Flutter web build, `intl` ARB files, iOS/Android widgets | static hosting via Caddy: 0 |
 | 10 | **Email & account polish** | Email notifications/digest for members who turned push off; invite by email; group cover images; group types (trip/home/couple) | transactional email provider | settings, group header | email: free tier (e.g. Resend 3k/month) |
+| 11 | **Support Evensies** | Optional tips from Settings (in-app purchase, unlock nothing); the store app talks only to the official server | — | tip screen, `in_app_purchase`, release builds without the Server URL field | stores keep 15% of tips |
 
 Rough size: phases 1–5 are 1–2 working sessions each; 6, 7, 9 are 2–3 each; 8 and 10 are about one each.
 
@@ -119,7 +121,7 @@ Two people in a group see each other's changes in the Activity tab within a few 
 
 ---
 
-## Phase 3–10 designs
+## Phase 3–11 designs
 Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one designer per phase, then a cross-phase review for parity gaps and consistency. The numbering table (migrations, drift schema versions, applier rules) and the conventions every later phase follows are at the top of Phase 3. If the tree differs from those numbers when a phase starts, the tree wins and the phase doc is updated.
 
 | Phase | Design |
@@ -132,6 +134,7 @@ Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one des
 | 8 | [Recurring expenses](phases/phase-08-recurring-expenses.md) — weekly to yearly series, server scheduler |
 | 9 | [Platforms & language](phases/phase-09-platforms-language.md) — web app, 13 languages, widgets, app lock |
 | 10 | [Email & account polish](phases/phase-10-email-account-polish.md) — email sign-in and digests, invites by email, group types and covers, delete/restore group, block, export everything |
+| 11 | [Support Evensies](phases/phase-11-support-evensies.md) — optional tips (in-app purchase, unlock nothing), official-server-only release app |
 
 ## Parity checklist
 

@@ -1,19 +1,19 @@
 # Evensies
 
-Open-source expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**. Native iOS/Android app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL) you can self-host with one command.
+Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**, funded by optional tips. Native iOS/Android app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
 
 > Status: pre-release. The product name is Evensies.
 
 ## Why
-Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Open-source alternatives are mostly web apps. Evensies is a native app with offline-first sync, and the server is yours if you want it.
+Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Open-source alternatives are mostly web apps. Evensies is a native app with offline-first sync.
 
 ## Promises (sustainability rules)
 These are commitments, written down so they can't quietly change later:
 1. **No input limits, ever.** Not per day, not per group.
-2. **Self-hosting is free forever.** Same Docker image as the hosted service.
+2. **No ads and no tracking.**
 3. **Export is always available** (JSON and CSV). Your data leaves whenever you do.
-4. **Existing features never move behind a paywall.**
-5. If hosting the public server costs more than €30/month, we will first **limit new sign-ups**, and only then add an optional *supporter* tier **for the hosted server only**.
+4. **No paywall.** Every feature is free. Evensies is funded by optional in-app tips, and a tip never unlocks anything.
+5. **The source stays public**, and each version becomes Apache-2.0 two years after its release.
 
 ## Features (release 1)
 - Groups with invite links; placeholder members for friends who haven't installed the app yet
@@ -22,7 +22,6 @@ These are commitments, written down so they can't quietly change later:
 - Offline-first: add expenses without signal, sync later, conflicts resolved per field
 - Sign in with Apple / Google; account deletion
 - Export JSON/CSV, import a Splitwise CSV
-- Self-hostable: `docker compose up`
 
 ## Repository layout
 ```
@@ -33,13 +32,14 @@ deploy/   Docker Compose, Caddy, .env.example
 docs/     API contract (docs/API.md), design spec, plans
 ```
 
-## Self-host
+## Running the server yourself
+The license allows running Evensies for your own internal use, education and research, but not offering it to others as a competing product or service. The App Store and Play Store app connects only to the official server; a build that talks to another server must use its own name and icon (see [TRADEMARKS.md](TRADEMARKS.md)).
 ```bash
 git clone https://github.com/devyourown/evensies && cd evensies/deploy
 cp .env.example .env     # set EVENSIES_DOMAIN, EVENSIES_JWT_SECRET, DB password, Apple/Google client ids
 docker compose up -d
 ```
-Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. In the app, open Settings → Server URL and point it at your domain. See [docs/API.md](docs/API.md) for environment variables.
+Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. See [docs/API.md](docs/API.md) for environment variables.
 
 ## Develop
 ```bash
@@ -59,4 +59,6 @@ Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 - Contract: [docs/API.md](docs/API.md). Spec: [docs/superpowers/specs](docs/superpowers/specs).
 
 ## License
-[AGPL-3.0](LICENSE). You can run, modify and redistribute Evensies; if you offer a modified server to others over a network, you must publish your changes.
+[Functional Source License 1.1, Apache-2.0 future license](LICENSE) (FSL-1.1-ALv2). You may read, use, modify and redistribute the code for any purpose except a competing product or service; two years after each version is published, that version is also available under Apache-2.0. The name and icon are covered by the [trademark policy](TRADEMARKS.md).
+
+Versions published up to commit `d3ac783` (2026-10-11) were released under AGPL-3.0 and remain available under it.
