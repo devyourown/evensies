@@ -141,14 +141,14 @@ Status: **have** = in the app today (including Phases 1–3); **partly** = in th
 |---|---|---|---|---|
 | 1 | Split | Equally (untick people) | Free | have (tick boxes since Phase 3) |
 | 2 | Split | Exact amounts | Free | have |
-| 3 | Split | Percent | Free | partly: the 0% leftover fix waits for Hyojun's `computeSplit` (pending cases in `shared/split-cases.json`) |
-| 4 | Split | Shares | Free | partly (Phase 3): shares expenses from other clients sync and reopen as exact amounts; the Shares option is disabled ("Coming soon") until Hyojun's `computeSplit` |
-| 5 | Split | Adjustment | Free | partly (Phase 3): as Shares, the ± option waits for Hyojun's `computeSplit` |
+| 3 | Split | Percent | Free | have (0% leftover fix by Hyojun) |
+| 4 | Split | Shares | Free | have (Phase 3, `computeSplit` by Hyojun) |
+| 5 | Split | Adjustment | Free | have (Phase 3, `computeSplit` by Hyojun) |
 | 6 | Split | Itemized, manual | Free web / Pro mobile | Phase 7 |
 | 7 | Split | Itemize by receipt scan | Pro | Phase 7 (on-device OCR, mobile only) |
-| 8 | Split | Reimbursement / refund | Free | partly (Phase 3): refunds are created and synced; Balances and Settle up leave them out ("N expenses with several payers or refunds aren't counted yet") until Hyojun's `computeBalances` |
+| 8 | Split | Reimbursement / refund | Free | have (Phase 3, `computeBalances` by Hyojun) |
 | 9 | Split | "Full amount" shortcuts | Free | have (Phase 3) |
-| 10 | Split | Multiple payers | Free | partly (Phase 3): the payers editor and sync are in; Balances and Settle up leave these expenses out until Hyojun's `computeBalances` |
+| 10 | Split | Multiple payers | Free | have (Phase 3, `computeBalances` by Hyojun) |
 | 11 | Split | Default split per group | Pro | have (Phase 3); a shares or ± default waits for Hyojun's `computeSplit` |
 | 12 | Expense | Description, amount, date, payer | Free | have |
 | 13 | Expense | Currency per expense, last one remembered | Free | have (per group since Phase 4) |

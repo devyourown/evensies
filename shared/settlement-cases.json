@@ -97,7 +97,6 @@
     },
     {
       "name": "multiple payers",
-      "pending": "hyojun",
       "members": ["a", "b", "c"],
       "expenses": [{"payers": {"a": 6000, "b": 4000}, "amount": 10000, "shares": {"a": 3334, "b": 3333, "c": 3333}}],
       "payments": [],
@@ -107,7 +106,6 @@
     },
     {
       "name": "refund reverses the effect",
-      "pending": "hyojun",
       "members": ["a", "b", "c"],
       "expenses": [
         {"paidBy": "a", "amount": 30000, "shares": {"a": 10000, "b": 10000, "c": 10000}},
@@ -120,7 +118,6 @@
     },
     {
       "name": "multiple payers, simplify off keeps per-expense pairs",
-      "pending": "hyojun",
       "members": ["a", "b", "c", "d"],
       "expenses": [
         {"paidBy": "a", "amount": 1000, "shares": {"b": 1000}},

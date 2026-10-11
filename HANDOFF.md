@@ -1,7 +1,7 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (HEAD + 효준님 작업 중인 settlement.dart 기준 줄 번호, 단계가 끝날 때마다 갱신)
+## 효준님 차례 — Splitwise parity (HEAD 기준 줄 번호, 단계가 끝날 때마다 갱신)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/pairwise_test.dart test/balances_test.dart`
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
@@ -9,8 +9,8 @@
 | 1 | `app/lib/domain/split.dart` | `computeSplit` (percent 나머지) | ✅ 완료 (커밋됨) | 통과 |
 | 2 | `app/lib/domain/split.dart` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (+ 반올림 케이스 1개 추가) |
 | 3 | `app/lib/domain/split.dart` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
-| 4 | `app/lib/domain/settlement.dart:63` | `computeBalances` (지출 루프) | 작업 중. 환불(sign)은 맞음. 남은 문제: 63줄 `payers.keys.single` / `payers.values.single`은 낸 사람이 **한 명일 때만** 동작하고 두 명 이상이면 `Bad state: Too many elements`로 멈춤 → `expense.payers`의 **모든** 항목을 돌면서 각자 낸 금액 × sign을 더할 것 | `shared/settlement-cases.json` "multiple payers", "refund reverses the effect", "multiple payers, simplify off keeps per-expense pairs" |
-| 5 | `app/test/hyojun/settlement_test.dart:98` | 테스트 | ✅ skip 지움 (4번이 끝나면 통과) | 무작위 200회 합계 0 |
+| 4 | `app/lib/domain/settlement.dart` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 |
+| 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
 | 6 | `app/lib/domain/fx.dart:28-29` | `convertAmount` (Phase 4) | `throw`를 지우고 작성. R = `rate.toString()`이 찍는 십진수(`7e-7` 같은 지수형 포함)를 정확히(BigInt 분자, 10의 거듭제곱 분모), 값 = amount×R×10^(to−from), 가장 가까운 정수로, 딱 .5는 0에서 먼 쪽. double 곱셈 금지(100×0.285 → 29). rate가 무한·≤ 0 → `BAD_RATE` (doc comment 17–26줄) | `shared/fx-cases.json` 1–10번 |
 | 7 | `app/lib/domain/fx.dart:43-50` | `convertExpense` (Phase 4) | 검사 순서 `BAD_RATE` → `NEGATIVE_AMOUNT` → `SUM_MISMATCH`. total = convertAmount, 각 part는 정확한 값을 내림, 남는 만큼(0..part 수) 버린 소수가 큰 part부터 +1(같으면 memberId 오름차순, 0인 part는 +1 없음). 결과 키 = parts 키 (doc comment 31–40줄) | `shared/fx-cases.json` 11–20번 |
 
@@ -30,8 +30,8 @@
 | 1 | 분할 계산 Dart `app/lib/domain/split.dart` | 효준님 | 테스트 15개 통과 |
 | 2 | 분할 계산 Kotlin `money/Split.kt` | Claude 이식, 효준님 검토 | 14개 통과 |
 | 3 | 잔액·부채 단순화 Dart `app/lib/domain/settlement.dart` | 효준님 | 23개 통과 |
-| 4 | 잔액·부채 단순화 Kotlin `money/Settlement.kt` | Claude 이식, 효준님 검토 | 14개 통과 |
-| 5 | 이벤트 적용기 Dart `app/lib/data/sync/apply_event.dart` | Claude (배관으로 판단) | 통과 |
+| 4 | `app/lib/domain/settlement.dart` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 |
+| 5 | `app/test/hyojun/settlement_test.dart` | 테스트 | ✅ 완료 | 통과 |
 | 6 | push 트랜잭션 Kotlin `sync/EventService.push` | 효준님 | `EventSyncTest` 통과 |
 
 임시 경로(`NAIVE_APPLY`, `pushNaive`, `tally.sync.naive`, hyojun 태그)는 전부 제거됐고 CI는 모든 테스트를 기본으로 돌립니다.

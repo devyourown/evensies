@@ -59,10 +59,12 @@ Map<String, int> computeBalances(
     result.putIfAbsent(member, () => 0);
   }
   for (final expense in expenses) {
-    if (expense.payers.length != 1 || expense.refund) throw UnimplementedError('TODO(효준): multi-payer / refund');
-    result.update(expense.payers.keys.single, (v) => v+expense.amount);
+    int sign = expense.refund ? -1 : 1;
+    for (final (payer) in expense.payers.keys) {
+      result.update(payer, (v) => v+(sign * expense.payers[payer]!));
+    }
     for (final (member) in expense.shares.keys) {
-      result.update(member, (v) => v-(expense.shares[member]??0));
+      result.update(member, (v) => v-(sign * (expense.shares[member]??0)));
     }
   }
   for (final payment in payments) {

@@ -95,7 +95,7 @@ void main() {
       });
     });
     // Several payers (from computeSplit(exact)) and refunds. Remove the skip with the TODO(효준) in computeBalances.
-    test('balances sum to zero with several payers and refunds', skip: 'TODO(효준)', () {
+    test('balances sum to zero with several payers and refunds', () {
       for (var k = 0; k < 200; k++) {
         final (members, _, payments) = randomCase();
         final lines = List.generate(rnd.nextInt(21), (_) {
