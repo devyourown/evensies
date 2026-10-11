@@ -2,7 +2,7 @@
 
 - Written: 2026-10-11 · Status: **approved 2026-10-11; settle-up moved to Phase 1 at Hyojun's request ("송금이 가장 중요")**
 - Goal (set by Hyojun 2026-10-11): reach feature parity with Splitwise, keeping our promises (no limits, no ads, export always free, open source, self-hostable). Splitwise Pro features are included and stay free in Evensies.
-- Each phase is independently shippable and gets its own short design section here before work starts (builds are on hold until parity, see Rules). Phases are ordered by what users hit first on a real trip.
+- Each phase is independently shippable and has a design before work starts (Phases 1–2 below, Phases 3–10 in [`phases/`](phases/)) (builds are on hold until parity, see Rules). Phases are ordered by what users hit first on a real trip.
 
 ## Out of scope (deliberately)
 | Splitwise feature | Why not |
@@ -116,3 +116,130 @@ On Settle up, a creditor's row has **Request**: share sheet text "You owe me €
 
 ### Done when
 Two people in a group see each other's changes in the Activity tab within a few seconds, get a readable push on a real iPhone, can comment and restore a deleted expense, and can turn notification types off.
+
+---
+
+## Phase 3–10 designs
+Written 2026-10-11 from a Splitwise feature survey (free and Pro, 2026), one designer per phase, then a cross-phase review for parity gaps and consistency. The numbering table (migrations, drift schema versions, applier rules) and the conventions every later phase follows are at the top of Phase 3. If the tree differs from those numbers when a phase starts, the tree wins and the phase doc is updated.
+
+| Phase | Design |
+|---|---|
+| 3 | [Splitting power](phases/phase-03-splitting-power.md) — shares, adjustment, multiple payers, refunds, "full amount" shortcuts, default split, simplify toggle, group settings, leave group |
+| 4 | [Currencies](phases/phase-04-currencies.md) — ECB rates via Frankfurter, home currency, per-currency balances, convert to one currency |
+| 5 | [Organize & insights](phases/phase-05-organize-insights.md) — categories, search, totals, charts, edit history, who pays next |
+| 6 | [People](phases/phase-06-people.md) — friends and non-group expenses, overall dashboard, avatars, reminders, record any payment |
+| 7 | [Receipts](phases/phase-07-receipts.md) — receipt photos, on-device OCR, itemized split |
+| 8 | [Recurring expenses](phases/phase-08-recurring-expenses.md) — weekly to yearly series, server scheduler |
+| 9 | [Platforms & language](phases/phase-09-platforms-language.md) — web app, 13 languages, widgets, app lock |
+| 10 | [Email & account polish](phases/phase-10-email-account-polish.md) — email sign-in and digests, invites by email, group types and covers, delete/restore group, block, export everything |
+
+## Parity checklist
+
+Status: **have** = in the app today (including Phases 1–2); **Phase N** = designed above; **out of scope** = not planned, with the reason; **n/a** = Splitwise doesn't offer it either.
+
+| # | Area | Feature | Splitwise | Status |
+|---|---|---|---|---|
+| 1 | Split | Equally (untick people) | Free | have; Phase 3 adds the tick boxes |
+| 2 | Split | Exact amounts | Free | have |
+| 3 | Split | Percent | Free | have; Phase 3 fixes the 0% leftover (Hyojun) |
+| 4 | Split | Shares | Free | Phase 3 (Hyojun) |
+| 5 | Split | Adjustment | Free | Phase 3 (Hyojun) |
+| 6 | Split | Itemized, manual | Free web / Pro mobile | Phase 7 |
+| 7 | Split | Itemize by receipt scan | Pro | Phase 7 (on-device OCR, mobile only) |
+| 8 | Split | Reimbursement / refund | Free | Phase 3 (balances: Hyojun) |
+| 9 | Split | "Full amount" shortcuts | Free | Phase 3 |
+| 10 | Split | Multiple payers | Free | Phase 3 (Hyojun) |
+| 11 | Split | Default split per group | Pro | Phase 3 |
+| 12 | Expense | Description, amount, date, payer | Free | have |
+| 13 | Expense | Currency per expense, last one remembered | Free | have; Phase 4 adds per-group memory |
+| 14 | Expense | Category with icon, auto-guessed | Free | Phase 5 |
+| 15 | Expense | Notes | Free | have (Phase 2) |
+| 16 | Expense | Receipt photo | Free (Pro 10 GB) | Phase 7 |
+| 17 | Expense | Repeat | Free | Phase 8 |
+| 18 | Expense | Group or "no group" | Free | Phase 6 |
+| 19 | Expense | Move between groups / to a friend | Free | Phase 6 (+ receipts and items in Phase 7) |
+| 20 | Expense | Edit / delete | Free | have |
+| 21 | Expense | Restore a deleted expense | Free | have (Phase 2) |
+| 22 | Expense | Edit history on the expense | Free | Phase 5 |
+| 23 | Expense | Comments | Free | have (Phase 2) |
+| 24 | Expense | Location | n/a | n/a |
+| 25 | Expense | Daily expense cap | Pro removes it | have (no cap) |
+| 26 | Groups | Create; add people by name | Free | have |
+| 27 | Groups | Group type | Free | Phase 10 |
+| 28 | Groups | Cover photo | Free | Phase 10 |
+| 29 | Groups | Simplify debts toggle | Free | Phase 3 (per currency from Phase 4) |
+| 30 | Groups | Simplify-debts explanation | Free | Phase 3 |
+| 31 | Groups | Settings: rename, default currency | Free | Phase 3 (currency locked after the first expense or payment) |
+| 32 | Groups | Leave group | Free | Phase 3 |
+| 33 | Groups | Delete / undelete group | Free | Phase 10 |
+| 34 | Groups | Remove member | Free | have |
+| 35 | Groups | Balances per member, per currency | Free | Phase 4 |
+| 36 | Groups | Totals screen | Free | Phase 5 |
+| 37 | Groups | Charts | Pro | Phase 5 |
+| 38 | Groups | Printable summary | Free (web) | Phase 5 (share text) + Phase 9 (browser print) |
+| 39 | Groups | Whiteboard | legacy | n/a |
+| 40 | Groups | Personal (solo) group | Free | have |
+| 41 | Invite | Invite link | Free | have |
+| 42 | Invite | Short code | n/a | have (extra) |
+| 43 | Invite | QR code | n/a | Phase 6 (group and friend codes) |
+| 44 | Invite | Invite by email | Free | Phase 10 |
+| 45 | Invite | Invite by phone / from contacts | Free | have (system share sheet suggests contacts); phone numbers out of scope (SMS cost) |
+| 46 | Invite | Placeholder, claimed later | Free | have |
+| 47 | Invite | Merge duplicates | Free (support) | out of scope (would rewrite history; claim flow + Phase 10 preselected invites prevent duplicates) |
+| 48 | Friends | 1:1 expenses outside groups | Free | Phase 6 |
+| 49 | Friends | Friend balance across groups | Free | Phase 6 |
+| 50 | Friends | Settle all balances with a friend | Free | Phase 6 |
+| 51 | Friends | Filters; hide settled friends/groups | Free | Phase 6 |
+| 52 | Friends | Delete friend | Free | Phase 10 |
+| 53 | Friends | Block / report user | Free | Phase 10 |
+| 54 | Dashboard | Overall you owe / you are owed | Free | Phase 6 |
+| 55 | Dashboard | "Who should pay next" | Free | Phase 5 |
+| 56 | Dashboard | Global add-expense button | Free | Phase 6 |
+| 57 | Activity | Activity feed | Free | have (Phase 2) |
+| 58 | Activity | Overall activity | Free | have (Phase 2) |
+| 59 | Notifications | Push for others' changes | Free | have (Phase 2); new kinds in Phases 3, 6, 7, 8, 10; localized in Phase 9 |
+| 60 | Notifications | Delay against noise | Free | have (30 s batching) |
+| 61 | Notifications | Per-type settings | Free | have (push); Phase 6 (reminders); Phase 10 (email summary choice) |
+| 62 | Notifications | Email notifications | Free | Phase 10 (as a digest; per-event emails out of scope) |
+| 63 | Notifications | Monthly summary email | Free | Phase 10 |
+| 64 | Notifications | Email before a recurring bill posts | Free | Phase 10 |
+| 65 | Reminders | Remind a friend to pay | Free | Phase 6 |
+| 66 | Settle | Record a payment, any payer and receiver | Free | Phase 6 (Phase 1 had simplified transfers only) |
+| 67 | Settle | Custom amount, date, edit payment | Free | Phase 6 (edit = delete + create) |
+| 68 | Settle | Undo settlement | Free | have |
+| 69 | Settle | PayPal / Venmo | Free | have (+ Wise, Revolut, KakaoPay, EPC QR, IBAN, KR bank) |
+| 70 | Settle | Request payment | Free | have |
+| 71 | Settle | Sent → confirmed | n/a | have (extra) |
+| 72 | Settle | Paytm / UPI | Free | Phase 10 (UPI links; Paytm supports UPI) |
+| 73 | Settle | Splitwise Pay / Pay by Bank / Card | Free | out of scope (moves money, needs a licence) |
+| 74 | Currency | Any currency per expense | Free | Phase 4 (~155 ISO codes; crypto out of scope) |
+| 75 | Currency | Default (home) currency | Free | Phase 4 |
+| 76 | Currency | Convert to one currency | Pro | Phase 4 (free) |
+| 77 | Currency | Change an expense's currency label | Free | have |
+| 78 | Search | Search all expenses | Pro | Phase 5 (free) |
+| 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | Phase 8 (incl. every 2 weeks and "stop repeating") |
+| 80 | Export | Spreadsheet per group/friend | Free | have (Phases 3–5 add the payers, rate and category columns) |
+| 81 | Export | JSON backup of the whole account | Pro | Phase 10 (free) |
+| 82 | Import | Bank/card transactions | Pro | out of scope (open-banking contracts cost money) |
+| 83 | Import | From other apps | n/a | have (Splitwise CSV, fixed in Phases 3 and 5) |
+| 84 | Platform | Offline add, sync later | Free | have |
+| 85 | Platform | Web app | Free | Phase 9 |
+| 86 | Platform | Languages | Free | Phase 9 (Splitwise's 12 + Korean) |
+| 87 | Platform | Dark mode follows the system | Free | have |
+| 88 | Platform | Appearance toggle | Free | Phase 9 |
+| 89 | Platform | Home-screen widget | n/a | Phase 9 (extra) |
+| 90 | Account | Sign-in methods | Free | have (Apple, Google); Phase 10 (email code); Facebook out of scope |
+| 91 | Account | Email login, password reset, change email | Free | Phase 10 (codes, no passwords) |
+| 92 | Account | Facebook login | Free | out of scope (Meta review and tracking; Apple/Google/email cover users) |
+| 93 | Account | Phone number on account | Free | out of scope (SMS cost) |
+| 94 | Account | Name | Free | have |
+| 95 | Account | Profile photo | Free | Phase 6 |
+| 96 | Account | Time zone | Free | Phase 8 (per repeating series, from the device) |
+| 97 | Account | Log out on all devices | Free | Phase 10 |
+| 98 | Account | Passcode / Face ID lock | Free | Phase 9 |
+| 99 | Account | 2FA | n/a | n/a (Apple/Google accounts carry 2FA) |
+| 100 | Account | Close account | Free | have (`DELETE /me`; Phases 6 and 10 extend the cleanup) |
+| 101 | Privacy | Only people who share a group see it | Free | have |
+| 102 | Support | In-app help / contact | Free | Phase 10 |
+| 103 | Pro | Ad-free | Pro | have (never ads) |
+| 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
