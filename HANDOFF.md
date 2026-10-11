@@ -1,5 +1,19 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
+
+## 효준님 차례 — Splitwise parity (535c728 기준 줄 번호, 단계가 끝날 때마다 갱신)
+규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/pairwise_test.dart`
+
+| # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
+|---|---|---|---|---|
+| 1 | `app/lib/domain/split.dart:70-71` | `computeSplit` (percent 분기) | 나머지 `k`를 **percent > 0인 멤버에게만** memberId 오름차순으로 +1. 지금은 `_giveRemainder(result, sorted, k)`가 0% 멤버에게도 1을 줌 | `shared/split-cases.json` "percent leftover skips 0% members" |
+| 2 | `app/lib/domain/split.dart:72-73` | `computeSplit` (`else` → `shares` 분기 새로 작성) | w = (count×100).round(), W = Σw. 음수·NaN·무한 → `INVALID_INPUT`, W == 0 → `NO_MEMBERS`. 몫 = amount×w ~/ W, 나머지는 w > 0 멤버에게 오름차순 +1 (doc comment 26–30줄) | "shares …" 6개 |
+| 3 | `app/lib/domain/split.dart:72-73` | `computeSplit` (`adjustment` 분기 새로 작성) | 정수 아니면 `INVALID_INPUT`. base = amount − Σadj, base < 0 → `NEGATIVE_SHARE`. base를 equal처럼 나눈 뒤 각자 adj를 더함. 결과 < 0 → `NEGATIVE_SHARE` (doc comment 31–34줄) | "adjustment …" 5개 |
+| 4 | `app/lib/domain/settlement.dart:62-66` | `computeBalances` (지출 루프) | 62줄 `throw`를 지우고, sign = refund ? −1 : +1 로 모든 payer에 `+sign×payers[m]`, 모든 share에 `−sign×shares[m]` (doc comment 45–50줄) | `shared/settlement-cases.json` "multiple payers", "refund reverses the effect", "multiple payers, simplify off keeps per-expense pairs" |
+| 5 | `app/test/hyojun/settlement_test.dart:98` | 테스트 | 4번을 끝낸 뒤 `skip: 'TODO(효준)',` 지우기 | 무작위 200회 합계 0 |
+
+끝나면 통과한 케이스의 `"pending": "hyojun"`를 `shared/*.json`에서 지우세요. Kotlin 이식(`server/.../money/Split.kt`, `Settlement.kt`)은 Claude가 같은 push에 넣고, 효준님은 검토만 합니다.
+
 ## 지금 상태 (전부 확인됨)
 - **서버**(Spring Boot 4.1.1 + Kotlin): 인증(dev/Apple/Google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·Splitwise 가져오기, FCM(자격 증명 없으면 no-op). `./gradlew test` **28개 통과**.
 - **앱**(Flutter 3.41): drift 로컬 DB, API 클라이언트(토큰 갱신), 오프라인 outbox → push → pull 동기화, 화면 7개, 딥링크. `flutter analyze` 0건, `flutter test --exclude-tags hyojun` **18개 통과**, iOS 시뮬레이터 빌드·실행 확인.
