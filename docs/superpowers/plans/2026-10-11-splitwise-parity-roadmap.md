@@ -243,3 +243,5 @@ Status: **have** = in the app today (including Phases 1–2); **Phase N** = desi
 | 102 | Support | In-app help / contact | Free | Phase 10 |
 | 103 | Pro | Ad-free | Pro | have (never ads) |
 | 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
+| 105 | Activity | Unread activity indicator and app-icon badge | Free | Phase 6 (found in the Phase 2 check): per-user unread count on the server from the last-seen `feedId`, Activity tab badge, APNs badge on visible pushes |
+| 106 | Settle | Comments on payments | Free | Phase 6, to design with "record any payment" (contract change: comments on a `paymentId`, a new activity sentence) |
