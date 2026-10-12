@@ -10,6 +10,7 @@ import '../../core/text_limits.dart';
 import '../../data/db/database.dart';
 import '../../data/sync/group_state_store.dart';
 import '../../domain/models.dart';
+import '../../domain/recurrence.dart' show Series;
 import '../../domain/split.dart';
 import '../../providers.dart';
 import '../expense_form/split_editor.dart';
@@ -47,7 +48,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       // Every fx rate and payment amount is in the group currency (rule 12): deleted ones count, they can come back.
       final locked = state.expenses.isNotEmpty || state.payments.isNotEmpty;
       final split = splitFromJson(group.defaultSplitJson);
-      final (canLeave, leaveNote) = _leaveState(group, res);
+      final (canLeave, leaveNote) = _leaveState(group, res, state);
       body = ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
@@ -130,11 +131,12 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     );
   }
 
-  /// Leaving needs a zero balance in every currency (leaveGroup checks again after its sync).
-  (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult> res) {
+  /// Leaving needs a zero balance in every currency and no live repeating expense with me in it (leaveGroup checks
+  /// again after its sync).
+  (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult> res, GroupState state) {
     final value = res.value;
     if (value == null) return (false, null);
-    final why = leaveBlocker(value, group.myMemberId);
+    final why = leaveBlocker(value, group.myMemberId) ?? state.seriesBlocker(group.myMemberId);
     return (why == null, why ?? 'Your balance is settled');
   }
 

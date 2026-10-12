@@ -1,6 +1,8 @@
 package dev.nariinfo.evensies.sync
 
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.JsonNodeFactory
+import tools.jackson.databind.node.ObjectNode
 
 /** Pure in-memory group state. Maps keep insertion order (Kotlin's `+` returns a LinkedHashMap). */
 data class GroupState(
@@ -17,6 +19,8 @@ data class GroupState(
     val kind: String = "group",
     /** Receipts in attach order (rule 14). */
     val attachments: Map<String, AttachmentDto> = emptyMap(),
+    /** Repeating series in creation order, stopped ones included (rule 15). */
+    val recurrences: Map<String, RecurrenceDto> = emptyMap(),
 )
 
 /**
@@ -32,7 +36,10 @@ data class GroupState(
  * nothing changes it afterwards; expense.deleted with a movedTo object also sets moved (never cleared), and
  * expense.restored on a moved expense is ignored (it counts in the other group now); 14. attachment.added appends a new
  * id for a known expense (deleted ones included) and ignores a known id or an unknown expense; attachment.deleted flags
- * a known id (its payload expenseId is never read); expense deletes and moves leave receipts alone.
+ * a known id (its payload expenseId is never read); expense deletes and moves leave receipts alone; 15. recurrence.created
+ * appends a new series id (a known one, stopped or not, changes nothing), recurrence.updated replaces template keys one
+ * by one (null stored as null) on a live series and is ignored otherwise, recurrence.deleted flags a known series; series
+ * events never touch expenses; 16. expenses carry recurrenceId/occurrence (missing = null), an update sets the keys present.
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -58,27 +65,7 @@ object EventApplier {
 
         "expense.created" -> {
             val id = p.text("expenseId") ?: ""
-            val amount = p.long("amount") ?: 0
-            val payers = p.shares("payers") ?: listOf(ShareDto(p.text("paidBy") ?: "", amount))
-            if (id in state.expenses) state
-            else state.withExpense(
-                ExpenseDto(
-                    id = id,
-                    description = p.text("description") ?: "",
-                    amount = amount,
-                    currency = p.text("currency") ?: "",
-                    fxRateToDefault = p.double("fxRateToDefault"),
-                    paidBy = primaryPayer(payers) ?: p.text("paidBy") ?: "",
-                    date = p.text("date") ?: "",
-                    category = p.text("category"),
-                    deleted = false,
-                    shares = p.shares("shares") ?: emptyList(),
-                    notes = p.text("notes"),
-                    payers = payers,
-                    refund = p.bool("refund") ?: false,
-                    split = p.field("split"),
-                )
-            )
+            if (id in state.expenses) state else state.withExpense(expense(id, p))
         }
         "expense.updated" -> {
             val e = state.expenses[p.text("expenseId")]
@@ -110,6 +97,8 @@ object EventApplier {
                             f.field("shares") != null || f.field("amount") != null -> null
                             else -> e.split
                         },
+                        recurrenceId = if (f.has("recurrenceId")) f.text("recurrenceId") else e.recurrenceId,
+                        occurrence = if (f.has("occurrence")) f.int("occurrence") else e.occurrence,
                     )
                 )
             }
@@ -167,7 +156,52 @@ object EventApplier {
         "attachment.deleted" -> state.attachments[p.text("attachmentId")]
             ?.let { state.copy(attachments = state.attachments + (it.id to it.copy(deleted = true))) } ?: state
 
+        "recurrence.created" -> {
+            val id = p.text("recurrenceId") ?: ""
+            if (id in state.recurrences) state
+            else state.withRecurrence(
+                RecurrenceDto(
+                    id = id,
+                    frequency = p.text("frequency") ?: "",
+                    startDate = p.text("startDate") ?: "",
+                    timeZone = p.text("timeZone") ?: "",
+                    template = p.field("template") ?: JsonNodeFactory.instance.objectNode(),
+                )
+            )
+        }
+        "recurrence.updated" -> {
+            val r = state.recurrences[p.text("recurrenceId")]
+            val f = p.get("fields")
+            if (r == null || r.deleted || f !is ObjectNode || r.template !is ObjectNode) state
+            else state.withRecurrence(r.copy(template = r.template.deepCopy().setAll(f)))
+        }
+        "recurrence.deleted" -> state.recurrences[p.text("recurrenceId")]?.let { state.withRecurrence(it.copy(deleted = true)) } ?: state
+
         else -> state
+    }
+
+    /** The expense an `expense.created` payload (or a series template, Phase 8) describes; rule 10 sets payers and paidBy. */
+    fun expense(id: String, p: JsonNode): ExpenseDto {
+        val amount = p.long("amount") ?: 0
+        val payers = p.shares("payers") ?: listOf(ShareDto(p.text("paidBy") ?: "", amount))
+        return ExpenseDto(
+            id = id,
+            description = p.text("description") ?: "",
+            amount = amount,
+            currency = p.text("currency") ?: "",
+            fxRateToDefault = p.double("fxRateToDefault"),
+            paidBy = primaryPayer(payers) ?: p.text("paidBy") ?: "",
+            date = p.text("date") ?: "",
+            category = p.text("category"),
+            deleted = false,
+            shares = p.shares("shares") ?: emptyList(),
+            notes = p.text("notes"),
+            payers = payers,
+            refund = p.bool("refund") ?: false,
+            split = p.field("split"),
+            recurrenceId = p.text("recurrenceId"),
+            occurrence = p.int("occurrence"),
+        )
     }
 
     /** Rule 10: the payer with the largest amount; on a tie the lowest memberId (UTF-16 order, like Dart). */
@@ -178,12 +212,14 @@ object EventApplier {
     private fun GroupState.withExpense(e: ExpenseDto) = copy(expenses = expenses + (e.id to e))
     private fun GroupState.withPayment(p: PaymentDto) = copy(payments = payments + (p.id to p))
     private fun GroupState.withComment(c: CommentDto) = copy(comments = comments + (c.id to c))
+    private fun GroupState.withRecurrence(r: RecurrenceDto) = copy(recurrences = recurrences + (r.id to r))
 }
 
 // Null-safe payload readers: missing or JSON null → null.
 internal fun JsonNode.field(k: String): JsonNode? = get(k)?.takeUnless { it.isNull }
 internal fun JsonNode.text(k: String): String? = field(k)?.let { if (it.isString) it.asString() else it.toString() }
 internal fun JsonNode.long(k: String): Long? = field(k)?.takeIf { it.isNumber }?.asLong()
+internal fun JsonNode.int(k: String): Int? = field(k)?.takeIf { it.isIntegralNumber && it.canConvertToInt() }?.asInt()
 internal fun JsonNode.double(k: String): Double? = field(k)?.takeIf { it.isNumber }?.asDouble()
 internal fun JsonNode.bool(k: String): Boolean? = field(k)?.takeIf { it.isBoolean }?.asBoolean()
 internal fun JsonNode.shares(k: String): List<ShareDto>? = field(k)?.takeIf { it.isArray }?.values()?.map {

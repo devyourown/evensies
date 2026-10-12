@@ -47,8 +47,8 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 - `kind`(6단계): `"group"`(보통 그룹) 또는 `"friend"`(친구 그룹, 아래 "친구"). `GroupDto`·`GroupSummaryDto`·snapshot의 `group`·`GET /invites/{code}`에 있다. 앱은 키가 없는 응답(이전 서버)을 `"group"`으로 읽는다. 그룹을 만들 때 정해지고 바뀌지 않는다(적용 규칙 13). `POST /groups`는 언제나 `"group"`이고 친구 그룹은 `POST /friends`만 만든다. 앱의 Groups 탭은 `"group"`만 보이고, 친구 그룹은 Friends 탭에서 사람으로 보인다(`/groups/{id}`로 열면 친구 페이지로 보낸다).
 - `simplifyDebts`(boolean, 기본 `true`)와 `defaultSplit`(`SplitSpec|null`, 기본 `null`, 아래 "SplitSpec")은 그룹 설정이다. `POST /groups`·`GET /groups/{id}`·`POST /invites/{code}/join` 응답과 snapshot의 `group`에 있다(`GroupSummaryDto`에는 없다). 앱은 두 키가 없는 응답을 기본값으로 읽는다. `POST /groups`는 기본값으로 만든다(요청에 두 키 없음).
 - 그룹 설정(이름, 기본 통화, 부채 단순화, 기본 분할)을 바꾸는 엔드포인트는 없다. `group.updated` 이벤트로 바꾸고, 그룹 멤버 누구나 보낼 수 있다(관리자 없음). 기본 통화는 지출이나 송금이 하나라도 생기면(삭제된 것 포함) 더 바뀌지 않는다(적용 규칙 12).
-- **그룹 나가기** = 자기 멤버에 대한 `member.removed`. 서버는 다른 멤버를 빼는 것과 똑같이 처리한다(잔액이 0인지는 앱만 확인한다. 4단계부터는 모든 통화 칸에서 0, "통화별 잔액"). 그 뒤 그 그룹은 `GET /groups`에서 빠지고 그 그룹의 엔드포인트는 403이다. 나간 멤버는 removed로 남고(사용자 연결도 남는다) 잔액 계산에도 남는다(규칙 5). 초대로 다시 들어오면 새 멤버(또는 다른 자리표시 멤버)가 된다.
-상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`. 6단계: 사용자당 100은 `kind = 'group'`만 센다(`POST /friends`와 친구 그룹 claim은 이 검사를 하지 않는다). 대신 자리표시 친구는 사용자당 200(아래 "`POST /friends`"). 친구 그룹의 멤버는 정확히 2명이다.
+- **그룹 나가기** = 자기 멤버에 대한 `member.removed`. 서버는 다른 멤버를 빼는 것과 똑같이 처리한다(잔액이 0인지는 앱만 확인한다. 4단계부터는 모든 통화 칸에서 0, "통화별 잔액"). 그 뒤 그 그룹은 `GET /groups`에서 빠지고 그 그룹의 엔드포인트는 403이다. 나간 멤버는 removed로 남고(사용자 연결도 남는다) 잔액 계산에도 남는다(규칙 5). 초대로 다시 들어오면 새 멤버(또는 다른 자리표시 멤버)가 된다. 8단계: 내가 활성 반복 시리즈의 template(`payers`나 `shares`에 0보다 큰 금액)에 있으면 앱이 나가기를 막는다(나간 뒤에도 내 몫으로 반복이 생겨 아무도 정산할 수 없는 빚이 되므로): `You're still in 2 repeating expenses (Rent, Netflix) · edit the latest one or stop them first`(이름은 `seriesNames`, 최대 3개 뒤 `and N more`). 설정 화면이 누르기 전에, `leaveGroup`이 동기화한 뒤 잔액 검사 옆에서 다시 확인한다. 서버는 확인하지 않는다.
+상한: 그룹당 멤버 50, 사용자당 그룹 100 → 초과 시 409 `LIMIT_EXCEEDED`. 6단계: 사용자당 100은 `kind = 'group'`만 센다(`POST /friends`와 친구 그룹 claim은 이 검사를 하지 않는다). 대신 자리표시 친구는 사용자당 200(아래 "`POST /friends`"). 친구 그룹의 멤버는 정확히 2명이다. 8단계: 그룹당 멈추지 않은 반복 시리즈 100(`recurrence.created`, 아래 "반복 지출").
 
 초대 코드: **6자, 알파벳 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`**(0/O, 1/I/L 제외). 이전에 발급된 10자 코드도 계속 유효하다. `/invites/{code}`, `/invites/{code}/join`, `/j/{code}`는 코드를 정규화한다(대문자로 바꾸고 영문·숫자 외 문자는 제거: `k7p-4qx` = `K7P4QX`). 세 엔드포인트는 **클라이언트 IP당 분당 10회**(`EVENSIES_INVITE_RATE_PER_MINUTE`)로 제한되며 초과 시 429 `RATE_LIMITED`.
 
@@ -63,15 +63,15 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 ```
 - 배열 전체가 한 트랜잭션. 그룹 행 `SELECT ... FOR UPDATE`로 잠근 뒤 seq 부여.
 - `(group_id, client_id)` UNIQUE. 중복은 기존 seq를 돌려준다(오류 아님).
-- 서버는 같은 트랜잭션에서 이벤트를 테이블(member/expense/expense_share/payment/comment, 7단계 attachment)에 반영하고, 활동 피드용 `meta`를 이벤트 행에 기록한다("활동·알림").
-- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 새로 만드는 이벤트(`*.created`·`member.added`·`comment.added`)의 id가 다른 그룹에 이미 있음, 7단계: 이 그룹에 올리지 않은 `attachment.added`)는 배열 전체 거부 400(7단계 영수증 개수 상한은 409). `group.created`는 서버만 만든다(앱이 push하면 400 `VALIDATION`). 다른 이벤트(`updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`, 7단계 `attachment.deleted`·`payment.restored` 포함)가 다른 그룹의 id를 가리키면 이 그룹에는 없는 대상이므로 통과하고 적용 규칙 4로 무시된다(다른 그룹은 바뀌지 않음, 다른 그룹의 영수증 파일도 지우지 않는다). 속도 제한: 사용자당 분당 120 이벤트 → 429.
-- 결제자·분할·그룹 설정의 검증과 오류 코드는 아래 "결제자·분할·그룹 설정 검증".
+- 서버는 같은 트랜잭션에서 이벤트를 테이블(member/expense/expense_share/payment/comment, 7단계 attachment, 8단계 recurrence)에 반영하고, 활동 피드용 `meta`를 이벤트 행에 기록한다("활동·알림").
+- 검증 실패(그룹 밖 memberId, 분할 합 불일치, 음수, 새로 만드는 이벤트(`*.created`·`member.added`·`comment.added`, 8단계 `recurrence.created` 포함)의 id가 다른 그룹에 이미 있음, 7단계: 이 그룹에 올리지 않은 `attachment.added`)는 배열 전체 거부 400(7단계 영수증 개수 상한은 409). `group.created`는 서버만 만든다(앱이 push하면 400 `VALIDATION`). 다른 이벤트(`updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`, 7단계 `attachment.deleted`·`payment.restored`, 8단계 `recurrence.updated`·`recurrence.deleted` 포함)가 다른 그룹의 id를 가리키면 이 그룹에는 없는 대상이므로 통과하고 적용 규칙 4로 무시된다(다른 그룹은 바뀌지 않음, 다른 그룹의 영수증 파일도 지우지 않는다). 속도 제한: 사용자당 분당 120 이벤트 → 429.
+- 결제자·분할·그룹 설정의 검증과 오류 코드는 아래 "결제자·분할·그룹 설정 검증", 반복 시리즈(8단계)는 "반복 지출 검증".
 - 오프라인 기기가 알 수 없는 상태(다른 사람이 먼저 한 변경) 때문에 400을 내지 않는다. 그런 경우는 적용 규칙(예: 규칙 12)이나 서버의 정규화(예: `paidBy`를 주요 결제자로 고침)로 처리한다.
 
 #### 거부된 이벤트 (앱)
 한 이벤트가 거부되어 outbox가 영원히 막히지 않도록 앱은 다음처럼 한다.
 1. push가 **400 또는 409**로 실패하면, 같은 배치를 순서대로 **한 이벤트씩** 다시 보낸다. 받아들여진 이벤트는 바로 outbox에서 지운다(clientId로 멱등이므로 안전).
-2. 한 이벤트만 보내도 400·409이면 그 이벤트를 버린다: outbox 행의 `rejected`에 오류 `code`를 적고(다시 보내지 않고 로컬에 다시 적용하지도 않는다) 사용자에게 `Couldn't save {무엇}: {이유}`를 보여 준 뒤 행을 지운다(보여 주기 전에 앱이 꺼지면 다음 실행 때 보여 준다). {무엇}은 이벤트 종류별 문구다: `the new expense “Hotel”`, `a change to “Hotel”`, `deleting “Hotel”`, `a payment`, `a group settings change` 등(설명을 모르면 `an expense`). 7단계: `attachment.added` → `the receipt on “Hotel”`, `attachment.deleted` → `removing a receipt from “Hotel”`, `payment.restored` → `restoring a payment`. 버린 `attachment.added`의 영수증은 로컬 행과 캐시 파일도 지운다(서버에 남은 올린 파일은 8단계 정리가 지운다).
+2. 한 이벤트만 보내도 400·409이면 그 이벤트를 버린다: outbox 행의 `rejected`에 오류 `code`를 적고(다시 보내지 않고 로컬에 다시 적용하지도 않는다) 사용자에게 `Couldn't save {무엇}: {이유}`를 보여 준 뒤 행을 지운다(보여 주기 전에 앱이 꺼지면 다음 실행 때 보여 준다). {무엇}은 이벤트 종류별 문구다: `the new expense “Hotel”`, `a change to “Hotel”`, `deleting “Hotel”`, `a payment`, `a group settings change` 등(설명을 모르면 `an expense`). 7단계: `attachment.added` → `the receipt on “Hotel”`, `attachment.deleted` → `removing a receipt from “Hotel”`, `payment.restored` → `restoring a payment`. 8단계: `recurrence.created` → `repeating “Rent”`, `recurrence.updated` → `a change to future “Rent”`, `recurrence.deleted` → `stopping “Rent” from repeating`(설명은 payload의 `template`·`fields`, 없으면 로컬 시리즈의 template에서. 모르면 각각 `a repeating expense`·`a change to a repeating expense`·`stopping a repeating expense`). 거부된 `recurrence.created`의 첫 지출(그 `recurrenceId`의 `expense.created`)은 받아들여졌으면(정규화가 시리즈 표시를 빼고 저장) `Couldn't save …` 대신 `“Water” was saved but won't repeat: {이유}`를 보인다(같은 지출을 다시 넣지 않게). 그 지출도 거부됐으면 위 문구 그대로. 버린 `attachment.added`의 영수증은 로컬 행과 캐시 파일도 지운다(서버에 남은 올린 파일은 8단계 정리가 지운다).
 3. push가 **403**이거나 pull이 **403·404**이면 먼저 `GET /groups/{id}`를 부른다. 서버 자신의 403 `FORBIDDEN`·404 `NOT_FOUND`(오류 본문이 있는 응답)면 그 그룹에서 빠진 것이므로(나감·제외) 거부 처리 없이 그 그룹의 로컬 데이터를 지운다(syncAll과 같음). 200이면 push의 403은 이벤트 권한 문제이므로 1·2의 400처럼 다룬다. 오류 본문이 없는 응답(`NETWORK`: 프록시·캡티브 포털 등)은 거부로 보지 않고 4처럼 다시 보낸다.
 4. 하나씩 보내는 중 401·429·5xx·네트워크 오류가 나면 거기서 멈추고 남은 이벤트는 outbox에 그대로 두어 지금처럼 나중에 다시 보낸다. (하나씩 다시 보내면 속도 제한을 한 번 더 쓴다: 실패한 배치 N개 + 다시 N개.)
 5. 하나라도 버렸으면 그룹을 다시 만든다: `adoptFromSnapshot` 뒤에 남은(아직 안 보낸, 버리지 않은) outbox 이벤트를 순서대로 적용한다. 버린 이벤트의 낙관적 로컬 변경이 남지 않게 하기 위해서다.
@@ -84,7 +84,7 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 | `UNKNOWN_MEMBER` | it refers to someone who isn't in the group |
 | `UNKNOWN_CURRENCY` | the currency isn't supported |
 | `MEMBER_TAKEN` | that member is already taken |
-| `LIMIT_EXCEEDED` | the group is full (7단계 `attachment.added`이면 an expense can have at most 10 receipts) |
+| `LIMIT_EXCEEDED` | the group is full (7단계 `attachment.added`이면 an expense can have at most 10 receipts, 8단계 `recurrence.created`이면 a group can have at most 100 repeating expenses) |
 | `ATTACHMENT_NOT_UPLOADED` | the photo didn't upload (7단계) |
 | `FORBIDDEN` | you're not allowed to make that change |
 | 그 밖(`VALIDATION` 등) | the server refused it |
@@ -94,17 +94,21 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 ```
 응답: {"events":[{"seq","clientId","type","payload","actorUserId","createdAt"}], "latestSeq": 57}
 ```
+- 8단계: 서버 스케줄러가 만든 반복 지출(`expense.created`)은 `"actorUserId": null`이고 `createdAt`은 그 반복의 `dueAt`(아래 "반복 지출")이다. 앱은 `actorUserId`를 이미 `string|null`로 읽는다.
 ### snapshot
 `GET /groups/{id}/snapshot`
 ```
 {"group": GroupDto,
  "members":  [{"id","name","userId","removed":bool}],
- "expenses": [{"id","description","amount","currency","fxRateToDefault","paidBy","payers":[{"memberId","amount"}],"refund":bool,"split","date","category","notes","deleted":bool,"moved":bool,"shares":[{"memberId","amount"}]}],
+ "expenses": [{"id","description","amount","currency","fxRateToDefault","paidBy","payers":[{"memberId","amount"}],"refund":bool,"split","date","category","notes","deleted":bool,"moved":bool,"recurrenceId","occurrence","shares":[{"memberId","amount"}]}],
  "payments": [{"id","fromMember","toMember","amount","currency","date","deleted":bool,"status","replaced":bool}],
  "comments": [{"id","expenseId","paymentId","authorMemberId","text","createdAt","deleted":bool}],
  "attachments": [{"id","expenseId","deleted":bool}],
+ "recurrences": [RecurrenceDto],
  "latestSeq": 57}
 ```
+- `recurrences`(8단계, "반복 지출"): 그룹의 모든 시리즈, 멈춘 것도 `deleted: true`로 포함한다. 순서는 만든 순서(`created_at, id`). 스케줄러 칸(`next_occurrence`·`next_due_at`)은 보내지 않는다. `template`은 저장된 JSON(jsonb라 키 순서는 다를 수 있다). 앱은 키가 없는 응답(이전 서버)을 `[]`로 읽는다.
+- `recurrenceId`(`string|null`)·`occurrence`(`int|null`)(8단계): 반복 시리즈의 지출이면 그 시리즈 id와 번호(첫 지출 0, 서버가 올린 반복 1, 2, …), 아니면 둘 다 `null`. 앱은 키가 없는 응답을 `null`로 읽는다.
 - `attachments`(7단계, "영수증"): 지출에 붙은(`attachment.added`가 적용된) 영수증만, 삭제된 것도 `deleted: true`로 포함한다. 올렸지만 아직 붙지 않은 것은 없다. 순서는 올린 순서(`created_at, id`)라 로그를 다시 적용한 순서와 다를 수 있다(보이는 순서만 다르다). 앱은 키가 없는 응답(이전 서버)을 `[]`로 읽는다.
 - `replaced`(7단계)는 편집으로 바뀐(`replacedBy`가 있는 `payment.deleted`) 송금이면 `true`(적용 규칙 7, 언제나 `deleted: true`와 함께), 아니면 `false`. 앱은 키가 없는 응답을 `false`로 읽는다.
 - `paidBy`는 주요 결제자(적용 규칙 10), `payers`는 1개 이상(보낸 순서), `refund`는 boolean, `split`은 `SplitSpec|null`. 이 단계 전의 지출은 `payers: [{paidBy, amount}]`, `refund: false`, `split: null`.
@@ -120,8 +124,8 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 | `member.added` | `{"memberId","name","userId": string|null}` — 친구 그룹(6단계)에 셋째 멤버를 더하면 409 `LIMIT_EXCEEDED` |
 | `member.linked` | `{"memberId","userId"}` — `userId`는 보낸 사람 본인. 이미 사용자에 연결된 멤버이거나 보낸 사람이 이 그룹에 이미 (removed 아닌) 멤버를 가지고 있으면 400 `MEMBER_TAKEN`. 앱은 보내지 않고 `/invites/{code}/join`이 만든다. `member.added`에 `userId`(본인)를 넣을 때도 이미 멤버가 있으면 같은 400 |
 | `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님). 보낸 사람 자신의 멤버면 그룹 나가기(활동 `member_left`). 친구 그룹(6단계)에서는 400 `VALIDATION`(나가기·빼기 없음, 친구 삭제는 10단계) |
-| `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","payers":[{"memberId","amount"}],"refund": bool,"split": SplitSpec|null,"date","category": string|null,"notes": string|null,"shares":[{"memberId","amount"}]}` — `description` 1~200자. `notes`(메모) 없으면 `null`(이전 이벤트 호환). 문자열이면 500자 이하. `payers` 없으면 `[{"memberId": paidBy, "amount": amount}]`, `refund` 없으면 `false`, `split` 없으면 `null`(이전 이벤트 호환). `paidBy`는 계속 보낸다(주요 결제자). `payers`가 있으면 서버가 저장 전에 `paidBy`를 주요 결제자로 고친다(pull되는 payload도 고친 값) |
-| `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares·notes·payers·refund·split 포함 가능}}` — `"notes": null`은 메모를, `"split": null`은 분할 입력을 지운다. 앱은 돈에 관한 필드(`amount`·`paidBy`·`payers`·`shares`·`split`·`refund`) 중 하나라도 바뀌면 여섯 개를 모두 보낸다. `fields.payers`가 있으면 서버가 `fields.paidBy`를 주요 결제자로 고치거나 넣는다 |
+| `expense.created` | `{"expenseId","description","amount","currency","fxRateToDefault": number|null,"paidBy","payers":[{"memberId","amount"}],"refund": bool,"split": SplitSpec|null,"date","category": string|null,"notes": string|null,"shares":[{"memberId","amount"}]}` — `description` 1~200자. `notes`(메모) 없으면 `null`(이전 이벤트 호환). 문자열이면 500자 이하. `payers` 없으면 `[{"memberId": paidBy, "amount": amount}]`, `refund` 없으면 `false`, `split` 없으면 `null`(이전 이벤트 호환). `paidBy`는 계속 보낸다(주요 결제자). `payers`가 있으면 서버가 저장 전에 `paidBy`를 주요 결제자로 고친다(pull되는 payload도 고친 값). 8단계: `"recurrenceId": string\|null, "occurrence": int\|null`(반복 시리즈 표시, 없으면 둘 다 `null`, 아래 "반복 지출 검증"·적용 규칙 16). 앱은 언제나 넣는다(반복 시리즈의 첫 지출은 `occurrence: 0`, 시리즈가 없으면 둘 다 `null`). `occurrence` ≥ 1은 서버 스케줄러만 만든다(`actorUserId: null`) |
+| `expense.updated` | `{"expenseId","fields":{...바뀐 필드만, shares·notes·payers·refund·split 포함 가능}}` — `"notes": null`은 메모를, `"split": null`은 분할 입력을 지운다. 앱은 돈에 관한 필드(`amount`·`paidBy`·`payers`·`shares`·`split`·`refund`) 중 하나라도 바뀌면 여섯 개를 모두 보낸다. `fields.payers`가 있으면 서버가 `fields.paidBy`를 주요 결제자로 고치거나 넣는다. 8단계: `recurrenceId`·`occurrence`는 **함께** 넣는다(다른 시리즈에 다시 붙이기 `{"recurrenceId": 새 id, "occurrence": 0}`, 둘 다 `null`이면 시리즈에서 뺀다) |
 | `expense.deleted` | `{"expenseId","movedTo"?: {"groupId","expenseId"}\|null}` — `movedTo`(6단계, "지출 옮기기"): 이 지출을 다른 그룹(친구 포함)의 새 지출로 옮겼다는 표시. 없거나 `null`이면 보통 삭제. 있으면 객체이고 두 값 모두 UUID 문자열(아니면 400 `VALIDATION`, 다른 키는 무시). 서버는 대상 그룹·지출이 있는지 보지 않는다. 적용은 보통 삭제에 더해 `moved=true`(규칙 13: 그 뒤 `expense.restored`는 무시). 활동은 `expense_moved` |
 | `expense.restored` | `{"expenseId"}` — 삭제된 지출을 되살린다. 그룹 멤버 누구나 보낼 수 있다(삭제와 같음). 옮긴(`moved`) 지출에는 아무것도 바꾸지 않는다(규칙 13) |
 | `comment.added` | `{"commentId","expenseId"?,"paymentId"?,"authorMemberId","text","createdAt"}` — `expenseId`와 `paymentId`(6단계, 송금 댓글) 가운데 **정확히 하나**(둘 다 있거나 둘 다 없으면 400 `VALIDATION`. `null`은 없는 것, 있으면 UUID 문자열). `authorMemberId`는 **호출자 본인의 멤버**(아니면 403 `FORBIDDEN`). `expenseId`는 그룹에 있는 지출, `paymentId`는 그룹에 있는 송금(둘 다 삭제된 것도 가능, 없으면 400 `VALIDATION`). `text`는 공백만이 아닌 1~1000자. `createdAt`은 ISO-8601 UTC 시각(앱이 이벤트의 createdAt과 같은 값을 넣는다) |
@@ -131,6 +135,9 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 | `payment.deleted` | `{"paymentId","replacedBy"?: string\|null}` — 보낸 사람 또는 받는 사람("받지 못함")이 보낼 수 있다(그리고 그 송금을 만든 사용자, 지금처럼 `paymentCreator`). `replacedBy`(7단계): 송금 편집(아래 "송금 기록·편집")이 넣는 새 송금의 id. 없거나 `null`이면 보통 삭제. 있으면 UUID 문자열(아니면 400 `VALIDATION`). 서버는 그 송금이 있는지 보지 않는다. 적용은 보통 삭제에 더해 `replaced=true`(규칙 7: 그 뒤 `payment.restored`는 무시) |
 | `payment.restored` | `{"paymentId"}`(7단계) — 삭제된 송금을 되살린다(규칙 7). **그 송금을 지울 수 있는 사용자만**(`payment.deleted`와 같다: 만든 사용자, 보내는·받는 멤버에 연결된 사용자. 아니면 403 `FORBIDDEN`). 없는 송금이면 통과하고 적용기가 무시한다(규칙 4). 편집으로 바뀐(`replaced`) 송금이나 살아 있는 송금이면 400 없이 받아 저장하고 아무것도 바꾸지 않는다(오프라인 기기는 편집을 모를 수 있다) |
 | `attachment.added` | `{"attachmentId","expenseId"}`(7단계, "영수증") — 그룹 멤버 누구나. 검사 순서: 두 값이 UUID 문자열(400 `VALIDATION`) → 상태에 이미 있는 `attachmentId`면 같은 `expenseId`일 때 통과(적용기가 무시, 멱등), 다른 지출이면 400 `VALIDATION` → 이 그룹에 올린 파일이 없으면(`POST /groups/{id}/attachments/{attachmentId}`를 하지 않았거나 다른 그룹에 올림) 400 `ATTACHMENT_NOT_UPLOADED` → `expenseId`가 상태에 없는 지출이면(삭제된 지출은 있는 것) 400 `VALIDATION` → 그 지출에 삭제 안 된 영수증이 이미 10개면 409 `LIMIT_EXCEEDED`. 같은 배치의 `expense.created` 뒤라면 통과한다(상태가 이벤트마다 나아간다) |
+| `recurrence.created` | `{"recurrenceId","frequency": "weekly"\|"biweekly"\|"monthly"\|"yearly","startDate": "YYYY-MM-DD","timeZone": string,"template": {...}}`(8단계, "반복 지출") — 그룹 멤버 누구나(친구 그룹 포함). `template` = 이 시리즈가 만들 `expense.created` payload에서 `expenseId`·`date`·`recurrenceId`·`occurrence`를 뺀 것. 이미 있는 id면 받고 아무것도 바꾸지 않는다(규칙 15). payload의 다른 키는 적용기가 읽지 않는다(10단계가 `remindDaysBefore`를 더한다) |
+| `recurrence.updated` | `{"recurrenceId","fields": {...}}`(8단계) — template에서 바뀐 키만, 키 이름·JSON 타입은 `expense.updated.fields`와 같다(`shares`·`payers`는 통째로). 앱은 `expense.updated`와 같은 규칙으로 보낸다: 돈 필드 하나가 바뀌면 여섯 개 모두, `currency`·`fxRateToDefault`는 둘 다(합치기는 키 단위뿐이고 규칙 10 같은 파생이 없다). 일정(`frequency`·`startDate`·`timeZone`)은 바꿀 수 없다(멈추고 새 시리즈). 없거나 멈춘 시리즈면 받고 무시. 이미 올라간 반복은 바뀌지 않는다 |
+| `recurrence.deleted` | `{"recurrenceId"}`(8단계) — 시리즈를 멈춘다. 되살리는 이벤트는 없다(다시 반복하려면 새 시리즈). 이미 올라간 반복은 남는다. 없거나 이미 멈춘 시리즈면 받고 무시 |
 | `attachment.deleted` | `{"attachmentId","expenseId"?}`(7단계) — 그룹 멤버 누구나. `attachmentId`는 UUID 문자열(400 `VALIDATION`). 없는 영수증이면 통과하고 적용기가 무시한다. `expenseId`는 선택이고 검사하지 않는다: 서버는 저장 전에 그 영수증이 붙은 지출의 id로 고치고(없는 영수증이면 키를 뺀다) pull되는 payload도 고친 값이다(활동의 `expenseId` 필터가 찾도록). 적용기는 읽지 않는다. 앱은 넣어 보낸다. 커밋한 뒤 서버가 두 파일을 지운다("영수증") |
 
 예 (`expense.created`, 두 사람이 내고 몫 2:1:1로 나눔):
@@ -159,7 +166,7 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
 
 - 글자 수(`description` 200, `notes` 500, `text` 1000, 그룹 `name` 100, 멤버 `name` 100)는 UTF-16 길이(Kotlin·Dart `String.length`)로 센다. `notes`가 문자열·null이 아니거나 너무 길면, `text`·`createdAt`이 규칙에 맞지 않으면, 그룹 `name`(`group.created`·`group.updated`, 그래서 POST /groups도)이나 멤버 `name`(`member.added`, 그래서 POST /groups의 `memberName`과 초대 참여의 `name`도)이 100자를 넘으면 400 `VALIDATION`. 이미 저장된 긴 멤버 이름 이벤트는 그대로 읽힌다(보낼 때만 검사).
 - 금액 상한: 지출 `amount`·`payers[].amount`·`shares[].amount`와 `payment.created`의 `amount`는 `10000000000000`(10^13 최소 단위) 이하. 넘으면 400 `VALIDATION`. 멤버가 50명까지이므로 결제자·몫의 합이 64비트 정수를 넘어 한 바퀴 돌아 `amount`와 같아지는 일이 없다. 200자 제한은 새로 보내는 `description`에만 적용한다(이미 저장된 긴 설명의 지출도 다른 필드는 고칠 수 있다). Splitwise 가져오기는 200자로 자른다.
-- JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 유한한 숫자(`1e999`처럼 무한대로 읽히는 값은 400), `shares`와 `payers`는 `[{"memberId": 문자열, "amount": 정수}]`, `refund`는 boolean, `split`은 객체. `group.updated`의 `simplifyDebts`는 boolean(null도 400), `defaultSplit`은 객체 또는 null. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다).
+- JSON 타입(앱 적용기는 형변환 없이 읽으므로 서버가 막는다. 어기면 400 `VALIDATION`): `expense.created`와 `expense.updated.fields`에 있는 키는 `description`·`currency`·`paidBy`·`date`·`category`·`notes`는 문자열, `amount`는 정수, `fxRateToDefault`는 유한한 숫자(`1e999`처럼 무한대로 읽히는 값은 400), `shares`와 `payers`는 `[{"memberId": 문자열, "amount": 정수}]`, `refund`는 boolean, `split`은 객체. `group.updated`의 `simplifyDebts`는 boolean(null도 400), `defaultSplit`은 객체 또는 null. `null`은 규칙 9대로 허용(`expense.created`에서 값이 필요한 키는 다른 검증이 거부). `expense.created`에는 `amount`·`shares`가 꼭 있어야 한다. `payment.created`의 `amount`도 정수. `group.*`·`member.added`의 `name`은 공백만이 아닌 문자열. `expense.created`·`payment.created`·`comment.added`에 `deleted` 키는 없거나 `false`(만들면서 삭제할 수 없다). 8단계: `recurrenceId`는 소문자 UUID 문자열, `occurrence`는 정수(둘 다 `null` 가능, 아래 "반복 지출 검증"). `recurrence.*`의 `recurrenceId`·`frequency`·`startDate`·`timeZone`은 문자열, `template`·`fields`는 객체.
 - `category`(`expense.created`·`expense.updated.fields`)는 `string|null`이고 뜻은 아래 "카테고리"(5단계): `shared/categories.json`의 key, `null` = General, 그 밖의 문자열 = 이전 자유 입력. 서버는 문자열·null인지만 본다(값 검사·변환 없음).
 - `comment.added`의 `text` 1~1000자 검증은 보낼 때만 적용한다. 삭제된 댓글의 저장된 이벤트는 `text: ""`로 pull된다(적용 규칙 8).
 - 호환: 출시 1 앱은 `comment.*`·`expense.restored`를 모르는 type으로 건너뛰고 `notes`를 버린 채 lastSeq를 올렸다. 그래서 앱 DB가 schemaVersion 3으로 올라갈 때 모든 그룹의 lastSeq를 0으로 되돌리고, lastSeq 0에서 시작하는 pull은 **빈 상태부터** 로그 전체를 다시 적용한다(저장된 상태 위에 다시 적용하면 `expense.created`의 notes가 돌아오지 않는다). 구 앱이 계속 쓰이는 동안 그 앱에서는 복원된 지출이 삭제된 채로 보인다.
@@ -177,17 +184,38 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
 
 통화 잠금(규칙 12)은 오류가 아니다. `payers` 등이 `null`이면 타입 검사를 통과한다(규칙 9: 무시).
 
+#### 반복 지출 검증 (8단계, 배열 전체 거부)
+"금지 키" = `expenseId`·`date`·`recurrenceId`·`occurrence`·`frequency`·`startDate`·`timeZone`. "지출로 맞다" = `template + {"expenseId": 상태에 없는 아무 UUID, "date": startDate}`를 `expense.created`와 똑같이 검사한다(JSON 타입, `amount`·`shares` 필수, `deleted` 없음, 글자 수·금액 상한, 결제자·몫의 합과 멤버, 통화, `split` 모양과 itemized `bill`). 그래서 오류 코드도 지출과 같다(`VALIDATION`·`SUM_MISMATCH`·`PAYERS_SUM_MISMATCH`·`NEGATIVE_AMOUNT`·`UNKNOWN_MEMBER`·`UNKNOWN_CURRENCY`).
+
+| 이벤트 | 규칙 | 오류 |
+|---|---|---|
+| `recurrence.created` | `recurrenceId`는 소문자 UUID; `frequency`는 `weekly`·`biweekly`·`monthly`·`yearly` 가운데 하나; `startDate`는 `YYYY-MM-DD`의 있는 날짜(`requireDate`) | 400 `VALIDATION` |
+| | `timeZone`은 1~64자 문자열이고 `ZoneId.of`가 받는다(IANA 이름, `Z`, `±HH:MM` 등) | 400 `VALIDATION` |
+| | `template`은 객체이고 금지 키가 없다 | 400 `VALIDATION` |
+| | `template`이 지출로 맞다(이미 있는 id여도 검사한다) | 지출과 같은 코드 |
+| | 상태에 없는 id이고 이 그룹에 멈추지 않은 시리즈가 이미 100개(abuse cap) | 409 `LIMIT_EXCEEDED` |
+| | 다른 그룹의 id(저장할 때 `ON CONFLICT … WHERE group_id` 0행, 다른 `*.created`와 같다) | 400 `VALIDATION` |
+| `recurrence.updated` | `recurrenceId`는 소문자 UUID; `fields`는 객체이고 금지 키가 없다; `fields`의 키는 `expense.updated.fields`와 같은 JSON 타입 검사 | 400 `VALIDATION` |
+| | 시리즈가 멈추지 않았으면 합친 template(template에 `fields`를 키마다 덮어쓴 것, 규칙 15)이 지출로 맞다. 없거나 멈춘 시리즈면 위 검사만 하고 받는다(적용기가 무시) | 지출과 같은 코드 |
+| `recurrence.deleted` | `recurrenceId`는 소문자 UUID. 없거나 이미 멈춘 시리즈도 받는다 | 400 `VALIDATION` |
+| `expense.created`·`expense.updated` | `recurrenceId`(소문자 UUID 문자열\|null)와 `occurrence`(정수\|null)는 둘 다 값이 있거나 둘 다 `null`. `expense.created`에서 없는 키는 `null`. `expense.updated.fields`에서는 두 키가 함께 있거나 함께 없다(하나만 있으면 상태가 어긋난다) | 400 `VALIDATION` |
+| | `occurrence`는 0 이상 2147483647 이하 정수이고, 사용자가 보내면(앱) `0`만. 1 이상은 서버 스케줄러(actor 없음)만 | 400 `VALIDATION` |
+| | **정규화**(검사보다 먼저, `normalize`): `recurrenceId`가 문자열이고 이 그룹 상태에 없는 시리즈면 두 키를 뺀다. `expense.created`는 시리즈 없이, `expense.updated`는 지금 표시 그대로 저장된다(pull되는 payload도 뺀 것). 오프라인 기기는 그 시리즈가 거부됐는지 모르므로 400을 내지 않는다("오프라인 기기가 알 수 없는 상태"). 멈춘 시리즈는 그대로 받는다 | — |
+
+권한: 그룹 멤버 누구나 만들고 고치고 멈춘다(지출과 같다, 관리자 없음). 서버는 템플릿의 `paidBy`를 고치지 않는다(반복을 올릴 때 `expense.created` 정규화가 고친다).
+
 - 호환(3단계): drift가 schemaVersion 4로 올라갈 때 `expense_payers`를 `paid_by`·`amount`로 채우고(오프라인에서도 잔액이 맞게) lastSeq를 0으로 되돌린다(이전 앱 코드가 모른 채 건너뛴 `payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit`을 로그에서 다시 적용). 이 단계 전의 앱은 여러 명이 낸 지출과 환불을 `paidBy`가 전액 낸 보통 지출로 보인다(출시 전이라 받아들인다).
 - 호환(5단계): 이벤트 모양과 저장소가 그대로다. Flyway 마이그레이션 없음(마지막은 V6), drift schemaVersion 5 그대로, lastSeq도 되돌리지 않는다. 이전 앱은 새 앱이 쓴 key(`food.dining_out`)를 자유 입력 칸에 글자 그대로 보이고, 고치지 않으면 그대로 다시 보낸다(출시 전이라 받아들인다). 새 앱이 이전 서버를 만나면 `GET /groups/{id}/activity`의 `expenseId`가 무시되므로 앱은 받은 항목 중 `expenseId`가 같은 것만 보여 준다(아래 "피드").
 - 호환(6단계): Flyway V7·V8, drift schemaVersion 6·7(`Groups.kind` 기본 `'group'`, `Comments.paymentId`, `Comments.expenseId`는 null 허용, `Expenses.moved` 기본 `false`). 이전 이벤트에는 `kind`·`paymentId`·`movedTo`가 없고 그 기본값이 맞다. 6단계 개발 빌드가 저장한 옮기기에는 `moved`가 없으므로 V8은 `movedTo`가 객체인 `expense.deleted`가 로그에 있는 지출을 `moved = true`·삭제로 채우고(로그를 다시 적용한 결과와 같다), schemaVersion 7은 lastSeq를 0으로 되돌린다(출시된 앱은 schemaVersion 3·4 단계에서 어차피 다시 적용하므로 추가 비용이 없다). 출시된 앱(출시 1)은 `comment.*`를 모르는 type으로 건너뛰고, `kind`를 몰라 친구 그룹을 이름이 `Anna & Ben`인 보통 그룹으로 보이며(멤버 추가는 409), `movedTo`가 있는 삭제를 보통 삭제로 본다(출시 전이라 받아들인다). 2~5단계 앱은 출시되지 않았다(빌드 보류). 그 코드의 적용기는 `expenseId` 없는 `comment.added`에서 멈추므로(`as String`) 개발 기기는 새 앱으로 올린다. 서버를 먼저 올린다: 이전 서버는 송금 댓글을 400으로 거부하고 `/friends`·`/activity/unread`가 없다(앱은 404를 기능 없음으로 본다: 배지 숨김).
 - 호환(7단계): Flyway V9(`attachments` 표, `payments.replaced`), drift schemaVersion 8(`Attachments`·`PendingUploads` 표, `Payments.replaced` 기본 `false`). 6단계까지의 앱은 `attachment.*`·`payment.restored`를 모르는 type으로 건너뛰고 itemized `split`을 `null`로 읽어 저장한 채 lastSeq를 올렸으므로 schemaVersion 8은 lastSeq를 0으로 되돌린다(빈 상태부터 다시 적용). 이전 이벤트에는 `replacedBy`·`attachment.*`가 없고 기본값(`replaced=false`, `attachments=[]`)이 맞다. 단 6단계 개발 빌드의 송금 편집으로 지워진 송금은 표시가 없어 Restore가 보이고, 되살리면 새 송금과 함께 두 번 센다(로그에서 편집을 알아낼 수 없어 V9는 채우지 않는다. 출시 전이라 받아들인다). 출시된 앱(출시 1)은 `attachment.*`·`payment.restored`를 건너뛰고(되살린 송금이 삭제된 채로 보인다), itemized 지출을 보통 지출로 보이고, 그 지출의 금액·분할을 고치면 `split` 키 없이 `shares`·`amount`를 보내 `split`이 지워진다(규칙 10). snapshot의 새 키는 무시한다. 서버를 먼저 올린다: 이전 서버는 `attachment.*`·`payment.restored`를 400 `UNKNOWN_TYPE`, itemized를 400 `VALIDATION`으로 거부하고(앱은 "거부된 이벤트"대로 버린다) 올리기 엔드포인트가 없다(404).
+- 호환(8단계): Flyway V10(`recurrences` 표, `expenses.recurrence_id`·`occurrence`), drift schemaVersion 9(`Recurrences` 표, `Expenses.recurrenceId`·`occurrence`). 이전 이벤트에는 `recurrence.*`와 두 키가 없고 기본값(`recurrences=[]`, 둘 다 `null`)이 맞다. 7단계까지의 앱은 `recurrence.*`를 모르는 type으로 건너뛰고 두 키를 버린 채 lastSeq를 올렸을 수 있으므로(서버를 먼저 올린다) schemaVersion 9는 lastSeq를 0으로 되돌린다(빈 상태부터 다시 적용). 출시된 앱(출시 1)과 이전 개발 빌드는 서버가 올린 반복을 보통 지출로 보이고(활동은 모르는 kind라 `Someone made a change`), 시리즈를 고치거나 멈출 수 없으며, 반복 지출을 고치면 두 키 없이 `expense.updated`를 보내 표시가 그대로 남는다. snapshot의 새 키는 무시한다. 서버를 먼저 올린다: 이전 서버는 `recurrence.*`를 400 `UNKNOWN_TYPE`으로 거부하고(앱은 "거부된 이벤트"대로 버린다) 두 키를 검사·정규화 없이 payload에 남긴다.
 - 호환(4단계): 이벤트 모양이 그대로이므로 lastSeq를 되돌리지 않는다. drift schemaVersion 5는 `FxDays` 표와 `Session.homeCurrency`만 더한다. 서버를 먼저 올린다: 이전 서버는 새 통화 코드를 400 `UNKNOWN_CURRENCY`로 거부한다(앱은 "거부된 이벤트"대로 "the currency isn't supported"). 이전 앱은 모르는 통화를 소수 2자리로 보이고(`Money.digits` 기본값) `homeCurrency`를 무시한다(출시 전이라 받아들인다).
 
 ### 적용 규칙 (앱 Dart·서버 Kotlin 동일, `shared/sync-cases.json`으로 검증)
 1. `applyEvent(state, event)`는 순수 함수. 같은 이벤트 두 번 적용 = 한 번 적용.
 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다(순서대로 적용하면 자연히 성립).
 3. 삭제 vs 수정: `deleted=true`인 지출·송금에 오는 `updated`는 무시한다(삭제가 이김). 삭제된 지출을 되살리는 것은 `expense.restored`뿐이고, 삭제되어 있던 동안 무시된 `updated`는 복원 뒤에도 되살아나지 않는다.
-4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`는 무시한다.
+4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`(8단계 `recurrence.updated`·`recurrence.deleted` 포함)는 무시한다.
 5. `member.removed`는 `removed=true`만 표시한다. 잔액 계산에는 계속 포함된다.
 6. `payment.confirmed`는 `status`를 `confirmed`로 바꾼다. 없거나 삭제된 송금이면 무시한다. 잔액은 `sent`와 `confirmed` 송금을 똑같이 반영한다(앱은 `sent`를 "확인 대기"로 표시).
 7. `expense.restored`는 `deleted=false`로 되돌린다. 삭제되지 않은 지출이면 아무것도 바꾸지 않는다. 삭제와 복원이 엇갈리면 seq 순서상 나중 것이 이긴다. 예외(6단계): 옮긴(`moved`) 지출은 되살리지 않는다(규칙 13). 7단계: `payment.restored`도 송금에 똑같이 한다(`deleted=false`, `status`는 그대로 — `sent`면 다시 확인 대기, 살아 있거나 없는 송금이면 무시). 예외: `replacedBy`가 문자열인 `payment.deleted`(송금 편집)는 보통 삭제에 더해 `replaced=true`를 표시하고(그 뒤 어떤 이벤트도 지우지 않는다. `replacedBy` 없는 삭제가 다시 와도 그대로), `replaced`인 송금에 오는 `payment.restored`는 무시한다(편집이 만든 새 송금과 두 번 세지 않게). 기본값 `replaced = false`.
@@ -206,8 +234,17 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
     - `attachment.added`: `attachmentId`가 이미 있으면(삭제된 것 포함) 아무것도 바꾸지 않는다(멱등. 삭제 뒤 다시 와도 삭제된 채). `expenseId`가 상태에 없는 지출이면 무시한다. 그 밖에는 `{id, expenseId, deleted: false}`를 뒤에 더한다(삭제된 지출에도 붙는다 — 복원하면 영수증도 돌아온다).
     - `attachment.deleted`: 없는 `attachmentId`면 무시, 있으면 `deleted=true`(목록에서 빼지 않는다). payload의 `expenseId`는 읽지 않는다.
     - 지출의 `deleted`·`moved`는 영수증을 바꾸지 않는다(`expense.deleted`는 영수증을 지우지 않는다).
+15. 반복 시리즈(8단계): 상태에 `recurrences`(`{id, frequency, startDate, timeZone, template, deleted}`, 만든 순서)가 있다. 기본값 `[]`.
+    - `recurrence.created`: 그 id가 이미 있으면(멈춘 것 포함) 아무것도 바꾸지 않는다(멱등, 첫 일정·template 그대로). 없으면 `{id, frequency, startDate, timeZone, template: 받은 그대로, deleted: false}`를 뒤에 더한다(payload의 다른 키, 예를 들어 `deleted`는 읽지 않는다).
+    - `recurrence.updated`: 없거나 `deleted`인 시리즈면 무시한다. 아니면 `fields`의 키마다 template의 그 키를 받은 값으로 바꾼다. `null`도 `null`로 저장하고 키를 지우지 않는다. `fields`에 없는 키는 그대로, 배열·객체 값은 통째로 바꾼다(Kotlin `template.deepCopy().setAll(fields)`, Dart `{...template, ...fields}`). 규칙 10 같은 파생은 없다.
+    - `recurrence.deleted`: 있으면 `deleted = true`(목록에서 빼지 않는다), 없으면 무시. 되돌리는 이벤트는 없다.
+    - 시리즈 이벤트는 지출을 바꾸지 않는다: template을 고치거나 멈춰도 이미 올라간 반복은 그대로다.
+16. 지출의 시리즈 표시(8단계): 지출에 `recurrenceId`(`string|null`)와 `occurrence`(`int|null`)가 있다. 기본값 둘 다 `null`(이전 이벤트).
+    - `expense.created`: 받은 값(없으면 `null`).
+    - `expense.updated`(삭제 안 된 지출, 규칙 3): `fields`에 키가 있으면 그 값으로 바꾸고 `null`이면 지운다(규칙 9의 `notes`와 같다). 없으면 그대로.
+    - 적용기는 그 시리즈가 있는지, 멈췄는지 보지 않는다(서버 정규화가 없는 시리즈를 뺀다). `expense.deleted`·`expense.restored`·옮기기는 표시를 바꾸지 않는다.
 
-4·5단계는 적용 규칙을 더하지 않는다. 6단계는 규칙 13을 더하고(규칙 7에 옮긴 지출 예외) 규칙 8을 송금 댓글로 넓힌다. 7단계는 규칙 14를 더하고 규칙 7을 송금(`payment.restored`, 편집으로 바뀐 송금 예외)으로 넓힌다. 8단계 이후의 규칙 번호는 15부터다.
+4·5단계는 적용 규칙을 더하지 않는다. 6단계는 규칙 13을 더하고(규칙 7에 옮긴 지출 예외) 규칙 8을 송금 댓글로 넓힌다. 7단계는 규칙 14를 더하고 규칙 7을 송금(`payment.restored`, 편집으로 바뀐 송금 예외)으로 넓힌다. 8단계는 규칙 15·16을 더하고 규칙 4를 `recurrence.*`로 넓힌다. 9단계 이후의 규칙 번호는 17부터다.
 - 4단계: `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
 - 5단계: `category`는 받은 문자열 그대로 저장한다(key로 바꾸지 않음, `null`은 규칙 9대로 지움, `shared/sync-cases.json`의 category 케이스). 뜻은 아래 "카테고리".
 
@@ -439,7 +476,7 @@ Overview {
   - 전체 카드(두 탭 위): `You are owed €42.10 · $15.00`(`owedToMe`, 통화 코드순), `You owe €8.00`(`iOwe`), `≈ €61.20 overall`(홈 통화 H로 통화마다 `convertAmount(owedToMe − iOwe, …, crossRate(최신 표, c, H))`의 합. 환율이 하나라도 없으면 숨긴다).
   - `overviewProvider`는 로컬 그룹이 바뀔 때마다 모두 다시 계산한다(`ponytail:` 전체 재계산. 그룹이 수백 개면 그룹별 캐시).
   - 친구 페이지: 머리(사진, 통화별 net), 그룹별 줄(`byGroup`, 누르면 그 그룹. 친구 그룹 줄은 `Non-group`), 함께한 기록(아래), **Settle up**(위 "송금 기록·편집"), **Remind**(연결된 사람이 나에게 줄 돈이 있을 때) 또는 **Request**(자리표시), 자리표시 친구면 **Invite**(그 그룹의 `/j/` 링크), 더 보기에서 non-group 지출 CSV·JSON 내보내기.
-  - **함께한 기록**(7단계, parity #109 — Splitwise의 친구 화면): 그 사람과 함께 있는 모든 로컬 그룹의 지출·송금을 **그룹별 섹션**으로 보인다(앱만, 서버 변경 없음). 그룹은 `personOf`로 내 멤버와 그 사람의 멤버(removed 포함)가 둘 다 있는 그룹이다. 친구 그룹은 삭제 안 된 지출·송금 전부. 그 밖의 그룹은 삭제 안 된 지출 가운데 내 멤버 하나와 그 사람의 멤버 하나가 각각 `payers`나 `shares`에 0이 아닌 금액으로 있는 것, 그리고 삭제 안 된 송금 가운데 내 멤버와 그 사람의 멤버 사이(방향 무관)의 것. 섹션 순서: 친구 그룹(여럿이면 하나로 합침) `Non-group`이 먼저, 그다음 보통 그룹을 그 섹션의 가장 최근 행 날짜 내림차순(같으면 이름순). 섹션 머리는 그룹 이름이고 누르면 그 그룹. 섹션 안은 date 내림차순, 같으면 상태에서 나중 것 먼저. 행은 그룹 목록과 같은 읽기 전용 타일이고 누르면 지출 상세(`/groups/:id/expenses/:eid`)나 송금 상세(`/groups/:id/payments/:pid`)를 연다. 기록이 없고 친구 그룹이 있으면 `Nothing together yet. Add an expense below.`
+  - **함께한 기록**(7단계, parity #109 — Splitwise의 친구 화면): 그 사람과 함께 있는 모든 로컬 그룹의 지출·송금을 **그룹별 섹션**으로 보인다(앱만, 서버 변경 없음). 그룹은 `personOf`로 내 멤버와 그 사람의 멤버(removed 포함)가 둘 다 있는 그룹이다. 친구 그룹은 삭제 안 된 지출·송금 전부. 그 밖의 그룹은 삭제 안 된 지출 가운데 내 멤버 하나와 그 사람의 멤버 하나가 각각 `payers`나 `shares`에 0이 아닌 금액으로 있는 것, 그리고 삭제 안 된 송금 가운데 내 멤버와 그 사람의 멤버 사이(방향 무관)의 것. 섹션 순서: 친구 그룹(여럿이면 하나로 합침) `Non-group`이 먼저, 그다음 보통 그룹을 그 섹션의 가장 최근 행 날짜 내림차순(같으면 이름순). 섹션 머리는 그룹 이름이고 누르면 그 그룹. 섹션 안은 date 내림차순, 같으면 상태에서 나중 것 먼저. 행은 그룹 목록과 같은 읽기 전용 타일이고 누르면 지출 상세(`/groups/:id/expenses/:eid`)나 송금 상세(`/groups/:id/payments/:pid`)를 연다. 기록이 없고 친구 그룹이 있으면 `Nothing together yet. Add an expense below.` 8단계: 섹션마다 날짜가 바뀌는 곳에 그룹 목록과 같은 날짜 머리(`DateHeader`, `EEE, d MMM`)를 넣는다(친구 그룹 섹션과 공유 그룹 섹션 모두. 지금은 행에 날짜가 없다).
 
 ## 지출 옮기기 (6단계)
 편집 중 *With*(그룹 또는 친구)를 바꾸면 옮긴다. 온라인일 때만.
@@ -495,7 +532,7 @@ Overview {
 5. `attachments` 행 조회: 이 그룹의 행이면(붙었든 삭제됐든) 200이고 파일을 쓰지 않는다(처음 쓴 것이 이긴다. 재시도가 안전하다). 다른 그룹의 행이면 409 `DUPLICATE`.
 6. `Jpeg.clean(image, 4096)`, `Jpeg.clean(thumb, 1024)`(6단계와 같은 함수, 메타데이터 제거, 픽셀은 디코딩하지 않음) → 400 `NOT_JPEG` / 400 `IMAGE_TOO_LARGE`.
 7. 파일 두 개 `attachments/{groupId}/{attachmentId}.jpg`·`attachments/{groupId}/{attachmentId}_thumb.jpg`를 쓰고(`FileStore.write`), 그다음 행을 넣는다(`expense_id = NULL`, `uploaded_by` = 호출자). 동시에 같은 id가 들어와 `DuplicateKeyException`이면 5를 다시 본다(이 그룹이면 200, 다른 그룹이면 409). → 201.
-- 올린 행은 `attachment.added`가 올 때까지 어느 지출에도 붙지 않고 snapshot에 없다. 8단계의 하루 정리가 7일 동안 붙지 않은 올리기와 크래시로 남은 삭제된 행의 파일을 지운다.
+- 올린 행은 `attachment.added`가 올 때까지 어느 지출에도 붙지 않고 snapshot에 없다. 8단계의 하루 정리("반복 지출"의 "하루 정리")가 7일 동안 붙지 않은 올리기(행과 파일)와 크래시로 남은 삭제된 행의 파일을 지운다.
 
 **내려받기**: 그룹 없음 404, 멤버 아님 403(먼저 본다). 이 그룹의 행이 없거나(없는 id, 다른 그룹의 id), 삭제됐거나(`deleted_at`), 파일이 없으면 404 `NOT_FOUND`. 붙기 전의 올리기도 같은 그룹 멤버는 받는다. 헤더 `Content-Type: image/jpeg`, `Cache-Control: private, max-age=31536000, immutable`(한 id의 파일은 바뀌지 않는다), `X-Content-Type-Options: nosniff`. 언제나 API(Bearer 토큰)를 거친다.
 
@@ -536,9 +573,108 @@ SplitSpec mode `itemized`의 계산(parity #6·#7). 서버는 shares를 다시 �
 ## 7단계 오류 코드
 새 코드: `ATTACHMENT_NOT_UPLOADED`(400). 다시 쓰는 코드: `DUPLICATE`(409, 다른 그룹에 저장된 영수증 id — 지금은 `DuplicateKeyException`의 응답), `NOT_JPEG`·`IMAGE_TOO_LARGE`·`VALIDATION`·`UNKNOWN_MEMBER`(400), `FORBIDDEN`(403), `NOT_FOUND`(404), `LIMIT_EXCEEDED`(409), `TOO_LARGE`(413), `RATE_LIMITED`(429). 새 환경 변수는 없다(파일은 `EVENSIES_STORAGE_DIR` 아래).
 
+## 반복 지출 (8단계)
+월세·구독·매주 청소처럼 되풀이되는 지출은 **서버**가 더한다. 아무도 앱을 열지 않아도 제때 생긴다. 시리즈는 그룹의 엔티티이고 이벤트로 다닌다(`recurrence.*`, 위 "이벤트 종류와 payload", "반복 지출 검증", 적용 규칙 15·16). 서버가 더하는 반복 하나하나는 보통 `expense.created`이므로 잔액·내보내기·검색·활동은 그대로 동작한다. 친구 그룹(6단계)도 같다. 새 엔드포인트와 새 환경 변수는 없다.
+
+```
+RecurrenceDto {"id","frequency": "weekly"|"biweekly"|"monthly"|"yearly","startDate": "YYYY-MM-DD","timeZone": string,"template": {...},"deleted": bool}
+```
+
+**template** = 그 시리즈가 만들 `expense.created` payload에서 `expenseId`·`date`·`recurrenceId`·`occurrence`를 뺀 것(받은 JSON 그대로, 서버는 jsonb). 3단계 결제자·환불·분할 힌트(`split`, 7단계 itemized `bill` 포함), 2단계 메모, 4단계 통화·환율, 5단계 카테고리가 마이그레이션 없이 함께 간다. 반복은 template의 `shares`·`payers`를 그대로 쓴다: 서버는 분할을 다시 계산하지 않으므로(3단계 원칙) itemized 지출도 저장된 몫으로 되풀이된다. 영수증은 반복하지 않는다(지출의 필드가 아니라 `attachment.added`다).
+
+**날짜** (서버 `recurrence/Schedule.kt`, 앱 `domain/recurrence.dart`, `shared/recurrence-cases.json`):
+- `occurrenceDate(frequency, startDate, n)`: weekly = startDate + 7n일, biweekly = + 14n일, monthly = + n개월, yearly = + n년. 그 달에 없는 날은 그 달의 마지막 날(1/31 → 2/28 → 3/31 → 4/30, 2/29 → 다음 해 2/28). **언제나 startDate에서** 계산한다(이전 날짜에서 계산하면 31일이 28일로 굳는다). n = 0이 startDate(시리즈의 첫 지출). Kotlin은 `plusDays`·`plusMonths`·`plusYears`, Dart는 `DateTime.utc`만 쓰고 달의 마지막 날로 직접 자른다(로컬 시각으로 더하면 DST에서 하루가 밀리고 `DateTime(y, m + 1, 31)`은 다음 달로 넘친다. fixture가 둘 다 잡는다).
+- `firstOnOrAfter(frequency, startDate, date, minN = 1) → {n, date}` = n ≥ minN이고 `occurrenceDate(n) ≥ date`인 가장 작은 n(앱 이름 `firstOccurrenceOnOrAfter`). 0은 돌려주지 않는다(minN ≥ 1).
+- `dueAt(date, timeZone)`(서버만) = 그 날짜의 **09:00**을 시리즈의 `timeZone`에서 본 UTC 시각: `ZonedDateTime.of(date, LocalTime.of(9, 0), ZoneId.of(timeZone)).toInstant()`(그 시각이 DST 틈에 걸리면 `ZonedDateTime` 규칙대로 뒤로 민다).
+- `timeZone`: 앱은 기기의 지금 오프셋 `±HH:MM`(`core/ids.dart` `deviceTimeZone()` = `DateTime.now().timeZoneOffset`, UTC는 `+00:00`, 웹은 브라우저의 오프셋)을 보낸다. IANA 이름은 플러그인 없이 얻을 수 없어서다(새 의존성 없음). 그래서 DST가 바뀌면 올리는 시각만 한 시간 움직이고 날짜는 움직이지 않는다. 서버는 `ZoneId.of`가 받는 것(IANA 이름, `Z`, `±HH:MM` 등)을 모두 받는다. 시리즈마다 만든 사람의 시간대를 가지므로 계정 시간대 설정(parity #96)은 없다.
+
+**서버 저장** — Flyway `V10__recurrences.sql`:
+```sql
+-- Repeating expenses (Phase 8, docs/API.md "반복 지출").
+CREATE TABLE recurrences (
+    id              uuid PRIMARY KEY,
+    group_id        uuid NOT NULL REFERENCES groups (id),
+    frequency       text NOT NULL CHECK (frequency IN ('weekly', 'biweekly', 'monthly', 'yearly')),
+    start_date      date NOT NULL,
+    time_zone       text NOT NULL,
+    template        jsonb NOT NULL,
+    created_by      uuid REFERENCES users (id),
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    deleted_at      timestamptz,
+    next_occurrence int NOT NULL,          -- scheduler-owned, never sent to clients
+    next_due_at     timestamptz NOT NULL   -- scheduler-owned
+);
+CREATE INDEX recurrences_group_id ON recurrences (group_id);
+CREATE INDEX recurrences_due ON recurrences (next_due_at) WHERE deleted_at IS NULL;
+ALTER TABLE expenses
+    ADD COLUMN recurrence_id uuid REFERENCES recurrences (id),
+    ADD COLUMN occurrence    int CHECK (occurrence >= 0),
+    ADD CONSTRAINT expenses_series_pair CHECK ((recurrence_id IS NULL) = (occurrence IS NULL));
+```
+- `GroupState.recurrences: Map<String, RecurrenceDto>`(`RecurrenceDto(id, frequency, startDate, timeZone, template: JsonNode, deleted)`), `ExpenseDto.recurrenceId: String? = null`·`occurrence: Int? = null`(기본값이 이전 `events.meta`도 읽는다). `SnapshotDto.recurrences`. `load`는 `created_at, id` 순서로 읽는다.
+- `GroupStateStore.persist(groupId, actorUserId: UUID?, state, type, payload, createdAt: Instant)`: `recurrence.*`는 적용 뒤 상태의 그 시리즈를 `INSERT … ON CONFLICT (id) DO UPDATE SET template = EXCLUDED.template, deleted_at = CASE WHEN :deleted THEN COALESCE(recurrences.deleted_at, now()) ELSE NULL END WHERE recurrences.group_id = EXCLUDED.group_id`(0행이면 400 `VALIDATION`, 다른 그룹의 id. 상태에 없는 시리즈면 아무것도 안 한다). 지출 upsert는 `recurrence_id`·`occurrence`도 쓴다(같은 push에서 시리즈 행이 먼저 들어가므로 외래 키가 맞다. 정규화가 다른 그룹·없는 시리즈를 뺀다).
+- 처음 넣을 때만 스케줄러 칸을 정한다(위 `ON CONFLICT`는 건드리지 않는다): c = 그 `recurrence.created` 이벤트의 `createdAt`(앱 시계)을 [지금 − 30일, 지금]으로 자른 값, `next_occurrence = firstOnOrAfter(frequency, startDate, LocalDate.ofInstant(c, ZoneId.of(timeZone))).n`, `next_due_at = dueAt(occurrenceDate(next_occurrence), timeZone)`. 그래서 오프라인에서 만든 시리즈는 30일 안에 동기화되면 그 사이의 반복을 잃지 않고(이미 지난 `next_due_at`은 다음 tick에 올라간다), 틀린 시계가 반복을 한꺼번에 쏟아 내지 못한다. 만든 날보다 앞선 날짜는 채우지 않는다(startDate가 석 달 전이어도 첫 반복은 만든 날 이후. 앱의 `Next:` 줄이 보여 준다). 만든 날의 09:00이 이미 지났으면 그 반복은 다음 tick에 바로 올라간다.
+- 일정(`frequency`·`startDate`·`timeZone`)과 스케줄러 칸은 그 뒤 이벤트로 바뀌지 않는다. 일정을 바꾸려면 앱이 옛 시리즈를 멈추고 새 시리즈를 만든다(아래 "앱"). 멈춘 시리즈는 되살리지 않는다.
+
+**올리기** (`recurrence/RecurrenceScheduler.kt`: `@Scheduled(fixedDelay = 60_000) fun tick() = runDue(Instant.now())`, `@EnableScheduling`은 `EvensiesServerApplication`에. 새 의존성 없음):
+1. `SELECT id, group_id FROM recurrences WHERE deleted_at IS NULL AND next_due_at <= :now ORDER BY next_due_at LIMIT 200`.
+2. 행마다, 다음 반복이 due인 동안 하나씩(반복 하나 = 트랜잭션 하나):
+   1. 잠금 없이 행을 읽어 `n = next_occurrence`, `date = occurrenceDate(n)`. 환율 표 `FxService.rates(date)`를 **그룹 잠금 밖에서** 받는다(출처를 부르면 최대 10초. 4단계 캐시가 있으면 바로 답한다).
+   2. 트랜잭션: `groups.lockForUpdate(groupId)` → 행을 다시 읽는다. 멈췄거나 `next_due_at > now`이거나 `next_occurrence ≠ n`(다른 인스턴스가 이미 올림)이면 이 행은 끝.
+   3. `oid = UUID.nameUUIDFromBytes(HmacSHA256(key = EVENSIES_JWT_SECRET, "evensies:recurrence:{id}:{n}".toByteArray(UTF_8)))`(id는 소문자 표기, `RecurrenceScheduler.derivedId`)를 clientId와 expenseId로 쓴다. 이벤트 = `expense.created`, payload = template + `{"expenseId": oid, "date": date, "recurrenceId": id, "occurrence": n}`, `createdAt` = 그 행의 `next_due_at`.
+   4. **환율 갱신**: D = 그룹 기본 통화, c = template의 `currency`, r = template의 `fxRateToDefault`. c ≠ D이고 r이 0보다 큰 숫자이고 1의 표로 `crossRate(perEur, c, D)`가 있으면 payload의 `fxRateToDefault`를 그 값으로 바꾼다(앱이 새 지출에 채우는 그 날의 자동 환율과 같은 값: `perEur[D] / perEur[c]`를 유효숫자 6자리로, Kotlin `BigDecimal(x).round(MathContext(6, RoundingMode.HALF_UP)).toDouble()` = Dart `double.parse(x.toStringAsPrecision(6))`, `shared/recurrence-cases.json` kind=crossRate). 아니면 template 값 그대로: `null`·`0`(사용자가 고른 "Not converted")은 그대로, 표가 없으면 template의 이전 환율. template 자체는 바꾸지 않는다.
+   5. `EventValidator.validateAll(state, actorUserId = null, [event])`(정규화 포함), 그다음 push 핵심(아래 "시스템 actor")으로 저장한다. 이미 있는 clientId면 저장 없이 넘어간다(멱등).
+   6. `next_occurrence = n + 1`, `next_due_at = dueAt(occurrenceDate(n + 1), timeZone)`. 커밋.
+   7. 커밋한 **뒤**, 새로 저장된 이벤트가 있으면 `PushNotifier.notify(groupId, actorUserId = null, stored)`.
+3. 검증이나 저장이 실패하면(버그나 DB 문제(잠금 시간 초과·연결 끊김)로만 가능: template은 저장할 때 지출로 검사했다) 그 트랜잭션은 롤백하고 WARN 로그, 새 트랜잭션에서 `UPDATE recurrences SET next_due_at = now + 1시간 WHERE id = :id AND next_occurrence = :n`(1에서 읽은 n)만 한다. 그 반복은 미뤄지고 다른 시리즈는 계속된다. 그사이 다른 인스턴스가 n을 올렸으면 0행이라 그 인스턴스가 정한 다음 due를 덮지 않는다.
+- 안전: 그룹 잠금을 먼저 잡고 행을 다시 읽으므로 동시에 온 멈춤·수정(같은 잠금을 잡는 push)을 언제나 본다. 크래시·재시도·두 번째 인스턴스는 같은 파생 clientId로 `UNIQUE(group_id, client_id)`에 막힌다. 서버가 멈춰 있던 동안의 반복은 다음 tick에 순서대로 모두 올린다(30일 자르기는 시리즈를 처음 넣을 때만).
+- 파생 id는 서버만 만든다. 앱은 0보다 큰 `occurrence`를 보낼 수 없으므로 두 오프라인 폰이 같은 반복을 만들 수 없다. 서버 비밀로 키를 걸므로 시리즈 id를 아는 사람(옛 멤버 포함)도 다음 반복의 id를 알 수 없다: 키가 없으면 미리 그 id로 다른 그룹에 지출을 넣거나(지출 id는 전역 PK라 반복이 400으로 영원히 미뤄진다) 그 clientId로 이벤트를 넣어(반복이 조용히 건너뛰어진다) 시리즈를 멈출 수 있다. 한 번만 올리기는 그룹 잠금·행 다시 읽기·같은 트랜잭션의 advance가 보장하고 파생 id는 뒷받침일 뿐이므로, 비밀을 바꿔도 문제없다.
+- `ponytail:` 반복마다 `stateStore.load` 한 번. 따라잡을 반복이 많아지면 그룹별로 묶는다.
+- 테스트는 2031년 이후 날짜를 써서 실제 tick이 건드리지 않게 하고 `runDue(Instant)`를 직접 부른다(실제 tick이 먼저 올려도 결과는 같다: 반복마다 이벤트 하나).
+
+**시스템 actor**: 스케줄러의 이벤트에는 사용자가 없다(`null` = Evensies). `EventService`의 push 핵심, `GroupStateStore.persist`, `EventValidator.validateAll`, `Activity.meta`, `PushNotifier.notify`가 `null` 사용자를 받는다. 저장된 이벤트는 `actor_user_id NULL`(pull `"actorUserId": null`), 지출 행은 `created_by NULL`. 멤버 검사와 사용자당 속도 제한(분당 120)은 건너뛴다. pull되는 `createdAt`은 `dueAt`이고, 활동의 `createdAt`(`received_at`)은 실제로 저장한 시각이다. 활동은 `expense_repeated`(위 "피드"), 푸시는 모든 연결 멤버(위 "푸시").
+
+**하루 정리** (`storage/Sweep.kt`, `@Scheduled(cron = "0 30 3 * * *")`, 서버 시계. 7단계의 남은 일):
+1. `DELETE FROM attachments WHERE expense_id IS NULL AND created_at < now() - interval '7 days' RETURNING id, group_id`: 7일 동안 어느 지출에도 붙지 않은 올리기(거부된 `attachment.added`, 올린 뒤 앱이 사라짐). 지운 행마다 두 파일(`AttachmentController.keys`)을 지운다. 행을 먼저 지우므로 그 사이에 붙을 수 없다(붙은 행은 조건에서 빠진다). 7일인 이유: 올리기와 그 `attachment.added` push 사이에 연결이 끊긴 폰이 며칠 오프라인이어도 영수증을 잃지 않게(그 뒤의 `attachment.added`는 400 `ATTACHMENT_NOT_UPLOADED`).
+2. `deleted_at`이 있는 행의 두 파일을 지운다(커밋과 파일 삭제 사이의 크래시로 남은 것. 없는 파일은 아무것도 안 한다). `ponytail:` 삭제된 행 전부를 매일 본다. 수십만 행이 되면 최근 7일로 좁힌다.
+- 파일 삭제가 실패하면 WARN 로그만 남긴다(2는 다음 날 다시 본다. 1의 파일은 고아로 남는다 — `ponytail:` 문제가 되면 디렉터리를 훑는다). 10단계가 같은 정리에 표지 파일을 더한다.
+
+**상한**: 그룹당 멈추지 않은 시리즈 100(abuse cap, 409 `LIMIT_EXCEEDED`). 그 밖에는 무료·무제한이다.
+
+**앱**
+- 모델(`domain/models.dart`): `Recurrence {id, frequency, startDate, timeZone, Map<String, dynamic> template, deleted}`와 JSON. `Expense.recurrenceId`·`occurrence`(null 허용, `copyWith`에 `clearRecurrence`). `GroupState.recurrences`(기본 `[]`)와 `recurrence(id)`. `GroupState.fromJson`(snapshot·sync-cases `expected`)은 없는 `recurrences`를 `[]`로 읽는다.
+- 적용기: `EventTypes`에 세 type, `applyEvent`에 규칙 15·16.
+- drift schemaVersion **9**: `Recurrences` 표(`id` PK, `groupId`, `frequency`, `startDate`, `timeZone`, `templateJson`, `deleted` 기본 `false`. 순서 = rowid), `Expenses.recurrenceId`(text null)·`Expenses.occurrence`(int null). `onUpgrade`(`from < 9`)는 표·칸을 더하고 lastSeq를 0으로 되돌린다(위 "호환(8단계)"). `GroupStateStore`·`adoptFromSnapshot`·`deleteGroupData`가 시리즈를 다룬다. `unsentOutbox`는 이미 `createdAt` 다음 `rowid` 순서다(7단계): 같은 트랜잭션의 `recurrence.created`가 언제나 그 지출보다 먼저 간다(뒤집히면 정규화가 시리즈 표시를 뺀다).
+- `expenseCreatedPayload(e)`는 언제나 `recurrenceId`·`occurrence`를 넣는다(없으면 둘 다 `null`). `templateOf(e)` = 그 payload에서 `expenseId`·`date`·`recurrenceId`·`occurrence`를 뺀 것.
+- 로컬 쓰기(`local_writes.dart`, 각각 한 로컬 트랜잭션 + outbox):
+  - `createExpense(groupId, e, {String? repeat})`: `repeat`이 있으면 시리즈 행(새 id, `startDate = e.date`, `timeZone = deviceTimeZone()`, `template = templateOf(e)`)과 `recurrenceId`·`occurrence: 0`인 지출. outbox는 `recurrence.created` 다음 `expense.created`.
+  - `updateRecurrence(groupId, id, fields)`: 로컬 template에 키 단위로 합치고 `recurrence.updated`.
+  - `stopRecurrence(groupId, id)`: 로컬 `deleted = true`, `recurrence.deleted`.
+  - `repeatFrom(groupId, e, frequency, {String? stop})`: `stop`이 있으면 그 시리즈의 `recurrence.deleted`, 그다음 새 `recurrence.created`(`startDate = e.date`, `template = templateOf(e)`), 그다음 `expense.updated {…바뀐 필드, "recurrenceId": 새 id, "occurrence": 0}`.
+- 용어: 시리즈의 **마지막 반복** = 그 `recurrenceId`의 삭제 안 된 지출 가운데 `occurrence`가 가장 큰 것. `lastPosted` = 그 시리즈 지출(삭제된 것 포함)의 `occurrence` 최댓값. **활성 시리즈** = 상태에 있고 `deleted`가 아닌 시리즈.
+- 지출 폼: 날짜 옆 **Repeat** 드롭다운 Never / Every week / Every 2 weeks / Every month / Every year(= `weekly`·`biweekly`·`monthly`·`yearly`). Never가 아니면 `Next: Sun, 1 Nov 2026`(`DateFormat('EEE, d MMM yyyy')`, `firstOccurrenceOnOrAfter(frequency, startDate, todayIso(), minN: lastPosted + 1)`. 새 지출은 startDate = 폼의 날짜, lastPosted = 0). 저장한 지출이 시리즈의 첫 번째(`occurrence: 0`).
+  - 활성 시리즈의 마지막 반복: **Also change future repeats** 체크 상자(기본 체크). 저장하면:
+    - Repeat → Never: `stopRecurrence` + (바뀐 필드가 있으면) `updateExpense`.
+    - Repeat가 바뀜(체크 상자와 상관없이. 그동안 체크 상자는 숨는다), 또는 체크했고 날짜가 바뀜: `repeatFrom(…, stop: 옛 id)`(일정을 이 지출부터 다시 시작). 체크 상자는 Repeat가 그대로일 때 날짜와 필드를 앞으로 가져갈지만 정한다.
+    - 체크, 그 밖: `updateExpense` + `updateRecurrence(같은 바뀐 필드에서 date를 뺀 것)`(남는 것이 없으면 보내지 않는다).
+    - 체크 안 함: `updateExpense`만.
+  - 활성 시리즈의 마지막이 아닌 반복: Repeat는 꺼진 채 `To change future repeats, edit the latest one (1 Oct)`(`d MMM`, 마지막 반복의 날짜).
+  - 시리즈가 없거나 멈춘 시리즈의 지출: Repeat는 Never에서 시작하고, 고르면 저장할 때 `repeatFrom(…)`(stop 없음, 새 시리즈).
+  - 활성 시리즈 지출의 Delete: Cancel / Delete this one / **Delete and stop repeating**(`expense.deleted` + `recurrence.deleted`, 한 트랜잭션).
+- Expenses 탭: 활성 시리즈의 지출에 `Icons.repeat`.
+- 지출 상세: 활성 시리즈의 지출은 날짜 줄 끝에 `Repeats monthly`(빈도 단어는 활동과 같다). 마지막 반복이면 `· next Sun, 1 Nov 2026`(위 `Next:`와 같은 계산), template의 금액·통화가 이 지출과 다르면 `· next €1,300.00 on Sun, 1 Nov 2026`.
+- Members 화면: 활성 시리즈의 template(`payers`나 `shares`에 0보다 큰 금액)에 있는 멤버를 빼려 하면 한 줄을 더한다: `Ben is still in 2 repeating expenses (Rent, Netflix); they keep Ben's share until you edit the latest one.`(이름은 시리즈를 만든 순서로 최대 3개, 그 뒤는 `and N more`. removed 멤버도 멤버라 서버는 그대로 받고 반복은 그 몫으로 생긴다).
+- 옮기기(6단계): `remapForMove`는 `recurrenceId`·`occurrence`를 버린다(대상의 새 지출은 시리즈 없음). 시리즈는 원래 그룹에 남는다.
+- 오프라인: 만들기·고치기·멈추기는 오프라인에서도 된다. 첫 번째 뒤의 반복은 서버만 만든다(동기화하면 pull로 온다).
+
+**일부러 뺀 것**: 만들 때 지난 날짜 채우기(`Next:` 줄이 첫 반복을 보여 준다), 사용자 정의 간격·끝나는 날·평일만(Splitwise에도 없다), "Repeating expenses" 목록 화면, 오프라인 멈춤이 닿기 전에 올라간 반복 지우기(기기 시계를 믿어야 한다), 두 사람이 모두 오프라인에서 한 시리즈의 일정을 바꾸면 시리즈가 둘이 된다(클라이언트가 만든 파생 id는 로컬 사본을 서버와 어긋나게 한다). 반복 전 이메일 알림(`remindDaysBefore`)은 10단계가 이 스케줄러 위에 더한다.
+
+## 8단계 오류 코드
+새 코드는 없다. 다시 쓰는 코드: `VALIDATION`(400), `LIMIT_EXCEEDED`(409, 그룹당 시리즈 100), template 검사의 지출 코드(`SUM_MISMATCH`·`PAYERS_SUM_MISMATCH`·`NEGATIVE_AMOUNT`·`UNKNOWN_MEMBER`·`UNKNOWN_CURRENCY`, 400). 이전 서버는 `recurrence.*`에 `UNKNOWN_TYPE`(400). 새 환경 변수는 없다.
+
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
-- `GET /groups/{id}/export?format=zip`(7단계, Settings → Export의 `ZIP with receipts`) → 200 `application/zip`, `Content-Disposition: attachment; filename="evensies-{id}.zip"`. 항목: `group.json`(= `format=json`의 본문, `attachments` 포함)과 삭제 안 된 영수증마다 `receipts/{attachmentId}.jpg`(큰 사진. 붙은 지출이 삭제됐어도 넣는다. 파일이 없으면 건너뛴다). 요청 스레드에서 응답 스트림에 바로 쓰는 `ZipOutputStream`이고(`StreamingResponseBody`의 비동기 디스패치는 상태 없는 JWT 필터가 다시 인증하지 않아 403으로 끊긴다) 멤버 검사(404·403)는 쓰기 전에 해서 보통 오류 본문으로 답한다. `format`이 `json`·`csv`·`zip`이 아니면 400 `VALIDATION`. CSV와 JSON은 바뀌지 않는다(JSON에 `attachments`·`replaced`가 더해질 뿐).
+- `GET /groups/{id}/export?format=zip`(7단계, Settings → Export의 `ZIP with receipts`) → 200 `application/zip`, `Content-Disposition: attachment; filename="evensies-{id}.zip"`. 항목: `group.json`(= `format=json`의 본문, `attachments` 포함)과 삭제 안 된 영수증마다 `receipts/{attachmentId}.jpg`(큰 사진. 붙은 지출이 삭제됐어도 넣는다. 파일이 없으면 건너뛴다). 요청 스레드에서 응답 스트림에 바로 쓰는 `ZipOutputStream`이고(`StreamingResponseBody`의 비동기 디스패치는 상태 없는 JWT 필터가 다시 인증하지 않아 403으로 끊긴다) 멤버 검사(404·403)는 쓰기 전에 해서 보통 오류 본문으로 답한다. `format`이 `json`·`csv`·`zip`이 아니면 400 `VALIDATION`. CSV와 JSON은 바뀌지 않는다(JSON에 `attachments`·`replaced`가 더해질 뿐). 8단계: JSON(그래서 ZIP의 `group.json`도)에 `recurrences`와 지출의 `recurrenceId`·`occurrence`가 더해진다(= snapshot). CSV는 그대로다(반복도 보통 지출 행).
 - `POST /groups/{id}/import/splitwise` multipart `file` (Splitwise CSV: `Date,Description,Category,Cost,Currency,<이름>...`). 서버가 이름을 그룹 멤버와 매칭(없으면 자리표시 멤버 생성)하고 `expense.created` 이벤트로 변환. 응답 `{"imported": n, "latestSeq"}`.
   - 이름 칸은 그 행에서 그 사람의 순액(낸 돈 − 부담)이다. 순액이 양수인 사람은 모두 그 순액만큼 낸다. 순액이 가장 큰 사람(같으면 memberId가 가장 작은 사람)은 남는 금액 `s = Cost − Σ 양수 순액`도 내고 `Cost − Σ 다른 사람들의 부담`을 부담한다(순액의 합이 0이면 `s`와 같고, 합이 0이 아닌 행도 몫의 합이 Cost가 된다). 순액이 음수인 사람은 `−순액`을 부담한다. `s < 0`이거나 그 부담이 음수면 400 `IMPORT_FAILED`. 0인 결제자·몫은 넣지 않는다. 결제자가 둘 이상이면 `payers`를 넣는다(`paidBy`는 주요 결제자). 예: Cost 100.00, Anna +26.66, Ben +6.67, Cara −33.33 → payers Anna 93.33·Ben 6.67, shares Cara 33.33·Anna 66.67. 양수 순액이 하나인 행은 지금과 같게 들어온다. Cost가 음수인 환불 행은 아직 가져오지 않는다.
   - `Category` 칸(5단계): trim한 값의 `Categories.keyForLabel`(아래 "카테고리")이 있으면 그 key, 없으면 trim한 원문(빈 칸·칸 없음은 `null`). `Dining out` → `food.dining_out`, `General` → `uncategorized.general`, `Entertainment - Other` → `entertainment.other`, `Other`·`Food` → 원문 그대로.
@@ -559,6 +695,7 @@ ActivityPage {"items": [ActivityItem], "nextBefore": number|null}
 ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
               "memberId","expenseId","commentId","paymentId",
               "name","description","amount","currency","fromMember","toMember","status","myDelta","refund","text",
+              "recurrenceId","frequency",
               "changes": [{"field","from","to"}]}
 ```
 - `expenseId`(5단계, 지출의 편집 기록): payload의 `expenseId` 문자열이 그 값과 같은 이벤트만 본다(`expense.*`, `comment.added`, 7단계 `attachment.*` — `attachment.deleted`는 서버가 정규화해 넣은 `expenseId`, 위 "이벤트 종류와 payload"). UUID가 아니면 400 `VALIDATION`. 빈 값(`expenseId=`)은 없는 것으로 본다(필터 없음, `limit` 등과 같은 방식). 비교는 문자열 그대로이고 파라미터는 소문자 표기로 바꿔 비교한다(앱은 id를 소문자로 만든다). 그룹에 없는 지출(아직 push되지 않은 것 포함)이면 404가 아니라 빈 페이지 `{"items": [], "nextBefore": null}`. `before`·`limit`·`nextBefore`·숨김 규칙은 그대로이고 `limit`은 걸러진 이벤트 수로 센다(SQL `AND payload->>'expenseId' = :expenseId`). `GET /activity`(전체 피드)에는 없다(보내도 무시). `ponytail:` 그룹 이벤트를 훑는다. 한 그룹이 5만 이벤트쯤 넘으면 `(group_id, (payload->>'expenseId'))` 식 인덱스를 더한다.
@@ -578,7 +715,8 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `member_removed` | `member.removed`(빠지는 멤버가 보낸 사용자의 멤버가 아님) | `memberId` |
 | `member_left` | `member.removed`(직전 상태에서 `members[memberId].userId == actorUserId` — 그룹 나가기). 이때 `actorMemberId`는 언제나 그 `memberId`다(나갔다 다시 들어와 또 나간 사용자의 이전 멤버가 아님) | `memberId` |
 | `friend_added` | 친구 그룹(6단계)의 `member.added`(seq 2 제외 — 친구 그룹에서는 seq 3 하나뿐, 상대가 연결 사용자든 자리표시든) | `memberId` |
-| `expense_added` | `expense.created` | `expenseId`, `description`, `amount`, `currency`, `myDelta`, `refund`(환불이면 `true`, 아니면 `null`) |
+| `expense_added` | `expense.created`(아래 `expense_repeated`가 아닌 것) | `expenseId`, `description`, `amount`, `currency`, `myDelta`, `refund`(환불이면 `true`, 아니면 `null`) |
+| `expense_repeated` | `actorUserId`가 null이고 payload `recurrenceId`가 문자열인 `expense.created`(8단계, 서버 스케줄러가 올린 반복) | `expense_added`와 같음 + `frequency`. `actorMemberId`는 언제나 `null` |
 | `expense_updated` | `expense.updated` | 위와 같음 + `changes` |
 | `expense_deleted` | `expense.deleted`(`movedTo` 없음·`null`) | `expenseId`, `description`, `amount`, `currency`, `myDelta` |
 | `expense_restored` | `expense.restored` | `expenseId`, `description`, `amount`, `currency`, `myDelta` |
@@ -591,19 +729,25 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `payment_restored` | `payment.restored`(7단계) | 위와 같음 |
 | `receipt_added` | `attachment.added`(7단계) | `expenseId`, `description`(그 영수증이 붙은 지출의 직후 값) |
 | `receipt_removed` | `attachment.deleted`(7단계) | 위와 같음 |
+| `recurrence_created` | `recurrence.created`(8단계) | `recurrenceId`, `frequency`, `description`·`amount`·`currency`(적용 직후 template의 값) |
+| `recurrence_updated` | `recurrence.updated`(8단계) | 위와 같음 + `changes` |
+| `recurrence_deleted` | `recurrence.deleted`(8단계) | 위와 같음(멈출 때의 template) |
+
+- `recurrenceId`(8단계): `recurrence_*`는 그 시리즈, `expense_*`(`expense_repeated` 포함)는 적용 직후 지출의 `recurrenceId`(없으면 `null`. 묶음 규칙이 쓴다). `frequency`는 `expense_repeated`와 `recurrence_*`만(그 시리즈의 값), 그 밖은 `null`.
 
 값을 정하는 규칙:
 - `actorMemberId`: 이벤트의 `actorUserId`에 연결된 멤버. 이벤트 적용 **직후** 상태에서 찾고, 없으면 같은 push 배치를 모두 적용한 상태에서 찾는다(그래서 seq 1 `group.created`의 actor는 seq 2에서 추가된 만든 사람). 그래도 없으면 `null`.
 - 지출 필드(`description`, `amount`, `currency`)는 이벤트 적용 직후의 그 지출 값(`expense_deleted`는 삭제 직전과 같은 값). `receipt_*`(7단계)는 그 영수증이 붙은 지출(적용 직후 상태의 `attachments[attachmentId].expenseId`)의 `expenseId`·`description`만 채운다. `comment_added`의 `description`도 댓글이 달린 시점의 지출 설명이다. 송금 필드도 적용 직후의 송금 값(`status` 포함).
-- `myDelta`: 보는 사람(호출자의 그 그룹 멤버)에게 이 지출이 주는 잔액 변화, 적용 직후 값으로 `sign × ((payers의 내 금액, 없으면 0) − (내 share, 없으면 0))`, `sign = refund ? −1 : +1`, `currency`의 최소 단위. 내가 `payers`에도 `shares`에도 없으면 `null`.
-- `changes`(`expense_updated`): 직전 값과 직후 값이 다른 필드 전부(규칙 10 때문에 `fields`에 없는 `payers`·`paidBy`·`split`도 바뀔 수 있다), 단 결제자는 하나만: 직전·직후 모두 결제자가 한 명이면 `payers`는 넣지 않고(`amount`·`paidBy` 수정을 따라 바뀐 것), 어느 한쪽이라도 여럿이면 `paidBy`를 넣지 않는다(`payers`에서 정해진 주요 결제자라 동점이나 작은 금액 수정으로도 뒤집힌다). 순서 `description, amount, currency, fxRateToDefault, paidBy, payers, refund, date, category, shares, split, notes`. `from`/`to`는 직전/직후 값이고 `payers`·`shares`·`split`·`notes`는 둘 다 `null`(목록에는 이름으로만 나온다), `refund`는 boolean. `group_updated`는 `name, defaultCurrency, simplifyDebts, defaultSplit` 순서이고 `simplifyDebts`는 boolean, `defaultSplit`은 둘 다 `null`. 규칙 12로 무시된 `defaultCurrency`는 바뀐 것이 아니다.
+- `myDelta`(지출 kind, 8단계 `expense_repeated` 포함. `recurrence_*`는 `null`): 보는 사람(호출자의 그 그룹 멤버)에게 이 지출이 주는 잔액 변화, 적용 직후 값으로 `sign × ((payers의 내 금액, 없으면 0) − (내 share, 없으면 0))`, `sign = refund ? −1 : +1`, `currency`의 최소 단위. 내가 `payers`에도 `shares`에도 없으면 `null`.
+- `changes`(`expense_updated`): 직전 값과 직후 값이 다른 필드 전부(규칙 10 때문에 `fields`에 없는 `payers`·`paidBy`·`split`도 바뀔 수 있다), 단 결제자는 하나만: 직전·직후 모두 결제자가 한 명이면 `payers`는 넣지 않고(`amount`·`paidBy` 수정을 따라 바뀐 것), 어느 한쪽이라도 여럿이면 `paidBy`를 넣지 않는다(`payers`에서 정해진 주요 결제자라 동점이나 작은 금액 수정으로도 뒤집힌다). 순서 `description, amount, currency, fxRateToDefault, paidBy, payers, refund, date, category, shares, split, notes`. `from`/`to`는 직전/직후 값이고 `payers`·`shares`·`split`·`notes`는 둘 다 `null`(목록에는 이름으로만 나온다), `refund`는 boolean. `recurrence_updated`(8단계)는 직전·직후 template을 각각 지출로 읽은 값(`expense.created`처럼 적용, id·date는 아무것이나 같게)으로 `expense_updated`와 같은 규칙·순서·`from`/`to`로 만든다(template에 `date`는 없다). `group_updated`는 `name, defaultCurrency, simplifyDebts, defaultSplit` 순서이고 `simplifyDebts`는 boolean, `defaultSplit`은 둘 다 `null`. 규칙 12로 무시된 `defaultCurrency`는 바뀐 것이 아니다.
 - 숨김(항목을 만들지 않고 푸시도 없음):
-  1. 적용기가 상태를 바꾸지 않은 이벤트 — 이미 있는 id의 `created`·`added`, 삭제된 지출의 `updated`, 같은 값으로의 `updated`, 삭제 안 된 지출이나 옮긴 지출(규칙 13)의 `restored`, 없거나 삭제된 송금의 `confirmed` 등. 7단계: 이미 있는 id나 없는 지출의 `attachment.added`, 없거나 이미 삭제된 영수증의 `attachment.deleted`, 삭제 안 된·없는·편집으로 바뀐(`replaced`) 송금의 `payment.restored`.
+  1. 적용기가 상태를 바꾸지 않은 이벤트 — 이미 있는 id의 `created`·`added`, 삭제된 지출의 `updated`, 같은 값으로의 `updated`, 삭제 안 된 지출이나 옮긴 지출(규칙 13)의 `restored`, 없거나 삭제된 송금의 `confirmed` 등. 7단계: 이미 있는 id나 없는 지출의 `attachment.added`, 없거나 이미 삭제된 영수증의 `attachment.deleted`, 삭제 안 된·없는·편집으로 바뀐(`replaced`) 송금의 `payment.restored`. 8단계: 이미 있는 id의 `recurrence.created`, 없거나 멈춘 시리즈의 `recurrence.updated`·`recurrence.deleted`.
   2. seq 2의 `member.added`(POST /groups·POST /friends가 만든 사람 자신을 넣는 이벤트. `group_created`와 겹친다).
   3. `comment.deleted`.
   4. 모르는 type.
   5. 댓글이 **지금** 삭제되어 있는 `comment_added`(삭제하면 글이 피드와 아직 묶여 있던 푸시에서 빠진다. 같은 push에서 쓰고 지운 댓글은 알리지 않는다). 이것만 현재 상태를 보므로 `shared/activity-cases.json`(이벤트 시점 규칙)에는 없고 서버 테스트가 검증한다.
   6. 친구 그룹의 seq 1 `group.created`(6단계. seq 2는 2로 이미 숨김). 서버는 이벤트 적용 직후 상태의 `kind == "friend"`를 `EventMeta.friend`(이전 meta는 `false` — 친구 그룹은 6단계부터 있다)에 기록하고 6과 `friend_added`를 그것으로 정한다. 그래서 검증기·`Activity.meta`·푸시 제목이 모두 `state.kind`(= `groups.kind`) 하나를 본다.
+  7. `changes`가 빈 `expense_updated`·`recurrence_updated`(8단계: 시리즈 표시 `recurrenceId`·`occurrence`만 바뀐 수정 — 일정을 바꿀 때 지출을 새 시리즈에 다시 붙이는 것. `changes`는 표시를 보지 않는다. template의 지출 필드가 아닌 키만 바뀐 `recurrence.updated`도).
 - 서버는 push 트랜잭션 안에서 이벤트마다 직전·직후 상태를 알고 있으므로 피드에 필요한 값(actorMemberId, 대상 지출·송금의 직전·직후 값, 상태 변화 여부)을 이벤트 행의 `meta`(서버 내부, pull에 없음)에 기록하고 피드는 그것만 읽는다. 이 기능 이전에 저장된 이벤트는 서버가 시작할 때 그룹 로그를 seq 1부터 다시 적용해 `meta`를 채운다.
 
 ### 문장 (영어, 앱 목록·서버 푸시 공통)
@@ -634,19 +778,26 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `payment_restored` | `{A} restored a payment of {M(amount)} from {from} to {to}` (7단계) |
 | `receipt_added` | `{A} added a receipt to “{description}”` (7단계) |
 | `receipt_removed` | `{A} removed a receipt from “{description}”` (7단계) |
+| `expense_repeated` | `“{description}” · {M(amount)} was added (repeats {frequency})` + `expense_added`와 같은 꼬리(` · you owe …`/` · you lent …`). `refund`면 `A refund “{description}” · {M(amount)} was added (repeats {frequency})`이고 `> 0`은 ` · you get back …` (8단계, actor는 쓰지 않는다) |
+| `recurrence_created` | `{A} set “{description}” to repeat {frequency}` (8단계) |
+| `recurrence_updated` | `{A} changed future “{description}”: {변경들}` (8단계, 변경 표기는 `expense_updated`와 같다) |
+| `recurrence_deleted` | `{A} stopped “{description}” repeating` (8단계) |
+
+`{frequency}`(8단계): `weekly` → `weekly`, `biweekly` → `every 2 weeks`, `monthly` → `monthly`, `yearly` → `yearly`(9단계가 번역한다).
 
 `expense_updated`의 변경 표기: `description` → `description “{from}” → “{to}”` · `amount` → `{M(from)} → {M(to)}`(from은 `currency` 변경이 있으면 그 `from` 통화로, 없으면 `currency`로 표기) · `currency` → `currency {from} → {to}` · `fxRateToDefault` → `exchange rate` · `paidBy` → `paid by {from 이름} → {to 이름}` · `payers` → `payers` · `refund` → `refund on`/`refund off`(`to` 값) · `date` → `date {from} → {to}`(YYYY-MM-DD 그대로) · `category` → `category {from 이름} → {to 이름}`(이름은 앱이 그 저장 값을 보여 주는 이름(`labelOf`): `categories[]` key·한 번만 나오는 label이면 그 label, `*.other`는 `{부모 label} - Other`, `null`·legacy는 `General`. 서버는 `Categories.label(Categories.keyForLabel(v)) ?: "General"`. 두 이름이 같으면(`null` → `uncategorized.general` 등) 그냥 `category`) · `shares` → `split`(단, `amount`도 바뀌었으면 생략 — 금액이 바뀌면 분할은 늘 바뀐다) · `split` → `split`(단, `shares`나 `amount`도 바뀌었으면 생략) · `notes` → `notes`.
 
 ### 푸시
-- 이벤트가 **새로 저장된** push가 커밋되면(clientId 중복만 있는 재시도는 알림 없음) 그룹의 연결된·removed 아닌 멤버 가운데 **보낸 사용자가 아닌** 사용자의 기기(FCM 토큰 있는)로 보낸다. 내 변경은 내 기기에 알리지 않는다(지금과 같음).
-- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`(7단계 `payment_restored` 포함)·`receipt_*`(7단계), `comments` = `comment_added`(송금 댓글 포함), `members` = `member_*`(`member_left` 포함)·`friend_added`(6단계)·`group_updated`.
+- 이벤트가 **새로 저장된** push가 커밋되면(clientId 중복만 있는 재시도는 알림 없음) 그룹의 연결된·removed 아닌 멤버 가운데 **보낸 사용자가 아닌** 사용자의 기기(FCM 토큰 있는)로 보낸다. 내 변경은 내 기기에 알리지 않는다(지금과 같음). 8단계: 스케줄러가 올린 반복은 보낸 사용자가 없으므로 모든 연결 멤버(시리즈를 만든 사람 포함)에게 간다. 읽지 않은 활동도 그것을 센다(`actor_user_id IS DISTINCT FROM`).
+- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`(7단계 `payment_restored` 포함)·`receipt_*`(7단계)·`recurrence_*`(8단계, `expense_repeated`는 `expense_*`), `comments` = `comment_added`(송금 댓글 포함), `members` = `member_*`(`member_left` 포함)·`friend_added`(6단계)·`group_updated`.
 - 남은 항목이 있으면 **표시 알림**(FCM notification + data): title = 그룹 이름(보낼 때의 이름. 친구 그룹(6단계)이면 수신자의 멤버가 아닌 쪽 멤버의 이름), body = 항목이 1개면 그 문장, 2개 이상이면 묶음 문장. 표시 알림에는 수신자의 그때 읽지 않은 수 `total`을 배지로 넣는다(6단계, 아래 "읽지 않은 활동").
 - 묶음: 수신자·그룹마다 마지막 표시 알림 뒤 `EVENSIES_PUSH_BATCH_SECONDS`(기본 30)초 안에 생긴 항목은 바로 보내지 않고 모아 두었다가, 그 시간이 지나는 순간 모은 항목 전부를 표시 알림 하나로 보낸다. 서버 메모리에만 두므로 재시작하면 모은 항목은 버려진다.
 - 표시 알림을 보내지 않는 push(남은 항목 없음, 알림 꺼짐, 묶는 중)에도 **data만 있는 메시지**는 바로 보낸다(동기화용, 지금과 같음).
 - 그룹 이벤트 알림의 data는 언제나 `{"type":"sync","groupId":"...","seq":"<보낼 때의 latestSeq>"}`(FCM data 값은 문자열). 6단계 리마인더는 `{"type":"remind","fromUserId"}`(아래 "리마인더"). 앱은 모르는 `groupId`의 sync를 받으면(새 친구 그룹) `syncAll()`을 한다.
+- 8단계: 표시 알림의 항목에서 같은 묶음에 같은 `recurrenceId`이고 **같은 `actorMemberId`**인 `expense_*` 항목이 있는 `recurrence_*` 항목도 먼저 뺀다(짝은 언제나 한 사람의 한 저장에서 나온다. 30초 묶음에 다른 사람의 멈춤이나 Evensies의 반복(actor 없음)이 같이 있으면 둘 다 남는다. 반복 지출 만들기 `recurrence_created` + `expense_added`, 마지막 반복을 미래까지 고치기 `expense_updated` + `recurrence_updated`, 지우고 멈추기 `expense_deleted` + `recurrence_deleted`가 각각 지출의 문장 하나. `shared/activity-cases.json`의 `batches`). 피드에서는 빼지 않는다.
 - 7단계: 표시 알림의 항목에서 같은 묶음에 같은 `expenseId`의 `expense_added`가 있는 `receipt_added`는 먼저 뺀다(영수증을 붙여 새 지출을 저장하면 그 지출의 문장 하나. `shared/activity-cases.json`의 `batches`). 피드에서는 빼지 않는다.
-- 묶음 문장(항목 2개 이상, 수신자는 actor가 아니므로 `You`는 나오지 않는다): 모든 항목의 `actorMemberId`가 같고 모두 `expense_added`면 `{A} added {n} expenses`, 모두 `comment_added`면 `{A} added {n} comments`, 그 밖이면 `{A} made {n} changes`. actor가 섞이면 `{n} new changes`.
-- 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다(친구 그룹이면 친구 페이지, `remind`면 `/friends/{fromUserId}`). 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
+- 묶음 문장(항목 2개 이상, 수신자는 actor가 아니므로 `You`는 나오지 않는다): 모든 항목의 `actorMemberId`가 같고 모두 `expense_added`면 `{A} added {n} expenses`, 모두 `comment_added`면 `{A} added {n} comments`, 모두 `expense_repeated`(8단계, actor 없음)면 `{n} repeating expenses were added`, 그 밖이면 `{A} made {n} changes`. actor가 섞이면 `{n} new changes`(actor 없음도 하나의 actor다).
+- 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다(친구 그룹이면 친구 페이지, `remind`면 `/friends/{fromUserId}`). 8단계: 활동 목록의 `expense_repeated` 행은 그 지출을, `recurrence_*` 행은 그 시리즈의 마지막 반복(아래 "반복 지출"의 "앱", 없으면 아무것도 안 함)을 연다. 앱의 `myDeltaText`는 `expense_repeated`에도 쓴다. 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
 - 길이: title은 100자, body는 200자(UTF-16)를 넘으면 잘라서 끝을 `…`로 한다(`…` 포함 그 길이, 서로게이트 쌍은 자르지 않음). 긴 댓글·설명·그룹 이름이 FCM/APNs 4096바이트 한도를 넘겨 data까지 잃지 않게 하기 위해서다. 앱 목록의 문장은 자르지 않는다.
 - FCM 멀티캐스트는 토큰 500개씩 나눠 보낸다. FCM이 `UNREGISTERED`로 답한 토큰과, 같은 멀티캐스트에서 다른 토큰은 성공했는데 `INVALID_ARGUMENT`로 답한 토큰은 기기 행을 지운다.
 - iOS(APNs): 표시 알림은 `sound: default`, `thread-id: <groupId>`(그룹별로 묶임), 6단계부터 `badge: <total>`(Android는 `notification.notification_count`). 수신자마다 배지가 다르므로 `PushNotifier`는 (body, badge)가 같은 토큰끼리 묶어 멀티캐스트한다. data만 있는 메시지는 `content-available: 1`, `apns-priority: 5`, `apns-push-type: background`(앱이 백그라운드에서 깨어 sync).

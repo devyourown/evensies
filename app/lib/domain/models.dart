@@ -125,6 +125,11 @@ class Expense {
   /// Deleted by a move (`expense.deleted` with `movedTo`): it counts in the other group, so it stays deleted (rule 13).
   final bool moved;
 
+  /// The repeating series this expense belongs to and its number in it (0 = the first, added by a person; 1, 2, …
+  /// added by the server). Both null outside a series (docs/API.md 반복 지출, rule 16).
+  final String? recurrenceId;
+  final int? occurrence;
+
   /// Pass [payers], or [paidBy] alone for a single payer of the whole [amount].
   Expense({
     required this.id,
@@ -142,6 +147,8 @@ class Expense {
     this.split,
     required this.shares,
     this.moved = false,
+    this.recurrenceId,
+    this.occurrence,
   }) : payers = payers ?? [Share(memberId: paidBy!, amount: amount)];
 
   String get paidBy => primaryPayer(payers);
@@ -164,6 +171,9 @@ class Expense {
     bool clearSplit = false,
     List<Share>? shares,
     bool? moved,
+    String? recurrenceId,
+    int? occurrence,
+    bool clearRecurrence = false,
   }) =>
       Expense(
         id: id,
@@ -180,6 +190,9 @@ class Expense {
         split: clearSplit ? null : (split ?? this.split),
         shares: shares ?? this.shares,
         moved: moved ?? this.moved,
+        // clearRecurrence: exactly the given pair, nulls included.
+        recurrenceId: clearRecurrence ? recurrenceId : (recurrenceId ?? this.recurrenceId),
+        occurrence: clearRecurrence ? occurrence : (occurrence ?? this.occurrence),
       );
 
   /// Missing `payers` = `[{paidBy, amount}]`, `refund` = false, `split` = null (events and snapshots before Phase 3).
@@ -203,6 +216,8 @@ class Expense {
         split: SplitSpec.fromJson(j['split']),
         shares: (j['shares'] as List).cast<Map<String, dynamic>>().map(Share.fromJson).toList(),
         moved: j['moved'] == true,
+        recurrenceId: j['recurrenceId'] as String?,
+        occurrence: (j['occurrence'] as num?)?.toInt(),
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -220,6 +235,8 @@ class Expense {
         'deleted': deleted,
         'shares': shares.map((s) => s.toJson()).toList(),
         'moved': moved,
+        'recurrenceId': recurrenceId,
+        'occurrence': occurrence,
       };
 }
 
@@ -344,6 +361,58 @@ class Attachment {
   Map<String, dynamic> toJson() => {'id': id, 'expenseId': expenseId, 'deleted': deleted};
 }
 
+/// A repeating expense (docs/API.md 반복 지출, rule 15): the server adds [template] as a new expense on each date of
+/// the schedule. [template] is the `expense.created` payload without expenseId, date, recurrenceId and occurrence.
+class Recurrence {
+  final String id;
+
+  /// `weekly`, `biweekly`, `monthly` or `yearly`.
+  final String frequency;
+  final String startDate; // YYYY-MM-DD, occurrence 0
+  final String timeZone;
+  final Map<String, dynamic> template;
+
+  /// Stopped: no more repeats (there is no restart).
+  final bool deleted;
+  const Recurrence({
+    required this.id,
+    required this.frequency,
+    required this.startDate,
+    required this.timeZone,
+    required this.template,
+    this.deleted = false,
+  });
+
+  Recurrence copyWith({Map<String, dynamic>? template, bool? deleted}) => Recurrence(
+        id: id,
+        frequency: frequency,
+        startDate: startDate,
+        timeZone: timeZone,
+        template: template ?? this.template,
+        deleted: deleted ?? this.deleted,
+      );
+
+  /// The template's description ("Rent"), or null when it has none.
+  String? get description => template['description'] as String?;
+
+  factory Recurrence.fromJson(Map<String, dynamic> j) => Recurrence(
+        id: j['id'] as String,
+        frequency: j['frequency'] as String,
+        startDate: j['startDate'] as String,
+        timeZone: j['timeZone'] as String,
+        template: (j['template'] as Map).cast<String, dynamic>(),
+        deleted: j['deleted'] as bool? ?? false,
+      );
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'frequency': frequency,
+        'startDate': startDate,
+        'timeZone': timeZone,
+        'template': template,
+        'deleted': deleted,
+      };
+}
+
 /// Immutable. Lists keep insertion order (same as the server snapshot).
 class GroupState {
   final String? name;
@@ -362,6 +431,9 @@ class GroupState {
 
   /// Receipts in attach order, deleted ones included (rule 14).
   final List<Attachment> attachments;
+
+  /// Repeating series in creation order, stopped ones included (rule 15).
+  final List<Recurrence> recurrences;
   const GroupState({
     this.name,
     this.defaultCurrency,
@@ -373,6 +445,7 @@ class GroupState {
     this.payments = const [],
     this.comments = const [],
     this.attachments = const [],
+    this.recurrences = const [],
   });
 
   static const empty = GroupState();
@@ -389,6 +462,7 @@ class GroupState {
     List<Payment>? payments,
     List<Comment>? comments,
     List<Attachment>? attachments,
+    List<Recurrence>? recurrences,
   }) =>
       GroupState(
         name: name ?? this.name,
@@ -401,6 +475,7 @@ class GroupState {
         payments: payments ?? this.payments,
         comments: comments ?? this.comments,
         attachments: attachments ?? this.attachments,
+        recurrences: recurrences ?? this.recurrences,
       );
 
   Member? member(String id) => members.where((m) => m.id == id).firstOrNull;
@@ -408,6 +483,7 @@ class GroupState {
   Payment? payment(String id) => payments.where((p) => p.id == id).firstOrNull;
   Comment? comment(String id) => comments.where((c) => c.id == id).firstOrNull;
   Attachment? attachment(String id) => attachments.where((a) => a.id == id).firstOrNull;
+  Recurrence? recurrence(String id) => recurrences.where((r) => r.id == id).firstOrNull;
 
   /// [expenseId]'s receipts that aren't deleted, in attach order.
   List<Attachment> receiptsOf(String expenseId) =>
@@ -431,6 +507,9 @@ class GroupState {
       // Missing before Phase 7 and in older sync-cases `expected`.
       attachments:
           ((j['attachments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Attachment.fromJson).toList(),
+      // Missing before Phase 8 and in older sync-cases `expected`.
+      recurrences:
+          ((j['recurrences'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Recurrence.fromJson).toList(),
     );
   }
   Map<String, dynamic> toJson() => {
@@ -439,6 +518,7 @@ class GroupState {
         'payments': payments.map((p) => p.toJson()).toList(),
         'comments': comments.map((c) => c.toJson()).toList(),
         'attachments': attachments.map((a) => a.toJson()).toList(),
+        'recurrences': recurrences.map((r) => r.toJson()).toList(),
       };
 
   /// The `group` part (sync-cases `expected.group` compares the keys it has).

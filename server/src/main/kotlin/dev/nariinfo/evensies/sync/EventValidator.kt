@@ -7,6 +7,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeParseException
 import java.util.UUID
 import kotlin.math.abs
@@ -16,36 +17,38 @@ import kotlin.math.abs
  * and returns the batch to store: a `payment.created` with `status: "sent"` whose receiver is a placeholder or the
  * sender themselves is rewritten to `"confirmed"`, and an expense carrying `payers` gets `paidBy` = the primary payer
  * (applier rule 10), and an `attachment.deleted` gets the `expenseId` its receipt is on (dropped for an unknown id), so
- * every client pulls the same payload and the expense History filter finds it.
+ * every client pulls the same payload and the expense History filter finds it. Phase 8: an expense's `recurrenceId` naming
+ * a series this group doesn't have is dropped together with `occurrence` (an offline client can't know its series was
+ * rejected). A null actor is Evensies (the repeat scheduler): it may post `occurrence` >= 1.
  * [paymentCreator] returns the user id that created an already-stored payment; [uploaded] whether an attachment id was
  * uploaded to this group (Phase 7, `POST /groups/{id}/attachments/{attachmentId}`).
  */
 @Component
 class EventValidator {
     fun validateAll(
-        initial: GroupState, actorUserId: UUID, events: List<IncomingEvent>, paymentCreator: (String) -> String? = { null },
+        initial: GroupState, actorUserId: UUID?, events: List<IncomingEvent>, paymentCreator: (String) -> String? = { null },
         uploaded: (String) -> Boolean = { false },
     ): List<IncomingEvent> {
         var state = initial
         val createdHere = HashSet<String>()
         return events.map { raw ->
             val e = normalize(state, actorUserId, raw)
-            validate(state, actorUserId, e, uploaded) { id -> if (id in createdHere) actorUserId.toString() else paymentCreator(id) }
+            validate(state, actorUserId, e, uploaded) { id -> if (id in createdHere) actorUserId?.toString() else paymentCreator(id) }
             if (e.type == "payment.created") createdHere += e.payload.text("paymentId")!!
             state = EventApplier.apply(state, e.type, e.payload)
             e
         }
     }
 
-    private fun normalize(s: GroupState, actor: UUID, e: IncomingEvent): IncomingEvent {
+    private fun normalize(s: GroupState, actor: UUID?, e: IncomingEvent): IncomingEvent {
         if (!e.payload.isObject) return e
         return when (e.type) {
-            "expense.created" -> withPrimaryPayer(e) { it }
-            "expense.updated" -> withPrimaryPayer(e) { it.get("fields")?.takeIf(JsonNode::isObject) }
+            "expense.created" -> withPrimaryPayer(withKnownSeries(s, e) { it }) { it }
+            "expense.updated" -> withPrimaryPayer(withKnownSeries(s, e) { it.get("fields") as? ObjectNode }) { it.get("fields")?.takeIf(JsonNode::isObject) }
             "payment.created" -> {
                 if (e.payload.text("status") != "sent") return e
                 val receiverUser = s.members[e.payload.text("toMember")]?.userId
-                if (receiverUser != null && receiverUser != actor.toString()) return e
+                if (receiverUser != null && receiverUser != actor?.toString()) return e
                 e.copy(payload = (e.payload.deepCopy() as ObjectNode).put("status", "confirmed"))
             }
             "attachment.deleted" -> {
@@ -63,6 +66,18 @@ class EventValidator {
     }
 
     /**
+     * Phase 8: drops `recurrenceId` and `occurrence` from the object [at] picks when `recurrenceId` is a string naming no
+     * series of this group (stopped ones count), so the expense is stored without a series instead of a 400.
+     */
+    private fun withKnownSeries(s: GroupState, e: IncomingEvent, at: (JsonNode) -> JsonNode?): IncomingEvent {
+        val id = at(e.payload)?.field("recurrenceId")?.takeIf { it.isString }?.asString() ?: return e
+        if (id in s.recurrences) return e
+        val copy = e.payload.deepCopy() as ObjectNode
+        (at(copy) as ObjectNode).remove(listOf("recurrenceId", "occurrence"))
+        return e.copy(payload = copy)
+    }
+
+    /**
      * Rewrites (or adds) `paidBy` in the object [at] picks (the payload or `fields`) to the primary payer when it carries
      * well-formed, non-empty `payers`. Anything malformed is left for [validate] to reject.
      */
@@ -77,7 +92,7 @@ class EventValidator {
         return e.copy(payload = copy)
     }
 
-    private fun validate(s: GroupState, actor: UUID, e: IncomingEvent, uploaded: (String) -> Boolean, paymentCreator: (String) -> String?) {
+    private fun validate(s: GroupState, actor: UUID?, e: IncomingEvent, uploaded: (String) -> Boolean, paymentCreator: (String) -> String?) {
         val p = e.payload
         if (!p.isObject) bad("payload must be an object")
         when (e.type) {
@@ -110,14 +125,14 @@ class EventValidator {
                 requireMember(s, p.text("memberId"))
             }
             "expense.created" -> {
-                requireUuid(p, "expenseId"); requireExpenseFields(p, created = true); requireNoDeleted(p)
+                requireUuid(p, "expenseId"); requireExpenseFields(p, created = true); requireNoDeleted(p); requireSeriesFields(p, created = true, actor)
                 validateExpense(s, EventApplier.apply(s, e.type, p).expenses.getValue(p.text("expenseId")!!))
             }
             "expense.updated" -> {
                 requireUuid(p, "expenseId")
                 val f = p.get("fields")
                 if (f == null || !f.isObject) bad("fields must be an object")
-                requireExpenseFields(f, created = false)
+                requireExpenseFields(f, created = false); requireSeriesFields(f, created = false, actor)
                 val before = s.expenses[p.text("expenseId")]
                 if (before != null && !before.deleted) {
                     validateExpense(s, EventApplier.apply(s, e.type, p).expenses.getValue(before.id))
@@ -136,7 +151,7 @@ class EventValidator {
                 if (onExpense == (p.field("paymentId") != null)) bad("Send exactly one of expenseId and paymentId")
                 requireUuid(p, if (onExpense) "expenseId" else "paymentId")
                 val author = s.members[p.text("authorMemberId")]
-                if (author == null || author.removed || author.userId != actor.toString()) {
+                if (author == null || author.removed || !isActor(author.userId, actor)) {
                     throw ApiException.forbidden("authorMemberId must be your own member")
                 }
                 if (onExpense && p.text("expenseId") !in s.expenses) bad("expenseId refers to an unknown expense")
@@ -150,7 +165,7 @@ class EventValidator {
             "comment.deleted" -> {
                 requireUuid(p, "commentId")
                 val comment = s.comments[p.text("commentId")] ?: return // rule 4: ignored by the applier
-                if (s.members[comment.authorMemberId]?.userId != actor.toString()) {
+                if (!isActor(s.members[comment.authorMemberId]?.userId, actor)) {
                     throw ApiException.forbidden("Only the author can delete a comment")
                 }
             }
@@ -164,7 +179,7 @@ class EventValidator {
             "payment.confirmed" -> {
                 requireUuid(p, "paymentId")
                 val payment = s.payments[p.text("paymentId")] ?: bad("paymentId refers to an unknown payment")
-                if (s.members[payment.toMember]?.userId != actor.toString()) {
+                if (!isActor(s.members[payment.toMember]?.userId, actor)) {
                     throw ApiException.forbidden("Only the receiver can confirm a payment")
                 }
             }
@@ -173,9 +188,8 @@ class EventValidator {
                 // Phase 7 edit marker: only the shape is checked, the new payment is not looked up.
                 if (p.field("replacedBy") != null && e.type == "payment.deleted") requireUuid(p, "replacedBy")
                 val payment = s.payments[p.text("paymentId")] ?: return // rule 4: ignored by the applier
-                val me = actor.toString()
-                val allowed = paymentCreator(payment.id) == me ||
-                    s.members[payment.fromMember]?.userId == me || s.members[payment.toMember]?.userId == me
+                val allowed = isActor(paymentCreator(payment.id), actor) ||
+                    isActor(s.members[payment.fromMember]?.userId, actor) || isActor(s.members[payment.toMember]?.userId, actor)
                 if (!allowed) throw ApiException.forbidden("Only the payer or the receiver can delete or restore a payment")
             }
             "attachment.added" -> {
@@ -190,8 +204,62 @@ class EventValidator {
                 }
             }
             "attachment.deleted" -> requireUuid(p, "attachmentId") // an unknown id is ignored (rule 4); expenseId is normalized
+            "recurrence.created" -> {
+                requireUuid(p, "recurrenceId")
+                if (p.field("frequency")?.takeIf { it.isString }?.asString() !in FREQUENCIES) bad("frequency must be one of ${FREQUENCIES.joinToString()}")
+                val startDate = p.field("startDate")?.takeIf { it.isString }?.asString()
+                requireDate(startDate)
+                val zone = p.field("timeZone")?.takeIf { it.isString }?.asString()
+                if (zone == null || zone.length !in 1..MAX_TIME_ZONE || runCatching { ZoneId.of(zone) }.isFailure) {
+                    bad("timeZone must be a time zone name or offset of at most $MAX_TIME_ZONE characters")
+                }
+                val template = p.field("template")
+                if (template == null || !template.isObject) bad("template must be an object")
+                requireNoScheduleKeys(template, "template")
+                validateTemplate(s, actor, template, startDate!!, uploaded)
+                if (p.text("recurrenceId") !in s.recurrences && s.recurrences.values.count { !it.deleted } >= MAX_RECURRENCES) {
+                    throw ApiException.limit("A group can have at most $MAX_RECURRENCES repeating expenses")
+                }
+            }
+            "recurrence.updated" -> {
+                requireUuid(p, "recurrenceId")
+                val f = p.get("fields")
+                if (f == null || !f.isObject) bad("fields must be an object")
+                requireNoScheduleKeys(f, "fields")
+                requireExpenseFields(f, created = false)
+                // Rule 15: an unknown or stopped series ignores the update, so only its types are checked.
+                val r = s.recurrences[p.text("recurrenceId")]?.takeUnless { it.deleted } ?: return
+                validateTemplate(s, actor, EventApplier.apply(s, e.type, p).recurrences.getValue(r.id).template, r.startDate, uploaded)
+            }
+            "recurrence.deleted" -> requireUuid(p, "recurrenceId") // an unknown or stopped series is ignored (rules 4, 15)
             else -> throw ApiException.badRequest("UNKNOWN_TYPE", "Unknown event type ${e.type}")
         }
+    }
+
+    /** Template keys a repeat or the schedule sets; a template or `recurrence.updated.fields` never carries them. */
+    private fun requireNoScheduleKeys(node: JsonNode, name: String) {
+        SCHEDULE_KEYS.firstOrNull { node.has(it) }?.let { bad("$name cannot contain $it") }
+    }
+
+    /** A template must pass as the first repeat would: `expense.created` with a new id on the start date (the expense codes). */
+    private fun validateTemplate(s: GroupState, actor: UUID?, template: JsonNode, startDate: String, uploaded: (String) -> Boolean) {
+        val payload = (template.deepCopy() as ObjectNode).put("expenseId", UUID.randomUUID().toString()).put("date", startDate)
+        validate(s, actor, IncomingEvent(UUID.randomUUID(), "expense.created", payload, Instant.EPOCH), uploaded) { null }
+    }
+
+    /**
+     * Phase 8 series fields of `expense.created` or `expense.updated.fields` (after [withKnownSeries]): both set or both
+     * null (missing = null in a create; an update sends both keys or neither); `occurrence` from 0, and only 0 from a
+     * user: later repeats are added by Evensies (null [actor]) alone.
+     */
+    private fun requireSeriesFields(node: JsonNode, created: Boolean, actor: UUID?) {
+        if (!created && node.has("recurrenceId") != node.has("occurrence")) bad("Send recurrenceId and occurrence together")
+        val n = node.field("occurrence")
+        if ((node.field("recurrenceId") == null) != (n == null)) bad("recurrenceId and occurrence are both set or both null")
+        if (n == null) return
+        requireUuid(node, "recurrenceId")
+        if (!isMinorUnits(n) || n.asLong() !in 0..Int.MAX_VALUE.toLong()) bad("occurrence must be an integer from 0 to ${Int.MAX_VALUE}")
+        if (actor != null && n.asLong() != 0L) bad("Only the first expense of a series can be added by a member (occurrence 0)")
     }
 
     private fun validateExpense(s: GroupState, e: ExpenseDto) {
@@ -318,8 +386,8 @@ class EventValidator {
     }
 
     /** One active member per user: a second one (or re-linking someone else's) would let a user act as another member. */
-    private fun requireNoActiveMember(s: GroupState, actor: UUID) {
-        if (s.members.values.any { it.userId == actor.toString() && !it.removed }) {
+    private fun requireNoActiveMember(s: GroupState, actor: UUID?) {
+        if (s.members.values.any { isActor(it.userId, actor) && !it.removed }) {
             throw ApiException.badRequest("MEMBER_TAKEN", "You already have a member in this group")
         }
     }
@@ -329,10 +397,13 @@ class EventValidator {
     }
 
     /** Clients may only link a member to themselves. */
-    private fun requireOwnUser(p: JsonNode, actor: UUID) {
+    private fun requireOwnUser(p: JsonNode, actor: UUID?) {
         val userId = p.text("userId") ?: return
-        if (userId != actor.toString()) throw ApiException.forbidden("userId must be your own user id")
+        if (!isActor(userId, actor)) throw ApiException.forbidden("userId must be your own user id")
     }
+
+    /** [userId] is the pushing user; never true for Evensies (null [actor]) or a placeholder (null [userId]). */
+    private fun isActor(userId: String?, actor: UUID?) = actor != null && userId == actor.toString()
 
     /** A non-blank JSON string (no coercion from numbers: the Dart applier casts) of at most [max] UTF-16 units. */
     private fun requireText(p: JsonNode, k: String, max: Int = Int.MAX_VALUE) {
@@ -385,6 +456,11 @@ class EventValidator {
         const val MAX_ITEM_NAME = 100
         /** Abuse cap: live receipts per expense (409). */
         const val MAX_RECEIPTS = 10
+        /** Abuse cap: series per group that aren't stopped (409). */
+        const val MAX_RECURRENCES = 100
+        const val MAX_TIME_ZONE = 64
+        val FREQUENCIES = setOf("weekly", "biweekly", "monthly", "yearly")
+        val SCHEDULE_KEYS = listOf("expenseId", "date", "recurrenceId", "occurrence", "frequency", "startDate", "timeZone")
         val EXPENSE_SPLIT_MODES = setOf("equal", "percent", "shares", "adjustment", "itemized")
         val DEFAULT_SPLIT_MODES = setOf("percent", "shares")
     }

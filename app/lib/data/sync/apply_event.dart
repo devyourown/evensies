@@ -3,14 +3,15 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~14 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~16 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
 ///    payload.fields에 있는 키만 덮어쓴다. fields에 `shares`가 있으면 shares 전체를 교체).
 /// 3. 삭제 vs 수정: deleted=true인 지출·송금에 오는 `updated`는 무시한다. 되살리는 것은 `expense.restored`뿐이고,
 ///    삭제된 동안 무시된 `updated`는 복원 뒤에도 돌아오지 않는다.
-/// 4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`는 무시한다.
+/// 4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`(Phase 8:
+///    `recurrence.updated`·`recurrence.deleted` too)는 무시한다.
 /// 5. `member.removed`는 removed=true만 표시한다(목록에서 빼지 않는다).
 /// 6. `payment.confirmed`는 status를 confirmed로 바꾼다. 없거나 삭제된 송금이면 무시.
 /// 7. `expense.restored`는 deleted=false로 되돌린다(살아 있는 지출이면 그대로). 삭제·복원은 seq 순서상 나중 것이 이긴다.
@@ -37,6 +38,12 @@ import 'event_types.dart';
 /// 14. Receipts: attachment.added appends {id, expenseId, deleted: false} unless the id is already there (a re-add
 ///    after a delete stays deleted) or the expense is unknown (a deleted expense still gets it). attachment.deleted
 ///    sets deleted on a known id and never reads its expenseId. Deleting or moving an expense keeps its receipts.
+/// 15. Repeating series: recurrence.created appends {id, frequency, startDate, timeZone, template as sent, deleted:
+///    false} unless the id is already there (stopped ones too). recurrence.updated on a known, live series replaces
+///    each template key in fields with the value sent (null stored as null, lists whole, no rule-10 derivation);
+///    recurrence.deleted sets deleted. Series events never change expenses.
+/// 16. Expenses carry recurrenceId and occurrence (missing = null): expense.created reads them, expense.updated sets
+///    each key it has (null clears). The applier never checks the series; delete, restore and move keep the tag.
 ///
 /// 이벤트별 payload(docs/API.md):
 ///   group.created {name, defaultCurrency, kind?} → state.name/defaultCurrency/kind
@@ -52,6 +59,8 @@ import 'event_types.dart';
 ///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}
 ///   payment.deleted {paymentId, replacedBy?}   payment.confirmed {paymentId}   payment.restored {paymentId}
 ///   attachment.added {attachmentId, expenseId}   attachment.deleted {attachmentId, expenseId?}
+///   recurrence.created {recurrenceId, frequency, startDate, timeZone, template}
+///   recurrence.updated {recurrenceId, fields}   recurrence.deleted {recurrenceId}
 ///   모르는 type → state 그대로.
 /// Created entities always start live: a `deleted` key in the payload is ignored (like Kotlin; the server does not
 /// validate it), and so are `moved` on an expense and `replaced` on a payment (only expense.deleted / payment.deleted
@@ -121,6 +130,10 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
           split: splitKey ? SplitSpec.fromJson(f['split']) : null,
           clearSplit: clearSplit,
           shares: list(f['shares']),
+          // Rule 16: each key present is set, null clears it.
+          recurrenceId: f.containsKey('recurrenceId') ? f['recurrenceId'] as String? : x.recurrenceId,
+          occurrence: f.containsKey('occurrence') ? (f['occurrence'] as num?)?.toInt() : x.occurrence,
+          clearRecurrence: true,
         );
       });
     case EventTypes.expenseDeleted:
@@ -158,6 +171,28 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
       return s.copyWith(attachments: [
         for (final a in s.attachments) a.id == id ? Attachment(id: a.id, expenseId: a.expenseId, deleted: true) : a,
       ]);
+    case EventTypes.recurrenceCreated:
+      final id = p['recurrenceId'] as String;
+      if (s.recurrence(id) != null) return s;
+      return s.copyWith(recurrences: [
+        ...s.recurrences,
+        Recurrence(
+          id: id,
+          frequency: p['frequency'] as String,
+          startDate: p['startDate'] as String,
+          timeZone: p['timeZone'] as String,
+          template: (p['template'] as Map).cast<String, dynamic>(),
+        ),
+      ]);
+    case EventTypes.recurrenceUpdated:
+      final id = p['recurrenceId'] as String;
+      final f = (p['fields'] as Map).cast<String, dynamic>();
+      return s.copyWith(recurrences: [
+        for (final r in s.recurrences) r.id == id && !r.deleted ? r.copyWith(template: {...r.template, ...f}) : r,
+      ]);
+    case EventTypes.recurrenceDeleted:
+      final id = p['recurrenceId'] as String;
+      return s.copyWith(recurrences: [for (final r in s.recurrences) r.id == id ? r.copyWith(deleted: true) : r]);
     case EventTypes.paymentConfirmed:
       final id = p['paymentId'] as String;
       return s.copyWith(payments: [

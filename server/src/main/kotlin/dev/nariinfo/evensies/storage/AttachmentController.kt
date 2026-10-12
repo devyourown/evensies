@@ -48,14 +48,15 @@ class AttachmentController(private val files: FileStore, private val groups: Gro
         val cleanImage = Jpeg.clean(image.bytes, MAX_IMAGE_EDGE)
         val cleanThumb = Jpeg.clean(thumb.bytes, MAX_THUMB_EDGE)
         val (imageKey, thumbKey) = keys(id, attachmentId)
-        // Files before the row: a row always has its files. A crash in between leaves files the Phase 8 sweep removes.
+        // Files before the row: a row always has its files. A crash in between leaves files without a row, which the
+        // Phase 8 sweep can't see (it works from rows). ponytail: scan the directory if such orphans ever matter.
         files.write(imageKey, cleanImage)
         files.write(thumbKey, cleanThumb)
         try {
             stateStore.insertUpload(id, attachmentId, auth.userId)
         } catch (e: DuplicateKeyException) {
             // A concurrent upload of the same id won (an app retry, so the same photo). ponytail: if it was another
-            // group's, the files just written stay without a row; the Phase 8 sweep can list orphan files if that matters.
+            // group's, the files just written stay without a row (the Phase 8 sweep works from rows; scan the directory if that matters).
             return existing(id, attachmentId) ?: throw e
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(mapOf("id" to attachmentId))

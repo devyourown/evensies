@@ -22,7 +22,7 @@
 | 5 | **Organize & insights** | Categories with icons (auto-guessed from description); search; charts by category/month/person; group totals | — (client-side over local DB) | category picker, search screen, charts tab | 0 |
 | 6 | **People** | Friends: 1:1 expenses outside groups; overall balance across all groups and friends; profile photo; "remind to pay" | friend pairs as 2-person hidden groups (reuses sync), reminders, avatar upload | Friends tab, overall dashboard, reminders | object storage (Phase 6 shares it) |
 | 7 | **Receipts** | Attach receipt photos; on-device OCR to itemize a receipt and assign items to people | presigned upload to object storage, attachments table | camera/gallery, viewer, ML Kit text recognition, itemized split | Hetzner Object Storage ≈ €5/month (or local volume to start: 0) |
-| 8 | **Recurring expenses** | Repeat weekly/monthly/yearly (rent, subscriptions) | scheduler that emits `expense.created` on schedule | recurrence picker, "next on …" | 0 |
+| 8 | **Recurring expenses** | Repeat weekly / every 2 weeks / monthly / yearly (rent, subscriptions) | scheduler that emits `expense.created` on schedule | recurrence picker, "next on …" | 0 |
 | 9 | **Platforms & language** | Web app (same Flutter code); Korean, Italian, English (+ ES/FR/DE); home-screen widget with balance | CORS, web auth (Apple/Google on web) | Flutter web build, `intl` ARB files, iOS/Android widgets | static hosting via Caddy: 0 |
 | 10 | **Email & account polish** | Email notifications/digest for members who turned push off; invite by email; group cover images; group types (trip/home/couple) | transactional email provider | settings, group header | email: free tier (e.g. Resend 3k/month) |
 | 11 | **Support Evensies** | Optional tips from Settings (in-app purchase, unlock nothing); the store app talks only to the official server | — | tip screen, `in_app_purchase`, release builds without the Server URL field | stores keep 15% of tips |
@@ -158,7 +158,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 14 | Expense | Category with icon, auto-guessed | Free | have (Phase 5): Splitwise's 43 subcategories with icons, guessed on the device from the description and the group's history ("auto" until picked); English labels until Phase 9 |
 | 15 | Expense | Notes | Free | have (Phase 2) |
 | 16 | Expense | Receipt photo | Free (Pro 10 GB) | have (Phase 7): up to 10 per expense, offline upload later, ZIP export with receipts |
-| 17 | Expense | Repeat | Free | Phase 8 |
+| 17 | Expense | Repeat | Free | have (Phase 8): Repeat on the expense form, added by the server at 09:00 in the creator's time zone |
 | 18 | Expense | Group or "no group" | Free | have (Phase 6) |
 | 19 | Expense | Move between groups / to a friend | Free | have (Phase 6) |
 | 20 | Expense | Edit / delete | Free | have |
@@ -220,7 +220,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 76 | Currency | Convert to one currency | Pro | have (Phase 4 conversion by Hyojun; Phase 6 records payments in any currency) |
 | 77 | Currency | Change an expense's currency label | Free | have |
 | 78 | Search | Search all expenses | Pro | have (Phase 5, free): all groups or one, offline, accents ignored, amounts, category and month filters; payments and member names are not searched |
-| 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | Phase 8 (incl. every 2 weeks and "stop repeating") |
+| 79 | Recurring | Weekly / fortnightly / monthly / yearly | Free | have (Phase 8): incl. every 2 weeks, month ends clamped, "Delete and stop repeating" |
 | 80 | Export | Spreadsheet per group/friend | Free | have (Phases 3–5 add the payers, rate and category columns) |
 | 81 | Export | JSON backup of the whole account | Pro | Phase 10 (free) |
 | 82 | Import | Bank/card transactions | Pro | out of scope (open-banking contracts cost money) |
@@ -237,7 +237,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 93 | Account | Phone number on account | Free | out of scope (SMS cost) |
 | 94 | Account | Name | Free | have |
 | 95 | Account | Profile photo | Free | have (Phase 6) |
-| 96 | Account | Time zone | Free | Phase 8 (per repeating series, from the device) |
+| 96 | Account | Time zone | Free | have (Phase 8): per repeating series, from the device; no account setting |
 | 97 | Account | Log out on all devices | Free | Phase 10 |
 | 98 | Account | Passcode / Face ID lock | Free | Phase 9 |
 | 99 | Account | 2FA | n/a | n/a (Apple/Google accounts carry 2FA) |

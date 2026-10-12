@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
+import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
@@ -15,6 +16,7 @@ import '../../domain/categories.dart';
 import '../../domain/insights.dart' show paidAmounts;
 import '../../domain/itemized.dart';
 import '../../domain/models.dart';
+import '../../domain/recurrence.dart';
 import '../../providers.dart';
 import '../activity/activity_screen.dart';
 import '../categories/category_ui.dart';
@@ -60,6 +62,17 @@ class ExpenseDetailScreen extends ConsumerWidget {
     final d = group.defaultCurrency;
     final rate = e.fxRateToDefault ?? 0;
     final date = DateTime.tryParse(e.date);
+    final series = state.isActive(e.recurrenceId) ? state.recurrence(e.recurrenceId!) : null;
+    // The latest repeat says when the next one comes, with its amount when future repeats were changed apart from it.
+    String? next;
+    if (series != null && state.latestRepeat(series.id)?.id == e.id) {
+      final n = firstOccurrenceOnOrAfter(series.frequency, series.startDate, todayIso(),
+          minN: state.lastPosted(series.id) + 1);
+      final day = DateFormat('EEE, d MMM yyyy').format(DateTime.parse(n.date));
+      final amount = (series.template['amount'] as num?)?.toInt() ?? e.amount;
+      final currency = series.template['currency'] as String? ?? e.currency;
+      next = amount == e.amount && currency == e.currency ? 'next $day' : 'next ${formatMoney(amount, currency)} on $day';
+    }
 
     Widget section(String s) => Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 8),
@@ -76,7 +89,8 @@ class ExpenseDetailScreen extends ConsumerWidget {
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => context.push('/groups/$groupId/expenses/${e.id}/edit'),
             ),
-            IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => _delete(context, ref, e)),
+            IconButton(
+                tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => _delete(context, ref, e, series)),
           ],
         ],
       ),
@@ -119,6 +133,8 @@ class ExpenseDetailScreen extends ConsumerWidget {
                           Categories.labelOf(e.category),
                           date == null ? e.date : DateFormat('EEE, d MMM yyyy').format(date),
                           if (e.refund) 'Refund',
+                          if (series != null) 'Repeats ${frequencyWord(series.frequency)}',
+                          ?next,
                         ].join(' · '),
                         style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                       ),
@@ -180,16 +196,52 @@ class ExpenseDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, Expense e) async {
-    final ok = await confirm(context,
-        title: 'Delete expense?', message: 'This removes it for everyone in the group. You can restore it from Activity.');
-    if (!ok || !context.mounted) return;
+  /// In a live [series] it can also stop the repeats (Splitwise's "cancel future recurrences"); there is no restart, so
+  /// that choice has no Undo.
+  Future<void> _delete(BuildContext context, WidgetRef ref, Expense e, Recurrence? series) async {
+    final bool stop;
+    if (series == null) {
+      if (!await confirm(context,
+          title: 'Delete expense?',
+          message: 'This removes it for everyone in the group. You can restore it from Activity.')) {
+        return;
+      }
+      stop = false;
+    } else {
+      final cs = Theme.of(context).colorScheme;
+      final choice = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete repeating expense?'),
+          content: const Text('This removes it for everyone in the group. You can restore it from Activity, but a '
+              "series that stopped repeating can't be restarted. Repeats already added stay."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                key: const Key('delete-one'), onPressed: () => Navigator.pop(ctx, false), child: const Text('Delete this one')),
+            FilledButton(
+              key: const Key('delete-stop'),
+              style: FilledButton.styleFrom(backgroundColor: cs.error, foregroundColor: cs.onError),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete and stop repeating'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null) return;
+      stop = choice;
+    }
+    if (!context.mounted) return;
     final writes = ref.read(localWritesProvider);
     final messenger = ScaffoldMessenger.of(context); // the app-wide one, so the SnackBar outlives this screen
-    await writes.deleteExpense(groupId, e.id);
+    await writes.deleteExpense(groupId, e.id, stopRecurrence: stop ? series!.id : null);
     if (!context.mounted) return;
     context.pop();
-    showUndo(messenger, 'Deleted “${e.description}”', () => writes.restoreExpense(groupId, e.id));
+    if (stop) {
+      messenger.showSnackBar(SnackBar(content: Text('Deleted “${e.description}” and stopped repeating')));
+    } else {
+      showUndo(messenger, 'Deleted “${e.description}”', () => writes.restoreExpense(groupId, e.id));
+    }
   }
 }
 

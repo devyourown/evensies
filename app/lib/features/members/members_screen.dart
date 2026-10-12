@@ -12,6 +12,8 @@ import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
 import '../../data/db/database.dart';
+import '../../data/sync/group_state_store.dart';
+import '../../domain/recurrence.dart';
 import '../../providers.dart';
 
 class MembersScreen extends ConsumerStatefulWidget {
@@ -140,9 +142,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _remove(MemberRow m) async {
+    // A removed member is still a member: repeats keep their share until the latest one is edited (docs/API.md 반복 지출).
+    final series = (await GroupStateStore(ref.read(dbProvider)).load(widget.groupId)).seriesWith(m.id);
+    final names = seriesNames(series);
+    if (!mounted) return;
     final ok = await confirm(context,
         title: 'Remove ${m.name}?',
-        message: 'Their past expenses and balance stay in the group.',
+        message: 'Their past expenses and balance stay in the group.'
+            '${series.isEmpty ? '' : '\n\n${m.name} is still in ${series.length} repeating '
+                '${series.length == 1 ? 'expense' : 'expenses'} ($names); they keep ${m.name}\'s share until you edit '
+                'the latest one.'}',
         confirmLabel: 'Remove');
     if (!ok) return;
     await ref.read(localWritesProvider).removeMember(widget.groupId, m.id);

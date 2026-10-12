@@ -15,6 +15,7 @@ final groupStateProvider = FutureProvider.family<GroupState, String>((ref, id) {
   ref.watch(paymentsProvider(id));
   ref.watch(commentsProvider(id));
   ref.watch(attachmentCountsProvider(id));
+  ref.watch(recurrencesProvider(id));
   ref.watch(groupProvider(id));
   return GroupStateStore(ref.watch(dbProvider)).load(id);
 });

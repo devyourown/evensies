@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../core/ids.dart';
 import '../domain/balances.dart' show balancesOf, leaveBlocker;
 import '../domain/models.dart';
+import '../domain/recurrence.dart' show Series;
 import 'api/dto.dart';
 import 'db/database.dart';
 import 'sync/event_types.dart';
@@ -31,12 +32,17 @@ class LocalWrites {
             createdAt: createdAt ?? nowIsoUtc(),
           ));
 
-  Future<void> createExpense(String groupId, Expense e) async {
+  /// [repeat] (a frequency) also starts a series with [e] as its first expense (docs/API.md 반복 지출): the series row
+  /// and `recurrence.created` go before the expense and its `expense.created`, in one local transaction.
+  Future<void> createExpense(String groupId, Expense e, {String? repeat}) async {
+    if (repeat != null) e = e.copyWith(recurrenceId: newId(), occurrence: 0);
     await db.transaction(() async {
+      if (repeat != null) await _startSeries(groupId, e, repeat);
       await db.into(db.expenses).insertOnConflictUpdate(expenseRow(groupId, e));
       await _writeLists(e);
+      await _outbox(groupId, EventTypes.expenseCreated, expenseCreatedPayload(e));
     });
-    await _enqueue(groupId, EventTypes.expenseCreated, expenseCreatedPayload(e));
+    sync.syncLater(groupId);
   }
 
   /// [fields] holds only the changed keys (API.md `expense.updated`): `shares`/`payers` as `List<Share>`,
@@ -44,23 +50,91 @@ class LocalWrites {
   /// split, refund).
   Future<void> updateExpense(String groupId, Expense updated, Map<String, dynamic> fields) async {
     if (fields.isEmpty) return;
-    await db.transaction(() async {
-      // Deleting (and moving) is its own event.
-      final row = expenseRow(groupId, updated).copyWith(deleted: const Value.absent(), moved: const Value.absent());
-      await db.into(db.expenses).insertOnConflictUpdate(row);
-      await _writeLists(updated);
-    });
-    await _enqueue(groupId, EventTypes.expenseUpdated, {
-      'expenseId': updated.id,
-      'fields': {
+    await db.transaction(() => _update(groupId, updated, fields));
+    sync.syncLater(groupId);
+  }
+
+  Future<void> _update(String groupId, Expense updated, Map<String, dynamic> fields) async {
+    // Deleting (and moving) is its own event; the series tag changes only when it is sent.
+    final series = fields.containsKey('recurrenceId');
+    final row = expenseRow(groupId, updated).copyWith(
+      deleted: const Value.absent(),
+      moved: const Value.absent(),
+      recurrenceId: series ? Value(updated.recurrenceId) : const Value.absent(),
+      occurrence: series ? Value(updated.occurrence) : const Value.absent(),
+    );
+    await db.into(db.expenses).insertOnConflictUpdate(row);
+    await _writeLists(updated);
+    await _outbox(groupId, EventTypes.expenseUpdated, {'expenseId': updated.id, 'fields': _json(fields)});
+  }
+
+  /// Changed fields as event JSON: `List<Share>` and `SplitSpec` encoded, the rest as given.
+  static Map<String, dynamic> _json(Map<String, dynamic> fields) => {
         for (final e in fields.entries)
           e.key: switch (e.value) {
             final List<Share> l => l.map((s) => s.toJson()).toList(),
             final SplitSpec s => s.toJson(),
             final v => v,
           },
-      },
+      };
+
+  /// A new series [frequency] for [e] (its recurrenceId set, occurrence 0): starts on [e]'s date in this device's
+  /// time zone, with [e] as template. The row and `recurrence.created`; the caller holds the transaction.
+  Future<void> _startSeries(String groupId, Expense e, String frequency) async {
+    final r = Recurrence(
+        id: e.recurrenceId!, frequency: frequency, startDate: e.date, timeZone: deviceTimeZone(), template: templateOf(e));
+    await db.into(db.recurrences).insert(recurrenceRow(groupId, r));
+    await _outbox(groupId, EventTypes.recurrenceCreated, {
+      'recurrenceId': r.id,
+      'frequency': r.frequency,
+      'startDate': r.startDate,
+      'timeZone': r.timeZone,
+      'template': r.template,
     });
+  }
+
+  /// Future repeats of series [recurrenceId] (docs/API.md `recurrence.updated`): [fields] as for [updateExpense] (the
+  /// changed template keys, never the date) are merged into the local template key by key and sent. Nothing when empty.
+  Future<void> updateRecurrence(String groupId, String recurrenceId, Map<String, dynamic> fields) async {
+    final f = _json(fields);
+    if (f.isEmpty) return;
+    await db.transaction(() async {
+      final row = await (db.select(db.recurrences)..where((r) => r.id.equals(recurrenceId))).getSingleOrNull();
+      if (row != null && !row.deleted) {
+        final t = {...(jsonDecode(row.templateJson) as Map).cast<String, dynamic>(), ...f};
+        await (db.update(db.recurrences)..where((r) => r.id.equals(recurrenceId)))
+            .write(RecurrencesCompanion(templateJson: Value(jsonEncode(t))));
+      }
+      await _outbox(groupId, EventTypes.recurrenceUpdated, {'recurrenceId': recurrenceId, 'fields': f});
+    });
+    sync.syncLater(groupId);
+  }
+
+  /// Stops series [recurrenceId] for everyone: no more repeats, those already added stay (there is no restart).
+  Future<void> stopRecurrence(String groupId, String recurrenceId) async {
+    await db.transaction(() => _stop(groupId, recurrenceId));
+    sync.syncLater(groupId);
+  }
+
+  Future<void> _stop(String groupId, String recurrenceId) async {
+    await (db.update(db.recurrences)..where((r) => r.id.equals(recurrenceId)))
+        .write(const RecurrencesCompanion(deleted: Value(true)));
+    await _outbox(groupId, EventTypes.recurrenceDeleted, {'recurrenceId': recurrenceId});
+  }
+
+  /// Restarts the schedule from [e] (a new frequency or date on the latest repeat, or Repeat picked on an expense in no
+  /// live series): [stop]'s series stops, a new [frequency] series starts on [e]'s date with [e] as template, and [e]
+  /// moves into it as occurrence 0 with its changed [fields] (as for [updateExpense]). One local transaction:
+  /// `recurrence.deleted`, `recurrence.created`, then `expense.updated`.
+  Future<void> repeatFrom(String groupId, Expense e, String frequency,
+      {String? stop, Map<String, dynamic> fields = const {}}) async {
+    final next = e.copyWith(recurrenceId: newId(), occurrence: 0);
+    await db.transaction(() async {
+      if (stop != null) await _stop(groupId, stop);
+      await _startSeries(groupId, next, frequency);
+      await _update(groupId, next, {...fields, 'recurrenceId': next.recurrenceId, 'occurrence': 0});
+    });
+    sync.syncLater(groupId);
   }
 
   Future<void> _writeLists(Expense e) async {
@@ -79,13 +153,19 @@ class LocalWrites {
   }
 
   /// [movedTo] marks a move (docs/API.md 지출 옮기기): the expense also becomes moved, which no restore undoes.
-  Future<void> deleteExpense(String groupId, String expenseId, {({String groupId, String expenseId})? movedTo}) async {
-    await (db.update(db.expenses)..where((e) => e.id.equals(expenseId))).write(ExpensesCompanion(
-        deleted: const Value(true), moved: movedTo == null ? const Value.absent() : const Value(true)));
-    await _enqueue(groupId, EventTypes.expenseDeleted, {
-      'expenseId': expenseId,
-      if (movedTo != null) 'movedTo': {'groupId': movedTo.groupId, 'expenseId': movedTo.expenseId},
+  /// [stopRecurrence] also stops that series in the same transaction ("Delete and stop repeating").
+  Future<void> deleteExpense(String groupId, String expenseId,
+      {({String groupId, String expenseId})? movedTo, String? stopRecurrence}) async {
+    await db.transaction(() async {
+      await (db.update(db.expenses)..where((e) => e.id.equals(expenseId))).write(ExpensesCompanion(
+          deleted: const Value(true), moved: movedTo == null ? const Value.absent() : const Value(true)));
+      await _outbox(groupId, EventTypes.expenseDeleted, {
+        'expenseId': expenseId,
+        if (movedTo != null) 'movedTo': {'groupId': movedTo.groupId, 'expenseId': movedTo.expenseId},
+      });
+      if (stopRecurrence != null) await _stop(groupId, stopRecurrence);
     });
+    sync.syncLater(groupId);
   }
 
   /// Moves [e] from [fromGroup] to [toGroup] as [moved] (remapForMove), online only (docs/API.md 지출 옮기기): the new
@@ -361,7 +441,8 @@ class LocalWrites {
   }
 
   /// Leave the group (docs/API.md 그룹 나가기): online only, not through the outbox. Throws when offline, when
-  /// changes are still waiting to sync, or when my balance isn't zero after the sync (it may have pulled new expenses).
+  /// changes are still waiting to sync, or when my balance isn't zero after the sync (it may have pulled new expenses),
+  /// or a live repeating expense still has me in it.
   Future<void> leaveGroup(String groupId) async {
     final me = (await db.getGroup(groupId))?.myMemberId;
     if (me == null) throw StateError('No member of mine in group $groupId');
@@ -372,7 +453,7 @@ class LocalWrites {
         throw const LeaveException('Still syncing. Try again in a moment.');
       }
       final state = await sync.store.load(groupId);
-      final why = leaveBlocker(balancesOf(state), me);
+      final why = leaveBlocker(balancesOf(state), me) ?? state.seriesBlocker(me);
       if (why != null) throw LeaveException(why);
       await sync.api.pushEvents(groupId, [
         OutboundEvent(
@@ -386,7 +467,7 @@ class LocalWrites {
   }
 }
 
-/// `expense.created` payload of [e] (docs/API.md).
+/// `expense.created` payload of [e] (docs/API.md); the series keys are always there (both null outside a series).
 Map<String, dynamic> expenseCreatedPayload(Expense e) => {
       'expenseId': e.id,
       'description': e.description,
@@ -401,7 +482,17 @@ Map<String, dynamic> expenseCreatedPayload(Expense e) => {
       'category': e.category,
       'notes': e.notes,
       'shares': e.shares.map((s) => s.toJson()).toList(),
+      'recurrenceId': e.recurrenceId,
+      'occurrence': e.occurrence,
     };
+
+/// What a series made from [e] repeats (docs/API.md 반복 지출 template): its `expense.created` payload without the
+/// id, the date and the series keys. Receipts never repeat.
+Map<String, dynamic> templateOf(Expense e) => expenseCreatedPayload(e)
+  ..remove('expenseId')
+  ..remove('date')
+  ..remove('recurrenceId')
+  ..remove('occurrence');
 
 /// Status of a payment recorded with "Record a payment" (docs/API.md 송금 기록·편집): `sent` when I pay ([from] is
 /// mine) someone linked to another user, so they confirm; else `confirmed`.

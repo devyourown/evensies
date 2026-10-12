@@ -43,7 +43,7 @@ Repeating expenses (rent, subscriptions, a weekly cleaner) are added by the **se
   2. For each row, one repeat per transaction, looping while the next is due:
      - lock the group (`groups.lockForUpdate`), re-read the row, and stop if it is deleted or not due;
      - `n = next_occurrence`, `date = occurrenceDate(n)`;
-     - `oid = UUID.nameUUIDFromBytes("evensies:recurrence:$id:$n")`, used as both clientId and expenseId;
+     - `oid = UUID.nameUUIDFromBytes(HmacSHA256(key = evensies.jwt-secret, "evensies:recurrence:$id:$n"))`, used as both clientId and expenseId (keyed, so nobody can predict and take a future repeat's id);
      - payload = template + `{expenseId: oid, date, recurrenceId: id, occurrence: n}`, and event `createdAt = next_due_at`;
      - **fx:** if the template's currency differs from the group's, its `fxRateToDefault` is non-null, and `FxService.rates(date)` (Phase 4) has both codes, use that day's cross rate (`perEur[D] / perEur[cur]`, 6 significant digits with `BigDecimal(x).round(MathContext(6, HALF_UP))`, the same as Dart `toStringAsPrecision`). Otherwise keep the template's rate. A null template rate stays null (Not converted);
      - `validator.validateAll(state, actor = null, [event])`, then `EventService.push(groupId, actorUserId = null, [event])`;
@@ -261,7 +261,7 @@ None. Repeats copy the template's final per-member amounts, so the server never 
 - **App:**
   - outbox order and payloads for new-repeating, edit-latest-with-future, schedule change, stop, delete-and-stop;
   - `unsentOutbox` tie order;
-  - drift 7→8 keeps rows;
+  - drift 8→9 keeps rows;
   - widgets: Repeat dropdown and "Next:"; an older repeat is disabled with the hint; the delete dialog's choices.
 - **Simulator** (light and dark):
   - "Rent" monthly dated today shows "Next:" next month;

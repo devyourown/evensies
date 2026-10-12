@@ -294,6 +294,35 @@ void main() {
       expect(await db.getGroup('g1'), isNotNull);
     });
 
+    test('a live repeating expense with me in it blocks leaving: it would keep adding my share', () async {
+      api.events = [
+        SyncEvent(seq: 3, clientId: 'e3', type: 'member.added', payload: const {'memberId': 'm2', 'name': 'Cara'}),
+        SyncEvent(seq: 4, clientId: 'e4', type: 'recurrence.created', payload: const {
+          'recurrenceId': 'r1',
+          'frequency': 'weekly',
+          'startDate': '2026-10-01',
+          'timeZone': '+00:00',
+          'template': {
+            'description': 'Gym',
+            'amount': 3000,
+            'currency': 'EUR',
+            'paidBy': 'm2',
+            'shares': [
+              {'memberId': 'm1', 'amount': 1500},
+              {'memberId': 'm2', 'amount': 1500},
+            ],
+          },
+        }),
+      ];
+      await expectLater(
+        writes.leaveGroup('g1'),
+        throwsA(isA<LeaveException>().having((e) => e.message, 'message',
+            "You're still in 1 repeating expense (Gym) · edit the latest one or stop it first")),
+      );
+      expect(api.pushes, isEmpty);
+      expect(await db.getGroup('g1'), isNotNull);
+    });
+
     test('needs a connection', () async {
       api.onPush = null;
       await writes.createExpense('g1', x('x4', 400)); // something to push, so sync goes online

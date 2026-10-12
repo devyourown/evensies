@@ -1,10 +1,12 @@
 package dev.nariinfo.evensies
 
 import dev.nariinfo.evensies.push.NotificationPrefs
+import dev.nariinfo.evensies.storage.Sweep
 import dev.nariinfo.evensies.sync.EventApplier
 import dev.nariinfo.evensies.sync.GroupState
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.jdbc.core.simple.JdbcClient
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -24,6 +26,12 @@ import kotlin.test.assertTrue
 class ReceiptsTest : IntegrationTestBase() {
     @Autowired
     private lateinit var capture: CapturingPushSender
+
+    @Autowired
+    private lateinit var jdbc: JdbcClient
+
+    @Autowired
+    private lateinit var sweep: Sweep
 
     /** Anna's group with Ben, and Anna's expense [x] (€30.00 split 15/15). */
     private class Setup(val id: String, val anna: String, val ben: String, val a: String, val b: String, val x: String)
@@ -336,5 +344,36 @@ class ReceiptsTest : IntegrationTestBase() {
         assertStatus(404, "NOT_FOUND", http.get("/groups/${UUID.randomUUID()}/export?format=zip", s.anna))
         assertStatus(400, "VALIDATION", http.get("/groups/${s.id}/export?format=pdf", s.anna))
         assertEquals(200, http.get("/groups/${s.id}/export", s.anna).status, "json stays the default")
+    }
+
+    /** Phase 8 daily sweep (docs/API.md "하루 정리"): week-old unattached uploads go, rows and files; deleted rows lose their files. */
+    @Test
+    fun sweepRemovesStaleUploads() {
+        val s = setup()
+        val stale = UUID.randomUUID().toString()
+        val fresh = UUID.randomUUID().toString()
+        assertStatus(201, null, upload(s.anna, s.id, stale))
+        assertStatus(201, null, upload(s.anna, s.id, fresh))
+        val attached = attach(s.anna, s.id, s.x)
+        val removedOne = attach(s.anna, s.id, s.x)
+        assertStatus(200, null, push(s.anna, s.id, removed(removedOne)))
+        awaitUntil("files of the removed receipt deleted after commit") { !Files.exists(file(s.id, removedOne)) }
+        Files.write(file(s.id, removedOne), image) // as if a crash came between the commit and the file deletion
+        jdbc.sql("UPDATE attachments SET created_at = now() - interval '8 days' WHERE id IN (:ids)")
+            .param("ids", listOf(stale, attached).map(UUID::fromString)).update()
+
+        sweep.run()
+
+        fun rowExists(id: String) = jdbc.sql("SELECT count(*) FROM attachments WHERE id = :id").param("id", UUID.fromString(id)).query(Long::class.java).single() > 0
+        assertFalse(rowExists(stale))
+        assertFalse(Files.exists(file(s.id, stale)) || Files.exists(file(s.id, stale, thumb = true)))
+        assertStatus(404, "NOT_FOUND", http.get("/groups/${s.id}/attachments/$stale", s.anna))
+        for (kept in listOf(fresh, attached)) {
+            assertTrue(rowExists(kept))
+            assertTrue(Files.exists(file(s.id, kept)) && Files.exists(file(s.id, kept, thumb = true)))
+        }
+        assertTrue(rowExists(removedOne), "a deleted receipt keeps its row")
+        assertFalse(Files.exists(file(s.id, removedOne)))
+        assertEquals(setOf(attached, removedOne), attachments(s.anna, s.id).keys)
     }
 }

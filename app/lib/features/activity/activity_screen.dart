@@ -11,6 +11,7 @@ import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../domain/activity.dart';
 import '../../domain/models.dart';
+import '../../domain/recurrence.dart';
 import '../../providers.dart';
 import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
@@ -318,7 +319,12 @@ class ActivityTile extends ConsumerWidget {
       for (final m in state?.members ?? const <Member>[])
         m.id: friend != null && m.id != group?.myMemberId && m.userId != home?.myUserId ? friend : m.name,
     };
-    final expense = item.expenseId == null ? null : state?.expense(item.expenseId!);
+    // A series' row opens its latest repeat (none here: nothing to open, docs/API.md 푸시 앱).
+    final expense = item.expenseId != null
+        ? state?.expense(item.expenseId!)
+        : item.kind.startsWith('recurrence_') && item.recurrenceId != null
+            ? state?.latestRepeat(item.recurrenceId!)
+            : null;
     final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final restorable = offerRestore && item.kind == 'expense_deleted' && expense != null && expense.deleted;
     // A deleted payment: not an edited one, and only for the payer's or receiver's user (docs/API.md 송금 되살리기).
@@ -337,6 +343,9 @@ class ActivityTile extends ConsumerWidget {
           cs.onErrorContainer
         ),
       'expense_added' => (Icons.receipt_long_outlined, cs.primaryContainer, cs.onPrimaryContainer),
+      'expense_repeated' || 'recurrence_created' => (Icons.repeat, cs.primaryContainer, cs.onPrimaryContainer),
+      'recurrence_updated' => (Icons.edit_calendar_outlined, cs.primaryContainer, cs.onPrimaryContainer),
+      'recurrence_deleted' => (Icons.event_busy_outlined, cs.surfaceContainerHighest, cs.onSurfaceVariant),
       'receipt_added' => (Icons.add_photo_alternate_outlined, cs.primaryContainer, cs.onPrimaryContainer),
       'expense_updated' || 'payment_edited' => (Icons.edit_outlined, cs.primaryContainer, cs.onPrimaryContainer),
       'expense_restored' || 'payment_restored' => (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
@@ -352,9 +361,12 @@ class ActivityTile extends ConsumerWidget {
       _ => (Icons.group_outlined, cs.surfaceContainerHighest, cs.onSurfaceVariant),
     };
     final time = _local(item.createdAt);
+    // A catch-up adds several repeats at once: each row says which date it is for.
+    final due = item.kind == 'expense_repeated' ? DateTime.tryParse(expense?.date ?? '') : null;
     final meta = [
       // A friend group reads "Non-group · Ben".
       if (showGroup) home?.label(groupId) ?? group?.name ?? '',
+      if (due != null && (time == null || !DateUtils.isSameDay(due, time))) 'for ${DateFormat('EEE, d MMM').format(due)}',
       if (time != null) DateFormat.jm().format(time),
     ].where((s) => s.isNotEmpty).join(' · ');
 
@@ -374,6 +386,8 @@ class ActivityTile extends ConsumerWidget {
       target = '/groups/$groupId/members';
     } else if (kind == 'group_updated') {
       target = '/groups/$groupId/settings';
+    } else if (kind.startsWith('recurrence_')) {
+      target = null;
     } else {
       target = showGroup ? '/groups/$groupId' : null;
     }

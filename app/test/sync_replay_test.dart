@@ -79,6 +79,32 @@ void main() {
       '"expense_id" TEXT NOT NULL, "author_member_id" TEXT NOT NULL, "text" TEXT NOT NULL, "created_at" TEXT NOT NULL, '
       '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
 
+  test('schema 8 → 9 adds repeating series and the expense series columns, keeps rows, replays', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      v4Expenses(raw);
+      v3Comments(raw);
+      raw.execute('ALTER TABLE groups ADD COLUMN "simplify_debts" INTEGER NOT NULL DEFAULT 1 CHECK ("simplify_debts" IN (0, 1))');
+      raw.execute('ALTER TABLE groups ADD COLUMN "default_split_json" TEXT NULL');
+      raw.execute('ALTER TABLE groups ADD COLUMN "kind" TEXT NOT NULL DEFAULT \'group\'');
+      raw.execute('ALTER TABLE expenses ADD COLUMN "moved" INTEGER NOT NULL DEFAULT 0 CHECK ("moved" IN (0, 1))');
+      raw.execute('ALTER TABLE payments ADD COLUMN "replaced" INTEGER NOT NULL DEFAULT 0 CHECK ("replaced" IN (0, 1))');
+      raw.execute('CREATE TABLE "attachments" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "expense_id" TEXT NOT NULL, '
+          '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
+      raw.execute('CREATE TABLE "pending_uploads" ("attachment_id" TEXT NOT NULL, "group_id" TEXT NOT NULL, '
+          '"created_at" TEXT NOT NULL, PRIMARY KEY ("attachment_id"))');
+      raw.execute("INSERT INTO attachments (id, group_id, expense_id) VALUES ('a1', 'g1', 'x1')");
+      raw.execute('PRAGMA user_version = 8');
+    }));
+    addTearDown(db.close);
+
+    final x = (await db.getExpense('x1'))!;
+    expect((x.description, x.recurrenceId, x.occurrence), ('Dinner', null, null));
+    expect((await db.getAttachment('a1'))!.expenseId, 'x1');
+    expect(await db.select(db.recurrences).get(), isEmpty);
+    expect(await db.lastSeq('g1'), 0); // older code skipped recurrence.* and the series keys: replay
+  });
+
   test('schema 7 → 8 adds receipts and the replaced flag, keeps payments, replays', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
       v1Tables(raw);

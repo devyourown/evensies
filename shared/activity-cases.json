@@ -1,5 +1,5 @@
 {
-  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'. 6단계: 친구 그룹(seq 1 group.created의 kind가 \"friend\")에서는 seq 1·2를 숨기고 그 밖의 member.added는 friend_added(\"{A} added {member} as a friend\"). movedTo가 있는 expense.deleted는 expense_moved(expense_deleted와 같은 필드, \"{A} moved “{description}” to another group\"). paymentId가 있는 comment_added는 댓글 시점의 송금 필드(paymentId, fromMember, toMember, amount, currency)와 commentId·text를 채우고 expenseId·description은 null(\"{A} commented on a payment of {M(amount)} from {from} to {to}: {text}\"). 송금 편집(payment_deleted + payment_added)은 묶음에서 \"{A} made 2 changes\". 7단계: attachment.added는 receipt_added, attachment.deleted는 receipt_removed(expenseId·description = 그 영수증이 붙은 지출의 직후 값, \"{A} added a receipt to “{description}”\" / \"{A} removed a receipt from “{description}”\"). 이미 있는 id의 attachment.added와 이미 삭제된 영수증의 attachment.deleted는 숨김 1. payment.restored는 payment_restored(payment_added와 같은 필드, \"{A} restored a payment of {M(amount)} from {from} to {to}\"); 살아 있거나 편집으로 바뀐(replaced) 송금의 restored는 숨김 1. replacedBy가 문자열인 payment.deleted(송금 편집)는 payment_deleted가 아니라 payment_edited(같은 필드, 이전 송금의 값, \"{A} edited a payment of {M(amount)} from {from} to {to}\"). 송금 편집(payment_edited + payment_added)은 묶음에서 그대로 \"{A} made 2 changes\". batches: 표시 알림으로 보낼 항목에서 같은 묶음에 같은 expenseId의 expense_added가 있는 receipt_added를 먼저 뺀다(남은 것이 하나면 그 문장).",
+  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'. 6단계: 친구 그룹(seq 1 group.created의 kind가 \"friend\")에서는 seq 1·2를 숨기고 그 밖의 member.added는 friend_added(\"{A} added {member} as a friend\"). movedTo가 있는 expense.deleted는 expense_moved(expense_deleted와 같은 필드, \"{A} moved “{description}” to another group\"). paymentId가 있는 comment_added는 댓글 시점의 송금 필드(paymentId, fromMember, toMember, amount, currency)와 commentId·text를 채우고 expenseId·description은 null(\"{A} commented on a payment of {M(amount)} from {from} to {to}: {text}\"). 송금 편집(payment_deleted + payment_added)은 묶음에서 \"{A} made 2 changes\". 7단계: attachment.added는 receipt_added, attachment.deleted는 receipt_removed(expenseId·description = 그 영수증이 붙은 지출의 직후 값, \"{A} added a receipt to “{description}”\" / \"{A} removed a receipt from “{description}”\"). 이미 있는 id의 attachment.added와 이미 삭제된 영수증의 attachment.deleted는 숨김 1. payment.restored는 payment_restored(payment_added와 같은 필드, \"{A} restored a payment of {M(amount)} from {from} to {to}\"); 살아 있거나 편집으로 바뀐(replaced) 송금의 restored는 숨김 1. replacedBy가 문자열인 payment.deleted(송금 편집)는 payment_deleted가 아니라 payment_edited(같은 필드, 이전 송금의 값, \"{A} edited a payment of {M(amount)} from {from} to {to}\"). 송금 편집(payment_edited + payment_added)은 묶음에서 그대로 \"{A} made 2 changes\". batches: 표시 알림으로 보낼 항목에서 같은 묶음에 같은 expenseId의 expense_added가 있는 receipt_added를 먼저 뺀다(남은 것이 하나면 그 문장). 8단계(반복 지출): recurrence.created → recurrence_created, recurrence.updated → recurrence_updated, recurrence.deleted → recurrence_deleted. 셋 다 recurrenceId, frequency와 직후 template의 description·amount·currency를 채운다(myDelta 없음). recurrence_updated의 changes는 직전·직후 template을 지출로 읽어(expense.created처럼 적용) expense_updated와 같은 규칙·순서로 만든다(template에는 date가 없다). 이미 있는 id의 recurrence.created, 없거나 멈춘 시리즈의 recurrence.updated·recurrence.deleted는 숨김 1. actorUserId가 null이고 recurrenceId가 있는 expense.created(서버 스케줄러가 만든 반복)는 expense_repeated: expense_added와 같은 필드 + frequency, actorMemberId 없음. expense_* 항목은 직후 지출에 시리즈가 있으면 recurrenceId를 채운다. changes가 빈 expense_updated·recurrence_updated(시리즈 표시 recurrenceId·occurrence만 바뀐 수정 등)는 숨긴다(숨김 7). 문장: \"{A} set “{description}” to repeat {frequency}\", \"{A} changed future “{description}”: {변경들}\", \"{A} stopped “{description}” repeating\", \"“{description}” · {M(amount)} was added (repeats {frequency})\" + expense_added와 같은 꼬리(환불이면 \"A refund “…” · … was added (repeats …)\"와 you get back). frequency 말: weekly / every 2 weeks / monthly / yearly. batches: 같은 묶음에 같은 recurrenceId를 가진 expense_* 항목이 있는 recurrence_* 항목은 먼저 뺀다(반복 지출 만들기·미래까지 고치기·지우고 멈추기는 지출의 문장 하나). 모두 expense_repeated면 \"{n} repeating expenses were added\"(actor가 없어도 Someone을 쓰지 않는다).",
   "money": [
     {
       "minor": 3000,
@@ -3127,6 +3127,548 @@
         "You joined",
         "Anna created the group “Rome”"
       ]
+    },
+    {
+      "name": "repeating expenses: a series started with its first expense, a repeat by Evensies (no actor), the latest edited with its future, a schedule change (the retag alone hidden), no-ops on stopped and known series hidden, delete and stop",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "group.created",
+          "payload": {
+            "name": "Flat",
+            "defaultCurrency": "EUR"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-01T08:01:00Z"
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": "u-anna"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-01T08:02:00Z"
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": "u-ben"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-10-01T08:03:00Z"
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r1",
+            "frequency": "monthly",
+            "startDate": "2026-10-01",
+            "timeZone": "+02:00",
+            "template": {
+              "description": "Rent",
+              "amount": 120000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 120000
+                }
+              ],
+              "refund": false,
+              "split": {
+                "mode": "equal"
+              },
+              "category": "home.rent",
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 60000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 60000
+                }
+              ]
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-01T08:04:00Z"
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x0",
+            "description": "Rent",
+            "amount": 120000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 120000
+              }
+            ],
+            "refund": false,
+            "split": {
+              "mode": "equal"
+            },
+            "category": "home.rent",
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 60000
+              },
+              {
+                "memberId": "m2",
+                "amount": 60000
+              }
+            ],
+            "date": "2026-10-01",
+            "recurrenceId": "r1",
+            "occurrence": 0
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-10-01T08:04:00Z"
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Rent",
+            "amount": 120000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "payers": [
+              {
+                "memberId": "m1",
+                "amount": 120000
+              }
+            ],
+            "refund": false,
+            "split": {
+              "mode": "equal"
+            },
+            "category": "home.rent",
+            "notes": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 60000
+              },
+              {
+                "memberId": "m2",
+                "amount": 60000
+              }
+            ],
+            "date": "2026-11-01",
+            "recurrenceId": "r1",
+            "occurrence": 1
+          },
+          "actorUserId": null,
+          "createdAt": "2026-11-01T07:00:00Z"
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 130000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 130000
+                }
+              ],
+              "refund": false,
+              "split": {
+                "mode": "equal"
+              },
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 65000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 65000
+                }
+              ]
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-02T10:00:00Z"
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r1",
+            "fields": {
+              "amount": 130000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 130000
+                }
+              ],
+              "refund": false,
+              "split": {
+                "mode": "equal"
+              },
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 65000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 65000
+                }
+              ]
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-02T10:00:00Z"
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "recurrence.deleted",
+          "payload": {
+            "recurrenceId": "r1"
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-11-03T10:00:00Z"
+        },
+        {
+          "seq": 10,
+          "clientId": "e10",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r2",
+            "frequency": "biweekly",
+            "startDate": "2026-11-01",
+            "timeZone": "+02:00",
+            "template": {
+              "description": "Rent",
+              "amount": 130000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 130000
+                }
+              ],
+              "refund": false,
+              "split": {
+                "mode": "equal"
+              },
+              "category": "home.rent",
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 65000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 65000
+                }
+              ]
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-11-03T10:00:00Z"
+        },
+        {
+          "seq": 11,
+          "clientId": "e11",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "recurrenceId": "r2",
+              "occurrence": 0
+            }
+          },
+          "actorUserId": "u-anna",
+          "createdAt": "2026-11-03T10:00:00Z"
+        },
+        {
+          "seq": 12,
+          "clientId": "e12",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r1",
+            "fields": {
+              "description": "Rent + parking"
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-03T11:00:00Z"
+        },
+        {
+          "seq": 13,
+          "clientId": "e13",
+          "type": "recurrence.deleted",
+          "payload": {
+            "recurrenceId": "r1"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-03T11:01:00Z"
+        },
+        {
+          "seq": 14,
+          "clientId": "e14",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r2",
+            "frequency": "weekly",
+            "startDate": "2026-11-03",
+            "timeZone": "+01:00",
+            "template": {
+              "description": "Rent",
+              "amount": 120000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 120000
+                }
+              ],
+              "refund": false,
+              "split": {
+                "mode": "equal"
+              },
+              "category": "home.rent",
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 60000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 60000
+                }
+              ]
+            }
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-03T11:02:00Z"
+        },
+        {
+          "seq": 15,
+          "clientId": "e15",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-04T10:00:00Z"
+        },
+        {
+          "seq": 16,
+          "clientId": "e16",
+          "type": "recurrence.deleted",
+          "payload": {
+            "recurrenceId": "r2"
+          },
+          "actorUserId": "u-ben",
+          "createdAt": "2026-11-04T10:00:00Z"
+        }
+      ],
+      "expected": [
+        {
+          "seq": 16,
+          "createdAt": "2026-11-04T10:00:00Z",
+          "kind": "recurrence_deleted",
+          "actorMemberId": "m2",
+          "recurrenceId": "r2",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "biweekly"
+        },
+        {
+          "seq": 15,
+          "createdAt": "2026-11-04T10:00:00Z",
+          "kind": "expense_deleted",
+          "actorMemberId": "m2",
+          "expenseId": "x1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "myDelta": -65000,
+          "recurrenceId": "r2"
+        },
+        {
+          "seq": 10,
+          "createdAt": "2026-11-03T10:00:00Z",
+          "kind": "recurrence_created",
+          "actorMemberId": "m1",
+          "recurrenceId": "r2",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "biweekly"
+        },
+        {
+          "seq": 9,
+          "createdAt": "2026-11-03T10:00:00Z",
+          "kind": "recurrence_deleted",
+          "actorMemberId": "m1",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        },
+        {
+          "seq": 8,
+          "createdAt": "2026-11-02T10:00:00Z",
+          "kind": "recurrence_updated",
+          "actorMemberId": "m2",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "monthly",
+          "changes": [
+            {
+              "field": "amount",
+              "from": 120000,
+              "to": 130000
+            },
+            {
+              "field": "shares",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "createdAt": "2026-11-02T10:00:00Z",
+          "kind": "expense_updated",
+          "actorMemberId": "m2",
+          "expenseId": "x1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "myDelta": -65000,
+          "recurrenceId": "r1",
+          "changes": [
+            {
+              "field": "amount",
+              "from": 120000,
+              "to": 130000
+            },
+            {
+              "field": "shares",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 6,
+          "createdAt": "2026-11-01T07:00:00Z",
+          "kind": "expense_repeated",
+          "expenseId": "x1",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "myDelta": -60000,
+          "recurrenceId": "r1",
+          "frequency": "monthly"
+        },
+        {
+          "seq": 5,
+          "createdAt": "2026-10-01T08:04:00Z",
+          "kind": "expense_added",
+          "actorMemberId": "m1",
+          "expenseId": "x0",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "myDelta": -60000,
+          "recurrenceId": "r1"
+        },
+        {
+          "seq": 4,
+          "createdAt": "2026-10-01T08:04:00Z",
+          "kind": "recurrence_created",
+          "actorMemberId": "m1",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        },
+        {
+          "seq": 3,
+          "createdAt": "2026-10-01T08:03:00Z",
+          "kind": "member_joined",
+          "actorMemberId": "m2",
+          "memberId": "m2"
+        },
+        {
+          "seq": 1,
+          "createdAt": "2026-10-01T08:01:00Z",
+          "kind": "group_created",
+          "actorMemberId": "m1",
+          "name": "Flat"
+        }
+      ],
+      "texts": [
+        "You stopped “Rent” repeating",
+        "You deleted “Rent”",
+        "Anna set “Rent” to repeat every 2 weeks",
+        "Anna stopped “Rent” repeating",
+        "You changed future “Rent”: €1,200.00 → €1,300.00",
+        "You changed “Rent”: €1,200.00 → €1,300.00",
+        "“Rent” · €1,200.00 was added (repeats monthly) · you owe €600.00",
+        "Anna added “Rent” · €1,200.00 · you owe €600.00",
+        "Anna set “Rent” to repeat monthly",
+        "You joined",
+        "Anna created the group “Flat”"
+      ]
     }
   ],
   "batches": [
@@ -3454,6 +3996,312 @@
         }
       ],
       "text": "Anna added a receipt to “Dinner”"
+    },
+    {
+      "name": "a series started with its first expense: the expense's sentence",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 5,
+          "createdAt": "2026-10-01T08:04:00Z",
+          "kind": "expense_added",
+          "actorMemberId": "m1",
+          "expenseId": "x0",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "myDelta": -60000,
+          "recurrenceId": "r1"
+        },
+        {
+          "seq": 4,
+          "createdAt": "2026-10-01T08:04:00Z",
+          "kind": "recurrence_created",
+          "actorMemberId": "m1",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        }
+      ],
+      "text": "Anna added “Rent” · €1,200.00 · you owe €600.00"
+    },
+    {
+      "name": "the latest repeat edited with its future repeats: the edit's sentence",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 8,
+          "createdAt": "2026-11-02T10:00:00Z",
+          "kind": "recurrence_updated",
+          "actorMemberId": "m1",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "monthly",
+          "changes": [
+            {
+              "field": "amount",
+              "from": 120000,
+              "to": 130000
+            },
+            {
+              "field": "shares",
+              "from": null,
+              "to": null
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "createdAt": "2026-11-02T10:00:00Z",
+          "kind": "expense_updated",
+          "actorMemberId": "m1",
+          "expenseId": "x1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "myDelta": -65000,
+          "recurrenceId": "r1",
+          "changes": [
+            {
+              "field": "amount",
+              "from": 120000,
+              "to": 130000
+            },
+            {
+              "field": "shares",
+              "from": null,
+              "to": null
+            }
+          ]
+        }
+      ],
+      "text": "Anna changed “Rent”: €1,200.00 → €1,300.00"
+    },
+    {
+      "name": "delete and stop repeating: the delete's sentence",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 16,
+          "createdAt": "2026-11-04T10:00:00Z",
+          "kind": "recurrence_deleted",
+          "actorMemberId": "m1",
+          "recurrenceId": "r2",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "biweekly"
+        },
+        {
+          "seq": 15,
+          "createdAt": "2026-11-04T10:00:00Z",
+          "kind": "expense_deleted",
+          "actorMemberId": "m1",
+          "expenseId": "x1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "myDelta": -65000,
+          "recurrenceId": "r2"
+        }
+      ],
+      "text": "Anna deleted “Rent”"
+    },
+    {
+      "name": "a schedule change alone (the retag is hidden): the stop and the new series are two changes",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 10,
+          "createdAt": "2026-11-03T10:00:00Z",
+          "kind": "recurrence_created",
+          "actorMemberId": "m1",
+          "recurrenceId": "r2",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "biweekly"
+        },
+        {
+          "seq": 9,
+          "createdAt": "2026-11-03T10:00:00Z",
+          "kind": "recurrence_deleted",
+          "actorMemberId": "m1",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 130000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        }
+      ],
+      "text": "Anna made 2 changes"
+    },
+    {
+      "name": "a series started next to an unrelated expense still counts",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 8,
+          "kind": "expense_added",
+          "createdAt": "2026-10-11T08:08:00Z",
+          "actorMemberId": "m1",
+          "expenseId": "x7",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR"
+        },
+        {
+          "seq": 7,
+          "kind": "recurrence_created",
+          "createdAt": "2026-10-11T08:07:00Z",
+          "actorMemberId": "m1",
+          "recurrenceId": "r3",
+          "description": "Gym",
+          "amount": 4000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        }
+      ],
+      "text": "Anna made 2 changes"
+    },
+    {
+      "name": "another member's stop next to a repeat by Evensies stays: two changes",
+      "me": "m1",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 12,
+          "kind": "recurrence_deleted",
+          "createdAt": "2026-11-10T08:00:20Z",
+          "actorMemberId": "m2",
+          "recurrenceId": "r1",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "frequency": "monthly"
+        },
+        {
+          "seq": 11,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-10T08:00:00Z",
+          "expenseId": "x4",
+          "description": "Rent",
+          "amount": 120000,
+          "currency": "EUR",
+          "myDelta": 60000,
+          "recurrenceId": "r1",
+          "frequency": "monthly"
+        }
+      ],
+      "text": "2 new changes"
+    },
+    {
+      "name": "repeats caught up after downtime: all added by Evensies",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 21,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-10T08:00:00Z",
+          "expenseId": "x3",
+          "description": "Cleaner",
+          "amount": 8000,
+          "currency": "EUR",
+          "myDelta": -4000,
+          "recurrenceId": "r4",
+          "frequency": "weekly"
+        },
+        {
+          "seq": 20,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-10T08:00:00Z",
+          "expenseId": "x2",
+          "description": "Cleaner",
+          "amount": 8000,
+          "currency": "EUR",
+          "myDelta": -4000,
+          "recurrenceId": "r4",
+          "frequency": "weekly"
+        }
+      ],
+      "text": "2 repeating expenses were added"
+    },
+    {
+      "name": "one repeat alone: a yearly refund",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 9,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-10T08:00:00Z",
+          "expenseId": "x5",
+          "description": "Insurance rebate",
+          "amount": 6000,
+          "currency": "EUR",
+          "myDelta": 3000,
+          "refund": true,
+          "recurrenceId": "r5",
+          "frequency": "yearly"
+        }
+      ],
+      "text": "A refund “Insurance rebate” · €60.00 was added (repeats yearly) · you get back €30.00"
+    },
+    {
+      "name": "one repeat alone: weekly, not involved",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 9,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-10T08:00:00Z",
+          "expenseId": "x6",
+          "description": "Cleaner",
+          "amount": 8000,
+          "currency": "EUR",
+          "recurrenceId": "r6",
+          "frequency": "weekly"
+        }
+      ],
+      "text": "“Cleaner” · €80.00 was added (repeats weekly)"
     }
   ]
 }

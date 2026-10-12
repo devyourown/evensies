@@ -60,6 +60,16 @@ final commentsProvider = StreamProvider.family<List<CommentRow>, String>((ref, i
 final attachmentCountsProvider =
     StreamProvider.family<Map<String, int>, String>((ref, id) => ref.watch(dbProvider).watchAttachmentCounts(id));
 
+/// The group's repeating series rows (docs/API.md 반복 지출); also makes the group state re-read on a change.
+final recurrencesProvider =
+    StreamProvider.family<List<RecurrenceRow>, String>((ref, id) => ref.watch(dbProvider).watchRecurrences(id));
+
+/// Ids of the group's series that aren't stopped: their expenses show the repeat mark.
+final activeSeriesProvider = Provider.family<Set<String>, String>((ref, id) => {
+      for (final r in ref.watch(recurrencesProvider(id)).value ?? const <RecurrenceRow>[])
+        if (!r.deleted) r.id,
+    });
+
 /// Whether the expense was deleted by a move (docs/API.md 지출 옮기기): restoring it would count it in both groups, so
 /// the app offers no Restore (and the appliers ignore one, rule 13).
 final movedAwayProvider = StreamProvider.family<bool, ({String groupId, String expenseId})>((ref, k) {

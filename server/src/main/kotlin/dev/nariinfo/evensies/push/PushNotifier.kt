@@ -51,12 +51,12 @@ class PushNotifier(
     private class Slot(var lastVisible: Instant = Instant.EPOCH, val pending: MutableList<ActivityItem> = mutableListOf())
     private val slots = HashMap<Pair<UUID, UUID>, Slot>()
 
-    /** [stored] = the events this push newly stored (with meta). Never throws. */
-    fun notify(groupId: UUID, actorUserId: UUID, stored: List<Event>) {
+    /** [stored] = the events this push newly stored (with meta); a null actor (Evensies, Phase 8) notifies everyone. Never throws. */
+    fun notify(groupId: UUID, actorUserId: UUID?, stored: List<Event>) {
         worker.execute { guarded(groupId) { fanOut(groupId, actorUserId, stored) } }
     }
 
-    private fun fanOut(groupId: UUID, actorUserId: UUID, stored: List<Event>) {
+    private fun fanOut(groupId: UUID, actorUserId: UUID?, stored: List<Event>) {
         val group = groups.find(groupId) ?: return
         val all = members.listByGroup(groupId)
         val names = all.associate { it.id.toString() to it.name }

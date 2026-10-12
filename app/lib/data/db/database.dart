@@ -53,6 +53,9 @@ class Expenses extends Table {
   TextColumn get splitJson => text().nullable()();
   /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
   BoolColumn get moved => boolean().withDefault(const Constant(false))();
+  /// The repeating series and the number in it (docs/API.md 반복 지출); both null outside a series.
+  TextColumn get recurrenceId => text().nullable()();
+  IntColumn get occurrence => integer().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -114,6 +117,21 @@ class Attachments extends Table {
   TextColumn get id => text()();
   TextColumn get groupId => text()();
   TextColumn get expenseId => text()();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Repeating series (docs/API.md 반복 지출, rule 15), in creation order (rowid), stopped ones included.
+@DataClassName('RecurrenceRow')
+class Recurrences extends Table {
+  TextColumn get id => text()();
+  TextColumn get groupId => text()();
+  TextColumn get frequency => text()();
+  TextColumn get startDate => text()();
+  TextColumn get timeZone => text()();
+  /// The `expense.created` payload the server repeats, as JSON.
+  TextColumn get templateJson => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
@@ -198,6 +216,7 @@ class FxDays extends Table {
   Comments,
   Attachments,
   PendingUploads,
+  Recurrences,
   Activity,
   Outbox,
   SyncState,
@@ -209,7 +228,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,6 +278,14 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(payments, payments.replaced);
             // Older code skipped attachment.* and payment.restored and read itemized splits as none: replay every
             // group (docs/API.md 호환 7단계).
+            await delete(syncState).go();
+          }
+          if (from < 9) {
+            await m.createTable(recurrences);
+            await m.addColumn(expenses, expenses.recurrenceId);
+            await m.addColumn(expenses, expenses.occurrence);
+            // Older code skipped recurrence.* and dropped the series keys of expenses: replay every group
+            // (docs/API.md 호환 8단계).
             await delete(syncState).go();
           }
         },
@@ -325,6 +352,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setLastSeq(String groupId, int seq) =>
       into(syncState).insertOnConflictUpdate(SyncStateRow(groupId: groupId, lastSeq: seq));
 
+  // --- repeating series
+  Stream<List<RecurrenceRow>> watchRecurrences(String groupId) =>
+      (select(recurrences)..where((r) => r.groupId.equals(groupId))).watch();
+
   // --- receipts
   /// expenseId → number of its receipts that aren't deleted (the list's receipt icon).
   Stream<Map<String, int>> watchAttachmentCounts(String groupId) =>
@@ -373,6 +404,7 @@ class AppDatabase extends _$AppDatabase {
         await (delete(comments)..where((c) => c.groupId.equals(groupId))).go();
         await (delete(attachments)..where((a) => a.groupId.equals(groupId))).go();
         await (delete(pendingUploads)..where((p) => p.groupId.equals(groupId))).go();
+        await (delete(recurrences)..where((r) => r.groupId.equals(groupId))).go();
         await (delete(activity)..where((a) => a.groupId.equals(groupId))).go();
         await (delete(members)..where((m) => m.groupId.equals(groupId))).go();
         await (delete(outbox)..where((o) => o.groupId.equals(groupId))).go();

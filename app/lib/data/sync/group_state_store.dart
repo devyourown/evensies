@@ -30,6 +30,10 @@ class GroupStateStore {
           ..where((a) => a.groupId.equals(groupId))
           ..orderBy([(a) => OrderingTerm.asc(a.rowId)]))
         .get();
+    final rs = await (db.select(db.recurrences)
+          ..where((r) => r.groupId.equals(groupId))
+          ..orderBy([(r) => OrderingTerm.asc(r.rowId)]))
+        .get();
     return GroupState(
       name: g?.name,
       defaultCurrency: g?.defaultCurrency,
@@ -56,6 +60,8 @@ class GroupStateStore {
             refund: e.refund,
             split: splitFromJson(e.splitJson),
             moved: e.moved,
+            recurrenceId: e.recurrenceId,
+            occurrence: e.occurrence,
             shares: [
               for (final s in shares.where((s) => s.expenseId == e.id)) Share(memberId: s.memberId, amount: s.amount)
             ],
@@ -76,6 +82,7 @@ class GroupStateStore {
           ),
       ],
       attachments: [for (final a in atts) Attachment(id: a.id, expenseId: a.expenseId, deleted: a.deleted)],
+      recurrences: [for (final r in rs) recurrenceFromRow(r)],
       comments: [
         for (final c in cs)
           Comment(
@@ -110,6 +117,7 @@ class GroupStateStore {
         await (db.delete(db.payments)..where((p) => p.groupId.equals(groupId))).go();
         await (db.delete(db.comments)..where((c) => c.groupId.equals(groupId))).go();
         await (db.delete(db.attachments)..where((a) => a.groupId.equals(groupId))).go();
+        await (db.delete(db.recurrences)..where((r) => r.groupId.equals(groupId))).go();
         await (db.delete(db.members)..where((m) => m.groupId.equals(groupId))).go();
         await db.batch((b) {
           b.insertAll(db.members, [
@@ -147,6 +155,7 @@ class GroupStateStore {
             for (final a in s.attachments)
               AttachmentsCompanion.insert(id: a.id, groupId: groupId, expenseId: a.expenseId, deleted: Value(a.deleted)),
           ]);
+          b.insertAll(db.recurrences, [for (final r in s.recurrences) recurrenceRow(groupId, r)]);
           b.insertAll(db.comments, [
             for (final c in s.comments)
               CommentsCompanion.insert(
@@ -182,6 +191,27 @@ ExpensesCompanion expenseRow(String groupId, Expense e) => ExpensesCompanion.ins
       refund: Value(e.refund),
       splitJson: Value(splitToJson(e.split)),
       moved: Value(e.moved),
+      recurrenceId: Value(e.recurrenceId),
+      occurrence: Value(e.occurrence),
+    );
+
+/// The drift row of series [r], and back.
+RecurrencesCompanion recurrenceRow(String groupId, Recurrence r) => RecurrencesCompanion.insert(
+      id: r.id,
+      groupId: groupId,
+      frequency: r.frequency,
+      startDate: r.startDate,
+      timeZone: r.timeZone,
+      templateJson: jsonEncode(r.template),
+      deleted: Value(r.deleted),
+    );
+Recurrence recurrenceFromRow(RecurrenceRow r) => Recurrence(
+      id: r.id,
+      frequency: r.frequency,
+      startDate: r.startDate,
+      timeZone: r.timeZone,
+      template: (jsonDecode(r.templateJson) as Map).cast<String, dynamic>(),
+      deleted: r.deleted,
     );
 
 SplitSpec? splitFromJson(String? json) => json == null ? null : SplitSpec.fromJson(jsonDecode(json));

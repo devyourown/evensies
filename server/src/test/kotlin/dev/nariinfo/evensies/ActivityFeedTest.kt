@@ -26,7 +26,8 @@ class ActivityFeedTest : IntegrationTestBase() {
 
     private val itemKeys = setOf(
         "groupId", "feedId", "seq", "kind", "createdAt", "actorMemberId", "memberId", "expenseId", "commentId", "paymentId",
-        "name", "description", "amount", "currency", "fromMember", "toMember", "status", "myDelta", "refund", "text", "changes",
+        "name", "description", "amount", "currency", "fromMember", "toMember", "status", "myDelta", "refund", "text",
+        "recurrenceId", "frequency", "changes",
     )
 
     private class Setup(val id: String, val anna: String, val ben: String, val annaMember: String, val benMember: String, val carla: String, val x: String)

@@ -24,7 +24,7 @@ data class NotificationPrefs(
     val reminders: Boolean = true,
 ) {
     fun allows(kind: String) = when {
-        kind.startsWith("expense_") || kind.startsWith("payment_") || kind.startsWith("receipt_") -> expenses
+        kind.startsWith("expense_") || kind.startsWith("payment_") || kind.startsWith("receipt_") || kind.startsWith("recurrence_") -> expenses
         kind == "comment_added" -> comments
         kind.startsWith("member_") || kind == "friend_added" || kind == "group_updated" -> members
         else -> true

@@ -1097,6 +1097,28 @@ class $ExpensesTable extends Expenses
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _recurrenceIdMeta = const VerificationMeta(
+    'recurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceId = GeneratedColumn<String>(
+    'recurrence_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurrenceMeta = const VerificationMeta(
+    'occurrence',
+  );
+  @override
+  late final GeneratedColumn<int> occurrence = GeneratedColumn<int>(
+    'occurrence',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1113,6 +1135,8 @@ class $ExpensesTable extends Expenses
     refund,
     splitJson,
     moved,
+    recurrenceId,
+    occurrence,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1227,6 +1251,21 @@ class $ExpensesTable extends Expenses
         moved.isAcceptableOrUnknown(data['moved']!, _movedMeta),
       );
     }
+    if (data.containsKey('recurrence_id')) {
+      context.handle(
+        _recurrenceIdMeta,
+        recurrenceId.isAcceptableOrUnknown(
+          data['recurrence_id']!,
+          _recurrenceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('occurrence')) {
+      context.handle(
+        _occurrenceMeta,
+        occurrence.isAcceptableOrUnknown(data['occurrence']!, _occurrenceMeta),
+      );
+    }
     return context;
   }
 
@@ -1292,6 +1331,14 @@ class $ExpensesTable extends Expenses
         DriftSqlType.bool,
         data['${effectivePrefix}moved'],
       )!,
+      recurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_id'],
+      ),
+      occurrence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}occurrence'],
+      ),
     );
   }
 
@@ -1320,6 +1367,10 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
 
   /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
   final bool moved;
+
+  /// The repeating series and the number in it (docs/API.md 반복 지출); both null outside a series.
+  final String? recurrenceId;
+  final int? occurrence;
   const ExpenseRow({
     required this.id,
     required this.groupId,
@@ -1335,6 +1386,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     required this.refund,
     this.splitJson,
     required this.moved,
+    this.recurrenceId,
+    this.occurrence,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1361,6 +1414,12 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       map['split_json'] = Variable<String>(splitJson);
     }
     map['moved'] = Variable<bool>(moved);
+    if (!nullToAbsent || recurrenceId != null) {
+      map['recurrence_id'] = Variable<String>(recurrenceId);
+    }
+    if (!nullToAbsent || occurrence != null) {
+      map['occurrence'] = Variable<int>(occurrence);
+    }
     return map;
   }
 
@@ -1388,6 +1447,12 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           ? const Value.absent()
           : Value(splitJson),
       moved: Value(moved),
+      recurrenceId: recurrenceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceId),
+      occurrence: occurrence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurrence),
     );
   }
 
@@ -1411,6 +1476,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       refund: serializer.fromJson<bool>(json['refund']),
       splitJson: serializer.fromJson<String?>(json['splitJson']),
       moved: serializer.fromJson<bool>(json['moved']),
+      recurrenceId: serializer.fromJson<String?>(json['recurrenceId']),
+      occurrence: serializer.fromJson<int?>(json['occurrence']),
     );
   }
   @override
@@ -1431,6 +1498,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       'refund': serializer.toJson<bool>(refund),
       'splitJson': serializer.toJson<String?>(splitJson),
       'moved': serializer.toJson<bool>(moved),
+      'recurrenceId': serializer.toJson<String?>(recurrenceId),
+      'occurrence': serializer.toJson<int?>(occurrence),
     };
   }
 
@@ -1449,6 +1518,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     bool? refund,
     Value<String?> splitJson = const Value.absent(),
     bool? moved,
+    Value<String?> recurrenceId = const Value.absent(),
+    Value<int?> occurrence = const Value.absent(),
   }) => ExpenseRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -1466,6 +1537,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     refund: refund ?? this.refund,
     splitJson: splitJson.present ? splitJson.value : this.splitJson,
     moved: moved ?? this.moved,
+    recurrenceId: recurrenceId.present ? recurrenceId.value : this.recurrenceId,
+    occurrence: occurrence.present ? occurrence.value : this.occurrence,
   );
   ExpenseRow copyWithCompanion(ExpensesCompanion data) {
     return ExpenseRow(
@@ -1487,6 +1560,12 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
       refund: data.refund.present ? data.refund.value : this.refund,
       splitJson: data.splitJson.present ? data.splitJson.value : this.splitJson,
       moved: data.moved.present ? data.moved.value : this.moved,
+      recurrenceId: data.recurrenceId.present
+          ? data.recurrenceId.value
+          : this.recurrenceId,
+      occurrence: data.occurrence.present
+          ? data.occurrence.value
+          : this.occurrence,
     );
   }
 
@@ -1506,7 +1585,9 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           ..write('notes: $notes, ')
           ..write('refund: $refund, ')
           ..write('splitJson: $splitJson, ')
-          ..write('moved: $moved')
+          ..write('moved: $moved, ')
+          ..write('recurrenceId: $recurrenceId, ')
+          ..write('occurrence: $occurrence')
           ..write(')'))
         .toString();
   }
@@ -1527,6 +1608,8 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
     refund,
     splitJson,
     moved,
+    recurrenceId,
+    occurrence,
   );
   @override
   bool operator ==(Object other) =>
@@ -1545,7 +1628,9 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
           other.notes == this.notes &&
           other.refund == this.refund &&
           other.splitJson == this.splitJson &&
-          other.moved == this.moved);
+          other.moved == this.moved &&
+          other.recurrenceId == this.recurrenceId &&
+          other.occurrence == this.occurrence);
 }
 
 class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
@@ -1563,6 +1648,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
   final Value<bool> refund;
   final Value<String?> splitJson;
   final Value<bool> moved;
+  final Value<String?> recurrenceId;
+  final Value<int?> occurrence;
   final Value<int> rowid;
   const ExpensesCompanion({
     this.id = const Value.absent(),
@@ -1579,6 +1666,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     this.refund = const Value.absent(),
     this.splitJson = const Value.absent(),
     this.moved = const Value.absent(),
+    this.recurrenceId = const Value.absent(),
+    this.occurrence = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ExpensesCompanion.insert({
@@ -1596,6 +1685,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     this.refund = const Value.absent(),
     this.splitJson = const Value.absent(),
     this.moved = const Value.absent(),
+    this.recurrenceId = const Value.absent(),
+    this.occurrence = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -1619,6 +1710,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Expression<bool>? refund,
     Expression<String>? splitJson,
     Expression<bool>? moved,
+    Expression<String>? recurrenceId,
+    Expression<int>? occurrence,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1636,6 +1729,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       if (refund != null) 'refund': refund,
       if (splitJson != null) 'split_json': splitJson,
       if (moved != null) 'moved': moved,
+      if (recurrenceId != null) 'recurrence_id': recurrenceId,
+      if (occurrence != null) 'occurrence': occurrence,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1655,6 +1750,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     Value<bool>? refund,
     Value<String?>? splitJson,
     Value<bool>? moved,
+    Value<String?>? recurrenceId,
+    Value<int?>? occurrence,
     Value<int>? rowid,
   }) {
     return ExpensesCompanion(
@@ -1672,6 +1769,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
       refund: refund ?? this.refund,
       splitJson: splitJson ?? this.splitJson,
       moved: moved ?? this.moved,
+      recurrenceId: recurrenceId ?? this.recurrenceId,
+      occurrence: occurrence ?? this.occurrence,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1721,6 +1820,12 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
     if (moved.present) {
       map['moved'] = Variable<bool>(moved.value);
     }
+    if (recurrenceId.present) {
+      map['recurrence_id'] = Variable<String>(recurrenceId.value);
+    }
+    if (occurrence.present) {
+      map['occurrence'] = Variable<int>(occurrence.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1744,6 +1849,8 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseRow> {
           ..write('refund: $refund, ')
           ..write('splitJson: $splitJson, ')
           ..write('moved: $moved, ')
+          ..write('recurrenceId: $recurrenceId, ')
+          ..write('occurrence: $occurrence, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3996,6 +4103,478 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUploadRow> {
   }
 }
 
+class $RecurrencesTable extends Recurrences
+    with TableInfo<$RecurrencesTable, RecurrenceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecurrencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _frequencyMeta = const VerificationMeta(
+    'frequency',
+  );
+  @override
+  late final GeneratedColumn<String> frequency = GeneratedColumn<String>(
+    'frequency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<String> startDate = GeneratedColumn<String>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeZoneMeta = const VerificationMeta(
+    'timeZone',
+  );
+  @override
+  late final GeneratedColumn<String> timeZone = GeneratedColumn<String>(
+    'time_zone',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _templateJsonMeta = const VerificationMeta(
+    'templateJson',
+  );
+  @override
+  late final GeneratedColumn<String> templateJson = GeneratedColumn<String>(
+    'template_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    groupId,
+    frequency,
+    startDate,
+    timeZone,
+    templateJson,
+    deleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recurrences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecurrenceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('frequency')) {
+      context.handle(
+        _frequencyMeta,
+        frequency.isAcceptableOrUnknown(data['frequency']!, _frequencyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_frequencyMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('time_zone')) {
+      context.handle(
+        _timeZoneMeta,
+        timeZone.isAcceptableOrUnknown(data['time_zone']!, _timeZoneMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timeZoneMeta);
+    }
+    if (data.containsKey('template_json')) {
+      context.handle(
+        _templateJsonMeta,
+        templateJson.isAcceptableOrUnknown(
+          data['template_json']!,
+          _templateJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_templateJsonMeta);
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecurrenceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecurrenceRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      frequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}frequency'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_date'],
+      )!,
+      timeZone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_zone'],
+      )!,
+      templateJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}template_json'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $RecurrencesTable createAlias(String alias) {
+    return $RecurrencesTable(attachedDatabase, alias);
+  }
+}
+
+class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
+  final String id;
+  final String groupId;
+  final String frequency;
+  final String startDate;
+  final String timeZone;
+
+  /// The `expense.created` payload the server repeats, as JSON.
+  final String templateJson;
+  final bool deleted;
+  const RecurrenceRow({
+    required this.id,
+    required this.groupId,
+    required this.frequency,
+    required this.startDate,
+    required this.timeZone,
+    required this.templateJson,
+    required this.deleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['group_id'] = Variable<String>(groupId);
+    map['frequency'] = Variable<String>(frequency);
+    map['start_date'] = Variable<String>(startDate);
+    map['time_zone'] = Variable<String>(timeZone);
+    map['template_json'] = Variable<String>(templateJson);
+    map['deleted'] = Variable<bool>(deleted);
+    return map;
+  }
+
+  RecurrencesCompanion toCompanion(bool nullToAbsent) {
+    return RecurrencesCompanion(
+      id: Value(id),
+      groupId: Value(groupId),
+      frequency: Value(frequency),
+      startDate: Value(startDate),
+      timeZone: Value(timeZone),
+      templateJson: Value(templateJson),
+      deleted: Value(deleted),
+    );
+  }
+
+  factory RecurrenceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecurrenceRow(
+      id: serializer.fromJson<String>(json['id']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      frequency: serializer.fromJson<String>(json['frequency']),
+      startDate: serializer.fromJson<String>(json['startDate']),
+      timeZone: serializer.fromJson<String>(json['timeZone']),
+      templateJson: serializer.fromJson<String>(json['templateJson']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'groupId': serializer.toJson<String>(groupId),
+      'frequency': serializer.toJson<String>(frequency),
+      'startDate': serializer.toJson<String>(startDate),
+      'timeZone': serializer.toJson<String>(timeZone),
+      'templateJson': serializer.toJson<String>(templateJson),
+      'deleted': serializer.toJson<bool>(deleted),
+    };
+  }
+
+  RecurrenceRow copyWith({
+    String? id,
+    String? groupId,
+    String? frequency,
+    String? startDate,
+    String? timeZone,
+    String? templateJson,
+    bool? deleted,
+  }) => RecurrenceRow(
+    id: id ?? this.id,
+    groupId: groupId ?? this.groupId,
+    frequency: frequency ?? this.frequency,
+    startDate: startDate ?? this.startDate,
+    timeZone: timeZone ?? this.timeZone,
+    templateJson: templateJson ?? this.templateJson,
+    deleted: deleted ?? this.deleted,
+  );
+  RecurrenceRow copyWithCompanion(RecurrencesCompanion data) {
+    return RecurrenceRow(
+      id: data.id.present ? data.id.value : this.id,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      frequency: data.frequency.present ? data.frequency.value : this.frequency,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      timeZone: data.timeZone.present ? data.timeZone.value : this.timeZone,
+      templateJson: data.templateJson.present
+          ? data.templateJson.value
+          : this.templateJson,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurrenceRow(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('frequency: $frequency, ')
+          ..write('startDate: $startDate, ')
+          ..write('timeZone: $timeZone, ')
+          ..write('templateJson: $templateJson, ')
+          ..write('deleted: $deleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    groupId,
+    frequency,
+    startDate,
+    timeZone,
+    templateJson,
+    deleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecurrenceRow &&
+          other.id == this.id &&
+          other.groupId == this.groupId &&
+          other.frequency == this.frequency &&
+          other.startDate == this.startDate &&
+          other.timeZone == this.timeZone &&
+          other.templateJson == this.templateJson &&
+          other.deleted == this.deleted);
+}
+
+class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
+  final Value<String> id;
+  final Value<String> groupId;
+  final Value<String> frequency;
+  final Value<String> startDate;
+  final Value<String> timeZone;
+  final Value<String> templateJson;
+  final Value<bool> deleted;
+  final Value<int> rowid;
+  const RecurrencesCompanion({
+    this.id = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.frequency = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.timeZone = const Value.absent(),
+    this.templateJson = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecurrencesCompanion.insert({
+    required String id,
+    required String groupId,
+    required String frequency,
+    required String startDate,
+    required String timeZone,
+    required String templateJson,
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       groupId = Value(groupId),
+       frequency = Value(frequency),
+       startDate = Value(startDate),
+       timeZone = Value(timeZone),
+       templateJson = Value(templateJson);
+  static Insertable<RecurrenceRow> custom({
+    Expression<String>? id,
+    Expression<String>? groupId,
+    Expression<String>? frequency,
+    Expression<String>? startDate,
+    Expression<String>? timeZone,
+    Expression<String>? templateJson,
+    Expression<bool>? deleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (groupId != null) 'group_id': groupId,
+      if (frequency != null) 'frequency': frequency,
+      if (startDate != null) 'start_date': startDate,
+      if (timeZone != null) 'time_zone': timeZone,
+      if (templateJson != null) 'template_json': templateJson,
+      if (deleted != null) 'deleted': deleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecurrencesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? groupId,
+    Value<String>? frequency,
+    Value<String>? startDate,
+    Value<String>? timeZone,
+    Value<String>? templateJson,
+    Value<bool>? deleted,
+    Value<int>? rowid,
+  }) {
+    return RecurrencesCompanion(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      frequency: frequency ?? this.frequency,
+      startDate: startDate ?? this.startDate,
+      timeZone: timeZone ?? this.timeZone,
+      templateJson: templateJson ?? this.templateJson,
+      deleted: deleted ?? this.deleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (frequency.present) {
+      map['frequency'] = Variable<String>(frequency.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<String>(startDate.value);
+    }
+    if (timeZone.present) {
+      map['time_zone'] = Variable<String>(timeZone.value);
+    }
+    if (templateJson.present) {
+      map['template_json'] = Variable<String>(templateJson.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurrencesCompanion(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('frequency: $frequency, ')
+          ..write('startDate: $startDate, ')
+          ..write('timeZone: $timeZone, ')
+          ..write('templateJson: $templateJson, ')
+          ..write('deleted: $deleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ActivityTable extends Activity
     with TableInfo<$ActivityTable, ActivityRow> {
   @override
@@ -5735,6 +6314,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CommentsTable comments = $CommentsTable(this);
   late final $AttachmentsTable attachments = $AttachmentsTable(this);
   late final $PendingUploadsTable pendingUploads = $PendingUploadsTable(this);
+  late final $RecurrencesTable recurrences = $RecurrencesTable(this);
   late final $ActivityTable activity = $ActivityTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -5754,6 +6334,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     comments,
     attachments,
     pendingUploads,
+    recurrences,
     activity,
     outbox,
     syncState,
@@ -6252,6 +6833,8 @@ typedef $$ExpensesTableCreateCompanionBuilder =
       Value<bool> refund,
       Value<String?> splitJson,
       Value<bool> moved,
+      Value<String?> recurrenceId,
+      Value<int?> occurrence,
       Value<int> rowid,
     });
 typedef $$ExpensesTableUpdateCompanionBuilder =
@@ -6270,6 +6853,8 @@ typedef $$ExpensesTableUpdateCompanionBuilder =
       Value<bool> refund,
       Value<String?> splitJson,
       Value<bool> moved,
+      Value<String?> recurrenceId,
+      Value<int?> occurrence,
       Value<int> rowid,
     });
 
@@ -6349,6 +6934,16 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<bool> get moved => $composableBuilder(
     column: $table.moved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceId => $composableBuilder(
+    column: $table.recurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get occurrence => $composableBuilder(
+    column: $table.occurrence,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6431,6 +7026,16 @@ class $$ExpensesTableOrderingComposer
     column: $table.moved,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get recurrenceId => $composableBuilder(
+    column: $table.recurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get occurrence => $composableBuilder(
+    column: $table.occurrence,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ExpensesTableAnnotationComposer
@@ -6487,6 +7092,16 @@ class $$ExpensesTableAnnotationComposer
 
   GeneratedColumn<bool> get moved =>
       $composableBuilder(column: $table.moved, builder: (column) => column);
+
+  GeneratedColumn<String> get recurrenceId => $composableBuilder(
+    column: $table.recurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get occurrence => $composableBuilder(
+    column: $table.occurrence,
+    builder: (column) => column,
+  );
 }
 
 class $$ExpensesTableTableManager
@@ -6534,6 +7149,8 @@ class $$ExpensesTableTableManager
                 Value<bool> refund = const Value.absent(),
                 Value<String?> splitJson = const Value.absent(),
                 Value<bool> moved = const Value.absent(),
+                Value<String?> recurrenceId = const Value.absent(),
+                Value<int?> occurrence = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion(
                 id: id,
@@ -6550,6 +7167,8 @@ class $$ExpensesTableTableManager
                 refund: refund,
                 splitJson: splitJson,
                 moved: moved,
+                recurrenceId: recurrenceId,
+                occurrence: occurrence,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6568,6 +7187,8 @@ class $$ExpensesTableTableManager
                 Value<bool> refund = const Value.absent(),
                 Value<String?> splitJson = const Value.absent(),
                 Value<bool> moved = const Value.absent(),
+                Value<String?> recurrenceId = const Value.absent(),
+                Value<int?> occurrence = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExpensesCompanion.insert(
                 id: id,
@@ -6584,6 +7205,8 @@ class $$ExpensesTableTableManager
                 refund: refund,
                 splitJson: splitJson,
                 moved: moved,
+                recurrenceId: recurrenceId,
+                occurrence: occurrence,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7833,6 +8456,246 @@ typedef $$PendingUploadsTableProcessedTableManager =
       PendingUploadRow,
       PrefetchHooks Function()
     >;
+typedef $$RecurrencesTableCreateCompanionBuilder =
+    RecurrencesCompanion Function({
+      required String id,
+      required String groupId,
+      required String frequency,
+      required String startDate,
+      required String timeZone,
+      required String templateJson,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+typedef $$RecurrencesTableUpdateCompanionBuilder =
+    RecurrencesCompanion Function({
+      Value<String> id,
+      Value<String> groupId,
+      Value<String> frequency,
+      Value<String> startDate,
+      Value<String> timeZone,
+      Value<String> templateJson,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+
+class $$RecurrencesTableFilterComposer
+    extends Composer<_$AppDatabase, $RecurrencesTable> {
+  $$RecurrencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeZone => $composableBuilder(
+    column: $table.timeZone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get templateJson => $composableBuilder(
+    column: $table.templateJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecurrencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecurrencesTable> {
+  $$RecurrencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeZone => $composableBuilder(
+    column: $table.timeZone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get templateJson => $composableBuilder(
+    column: $table.templateJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecurrencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecurrencesTable> {
+  $$RecurrencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get frequency =>
+      $composableBuilder(column: $table.frequency, builder: (column) => column);
+
+  GeneratedColumn<String> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<String> get timeZone =>
+      $composableBuilder(column: $table.timeZone, builder: (column) => column);
+
+  GeneratedColumn<String> get templateJson => $composableBuilder(
+    column: $table.templateJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+}
+
+class $$RecurrencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecurrencesTable,
+          RecurrenceRow,
+          $$RecurrencesTableFilterComposer,
+          $$RecurrencesTableOrderingComposer,
+          $$RecurrencesTableAnnotationComposer,
+          $$RecurrencesTableCreateCompanionBuilder,
+          $$RecurrencesTableUpdateCompanionBuilder,
+          (
+            RecurrenceRow,
+            BaseReferences<_$AppDatabase, $RecurrencesTable, RecurrenceRow>,
+          ),
+          RecurrenceRow,
+          PrefetchHooks Function()
+        > {
+  $$RecurrencesTableTableManager(_$AppDatabase db, $RecurrencesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecurrencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecurrencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecurrencesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> frequency = const Value.absent(),
+                Value<String> startDate = const Value.absent(),
+                Value<String> timeZone = const Value.absent(),
+                Value<String> templateJson = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecurrencesCompanion(
+                id: id,
+                groupId: groupId,
+                frequency: frequency,
+                startDate: startDate,
+                timeZone: timeZone,
+                templateJson: templateJson,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String groupId,
+                required String frequency,
+                required String startDate,
+                required String timeZone,
+                required String templateJson,
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecurrencesCompanion.insert(
+                id: id,
+                groupId: groupId,
+                frequency: frequency,
+                startDate: startDate,
+                timeZone: timeZone,
+                templateJson: templateJson,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecurrencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecurrencesTable,
+      RecurrenceRow,
+      $$RecurrencesTableFilterComposer,
+      $$RecurrencesTableOrderingComposer,
+      $$RecurrencesTableAnnotationComposer,
+      $$RecurrencesTableCreateCompanionBuilder,
+      $$RecurrencesTableUpdateCompanionBuilder,
+      (
+        RecurrenceRow,
+        BaseReferences<_$AppDatabase, $RecurrencesTable, RecurrenceRow>,
+      ),
+      RecurrenceRow,
+      PrefetchHooks Function()
+    >;
 typedef $$ActivityTableCreateCompanionBuilder =
     ActivityCompanion Function({
       required String groupId,
@@ -8803,6 +9666,8 @@ class $AppDatabaseManager {
       $$AttachmentsTableTableManager(_db, _db.attachments);
   $$PendingUploadsTableTableManager get pendingUploads =>
       $$PendingUploadsTableTableManager(_db, _db.pendingUploads);
+  $$RecurrencesTableTableManager get recurrences =>
+      $$RecurrencesTableTableManager(_db, _db.recurrences);
   $$ActivityTableTableManager get activity =>
       $$ActivityTableTableManager(_db, _db.activity);
   $$OutboxTableTableManager get outbox =>

@@ -8,6 +8,9 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -100,6 +103,16 @@ class FxService(private val jdbc: JdbcClient, private val mapper: ObjectMapper, 
     }
 
     companion object {
+        /**
+         * Units of [to] per 1 [from] from a [perEur] table, to 6 significant digits (= Dart
+         * `double.parse((t / f).toStringAsPrecision(6))`, app data/fx_rates.dart); null when either is missing or not > 0.
+         */
+        fun crossRate(perEur: Map<String, Double>, from: String, to: String): Double? {
+            val f = perEur[from]?.takeIf { it > 0 } ?: return null
+            val t = perEur[to]?.takeIf { it > 0 } ?: return null
+            return BigDecimal(t / f).round(MathContext(6, RoundingMode.HALF_UP)).toDouble()
+        }
+
         private val TIMEOUT: Duration = Duration.ofSeconds(5)
         private val FRESH: Duration = Duration.ofHours(6)
         internal val RETRY_AFTER: Duration = Duration.ofMinutes(5)

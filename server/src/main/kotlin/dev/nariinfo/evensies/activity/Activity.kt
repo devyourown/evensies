@@ -1,9 +1,11 @@
 package dev.nariinfo.evensies.activity
 
 import dev.nariinfo.evensies.sync.Event
+import dev.nariinfo.evensies.sync.EventApplier
 import dev.nariinfo.evensies.sync.ExpenseDto
 import dev.nariinfo.evensies.sync.GroupState
 import dev.nariinfo.evensies.sync.PaymentDto
+import dev.nariinfo.evensies.sync.RecurrenceDto
 import dev.nariinfo.evensies.sync.field
 import dev.nariinfo.evensies.sync.text
 import tools.jackson.databind.JsonNode
@@ -21,7 +23,8 @@ private fun GroupState.info() = GroupInfo(name, defaultCurrency, simplifyDebts, 
  * (for `comment.*` the comment's expense, for `attachment.*` (Phase 7) the expense the receipt is on), [expenseBefore]
  * just before it; [group]/[groupBefore] likewise for `group.*`;
  * [payment] the touched payment (for a payment comment, the payment it is on). [friend]: the group is a friend group
- * (Phase 6; false in older meta, when friend groups didn't exist).
+ * (Phase 6; false in older meta, when friend groups didn't exist). [recurrence]/[recurrenceBefore] (Phase 8): the series
+ * of a `recurrence.*` event after/before it; for a scheduled repeat (`expense.created` by Evensies) its series after it.
  */
 data class EventMeta(
     val actorMemberId: String? = null,
@@ -32,6 +35,8 @@ data class EventMeta(
     val expenseBefore: ExpenseDto? = null,
     val expense: ExpenseDto? = null,
     val payment: PaymentDto? = null,
+    val recurrenceBefore: RecurrenceDto? = null,
+    val recurrence: RecurrenceDto? = null,
 )
 
 data class Change(val field: String, val from: Any?, val to: Any?)
@@ -59,6 +64,10 @@ data class ActivityItem(
     /** true for an `expense_added` refund, else null. */
     val refund: Boolean? = null,
     val text: String? = null,
+    /** Phase 8: the series of a `recurrence_*` item, or the series the expense of an `expense_*` item is in after the event. */
+    val recurrenceId: String? = null,
+    /** Phase 8: the series' frequency, for `expense_repeated` and `recurrence_*` only. */
+    val frequency: String? = null,
     val changes: List<Change> = emptyList(),
 )
 
@@ -75,6 +84,9 @@ object Activity {
         "payment.restored" to "payment_restored",
     )
     private val RECEIPT_KINDS = mapOf("attachment.added" to "receipt_added", "attachment.deleted" to "receipt_removed")
+    private val RECURRENCE_KINDS = mapOf(
+        "recurrence.created" to "recurrence_created", "recurrence.updated" to "recurrence_updated", "recurrence.deleted" to "recurrence_deleted",
+    )
     private val GROUP_FIELDS = listOf<Pair<String, (GroupInfo) -> Any?>>(
         "name" to GroupInfo::name, "defaultCurrency" to GroupInfo::defaultCurrency,
         "simplifyDebts" to GroupInfo::simplifyDebts, "defaultSplit" to GroupInfo::defaultSplit,
@@ -104,10 +116,17 @@ object Activity {
         )
         return when (type.substringBefore('.')) {
             "group" -> m.copy(groupBefore = before.info(), group = after.info())
-            "expense" -> m.copy(expenseBefore = before.expenses[p.text("expenseId")], expense = after.expenses[p.text("expenseId")])
+            "expense" -> {
+                val x = after.expenses[p.text("expenseId")]
+                m.copy(
+                    expenseBefore = before.expenses[p.text("expenseId")], expense = x,
+                    recurrence = x?.recurrenceId?.takeIf { type == "expense.created" && actorUserId == null }?.let { after.recurrences[it] },
+                )
+            }
             "comment" -> m.copy(expense = p.text("expenseId")?.let { after.expenses[it] }, payment = p.text("paymentId")?.let { after.payments[it] })
             "payment" -> m.copy(payment = after.payments[p.text("paymentId")])
             "attachment" -> m.copy(expense = after.attachments[p.text("attachmentId")]?.let { after.expenses[it.expenseId] })
+            "recurrence" -> m.copy(recurrenceBefore = before.recurrences[p.text("recurrenceId")], recurrence = after.recurrences[p.text("recurrenceId")])
             else -> m
         }
     }
@@ -140,11 +159,29 @@ object Activity {
                 memberId = p.text("memberId"),
             )
             in EXPENSE_KINDS -> meta.expense?.let { x ->
+                // Phase 8: a repeat Evensies added; hiding rule 7: an edit that only moved the expense to another series.
+                val repeated = type == "expense.created" && actorUserId == null && p.field("recurrenceId")?.isString == true
+                val changes = if (type == "expense.updated") expenseChanges(meta.expenseBefore, x) else emptyList()
+                if (type == "expense.updated" && changes.isEmpty()) return null
                 base.copy(
-                    kind = if (type == "expense.deleted" && p.field("movedTo")?.isObject == true) "expense_moved" else EXPENSE_KINDS.getValue(type),
+                    kind = when {
+                        repeated -> "expense_repeated"
+                        type == "expense.deleted" && p.field("movedTo")?.isObject == true -> "expense_moved"
+                        else -> EXPENSE_KINDS.getValue(type)
+                    },
                     expenseId = x.id, description = x.description, amount = x.amount,
                     currency = x.currency, myDelta = myDelta(x, me), refund = if (type == "expense.created" && x.refund) true else null,
-                    changes = if (type == "expense.updated") expenseChanges(meta.expenseBefore, x) else emptyList(),
+                    recurrenceId = x.recurrenceId, frequency = if (repeated) meta.recurrence?.frequency else null, changes = changes,
+                )
+            }
+            in RECURRENCE_KINDS -> meta.recurrence?.let { r ->
+                // The template read as the expense it makes (rule 10 applies), so changes follow the expense_updated rules.
+                val t = EventApplier.expense(r.id, r.template)
+                val changes = if (type == "recurrence.updated") expenseChanges(meta.recurrenceBefore?.let { EventApplier.expense(it.id, it.template) }, t) else emptyList()
+                if (type == "recurrence.updated" && changes.isEmpty()) return null // hiding rule 7
+                base.copy(
+                    kind = RECURRENCE_KINDS.getValue(type), recurrenceId = r.id, frequency = r.frequency,
+                    description = t.description, amount = t.amount, currency = t.currency, changes = changes,
                 )
             }
             "comment.added" -> if (p.text("paymentId") != null) {

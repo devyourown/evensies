@@ -23,6 +23,9 @@ class ActivityCasesTest {
     private val fixture = SharedJson.load("activity-cases.json")
     private val kotlinMapper = jacksonObjectMapper()
 
+    /** A JSON null is a real null (Phase 8: a repeat added by Evensies), not the text "null". */
+    private fun actor(e: JsonNode): String? = e["actorUserId"]?.takeUnless { it.isNull }?.asString()
+
     private fun names(case: JsonNode) = case["names"].properties().associate { (k, v) -> k to v.asString() }
 
     /** Fixture items omit null keys and empty changes and have no DB values (groupId, feedId). */
@@ -41,10 +44,10 @@ class ActivityCasesTest {
             val applied = case["events"].values().map { e ->
                 val before = state
                 state = EventApplier.apply(state, e["type"].asString(), e["payload"])
-                e to Activity.meta(before, state, e["type"].asString(), e["payload"], e["actorUserId"].asString())
+                e to Activity.meta(before, state, e["type"].asString(), e["payload"], actor(e))
             }
             val items = applied.mapNotNull { (e, m) ->
-                val actor = e["actorUserId"].asString()
+                val actor = actor(e)
                 Activity.item(
                     e["seq"].asLong(), e["type"].asString(), e["payload"], actor, Instant.parse(e["createdAt"].asString()),
                     m.copy(actorMemberId = m.actorMemberId ?: state.memberOfUser(actor)), me,

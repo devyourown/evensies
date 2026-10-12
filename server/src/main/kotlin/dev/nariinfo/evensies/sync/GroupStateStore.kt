@@ -1,18 +1,21 @@
 package dev.nariinfo.evensies.sync
 
 import dev.nariinfo.evensies.common.ApiException
+import dev.nariinfo.evensies.recurrence.Schedule
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.sql.ResultSet
+import java.time.Duration
 import java.time.LocalDate
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
 
-/** Loads a group's state from the member/expense/payment/comment/attachment tables and writes back what an event touched. */
+/** Loads a group's state from the member/expense/payment/comment/attachment/recurrence tables and writes back what an event touched. */
 @Repository
 class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMapper) {
     fun load(groupId: UUID): GroupState {
@@ -52,6 +55,8 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                     refund = rs.getBoolean("refund"),
                     split = json(rs.getString("split")),
                     moved = rs.getBoolean("moved"),
+                    recurrenceId = rs.getString("recurrence_id"),
+                    occurrence = rs.getObject("occurrence", Int::class.javaObjectType),
                 )
             }.list()
         val payments = jdbc.sql("SELECT * FROM payments WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -84,7 +89,16 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
         val attachments = jdbc.sql(
             "SELECT id, expense_id, deleted_at FROM attachments WHERE group_id = :id AND expense_id IS NOT NULL ORDER BY created_at, id"
         ).param("id", groupId).query { rs, _ -> AttachmentDto(rs.getString("id"), rs.getString("expense_id"), rs.getObject("deleted_at") != null) }.list()
+        val recurrences = jdbc.sql(
+            "SELECT id, frequency, start_date, time_zone, template, deleted_at FROM recurrences WHERE group_id = :id ORDER BY created_at, id"
+        ).param("id", groupId).query { rs, _ ->
+            RecurrenceDto(
+                rs.getString("id"), rs.getString("frequency"), rs.getObject("start_date", LocalDate::class.java).toString(),
+                rs.getString("time_zone"), mapper.readTree(rs.getString("template")), rs.getObject("deleted_at") != null,
+            )
+        }.list()
         return group.copy(
+            recurrences = recurrences.associateBy { it.id },
             members = members.associateBy { it.id },
             expenses = expenses.associateBy { it.id },
             payments = payments.associateBy { it.id },
@@ -96,9 +110,10 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     /**
      * Upserts the one entity the event refers to, taking its values from the already-applied state. Ids are global
      * primary keys: an id that already belongs to another group is rejected (400, the push transaction rolls back),
-     * otherwise a client could take over another group's member, expense, payment or comment row.
+     * otherwise a client could take over another group's member, expense, payment or comment row. [actorUserId] null =
+     * Evensies (Phase 8 scheduler); [createdAt] is the event's (client) time, used when a series is first stored.
      */
-    fun persist(groupId: UUID, actorUserId: UUID, state: GroupState, type: String, payload: JsonNode) {
+    fun persist(groupId: UUID, actorUserId: UUID?, state: GroupState, type: String, payload: JsonNode, createdAt: Instant) {
         when (type.substringBefore('.')) {
             "group" -> jdbc.sql(
                 "UPDATE groups SET name = :name, default_currency = :cur, simplify_debts = :simplify, default_split = CAST(:split AS jsonb) WHERE id = :id"
@@ -119,7 +134,32 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                 ).param("expenseId", UUID.fromString(a.expenseId)).param("deleted", a.deleted).param("id", UUID.fromString(a.id))
                     .param("groupId", groupId).update()
             }
+            "recurrence" -> state.recurrences[payload.text("recurrenceId")]?.let { upsertRecurrence(groupId, actorUserId, it, createdAt) }
         }
+    }
+
+    /**
+     * After creation only the template and the stop change. The scheduler's columns are set on the first insert only:
+     * the first occurrence on or after the creation day in the series' zone, where creation is the event's createdAt
+     * limited to the last [CATCH_UP] (an offline-made series keeps its repeats, a wrong clock can't add a burst).
+     */
+    private fun upsertRecurrence(groupId: UUID, actorUserId: UUID?, r: RecurrenceDto, createdAt: Instant) {
+        val now = Instant.now()
+        val created = createdAt.coerceIn(now - CATCH_UP, now)
+        val start = LocalDate.parse(r.startDate)
+        val (n, date) = Schedule.firstOnOrAfter(r.frequency, start, LocalDate.ofInstant(created, ZoneId.of(r.timeZone)))
+        jdbc.sql(
+            """
+            INSERT INTO recurrences (id, group_id, frequency, start_date, time_zone, template, created_by, deleted_at, next_occurrence, next_due_at)
+            VALUES (:id, :groupId, :frequency, :startDate, :timeZone, CAST(:template AS jsonb), :actor, CASE WHEN :deleted THEN now() ELSE NULL END, :n, :due)
+            ON CONFLICT (id) DO UPDATE SET template = EXCLUDED.template,
+              deleted_at = CASE WHEN :deleted THEN COALESCE(recurrences.deleted_at, now()) ELSE NULL END
+            WHERE recurrences.group_id = EXCLUDED.group_id
+            """
+        ).param("id", UUID.fromString(r.id)).param("groupId", groupId).param("frequency", r.frequency).param("startDate", start)
+            .param("timeZone", r.timeZone).param("template", mapper.writeValueAsString(r.template)).param("actor", actorUserId)
+            .param("deleted", r.deleted).param("n", n).param("due", Schedule.dueAt(date, r.timeZone).atOffset(ZoneOffset.UTC))
+            .update().requireOwnRow()
     }
 
     private fun upsertMember(groupId: UUID, m: MemberDto) {
@@ -133,17 +173,17 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             .param("name", m.name).param("removed", m.removed).update().requireOwnRow()
     }
 
-    private fun upsertExpense(groupId: UUID, actorUserId: UUID, e: ExpenseDto) {
+    private fun upsertExpense(groupId: UUID, actorUserId: UUID?, e: ExpenseDto) {
         val now = OffsetDateTime.now()
         jdbc.sql(
             """
-            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, refund, split, moved, created_by, updated_at, deleted_at)
-            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :refund, CAST(:split AS jsonb), :moved, :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO expenses (id, group_id, description, amount, currency, fx_rate_to_default, paid_by, date, category, notes, refund, split, moved, recurrence_id, occurrence, created_by, updated_at, deleted_at)
+            VALUES (:id, :groupId, :description, :amount, :currency, :fx, :paidBy, :date, :category, :notes, :refund, CAST(:split AS jsonb), :moved, :recurrenceId, :occurrence, :actor, :now, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET
               description = EXCLUDED.description, amount = EXCLUDED.amount, currency = EXCLUDED.currency,
               fx_rate_to_default = EXCLUDED.fx_rate_to_default, paid_by = EXCLUDED.paid_by, date = EXCLUDED.date,
               category = EXCLUDED.category, notes = EXCLUDED.notes, refund = EXCLUDED.refund, split = EXCLUDED.split,
-              moved = EXCLUDED.moved, updated_at = EXCLUDED.updated_at,
+              moved = EXCLUDED.moved, recurrence_id = EXCLUDED.recurrence_id, occurrence = EXCLUDED.occurrence, updated_at = EXCLUDED.updated_at,
               deleted_at = CASE WHEN :deleted THEN COALESCE(expenses.deleted_at, EXCLUDED.updated_at) ELSE NULL END
             WHERE expenses.group_id = EXCLUDED.group_id
             """
@@ -151,7 +191,8 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             .param("amount", e.amount).param("currency", e.currency).param("fx", e.fxRateToDefault)
             .param("paidBy", UUID.fromString(e.paidBy)).param("date", LocalDate.parse(e.date)).param("category", e.category)
             .param("notes", e.notes).param("refund", e.refund).param("split", e.split?.let(mapper::writeValueAsString))
-            .param("moved", e.moved).param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
+            .param("moved", e.moved).param("recurrenceId", e.recurrenceId?.let(UUID::fromString)).param("occurrence", e.occurrence)
+            .param("actor", actorUserId).param("now", now).param("deleted", e.deleted).update().requireOwnRow()
         replaceLines("expense_shares", e.id, e.shares)
         replaceLines("expense_payers", e.id, e.payers)
     }
@@ -168,7 +209,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
 
     private fun json(text: String?): JsonNode? = text?.let(mapper::readTree)
 
-    private fun upsertPayment(groupId: UUID, actorUserId: UUID, p: PaymentDto) {
+    private fun upsertPayment(groupId: UUID, actorUserId: UUID?, p: PaymentDto) {
         jdbc.sql(
             """
             INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, created_by, status, replaced, deleted_at)
@@ -205,6 +246,11 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     /** An upsert whose ON CONFLICT ... WHERE same group did not match touched 0 rows: the id is another group's. */
     private fun Int.requireOwnRow() {
         if (this == 0) throw ApiException.badRequest("VALIDATION", "This id is already used in another group")
+    }
+
+    companion object {
+        /** How far back a series' creation time counts (docs/API.md "반복 지출"). */
+        val CATCH_UP: Duration = Duration.ofDays(30)
     }
 
     /** Of these comment ids, the ones deleted now (feed hiding rule 5). */

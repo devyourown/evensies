@@ -1,9 +1,9 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 5·6·7단계 몫 없음. 새 몫이 생기면 이 표에 추가)
+## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 5·6·7·8단계 몫 없음. 새 몫이 생기면 이 표에 추가)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart`
-5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원)는 효준님 몫이 없습니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 쓰고 효준님이 3·4단계에 쓴 부분은 부르지 않습니다. `grep -rn "TODO(효준)" app server` 결과는 0줄입니다. 7단계에서 stub 시절의 안전장치(`core_guard.dart`의 `tryCore`, `fxReady`, `notImplementedLabel`, fixture의 `"pending": "hyojun"` 건너뛰기)도 전부 지웠습니다.
+5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원), 8단계(반복 지출·서버 스케줄러·미첨부 영수증 정리)는 효준님 몫이 없습니다. 8단계 반복분은 템플릿에 저장된 멤버별 최종 금액을 그대로 복사하므로 서버가 분할을 다시 계산하지 않고, 외화 반복분은 환율만 그날 값(`FxService.crossRate`, 서버 `recurrence/RecurrenceScheduler.kt`)으로 바꿉니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 쓰고 효준님이 3·4단계에 쓴 부분은 부르지 않습니다. `grep -rn "TODO(효준)" app server` 결과는 0줄입니다. 7단계에서 stub 시절의 안전장치(`core_guard.dart`의 `tryCore`, `fxReady`, `notImplementedLabel`, fixture의 `"pending": "hyojun"` 건너뛰기)도 전부 지웠습니다.
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@
 | 6 | `app/lib/domain/fx.dart:25` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
 | 7 | `app/lib/domain/fx.dart:44` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
 | 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
-| 9 | — | 6·7단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만) 통과 |
+| 9 | — | 6·7·8단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만) 통과 |
 
 `"pending": "hyojun"`인 fixture 케이스는 하나도 없고(그 건너뛰기 코드와 `_doc` 설명도 7단계에서 삭제), 서버 테스트도 skip 0개입니다.
 
@@ -32,7 +32,7 @@
 | 2 | 분할 계산 Kotlin `money/Split.kt` | Claude 이식, 효준님 검토 | 14개 통과 |
 | 3 | 잔액·부채 단순화 Dart `app/lib/domain/settlement.dart` | 효준님 | 23개 통과 |
 | 4 | `app/lib/domain/settlement.dart` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 |
-| 5 | `app/test/hyojun/settlement_test.dart:35` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
+| 5 | `app/test/hyojun/settlement_test.dart:34` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
 | 6 | `app/lib/domain/fx.dart` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 케이스 1–10 통과 |
 
 임시 경로(`NAIVE_APPLY`, `pushNaive`, `tally.sync.naive`, hyojun 태그)는 전부 제거됐고 CI는 모든 테스트를 기본으로 돌립니다.

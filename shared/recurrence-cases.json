@@ -1,0 +1,321 @@
+{
+  "_doc": "반복 지출 날짜 규칙 (docs/API.md '반복 지출'). 앱 domain/recurrence.dart(test/recurrence_test.dart)와 서버 recurrence/Schedule.kt(ScheduleTest.kt)가 읽는다. kind=dates: dates[n] = occurrenceDate(frequency, startDate, n), n = 0부터. 날짜는 언제나 startDate에서 계산한다(이전 날짜에서가 아니다): weekly +7n일, biweekly +14n일, monthly +n개월, yearly +n년, 그 달에 없는 날은 그 달의 마지막 날. kind=next: firstOnOrAfter(frequency, startDate, onOrAfter, minN ?? 1) = {n, date}: n ≥ minN이고 occurrenceDate(n) ≥ onOrAfter인 가장 작은 n. kind=dueAt(서버만): date의 09:00을 timeZone(IANA 이름 또는 ±HH:MM, ZoneId.of)에서 UTC 시각으로. kind=crossRate: crossRate(perEur, from, to) = perEur[to] / perEur[from]을 유효숫자 6자리로 반올림한 값, 둘 중 하나가 없거나 0 이하면 null(앱 data/fx_rates.dart crossRate, 서버 스케줄러의 환율 갱신). 값은 Python zoneinfo·Decimal로 계산했다.",
+  "cases": [
+    {
+      "name": "monthly from the 31st clamps to month end and comes back",
+      "kind": "dates",
+      "frequency": "monthly",
+      "startDate": "2026-01-31",
+      "dates": [
+        "2026-01-31",
+        "2026-02-28",
+        "2026-03-31",
+        "2026-04-30",
+        "2026-05-31"
+      ]
+    },
+    {
+      "name": "yearly from Feb 29",
+      "kind": "dates",
+      "frequency": "yearly",
+      "startDate": "2028-02-29",
+      "dates": [
+        "2028-02-29",
+        "2029-02-28",
+        "2030-02-28",
+        "2031-02-28",
+        "2032-02-29"
+      ]
+    },
+    {
+      "name": "weekly across EU DST start stays on Thursday",
+      "kind": "dates",
+      "frequency": "weekly",
+      "startDate": "2026-03-26",
+      "dates": [
+        "2026-03-26",
+        "2026-04-02"
+      ]
+    },
+    {
+      "name": "every 2 weeks across EU and US DST end",
+      "kind": "dates",
+      "frequency": "biweekly",
+      "startDate": "2026-10-20",
+      "dates": [
+        "2026-10-20",
+        "2026-11-03"
+      ]
+    },
+    {
+      "name": "monthly from Mar 31 alternates 30 and 31",
+      "kind": "dates",
+      "frequency": "monthly",
+      "startDate": "2026-03-31",
+      "dates": [
+        "2026-03-31",
+        "2026-04-30",
+        "2026-05-31",
+        "2026-06-30"
+      ]
+    },
+    {
+      "name": "monthly across the year end keeps the 30th, Feb clamps",
+      "kind": "dates",
+      "frequency": "monthly",
+      "startDate": "2026-11-30",
+      "dates": [
+        "2026-11-30",
+        "2026-12-30",
+        "2027-01-30",
+        "2027-02-28"
+      ]
+    },
+    {
+      "name": "monthly from Jan 29 in a common year",
+      "kind": "dates",
+      "frequency": "monthly",
+      "startDate": "2027-01-29",
+      "dates": [
+        "2027-01-29",
+        "2027-02-28",
+        "2027-03-29"
+      ]
+    },
+    {
+      "name": "yearly from Feb 28 stays on the 28th in a leap year",
+      "kind": "dates",
+      "frequency": "yearly",
+      "startDate": "2027-02-28",
+      "dates": [
+        "2027-02-28",
+        "2028-02-28",
+        "2029-02-28"
+      ]
+    },
+    {
+      "name": "next keeps today, skips the past",
+      "kind": "next",
+      "frequency": "monthly",
+      "startDate": "2026-09-11",
+      "onOrAfter": "2026-10-11",
+      "n": 1,
+      "date": "2026-10-11"
+    },
+    {
+      "name": "next never returns occurrence 0",
+      "kind": "next",
+      "frequency": "monthly",
+      "startDate": "2026-10-11",
+      "onOrAfter": "2026-10-11",
+      "n": 1,
+      "date": "2026-11-11"
+    },
+    {
+      "name": "next for a weekly started weeks ago",
+      "kind": "next",
+      "frequency": "weekly",
+      "startDate": "2026-09-01",
+      "onOrAfter": "2026-10-11",
+      "n": 6,
+      "date": "2026-10-13"
+    },
+    {
+      "name": "next respects minN",
+      "kind": "next",
+      "frequency": "monthly",
+      "startDate": "2026-09-11",
+      "onOrAfter": "2026-10-11",
+      "minN": 2,
+      "n": 2,
+      "date": "2026-11-11"
+    },
+    {
+      "name": "next lands on a clamped month end",
+      "kind": "next",
+      "frequency": "monthly",
+      "startDate": "2026-01-31",
+      "onOrAfter": "2026-02-28",
+      "n": 1,
+      "date": "2026-02-28"
+    },
+    {
+      "name": "next after a clamped month end goes back to the 31st",
+      "kind": "next",
+      "frequency": "monthly",
+      "startDate": "2026-01-31",
+      "onOrAfter": "2026-03-01",
+      "n": 2,
+      "date": "2026-03-31"
+    },
+    {
+      "name": "next yearly from Feb 29 in a common year",
+      "kind": "next",
+      "frequency": "yearly",
+      "startDate": "2028-02-29",
+      "onOrAfter": "2029-03-01",
+      "n": 2,
+      "date": "2030-02-28"
+    },
+    {
+      "name": "next every 2 weeks skips the week in between",
+      "kind": "next",
+      "frequency": "biweekly",
+      "startDate": "2026-10-20",
+      "onOrAfter": "2026-11-04",
+      "n": 2,
+      "date": "2026-11-17"
+    },
+    {
+      "name": "09:00 Rome on the DST start day",
+      "kind": "dueAt",
+      "date": "2026-03-29",
+      "timeZone": "Europe/Rome",
+      "dueAt": "2026-03-29T07:00:00Z"
+    },
+    {
+      "name": "09:00 Rome on the DST end day",
+      "kind": "dueAt",
+      "date": "2026-10-25",
+      "timeZone": "Europe/Rome",
+      "dueAt": "2026-10-25T08:00:00Z"
+    },
+    {
+      "name": "09:00 New York on the US DST end day",
+      "kind": "dueAt",
+      "date": "2026-11-01",
+      "timeZone": "America/New_York",
+      "dueAt": "2026-11-01T14:00:00Z"
+    },
+    {
+      "name": "offset with minutes",
+      "kind": "dueAt",
+      "date": "2026-10-11",
+      "timeZone": "+05:45",
+      "dueAt": "2026-10-11T03:15:00Z"
+    },
+    {
+      "name": "UTC+14 posts on the previous UTC day",
+      "kind": "dueAt",
+      "date": "2026-01-01",
+      "timeZone": "Pacific/Kiritimati",
+      "dueAt": "2025-12-31T19:00:00Z"
+    },
+    {
+      "name": "+13:00 posts before -10:00 on the same date (1)",
+      "kind": "dueAt",
+      "date": "2031-03-03",
+      "timeZone": "+13:00",
+      "dueAt": "2031-03-02T20:00:00Z"
+    },
+    {
+      "name": "+13:00 posts before -10:00 on the same date (2)",
+      "kind": "dueAt",
+      "date": "2031-03-03",
+      "timeZone": "-10:00",
+      "dueAt": "2031-03-03T19:00:00Z"
+    },
+    {
+      "name": "Z is UTC",
+      "kind": "dueAt",
+      "date": "2026-10-11",
+      "timeZone": "Z",
+      "dueAt": "2026-10-11T09:00:00Z"
+    },
+    {
+      "name": "JPY expense in a EUR group (docs/API.md example)",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "JPY",
+      "to": "EUR",
+      "rate": 0.00563349
+    },
+    {
+      "name": "USD expense in a EUR group",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "USD",
+      "to": "EUR",
+      "rate": 0.891504
+    },
+    {
+      "name": "JPY expense in a USD group: a cross rate through EUR",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "JPY",
+      "to": "USD",
+      "rate": 0.00631908
+    },
+    {
+      "name": "GBP expense in a JPY group: trailing zeros dropped",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "GBP",
+      "to": "JPY",
+      "rate": 211.02
+    },
+    {
+      "name": "EUR expense in a KRW group",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "EUR",
+      "to": "KRW",
+      "rate": 1612.4
+    },
+    {
+      "name": "a code missing from the table: no rate (keep the template's)",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 177.51,
+        "USD": 1.1217,
+        "GBP": 0.8412,
+        "KRW": 1612.4
+      },
+      "from": "CHF",
+      "to": "EUR",
+      "rate": null
+    },
+    {
+      "name": "a zero rate in the table: no rate",
+      "kind": "crossRate",
+      "perEur": {
+        "EUR": 1.0,
+        "JPY": 0
+      },
+      "from": "JPY",
+      "to": "EUR",
+      "rate": null
+    }
+  ]
+}

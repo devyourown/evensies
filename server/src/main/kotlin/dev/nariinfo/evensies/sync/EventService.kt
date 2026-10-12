@@ -84,6 +84,12 @@ class EventService(
     fun pushTrusted(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): List<Event> = push(groupId, userId, incoming, trusted = true).second
 
     /**
+     * Phase 8 scheduler: validated like a member's push but by Evensies (no user: `actor_user_id` NULL, no membership
+     * check or rate limit), on the caller's transaction. Returns the newly stored events; the caller notifies after commit.
+     */
+    fun pushAsEvensies(groupId: UUID, incoming: List<IncomingEvent>): List<Event> = push(groupId, null, incoming).second
+
+    /**
      * The sync core, all in one transaction (joining the caller's, if any): lock the group row (SELECT ... FOR UPDATE) so concurrent
      * pushes cannot overlap on seq; validate the whole batch against the state loaded under that lock (400 on any
      * failure, nothing stored; validating before the lock would let a concurrent push slip in between); skip events
@@ -92,7 +98,7 @@ class EventService(
      * `confirmed` in the stored payload) to the tables, store them with their feed meta, then advance latestSeq.
      * Returns the result and the newly stored events.
      */
-    private fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>, trusted: Boolean = false): Pair<PushResult, List<Event>> = tx.execute {
+    private fun push(groupId: UUID, userId: UUID?, incoming: List<IncomingEvent>, trusted: Boolean = false): Pair<PushResult, List<Event>> = tx.execute {
         val group = groups.lockForUpdate(groupId) ?: throw ApiException.notFound("Group")
         var state = stateStore.load(groupId)
         val normalized = if (trusted) incoming else validator.validateAll(
@@ -110,15 +116,15 @@ class EventService(
                 seq += 1
                 val before = state
                 state = EventApplier.apply(state, e.type, e.payload)
-                stateStore.persist(groupId, userId, state, e.type, e.payload)
-                val meta = Activity.meta(before, state, e.type, e.payload, userId.toString())
+                stateStore.persist(groupId, userId, state, e.type, e.payload, e.createdAt)
+                val meta = Activity.meta(before, state, e.type, e.payload, userId?.toString())
                 stored += Event(groupId, seq, e.clientId, e.type, e.payload, actorUserId = userId, e.createdAt, meta)
                 known[e.clientId] = seq
                 SeqResult(e.clientId, seq)
             }
         }
         // An actor without a member yet (seq 1 group.created) is the member the same batch adds for them.
-        val actor = state.memberOfUser(userId.toString())
+        val actor = state.memberOfUser(userId?.toString())
         val withActor = stored.map { if (it.meta!!.actorMemberId != null) it else it.copy(meta = it.meta.copy(actorMemberId = actor)) }
         withActor.forEach(events::insert)
         // After the inserts: the comment may have been added in this same batch.

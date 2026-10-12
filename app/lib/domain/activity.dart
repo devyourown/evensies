@@ -4,6 +4,7 @@ library;
 
 import '../core/money.dart';
 import 'categories.dart';
+import 'recurrence.dart' show frequencyWord;
 
 class ActivityChange {
   final String field;
@@ -20,6 +21,10 @@ class ActivityItem {
   final String? createdAt;
   final String? actorMemberId, memberId, expenseId, commentId, paymentId;
   final String? name, description, currency, fromMember, toMember, status, text;
+
+  /// Phase 8: the series (`recurrence_*`, or the expense's after the event) and its schedule (`expense_repeated`,
+  /// `recurrence_*`).
+  final String? recurrenceId, frequency;
   final int? amount, myDelta;
   /// `expense_added` of a refund.
   final bool refund;
@@ -46,6 +51,8 @@ class ActivityItem {
         toMember = json['toMember'] as String?,
         status = json['status'] as String?,
         text = json['text'] as String?,
+        recurrenceId = json['recurrenceId'] as String?,
+        frequency = json['frequency'] as String?,
         amount = (json['amount'] as num?)?.toInt(),
         myDelta = (json['myDelta'] as num?)?.toInt(),
         refund = json['refund'] == true,
@@ -55,9 +62,10 @@ class ActivityItem {
         ];
 }
 
-/// "you owe €15.00" / "you lent €15.00" ("you get back" for a refund) for an added expense I am part of, else null.
+/// "you owe €15.00" / "you lent €15.00" ("you get back" for a refund) for an added (or repeated) expense I am part
+/// of, else null.
 String? myDeltaText(ActivityItem item) {
-  final d = item.kind == 'expense_added' ? item.myDelta ?? 0 : 0;
+  final d = item.kind == 'expense_added' || item.kind == 'expense_repeated' ? item.myDelta ?? 0 : 0;
   if (d == 0) return null;
   return '${d < 0 ? 'you owe' : item.refund ? 'you get back' : 'you lent'} ${formatMoney(d.abs(), item.currency ?? '')}';
 }
@@ -83,6 +91,33 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
   final desc = '“${item.description ?? ''}”';
   final amount = item.amount == null ? '' : money(item.amount, item.currency);
   final receipts = count == 1 ? 'a receipt' : '$count receipts';
+  final repeats = frequencyWord(item.frequency);
+
+  /// `expense_updated`'s list of changes (also a series' future, `recurrence_updated`), joined with ", ".
+  String changes() {
+    final fields = {for (final c in item.changes) c.field: c};
+    final fromCurrency = (fields['currency']?.from as String?) ?? item.currency;
+    return [
+      for (final c in item.changes)
+        ?switch (c.field) {
+          'description' => 'description “${c.from}” → “${c.to}”',
+          'amount' => '${money(c.from, fromCurrency)} → ${money(c.to, item.currency)}',
+          'currency' => 'currency ${c.from} → ${c.to}',
+          'fxRateToDefault' => 'exchange rate',
+          'paidBy' => 'paid by ${who(c.from as String?)} → ${who(c.to as String?)}',
+          // The server already leaves out what rule 10 moved along (docs/API.md changes).
+          'payers' => 'payers',
+          'refund' => c.to == true ? 'refund on' : 'refund off',
+          'date' => 'date ${c.from} → ${c.to}',
+          'category' => _category(c.from, c.to),
+          // A new amount always means a new split, so "split" alone would be noise.
+          'shares' => fields.containsKey('amount') ? null : 'split',
+          'split' => fields.containsKey('shares') || fields.containsKey('amount') ? null : 'split',
+          'notes' => 'notes',
+          _ => null,
+        },
+    ].join(', ');
+  }
 
   switch (item.kind) {
     case 'group_created':
@@ -113,29 +148,20 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
       final mine = withDelta ? myDeltaText(item) : null;
       return '$a added ${item.refund ? 'a refund ' : ''}$desc · $amount${mine == null ? '' : ' · $mine'}';
     case 'expense_updated':
-      final fields = {for (final c in item.changes) c.field: c};
-      final fromCurrency = (fields['currency']?.from as String?) ?? item.currency;
-      final parts = [
-        for (final c in item.changes)
-          ?switch (c.field) {
-            'description' => 'description “${c.from}” → “${c.to}”',
-            'amount' => '${money(c.from, fromCurrency)} → ${money(c.to, item.currency)}',
-            'currency' => 'currency ${c.from} → ${c.to}',
-            'fxRateToDefault' => 'exchange rate',
-            'paidBy' => 'paid by ${who(c.from as String?)} → ${who(c.to as String?)}',
-            // The server already leaves out what rule 10 moved along (docs/API.md changes).
-            'payers' => 'payers',
-            'refund' => c.to == true ? 'refund on' : 'refund off',
-            'date' => 'date ${c.from} → ${c.to}',
-            'category' => _category(c.from, c.to),
-            // A new amount always means a new split, so "split" alone would be noise.
-            'shares' => fields.containsKey('amount') ? null : 'split',
-            'split' => fields.containsKey('shares') || fields.containsKey('amount') ? null : 'split',
-            'notes' => 'notes',
-            _ => null,
-          },
-      ];
-      return parts.isEmpty ? '$a changed $desc' : '$a changed $desc: ${parts.join(', ')}';
+      final parts = changes();
+      return parts.isEmpty ? '$a changed $desc' : '$a changed $desc: $parts';
+    case 'expense_repeated':
+      // Added by the server on its date: no actor (docs/API.md 반복 지출).
+      final mine = withDelta ? myDeltaText(item) : null;
+      return '${item.refund ? 'A refund $desc' : desc} · $amount was added (repeats $repeats)'
+          '${mine == null ? '' : ' · $mine'}';
+    case 'recurrence_created':
+      return '$a set $desc to repeat $repeats';
+    case 'recurrence_updated':
+      final parts = changes();
+      return parts.isEmpty ? '$a changed future $desc' : '$a changed future $desc: $parts';
+    case 'recurrence_deleted':
+      return '$a stopped $desc repeating';
     case 'expense_deleted':
       return '$a deleted $desc';
     case 'expense_restored':

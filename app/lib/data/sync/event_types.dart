@@ -17,4 +17,7 @@ abstract final class EventTypes {
   static const paymentRestored = 'payment.restored';
   static const attachmentAdded = 'attachment.added';
   static const attachmentDeleted = 'attachment.deleted';
+  static const recurrenceCreated = 'recurrence.created';
+  static const recurrenceUpdated = 'recurrence.updated';
+  static const recurrenceDeleted = 'recurrence.deleted';
 }

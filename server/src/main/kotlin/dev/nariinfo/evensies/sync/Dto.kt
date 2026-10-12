@@ -33,6 +33,9 @@ data class ExpenseDto(
     val split: JsonNode? = null,
     /** Deleted by a move (`expense.deleted` with `movedTo`): it counts in the other group now, so it stays deleted (rule 13). */
     val moved: Boolean = false,
+    /** Phase 8 (rule 16): the repeating series this expense belongs to and its number in it (0 = first); both or neither. */
+    val recurrenceId: String? = null,
+    val occurrence: Int? = null,
 )
 data class PaymentDto(
     val id: String,
@@ -50,6 +53,19 @@ data class PaymentDto(
 
 /** A receipt photo on an expense (Phase 7, rule 14). Only attached ones are in the state; deleted ones stay as tombstones. */
 data class AttachmentDto(val id: String, val expenseId: String, val deleted: Boolean = false)
+
+/**
+ * A repeating series (Phase 8, rule 15). [template] is the `expense.created` payload of each repeat without
+ * `expenseId`, `date`, `recurrenceId` and `occurrence`, kept as sent. Stopped series stay as tombstones (deleted = true).
+ */
+data class RecurrenceDto(
+    val id: String,
+    val frequency: String,
+    val startDate: String,
+    val timeZone: String,
+    val template: JsonNode,
+    val deleted: Boolean = false,
+)
 
 /**
  * Deleted comments stay as tombstones (deleted = true), like expenses and payments. Exactly one of [expenseId] and
@@ -72,6 +88,7 @@ data class SnapshotDto(
     val payments: List<PaymentDto>,
     val comments: List<CommentDto>,
     val attachments: List<AttachmentDto>,
+    val recurrences: List<RecurrenceDto>,
     val latestSeq: Long,
 )
 

@@ -320,6 +320,18 @@ void main() {
     await unmount(t);
   });
 
+  testWidgets('opening a group on this device pulls it: repeats added by the server show without a push', (t) async {
+    final sync = NoSync(db);
+    await open(t, sync: sync);
+    expect(sync.later, isEmpty); // not on this device: nothing to pull into
+    await unmount(t);
+    await t.runAsync(() => db.upsertGroup(const GroupRow(
+        kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true)));
+    await open(t, sync: sync);
+    expect(sync.later, ['g1']);
+    await unmount(t);
+  });
+
   testWidgets('a group that is not on the device (left, removed) says so instead of loading forever', (t) async {
     await open(t);
     expect(find.text("This group isn't on this device"), findsOneWidget);

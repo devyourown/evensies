@@ -17,7 +17,7 @@ import '../friends/home_data.dart';
 import 'balances.dart';
 import 'convert_sheet.dart';
 
-class GroupDetailScreen extends ConsumerWidget {
+class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
 
   /// `activity` opens the Activity tab (`/groups/{id}?tab=activity`, e.g. from a notification).
@@ -25,7 +25,24 @@ class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({super.key, required this.groupId, this.tab});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GroupDetailScreen> createState() => _GroupDetailScreenState();
+}
+
+class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
+  /// Opening a group pulls it: repeats added by the server and other members' changes show up without a push. Only one
+  /// on this device: syncAll adopts the others (as push.dart does).
+  @override
+  void initState() {
+    super.initState();
+    final sync = ref.read(syncProvider), id = widget.groupId;
+    ref.read(dbProvider).getGroup(id).then((g) {
+      if (g != null) sync.syncLater(id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groupId = widget.groupId, tab = widget.tab;
     final async = ref.watch(groupProvider(groupId));
     final group = async.value;
     if (group == null && async.hasValue) return const _Gone();
@@ -212,8 +229,8 @@ class _ExpensesTab extends ConsumerWidget {
   }
 }
 
-/// One expense row: category, description, who paid, my part, the amount, a receipt mark (Search and later phases
-/// reuse it).
+/// One expense row: category, description, who paid, my part, the amount, a receipt mark and a repeat mark (a live
+/// series, docs/API.md 반복 지출). Search and a friend's page reuse it.
 class ExpenseTile extends ConsumerWidget {
   final Expense expense;
   final GroupRow group;
@@ -229,6 +246,7 @@ class ExpenseTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final e = expense;
     final receipts = ref.watch(attachmentCountsProvider(group.id)).value?[e.id] ?? 0;
+    final repeats = e.recurrenceId != null && ref.watch(activeSeriesProvider(group.id)).contains(e.recurrenceId);
     final myMemberId = group.myMemberId;
     final cs = Theme.of(context).colorScheme;
     final d = group.defaultCurrency;
@@ -280,6 +298,11 @@ class ExpenseTile extends ConsumerWidget {
       crossAxisAlignment: large ? CrossAxisAlignment.start : CrossAxisAlignment.end,
       children: [
         Row(mainAxisSize: MainAxisSize.min, children: [
+          if (repeats) ...[
+            Icon(Icons.repeat,
+                key: const Key('repeat-mark'), size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Repeats'),
+            const SizedBox(width: 4),
+          ],
           if (receipts > 0) ...[
             Icon(Icons.receipt_outlined,
                 key: const Key('receipt-mark'),

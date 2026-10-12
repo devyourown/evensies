@@ -224,6 +224,7 @@ void main() {
     expect(y(find.text('Wed, 14 Oct').first),
         allOf(greaterThan(y(find.text('lunch'))), lessThan(y(find.text('taxi')))));
     expect(y(find.text('hotel')) > rome, isTrue); // Ben paid, I share
+    expect(y(find.text('Thu, 15 Oct').last), allOf(greaterThan(rome), lessThan(y(find.text('hotel'))))); // its day too
     expect(t.widget<ExpenseTile>(find.ancestor(of: find.text('hotel'), matching: find.byType(ExpenseTile))).extra, isNull);
     await t.tap(find.byKey(const Key('together-g-rome')));
     await settle(t);

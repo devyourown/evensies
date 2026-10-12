@@ -24,6 +24,7 @@ import '../../domain/fx.dart';
 import '../../domain/itemized.dart';
 import '../../domain/models.dart';
 import '../../domain/receipt_parser.dart';
+import '../../domain/recurrence.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
 import '../../data/local_writes.dart' show MoveException;
@@ -103,6 +104,18 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   ItemizedBill? _scanBill;
   late final ReceiptFiles _files;
 
+  /// Repeat (docs/API.md 반복 지출): the picked schedule, null = Never.
+  String? _repeat;
+
+  /// Editing an expense of a live series: that series, its latest repeat (only that one's edits carry forward) and
+  /// the highest occurrence added so far (for the "Next:" line).
+  Recurrence? _series;
+  Expense? _latest;
+  int _lastPosted = 0;
+
+  /// "Also change future repeats" on the latest repeat.
+  bool _future = true;
+
   /// The rate field was typed in this session (or holds a stored rate): kept when the date changes.
   bool _fxTyped = false;
 
@@ -158,8 +171,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final e = state.expense(id);
     if (e == null || !mounted) return;
     final rated = (e.fxRateToDefault ?? 0) > 0; // 0 = not converted, like null
+    final series = state.isActive(e.recurrenceId) ? state.recurrence(e.recurrenceId!) : null;
     setState(() {
       _editing = e;
+      _series = series;
+      _latest = series == null ? null : state.latestRepeat(series.id);
+      _lastPosted = series == null ? 0 : state.lastPosted(series.id);
+      _repeat = series?.frequency; // a stopped series starts at Never: picking one starts a new series
+      _future = true;
       _amount.text = minorToText(e.amount, e.currency);
       _description.text = e.description;
       _fx.text = rated ? e.fxRateToDefault.toString() : '';
@@ -567,14 +586,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   statusLine(payers.status, payers.ok, key: const Key('payers-status')),
                 ],
                 sectionLabel('When'),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: OutlinedButton.icon(
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  OutlinedButton.icon(
                     onPressed: _pickDate,
                     icon: const Icon(Icons.calendar_today_outlined, size: 18),
                     label: Text(dateLabel),
                   ),
-                ),
+                  _repeatButton(),
+                ]),
+                ..._repeatNotes(cs, text),
                 const SizedBox(height: 8),
                 // Wraps Refund to its own line at the largest text sizes, so the category keeps its label.
                 Wrap(
@@ -652,6 +672,90 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ],
       ),
     );
+  }
+
+  /// Whether this is the latest repeat of a live series: Repeat and "Also change future repeats" act on the series.
+  bool get _isLatest => _series != null && _latest?.id == _editing?.id;
+
+  /// Saving starts a schedule from this expense: a new series (new expense, or none live), or on the latest repeat a
+  /// new frequency, or a new date carried forward.
+  bool get _restarts =>
+      _repeat != null &&
+      (_series == null ||
+          (_isLatest && (_repeat != _series!.frequency || (_future && _date != _editing!.date))));
+
+  /// Repeat next to the date: Never / Every week / … An older repeat of a live series can't change it (the latest
+  /// can), and neither can an expense about to move.
+  Widget _repeatButton() {
+    final locked = (_series != null && !_isLatest) || _moveTo != null;
+    return MenuAnchor(
+      menuChildren: [
+        for (final f in [null, ...frequencies])
+          MenuItemButton(
+            key: Key('repeat-${f ?? 'never'}'),
+            leadingIcon: f == _repeat ? const Icon(Icons.check, size: 18) : const SizedBox(width: 18),
+            onPressed: () => setState(() => _repeat = f),
+            child: Text(repeatLabel(f)),
+          ),
+      ],
+      builder: (context, menu, _) => Tooltip(
+        message: 'Repeat',
+        child: OutlinedButton.icon(
+          key: const Key('repeat'),
+          onPressed: locked ? null : () => menu.isOpen ? menu.close() : menu.open(),
+          icon: const Icon(Icons.repeat, size: 18),
+          label: Text(repeatLabel(_repeat)),
+        ),
+      ),
+    );
+  }
+
+  /// Under Date and Repeat: when the next repeat comes, why an older repeat can't change the schedule, what Never
+  /// does to a series, and on the latest repeat whether the edit carries forward.
+  List<Widget> _repeatNotes(ColorScheme cs, TextTheme text) {
+    final series = _series;
+    Widget note(Key key, IconData icon, String s) => Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Row(children: [
+            Icon(icon, size: 16, color: cs.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Expanded(child: Text(s, key: key, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant))),
+          ]),
+        );
+    if (series != null && !_isLatest) {
+      final d = DateTime.tryParse(_latest?.date ?? '');
+      return [
+        note(const Key('repeat-hint'), Icons.info_outline,
+            'To change future repeats, edit the latest one (${d == null ? _latest?.date : DateFormat('d MMM').format(d)})'),
+      ];
+    }
+    final f = _repeat;
+    if (f == null) {
+      return [
+        if (series != null)
+          note(const Key('repeat-stop'), Icons.info_outline, 'Stops repeating. Repeats already added stay.'),
+      ];
+    }
+    // No past dates are filled in: the first repeat is on or after today (docs/API.md 반복 지출).
+    final next = _restarts
+        ? firstOccurrenceOnOrAfter(f, _date, todayIso())
+        : firstOccurrenceOnOrAfter(series!.frequency, series.startDate, todayIso(), minN: _lastPosted + 1);
+    final nextDay = DateTime.tryParse(next.date);
+    return [
+      note(const Key('repeat-next'), Icons.event_repeat,
+          'Next: ${nextDay == null ? next.date : DateFormat('EEE, d MMM yyyy').format(nextDay)}'),
+      if (series != null && f == series.frequency)
+        CheckboxListTile(
+          key: const Key('repeat-future'),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: _future,
+          onChanged: (v) => setState(() => _future = v ?? true),
+          title: const Text('Also change future repeats'),
+          subtitle: Text(_future ? 'Amount, split, payers, description, category and notes' : 'Only this one changes'),
+        ),
+    ];
   }
 
   /// The receipts already on the expense (tap: full screen, remove) and the ones added here (attached on Save; the
@@ -1029,6 +1133,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               for (final id in ids)
                 if (_split.mode != SplitMode.equal || split.containsKey(id)) Share(memberId: id, amount: split[id] ?? 0)
             ],
+      recurrenceId: old?.recurrenceId,
+      occurrence: old?.occurrence,
     );
     // Opened as exact only because the stored split couldn't be rebuilt, and the shares are what they were: the
     // split didn't change, so keep it (no `split: null`, no money fields for a description edit).
@@ -1048,7 +1154,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         await _move(group, old, e);
         return;
       } else if (old == null) {
-        await w.createExpense(group.id, e);
+        await w.createExpense(group.id, e, repeat: _repeat);
       } else {
         final money = e.amount != old.amount ||
             e.paidBy != old.paidBy ||
@@ -1056,7 +1162,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             !_same(e.shares, old.shares) ||
             e.split != old.split ||
             e.refund != old.refund;
-        await w.updateExpense(group.id, e, {
+        final fields = <String, dynamic>{
           if (e.description != old.description) 'description': e.description,
           // Both or neither: `currency` alone would keep the old currency's rate (rule 9, docs/API.md 통화 환산).
           if (e.currency != old.currency || e.fxRateToDefault != old.fxRateToDefault) ...{
@@ -1075,7 +1181,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             'split': e.split,
             'refund': e.refund,
           },
-        });
+        };
+        await _saveSeries(group.id, e, fields);
       }
       await _attachNew(e.id);
       if (mounted) context.pop();
@@ -1083,6 +1190,25 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       if (mounted) showError(context, err);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// An edit with Repeat (docs/API.md 반복 지출 앱): on the latest repeat Never stops the series, a new frequency (or
+  /// a new date carried forward) restarts it from here, and a ticked "Also change future repeats" sends the changed
+  /// fields but the date to the series too. Repeat on an expense in no live series starts one from it.
+  Future<void> _saveSeries(String groupId, Expense e, Map<String, dynamic> fields) async {
+    final w = ref.read(localWritesProvider);
+    final series = _series, f = _repeat;
+    if (series != null && _isLatest && f == null) {
+      await w.stopRecurrence(groupId, series.id);
+      await w.updateExpense(groupId, e, fields);
+    } else if (f != null && _restarts) {
+      await w.repeatFrom(groupId, e, f, stop: series?.id, fields: fields);
+    } else if (series != null && _isLatest && _future) {
+      await w.updateExpense(groupId, e, fields);
+      await w.updateRecurrence(groupId, series.id, {...fields}..remove('date'));
+    } else {
+      await w.updateExpense(groupId, e, fields);
     }
   }
 

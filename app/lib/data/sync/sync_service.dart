@@ -249,9 +249,7 @@ class SyncService {
     final rejected = await db.rejectedOutbox(groupId);
     if (rejected.isEmpty) return;
     // Before the rebuild drops a refused new expense: its name is in the local rows.
-    final messages = [
-      for (final o in rejected) "Couldn't save ${await _what(o)}: ${rejectionReason(o.rejected!, o.type)}",
-    ];
+    final messages = [for (final o in rejected) await _message(o, rejected)];
     // A refused receipt goes from this device too (its upload stays on the server until the Phase 8 sweep).
     await _dropReceipts([
       for (final o in rejected)
@@ -279,6 +277,30 @@ class SyncService {
     await _adopt(snap.group, state, snap.latestSeq);
   }
 
+  /// "Couldn't save {what}: {why}" for refused [o]. A new series refused while its first expense went through (the
+  /// server stores that one without the series) reads "“Water” was saved but won't repeat: {why}", so nobody adds it
+  /// again.
+  Future<String> _message(OutboxRow o, List<OutboxRow> rejected) async {
+    final why = rejectionReason(o.rejected!, o.type);
+    if (o.type == EventTypes.recurrenceCreated) {
+      final rid = (jsonDecode(o.payloadJson) as Map)['recurrenceId'] as String?;
+      bool tags(OutboxRow x) {
+        final p = jsonDecode(x.payloadJson) as Map;
+        return x.type.startsWith('expense.') && (p['recurrenceId'] ?? (p['fields'] as Map?)?['recurrenceId']) == rid;
+      }
+
+      final first = rid == null || rejected.any(tags)
+          ? null
+          : await (db.select(db.expenses)
+                ..where((e) => e.recurrenceId.equals(rid))
+                ..where((e) => e.deleted.equals(false))
+                ..limit(1))
+              .getSingleOrNull();
+      if (first != null) return "“${first.description}” was saved but won't repeat: $why";
+    }
+    return "Couldn't save ${await _what(o)}: $why";
+  }
+
   /// “Hotel” for an expense id, or "an expense" when it isn't known here.
   Future<String> _expenseName(String? id) async =>
       switch (id == null ? null : (await db.getExpense(id))?.description) { final n? => '“$n”', null => 'an expense' };
@@ -291,7 +313,16 @@ class SyncService {
         (p['fields'] as Map?)?['description'] as String? ??
         (id == null ? null : (await db.getExpense(id))?.description);
     final x = name == null ? 'an expense' : '“$name”';
+    // A series is named by its template: the payload's, else the local copy's (docs/API.md 거부된 이벤트).
+    final rid = o.type.startsWith('recurrence.') ? p['recurrenceId'] as String? : null;
+    final series = (p['template'] as Map?)?['description'] as String? ??
+        (p['fields'] as Map?)?['description'] as String? ??
+        (rid == null ? null : (await store.load(o.groupId)).recurrence(rid)?.description);
+    final r = series == null ? null : '“$series”';
     return switch (o.type) {
+      EventTypes.recurrenceCreated => r == null ? 'a repeating expense' : 'repeating $r',
+      EventTypes.recurrenceUpdated => r == null ? 'a change to a repeating expense' : 'a change to future $r',
+      EventTypes.recurrenceDeleted => r == null ? 'stopping a repeating expense' : 'stopping $r from repeating',
       EventTypes.attachmentAdded => 'the receipt on $x',
       EventTypes.attachmentDeleted => 'removing a receipt from $x',
       EventTypes.paymentRestored => 'restoring a payment',
@@ -399,6 +430,7 @@ class _Gone implements Exception {
 /// {이유} in "Couldn't save {what}: {이유}" (docs/API.md 거부된 이벤트); [type] is the refused event's.
 String rejectionReason(String code, [String? type]) => switch (code) {
       'LIMIT_EXCEEDED' when type == EventTypes.attachmentAdded => 'an expense can have at most 10 receipts',
+      'LIMIT_EXCEEDED' when type == EventTypes.recurrenceCreated => 'a group can have at most 100 repeating expenses',
       'ATTACHMENT_NOT_UPLOADED' => "the photo didn't upload",
       'SUM_MISMATCH' => "the split doesn't add up",
       'PAYERS_SUM_MISMATCH' => "the payers don't add up",
