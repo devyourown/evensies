@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../domain/models.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_localizations_en.dart';
 import '../api/api_client.dart';
 import '../api/dto.dart';
 import '../db/database.dart';
@@ -30,6 +32,9 @@ class SyncService {
   /// "Couldn't save the new expense “Hotel”: …" for each event the server refused on its own (docs/API.md 거부된 이벤트).
   Stream<String> get rejections => _rejections.stream;
   final _rejections = StreamController<String>.broadcast();
+
+  /// The language [rejections] are worded in; the app sets the UI language's.
+  AppLocalizations l10n = AppLocalizationsEn();
 
   static GroupState _apply(GroupState s, SyncEvent e) => applyEvent(s, e);
 
@@ -138,22 +143,26 @@ class SyncService {
 
   /// Uploads the group's pending receipts, oldest first (docs/API.md 영수증 sync 1). A missing file, or a refusal of
   /// the photo itself (400, 409, 413), drops that receipt; a 403/404 checks the membership; anything else (401, 429,
-  /// 5xx, offline) stops this round, and the push below then holds back that receipt's `attachment.added`.
+  /// 5xx, offline) stops this round, and the push below then holds back that receipt's `attachment.added`. On the web
+  /// a photo missing here may be in another open tab's memory: that tab uploads it, and this one only skips it.
   Future<void> _upload(String groupId) async {
     for (final u in await db.pendingUploadsOf(groupId)) {
       final id = u.attachmentId;
-      if (!await receipts.hasPending(id)) {
-        await _dropReceipts([id]);
+      final image = await receipts.pending(id), thumb = await receipts.pending(id, thumb: true);
+      if (image == null || thumb == null) {
+        if (!await receipts.inAnotherTab(id)) await _dropReceipts([id]);
         continue;
       }
       try {
-        await api.uploadAttachment(groupId, id, await receipts.pending(id), await receipts.pending(id, thumb: true));
+        await api.uploadAttachment(groupId, id, image, thumb);
       } on ApiException catch (e) {
         if (e.code == 'NETWORK') return;
         if (e.status == 400 || e.status == 409 || e.status == 413) {
-          final what = await _expenseName((await db.getAttachment(id))?.expenseId);
+          final name = await _expenseName((await db.getAttachment(id))?.expenseId);
           await _dropReceipts([id]);
-          _rejections.add("Couldn't save the receipt on $what: the server refused it");
+          _rejections.add(name == null
+              ? l10n.rejectedReceiptUnnamed(l10n.reasonRefused)
+              : l10n.rejectedReceipt(name, l10n.reasonRefused));
           continue;
         }
         if (e.status == 403 || e.status == 404) {
@@ -281,7 +290,7 @@ class SyncService {
   /// server stores that one without the series) reads "“Water” was saved but won't repeat: {why}", so nobody adds it
   /// again.
   Future<String> _message(OutboxRow o, List<OutboxRow> rejected) async {
-    final why = rejectionReason(o.rejected!, o.type);
+    final why = rejectionReason(l10n, o.rejected!, o.type);
     if (o.type == EventTypes.recurrenceCreated) {
       final rid = (jsonDecode(o.payloadJson) as Map)['recurrenceId'] as String?;
       bool tags(OutboxRow x) {
@@ -296,49 +305,58 @@ class SyncService {
                 ..where((e) => e.deleted.equals(false))
                 ..limit(1))
               .getSingleOrNull();
-      if (first != null) return "“${first.description}” was saved but won't repeat: $why";
+      if (first != null) return l10n.rejectedSavedNoRepeat(first.description, why);
     }
-    return "Couldn't save ${await _what(o)}: $why";
+    return _what(o, why);
   }
 
-  /// “Hotel” for an expense id, or "an expense" when it isn't known here.
-  Future<String> _expenseName(String? id) async =>
-      switch (id == null ? null : (await db.getExpense(id))?.description) { final n? => '“$n”', null => 'an expense' };
+  /// An expense's description, or null when it isn't known here.
+  Future<String?> _expenseName(String? id) async => id == null ? null : (await db.getExpense(id))?.description;
 
-  /// What a refused event was: "the new expense “Hotel”", "a change to “Hotel”", "a group settings change", …
-  Future<String> _what(OutboxRow o) async {
+  /// "Couldn't save the new expense “Hotel”: [why]", "… a change to “Hotel”: …", "… a group settings change: …"
+  Future<String> _what(OutboxRow o, String why) async {
+    final l = l10n;
     final p = (jsonDecode(o.payloadJson) as Map).cast<String, dynamic>();
     final id = p['expenseId'] as String?;
     final name = p['description'] as String? ??
         (p['fields'] as Map?)?['description'] as String? ??
         (id == null ? null : (await db.getExpense(id))?.description);
-    final x = name == null ? 'an expense' : '“$name”';
     // A series is named by its template: the payload's, else the local copy's (docs/API.md 거부된 이벤트).
     final rid = o.type.startsWith('recurrence.') ? p['recurrenceId'] as String? : null;
     final series = (p['template'] as Map?)?['description'] as String? ??
         (p['fields'] as Map?)?['description'] as String? ??
         (rid == null ? null : (await store.load(o.groupId)).recurrence(rid)?.description);
-    final r = series == null ? null : '“$series”';
+    final member = p['name'] as String?;
     return switch (o.type) {
-      EventTypes.recurrenceCreated => r == null ? 'a repeating expense' : 'repeating $r',
-      EventTypes.recurrenceUpdated => r == null ? 'a change to a repeating expense' : 'a change to future $r',
-      EventTypes.recurrenceDeleted => r == null ? 'stopping a repeating expense' : 'stopping $r from repeating',
-      EventTypes.attachmentAdded => 'the receipt on $x',
-      EventTypes.attachmentDeleted => 'removing a receipt from $x',
-      EventTypes.paymentRestored => 'restoring a payment',
-      EventTypes.expenseCreated => name == null ? 'a new expense' : 'the new expense $x',
-      EventTypes.expenseUpdated => 'a change to $x',
-      EventTypes.expenseDeleted => 'deleting $x',
-      EventTypes.expenseRestored => 'restoring $x',
-      EventTypes.commentAdded => p['paymentId'] != null ? 'a comment on a payment' : 'a comment on $x',
-      EventTypes.commentDeleted => 'deleting a comment',
-      EventTypes.paymentCreated => 'a payment',
-      EventTypes.paymentDeleted => 'deleting a payment',
-      EventTypes.paymentConfirmed => 'confirming a payment',
-      EventTypes.groupUpdated => 'a group settings change',
-      EventTypes.memberAdded => 'adding ${p['name'] ?? 'a member'}',
-      EventTypes.memberRemoved => 'removing a member',
-      _ => 'a change',
+      EventTypes.recurrenceCreated =>
+        series == null ? l.rejectedRepeatingUnnamed(why) : l.rejectedRepeating(series, why),
+      EventTypes.recurrenceUpdated =>
+        series == null ? l.rejectedSeriesChangeUnnamed(why) : l.rejectedSeriesChange(series, why),
+      EventTypes.recurrenceDeleted => series == null ? l.rejectedSeriesStopUnnamed(why) : l.rejectedSeriesStop(series, why),
+      EventTypes.attachmentAdded => name == null ? l.rejectedReceiptUnnamed(why) : l.rejectedReceipt(name, why),
+      EventTypes.attachmentDeleted =>
+        name == null ? l.rejectedReceiptRemoveUnnamed(why) : l.rejectedReceiptRemove(name, why),
+      EventTypes.paymentRestored => l.rejectedPaymentRestore(why),
+      EventTypes.expenseCreated => name == null ? l.rejectedNewExpenseUnnamed(why) : l.rejectedNewExpense(name, why),
+      EventTypes.expenseUpdated =>
+        name == null ? l.rejectedExpenseChangeUnnamed(why) : l.rejectedExpenseChange(name, why),
+      EventTypes.expenseDeleted =>
+        name == null ? l.rejectedExpenseDeleteUnnamed(why) : l.rejectedExpenseDelete(name, why),
+      EventTypes.expenseRestored =>
+        name == null ? l.rejectedExpenseRestoreUnnamed(why) : l.rejectedExpenseRestore(name, why),
+      EventTypes.commentAdded => p['paymentId'] != null
+          ? l.rejectedPaymentComment(why)
+          : name == null
+              ? l.rejectedCommentUnnamed(why)
+              : l.rejectedComment(name, why),
+      EventTypes.commentDeleted => l.rejectedCommentDelete(why),
+      EventTypes.paymentCreated => l.rejectedPayment(why),
+      EventTypes.paymentDeleted => l.rejectedPaymentDelete(why),
+      EventTypes.paymentConfirmed => l.rejectedPaymentConfirm(why),
+      EventTypes.groupUpdated => l.rejectedGroupSettings(why),
+      EventTypes.memberAdded => member == null ? l.rejectedMemberAddUnnamed(why) : l.rejectedMemberAdd(member, why),
+      EventTypes.memberRemoved => l.rejectedMemberRemove(why),
+      _ => l.rejectedOther(why),
     };
   }
 
@@ -428,17 +446,17 @@ class _Gone implements Exception {
 }
 
 /// {이유} in "Couldn't save {what}: {이유}" (docs/API.md 거부된 이벤트); [type] is the refused event's.
-String rejectionReason(String code, [String? type]) => switch (code) {
-      'LIMIT_EXCEEDED' when type == EventTypes.attachmentAdded => 'an expense can have at most 10 receipts',
-      'LIMIT_EXCEEDED' when type == EventTypes.recurrenceCreated => 'a group can have at most 100 repeating expenses',
-      'ATTACHMENT_NOT_UPLOADED' => "the photo didn't upload",
-      'SUM_MISMATCH' => "the split doesn't add up",
-      'PAYERS_SUM_MISMATCH' => "the payers don't add up",
-      'NEGATIVE_AMOUNT' => 'an amount is below zero',
-      'UNKNOWN_MEMBER' => "it refers to someone who isn't in the group",
-      'UNKNOWN_CURRENCY' => "the currency isn't supported",
-      'MEMBER_TAKEN' => 'that member is already taken',
-      'LIMIT_EXCEEDED' => 'the group is full',
-      'FORBIDDEN' => "you're not allowed to make that change",
-      _ => 'the server refused it',
+String rejectionReason(AppLocalizations l, String code, [String? type]) => switch (code) {
+      'LIMIT_EXCEEDED' when type == EventTypes.attachmentAdded => l.reasonReceiptLimit,
+      'LIMIT_EXCEEDED' when type == EventTypes.recurrenceCreated => l.reasonSeriesLimit,
+      'ATTACHMENT_NOT_UPLOADED' => l.reasonNotUploaded,
+      'SUM_MISMATCH' => l.reasonSumMismatch,
+      'PAYERS_SUM_MISMATCH' => l.reasonPayersSumMismatch,
+      'NEGATIVE_AMOUNT' => l.reasonNegativeAmount,
+      'UNKNOWN_MEMBER' => l.reasonUnknownMember,
+      'UNKNOWN_CURRENCY' => l.reasonUnknownCurrency,
+      'MEMBER_TAKEN' => l.reasonMemberTaken,
+      'LIMIT_EXCEEDED' => l.reasonGroupFull,
+      'FORBIDDEN' => l.reasonForbidden,
+      _ => l.reasonRefused,
     };

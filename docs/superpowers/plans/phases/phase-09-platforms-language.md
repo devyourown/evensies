@@ -228,7 +228,7 @@ One Flutter codebase runs on phones and in the browser. The app is translated in
    | `EVENSIES_CORS_ORIGINS` | (empty) | Development only |
 7. **Web routes:** `/` and `/app` → 302 `/app/`; `/app/**` is public and `no-cache`. Every response carries:
    ```
-   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com/gsi/client https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https://*.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://fonts.gstatic.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://appleid.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com/gsi/client https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https://*.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' blob: https://fonts.gstatic.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://appleid.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
    ```
    A violation found in the browser check is fixed in the same commit.
 8. **CORS:** only listed origins; methods `GET, POST, PUT, PATCH, DELETE`; headers `Authorization, Content-Type`; max age 3600; no credentials; other preflights → 403.

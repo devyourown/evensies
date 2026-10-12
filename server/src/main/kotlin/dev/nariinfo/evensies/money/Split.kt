@@ -19,7 +19,7 @@ object Split {
      *      EQUAL   → input 무시. amount / n 씩, 나머지 r = amount % n 은
      *                memberId 오름차순으로 앞에서부터 r명에게 1씩 더한다.
      *      EXACT   → input[memberId] = 확정 금액(정수). 합이 amount와 다르면 SplitException("SUM_MISMATCH").
-     *      PERCENT → input[memberId] = 비율(%). 합이 100과 다르면(오차 1e-6 허용) "SUM_MISMATCH".
+     *      PERCENT → input[memberId] = 비율(%). 합이 100(±0.001)이 아니면 "SUM_MISMATCH".
      *                각 몫 = floor(amount * pct / 100). 바닥 처리로 남은 나머지는 EQUAL과 같은 규칙
      *                (memberId 오름차순, 앞에서부터 1씩)으로 배분한다.
      * 출력: 모든 members에 대한 memberId → 금액. 합은 반드시 amount.

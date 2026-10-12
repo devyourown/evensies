@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/invite_code.dart';
+import '../../core/l10n.dart';
+import '../../core/snack.dart' show errorForCode;
 import '../../data/api/dto.dart';
 import '../../providers.dart';
 import '../friends/add_friend_screen.dart' show addFriendByCode;
@@ -42,7 +45,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
   @override
   void initState() {
     super.initState();
-    _readClipboard();
+    if (!kIsWeb) _readClipboard(); // a browser would ask for permission first
   }
 
   @override
@@ -94,10 +97,10 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
   }
 
   String _message(ApiException e) => switch (e) {
-        ApiException(status: 404) => 'No group or friend found for this code',
-        ApiException(status: 429) => 'Too many tries. Wait a minute and try again.',
-        ApiException(code: 'NETWORK') => 'Joining a group needs a connection.',
-        _ => e.message,
+        ApiException(status: 404) => context.l.noGroupOrFriendForCode,
+        ApiException(status: 429) => context.l.errorRateLimited,
+        ApiException(code: 'NETWORK') => context.l.joinNeedsConnection,
+        _ => errorForCode(context.l, e.code),
       };
 
   @override
@@ -105,13 +108,13 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final p = _preview;
+    final l = context.l;
     return Scaffold(
-      appBar: AppBar(title: const Text('Enter a code')),
+      appBar: AppBar(title: Text(l.enterACode)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          Text(
-              'A group code is in the group → Members. A friend code is on their Friends tab → Add a friend.',
+          Text(l.enterCodeHelp,
               textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 24),
           TextField(
@@ -132,7 +135,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
           ),
           if (_fromClipboard) ...[
             const SizedBox(height: 8),
-            Text('Pasted from clipboard', textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.primary)),
+            Text(l.pastedFromClipboard, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.primary)),
           ],
           const SizedBox(height: 24),
           if (_loading) const Center(child: CircularProgressIndicator()),
@@ -143,7 +146,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('$_friend · on Evensies', style: text.titleMedium, textAlign: TextAlign.center),
+                  Text(l.nameOnEvensies(_friend!), style: text.titleMedium, textAlign: TextAlign.center),
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: _adding
@@ -153,7 +156,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
                             await addFriendByCode(context, ref, _code);
                             if (mounted) setState(() => _adding = false);
                           },
-                    child: Text('Add $_friend as a friend'),
+                    child: Text(l.addAsFriend(_friend!)),
                   ),
                 ]),
               ),
@@ -166,13 +169,16 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
                   // A placeholder friend's code: the friend group's name is internal (docs/API.md 친구), say who added me.
                   Text(
                       p.kind == 'friend'
-                          ? '${p.members.where((m) => m.linked).firstOrNull?.name ?? 'Someone'} added you as a friend'
-                          : '${p.name} · ${p.memberCount} ${p.memberCount == 1 ? 'member' : 'members'}',
+                          ? switch (p.members.where((m) => m.linked).firstOrNull?.name) {
+                              final n? => l.addedYouAsFriend(n),
+                              null => l.someoneAddedYouAsFriend,
+                            }
+                          : l.groupPreview(p.name, l.memberCount(p.memberCount)),
                       key: const Key('group-code-preview'),
                       style: text.titleMedium,
                       textAlign: TextAlign.center),
                   const SizedBox(height: 12),
-                  FilledButton(onPressed: () => context.push('/join/$_code'), child: const Text('Continue')),
+                  FilledButton(onPressed: () => context.push('/join/$_code'), child: Text(l.continueButton)),
                 ]),
               ),
             ),

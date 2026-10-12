@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n.dart';
 import '../../core/person_avatar.dart';
 import '../../domain/overview.dart';
 import 'friend_screen.dart' show addExpenseWith, canAddExpenseWith, showNoSharedGroup;
@@ -28,6 +29,7 @@ class _WithPickerState extends ConsumerState<WithPicker> {
     final data = ref.watch(homeDataProvider).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (data == null) return const Center(child: CircularProgressIndicator());
     bool match(String s) => _q.isEmpty || s.toLowerCase().contains(_q.toLowerCase());
     final friends = [
@@ -50,16 +52,16 @@ class _WithPickerState extends ConsumerState<WithPicker> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: TextField(
             key: const Key('with-search'),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search friends and groups',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              hintText: l.searchFriendsGroups,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (v) => setState(() => _q = v.trim()),
           ),
         ),
-        if (friends.isNotEmpty) header('Friends'),
+        if (friends.isNotEmpty) header(l.friends),
         for (final p in friends)
           ListTile(
             key: Key('with-${p.key}'),
@@ -70,7 +72,7 @@ class _WithPickerState extends ConsumerState<WithPicker> {
                 ? widget.onPick((person: p, groupId: null))
                 : showNoSharedGroup(context, ref, p),
           ),
-        if (groups.isNotEmpty) header('Groups'),
+        if (groups.isNotEmpty) header(l.groups),
         for (final g in groups)
           ListTile(
             key: Key('with-${g.row.id}'),
@@ -81,7 +83,7 @@ class _WithPickerState extends ConsumerState<WithPicker> {
         if (friends.isEmpty && groups.isEmpty)
           Padding(
             padding: const EdgeInsets.all(32),
-            child: Text(_q.isEmpty ? 'No friends or groups yet.' : 'Nothing matches “$_q”.',
+            child: Text(_q.isEmpty ? l.noFriendsOrGroups : l.nothingMatches(_q),
                 textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
           ),
       ],
@@ -95,7 +97,7 @@ class NewExpenseScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-        appBar: AppBar(title: const Text('Add expense · with whom?')),
+        appBar: AppBar(title: Text(context.l.addExpenseWithWhom)),
         body: WithPicker(
           onPick: (c) => c.person != null
               ? addExpenseWith(context, ref, c.person!, replace: true)

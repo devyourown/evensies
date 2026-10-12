@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:evensies/data/api/dto.dart';
+import 'package:evensies/data/blob_store.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/local_writes.dart';
 import 'package:evensies/data/receipts.dart';
@@ -24,6 +25,14 @@ class _Api404 extends FakeApi {
   @override
   Future<Uint8List> attachment(String groupId, String attachmentId, {bool thumb = false}) async =>
       throw const ApiException(status: 404, code: 'NOT_FOUND', message: 'No such receipt');
+}
+
+/// A second browser tab: its memory has none of tab A's photos, which stay claimed while tab A is open.
+class _OtherTab extends ReceiptFiles {
+  _OtherTab(super.api, {super.supportDir, super.cacheDir});
+  bool otherTabOpen = true;
+  @override
+  Future<bool> inAnotherTab(String id) async => otherTabOpen;
 }
 
 /// Receipts end to end on this device (docs/API.md 영수증): local writes, the upload before the push, the hold-back, the
@@ -73,9 +82,7 @@ void main() {
   /// A prepared photo, as ReceiptFiles.prepare leaves it.
   Future<void> photo(String id) async {
     for (final thumb in [false, true]) {
-      final f = await files.pending(id, thumb: thumb);
-      await f.parent.create(recursive: true);
-      await f.writeAsBytes([0xff, 0xd8, thumb ? 1 : 2]);
+      await files.store.write(BlobArea.pending, '$id${thumb ? '_thumb' : ''}.jpg', [0xff, 0xd8, thumb ? 1 : 2]);
     }
   }
 
@@ -97,7 +104,7 @@ void main() {
       ['expense.updated'],
     ]);
     expect(await outboxTypes(), ['attachment.added', 'comment.added']);
-    expect(await (await files.pending('a1')).exists(), isTrue);
+    expect(await files.pending('a1'), isNotNull);
 
     api.onUpload = (_, _) {}; // back online: uploaded, then pushed in order
     await sync.sync('g1');
@@ -108,14 +115,36 @@ void main() {
     expect(api.pushes.last.first.payload, {'attachmentId': 'a1', 'expenseId': 'x1'});
     expect(await outboxTypes(), isEmpty);
     expect(await db.pendingUploadsOf('g1'), isEmpty);
-    expect(await (await files.pending('a1')).exists(), isFalse);
-    expect(await (await files.cached('a1', thumb: true)).readAsBytes(), [0xff, 0xd8, 1]);
+    expect(await files.pending('a1'), isNull);
+    expect(await files.cached('a1', thumb: true), [0xff, 0xd8, 1]);
   });
 
   test('a missing photo file drops the receipt and its event without asking the server', () async {
     await w.attachReceipt('g1', 'x1', 'a1'); // no files
     await sync.sync('g1');
     expect(api.uploads, isEmpty);
+    expect(await outboxTypes(), isEmpty);
+    expect(await db.select(db.attachments).get(), isEmpty);
+  });
+
+  test("the web: another tab's sync skips a receipt whose photo is in an open tab's memory, and drops it once that tab "
+      'closes', () async {
+    // Tab A picked the photo (its memory = its own folders); tab B shares the database but not the photo.
+    final tabB = _OtherTab(api, supportDir: () async => '${tmp.path}/b/support', cacheDir: () async => '${tmp.path}/b/cache');
+    final syncB = NoSync(db, api, tabB);
+    await photo('a1');
+    await w.attachReceipt('g1', 'x1', 'a1');
+    await w.addComment('g1', 'Mine was the pasta', expenseId: 'x1');
+    await sync.sync('g1'); // tab A: the upload fails (offline), both stay
+
+    await syncB.sync('g1'); // tab A is still open: B neither uploads nor drops, and holds back the events after it
+    expect(api.uploads, [('g1', 'a1')]);
+    expect(await outboxTypes(), ['attachment.added', 'comment.added']);
+    expect(await db.pendingUploadsOf('g1'), hasLength(1));
+
+    tabB.otherTabOpen = false; // tab A closed: its photo is gone with it
+    await syncB.sync('g1');
+    expect(api.uploads, [('g1', 'a1')]);
     expect(await outboxTypes(), isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
   });
@@ -127,19 +156,17 @@ void main() {
     expect(await outboxTypes(), isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
     expect(await db.pendingUploadsOf('g1'), isEmpty);
-    expect(await (await files.pending('a1')).exists(), isFalse);
+    expect(await files.pending('a1'), isNull);
 
     // Uploaded earlier: only the cached copy is here.
     await db.into(db.attachments).insert(AttachmentsCompanion.insert(id: 'a2', groupId: 'g1', expenseId: 'x1'));
-    final cached = await files.cached('a2');
-    await cached.parent.create(recursive: true);
-    await cached.writeAsBytes([1]);
+    await files.store.write(BlobArea.cache, 'a2.jpg', [1]);
     await w.removeReceipt('g1', 'a2');
     final o = (await db.select(db.outbox).get()).single;
     expect(o.type, 'attachment.deleted');
     expect(jsonDecode(o.payloadJson), {'attachmentId': 'a2', 'expenseId': 'x1'});
     expect((await db.getAttachment('a2'))!.deleted, isTrue);
-    expect(await cached.exists(), isFalse);
+    expect(await files.cached('a2'), isNull);
   });
 
   test('a refused photo (400) is dropped with its event, and the user is told', () async {
@@ -153,7 +180,7 @@ void main() {
     expect(told, ["Couldn't save the receipt on “Dinner”: the server refused it"]);
     expect(await outboxTypes(), isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
-    expect(await (await files.pending('a1')).exists(), isFalse);
+    expect(await files.pending('a1'), isNull);
     await sub.cancel();
   });
 
@@ -176,7 +203,7 @@ void main() {
     await pumpEventQueue();
     expect(told, ["Couldn't save the receipt on “Dinner”: an expense can have at most 10 receipts"]);
     expect(await db.select(db.attachments).get(), isEmpty);
-    expect(await (await files.cached('a1')).exists(), isFalse);
+    expect(await files.cached('a1'), isNull);
     expect(await outboxTypes(), isEmpty);
     await sub.cancel();
   });
@@ -219,18 +246,16 @@ void main() {
   test('a receipt shows from the cache, else the pending file, else a download into the cache', () async {
     await expectLater(files.file('g1', 'a1'), throwsA(isA<ApiException>())); // nowhere, offline
     api.downloads['a1'] = Uint8List.fromList([7]);
-    final f = await files.file('g1', 'a1');
-    expect(f.path, (await files.cached('a1')).path);
-    expect(await f.readAsBytes(), [7]);
+    expect(await files.file('g1', 'a1'), [7]);
+    expect(await files.cached('a1'), [7]); // kept
     await photo('a3');
-    expect((await files.file('g1', 'a3', thumb: true)).path, (await files.pending('a3', thumb: true)).path);
+    expect(await files.file('g1', 'a3', thumb: true), [0xff, 0xd8, 1]);
+    expect(await files.cached('a3', thumb: true), isNull); // the pending one, not a copy
   });
 
   test("a receipt someone else removed goes from this device's cache too", () async {
     for (final thumb in [false, true]) {
-      final f = await files.cached('a1', thumb: thumb);
-      await f.parent.create(recursive: true);
-      await f.writeAsBytes([1]);
+      await files.store.write(BlobArea.cache, 'a1${thumb ? '_thumb' : ''}.jpg', [1]);
     }
     await GroupStateStore(db).save(
         'g1',
@@ -249,7 +274,7 @@ void main() {
     await sync.sync('g1');
     expect((await GroupStateStore(db).load('g1')).attachment('a1')!.deleted, isTrue);
     for (final thumb in [false, true]) {
-      expect(await (await files.cached('a1', thumb: thumb)).exists(), isFalse);
+      expect(await files.cached('a1', thumb: thumb), isNull);
     }
   });
 
@@ -271,7 +296,7 @@ void main() {
       ('expense.created', 'c-y1', null, 'y1'),
       ('attachment.added', 'c-b1', 'b1', 'y1'),
     ]);
-    expect(await (await files.cached('b1')).readAsBytes(), [0xff, 0xd8, 2]); // shown there without a download
+    expect(await files.cached('b1'), [0xff, 0xd8, 2]); // shown there without a download
     expect(await outboxTypes(), ['expense.deleted']);
 
     // A retry (the answer was lost) sends the same clientIds, so the server stores nothing twice.

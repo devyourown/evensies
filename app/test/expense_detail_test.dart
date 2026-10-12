@@ -29,7 +29,7 @@ void main() {
   late FakeApi api;
 
   setUpAll(() {
-    Money.loadFromJson('{"decimals":{"EUR":2}}');
+    Money.loadFromJson('{"decimals":{"EUR":2},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}');
     Categories.loadFromJson(File('../shared/categories.json').readAsStringSync());
   });
 
@@ -125,10 +125,12 @@ void main() {
     await settle(t);
     expect(find.text('Hotel'), findsOneWidget);
     expect(find.text('€300.00'), findsOneWidget);
-    expect(find.text('Hotel · Sun, 11 Oct 2026'), findsOneWidget); // category label · date
+    expect(find.text('Hotel · Sun, Oct 11, 2026'), findsOneWidget); // category label · date
     expect(find.text('You paid €200.00 and owe €100.00'), findsOneWidget);
     expect(find.text('Ben paid €100.00 and owes €100.00'), findsOneWidget);
     expect(find.text('Cara owes €100.00'), findsOneWidget);
+    expect(find.text('A'), findsOneWidget); // my avatar: Anna's initial, not the "Y" of "You"
+    expect(find.text('Y'), findsNothing);
     expect(find.text('Breakfast included'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
 
@@ -221,7 +223,7 @@ void main() {
     await t.pumpWidget(app(expenseId: 'x2'));
     await settle(t);
     expect(find.text('Deleted expense'), findsOneWidget);
-    expect(find.text('General · Sun, 11 Oct 2026'), findsOneWidget);
+    expect(find.text('General · Sun, Oct 11, 2026'), findsOneWidget);
     expect(find.byTooltip('Edit'), findsNothing);
     expect(find.byTooltip('Delete'), findsNothing);
     await t.tap(find.widgetWithText(FilledButton, 'Restore'));

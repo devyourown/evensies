@@ -31,7 +31,7 @@ void main() {
   late FakeApi api;
   late SharedPreferences prefs;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());

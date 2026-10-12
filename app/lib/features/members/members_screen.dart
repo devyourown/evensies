@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
 import '../../core/env.dart';
 import '../../core/invite_code.dart';
+import '../../core/l10n.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
@@ -34,8 +34,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final link = code == null ? null : '${ref.watch(serverUrlProvider)}/j/$code';
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     return Scaffold(
-      appBar: AppBar(title: const Text('Members & invite')),
+      appBar: AppBar(title: Text(l.membersInvite)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
@@ -44,7 +45,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text('Invite code', textAlign: TextAlign.center, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(l.inviteCode, textAlign: TextAlign.center, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Center(
                     child: Container(
@@ -56,7 +57,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                         data: link,
                         size: 160,
                         backgroundColor: Colors.white,
-                        semanticsLabel: 'QR code of the invite link',
+                        semanticsLabel: l.inviteQrLabel,
                       ),
                     ),
                   ),
@@ -65,7 +66,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       textAlign: TextAlign.center,
                       style: text.displaySmall?.copyWith(fontFamily: 'monospace', letterSpacing: 4, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
-                  Text('Anyone with this code can join and pick their name.',
+                  Text(l.inviteCodeHelp,
                       textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Row(children: [
@@ -73,20 +74,18 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           await Clipboard.setData(ClipboardData(text: code));
-                          if (context.mounted) showInfo(context, 'Code copied');
+                          if (context.mounted) showInfo(context, context.l.codeCopied);
                         },
                         icon: const Icon(Icons.copy, size: 18),
-                        label: const Text('Copy code'),
+                        label: Text(l.copyCode),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: () => SharePlus.instance.share(ShareParams(
-                            text: 'Join my group "${group!.name}" on Evensies: $link\n'
-                                'Or open the app and enter code ${formatInviteCode(code)}')),
+                        onPressed: () => shareText(context, l.inviteShareText(group!.name, link, formatInviteCode(code))),
                         icon: const Icon(Icons.share, size: 18),
-                        label: const Text('Share link'),
+                        label: Text(l.shareLink),
                       ),
                     ),
                   ]),
@@ -101,7 +100,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       icon: _rotating
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.refresh, size: 18),
-                      label: const Text('Rotate code'),
+                      label: Text(l.rotateCode),
                     ),
                   ]),
                 ]),
@@ -111,21 +110,21 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ],
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Text('Members', style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+            child: Text(l.members, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
           ),
           for (final m in members)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: PersonAvatar(userId: m.userId, name: m.name),
-              title: Text(m.id == group?.myMemberId ? '${m.name} (you)' : m.name),
+              title: Text(m.id == group?.myMemberId ? l.youSuffix(m.name) : m.name),
               subtitle: Text(
-                m.userId == null ? 'not joined yet — share the invite code' : 'linked',
+                m.userId == null ? l.notJoinedYet : l.linked,
                 style: TextStyle(color: m.userId == null ? cs.onSurfaceVariant : cs.primary),
               ),
               trailing: m.id == group?.myMemberId
                   ? null
                   : IconButton(
-                      tooltip: 'Remove',
+                      tooltip: l.remove,
                       icon: const Icon(Icons.person_remove_outlined),
                       onPressed: () => _remove(m),
                     ),
@@ -134,7 +133,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           OutlinedButton.icon(
             onPressed: _addMember,
             icon: const Icon(Icons.person_add_outlined),
-            label: const Text('Add placeholder member'),
+            label: Text(l.addPlaceholder),
           ),
         ],
       ),
@@ -144,15 +143,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Future<void> _remove(MemberRow m) async {
     // A removed member is still a member: repeats keep their share until the latest one is edited (docs/API.md 반복 지출).
     final series = (await GroupStateStore(ref.read(dbProvider)).load(widget.groupId)).seriesWith(m.id);
-    final names = seriesNames(series);
     if (!mounted) return;
+    final l = context.l;
+    final names = seriesNames(l, series);
     final ok = await confirm(context,
-        title: 'Remove ${m.name}?',
-        message: 'Their past expenses and balance stay in the group.'
-            '${series.isEmpty ? '' : '\n\n${m.name} is still in ${series.length} repeating '
-                '${series.length == 1 ? 'expense' : 'expenses'} ($names); they keep ${m.name}\'s share until you edit '
-                'the latest one.'}',
-        confirmLabel: 'Remove');
+        title: l.removeMemberTitle(m.name),
+        message: series.isEmpty
+            ? l.removeMemberMessage
+            : '${l.removeMemberMessage}\n\n${l.removeMemberSeries(series.length, m.name, names)}',
+        confirmLabel: l.remove);
     if (!ok) return;
     await ref.read(localWritesProvider).removeMember(widget.groupId, m.id);
   }
@@ -165,21 +164,21 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         builder: (ctx, setDialog) {
           final ok = ctl.text.trim().isNotEmpty && fitsLimit(ctl.text, maxMemberName);
           return AlertDialog(
-            title: const Text('Add member'),
+            title: Text(ctx.l.addMember),
             content: TextField(
               key: const Key('member-name'),
               controller: ctl,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: limitedDecoration(const InputDecoration(labelText: 'Name'), ctl.text, maxMemberName),
+              decoration: limitedDecoration(ctx, InputDecoration(labelText: ctx.l.nameLabel), ctl.text, maxMemberName),
               onChanged: (_) => setDialog(() {}),
               onSubmitted: (v) {
                 if (ok) Navigator.pop(ctx, v.trim());
               },
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              FilledButton(onPressed: ok ? () => Navigator.pop(ctx, ctl.text.trim()) : null, child: const Text('Add')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l.cancel)),
+              FilledButton(onPressed: ok ? () => Navigator.pop(ctx, ctl.text.trim()) : null, child: Text(ctx.l.add)),
             ],
           );
         },
@@ -190,11 +189,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _rotate() async {
+    final l = context.l;
     final ok = await confirm(context,
-        title: 'Rotate invite code?',
-        message: 'The current code and link stop working. People who already joined are not affected.',
-        confirmLabel: 'Rotate',
-        destructive: false);
+        title: l.rotateInviteTitle, message: l.rotateInviteMessage, confirmLabel: l.rotate, destructive: false);
     if (!ok) return;
     setState(() => _rotating = true);
     try {
@@ -202,7 +199,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final db = ref.read(dbProvider);
       final g = await db.getGroup(widget.groupId);
       if (g != null) await db.upsertGroup(g.copyWith(inviteCode: Value(code)));
-      if (mounted) showInfo(context, 'New invite code ready');
+      if (mounted) showInfo(context, context.l.newInviteReady);
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {

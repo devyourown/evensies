@@ -8,7 +8,7 @@ import 'package:evensies/data/fx_rates.dart';
 import 'fakes.dart';
 
 void main() {
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0,"KRW":0}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0,"KRW":0},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   test('crossRate: to/from through EUR, 6 significant digits; null without both rates', () {
     const perEur = {'EUR': 1.0, 'JPY': 177.51, 'KRW': 1472.81, 'USD': 1.1217, 'XXX': 0.0};

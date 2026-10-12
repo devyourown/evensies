@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'l10n.dart';
 import 'money.dart';
 
 /// Searchable currency picker (docs Phase 4): type to filter by code (and by English name when currencies.json has
@@ -138,7 +139,7 @@ class _CurrencyPickerState extends State<CurrencyPicker> {
           value: '',
           label: '',
           enabled: false,
-          labelWidget: Text('All currencies', style: Theme.of(context).textTheme.labelSmall?.merge(muted)),
+          labelWidget: Text(context.l.allCurrencies, style: Theme.of(context).textTheme.labelSmall?.merge(muted)),
         ),
         for (final c in Money.currencies)
           if (!top.contains(c)) entry(c),

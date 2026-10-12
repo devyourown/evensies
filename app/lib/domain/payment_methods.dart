@@ -1,7 +1,8 @@
-/// "Ways to get paid" (docs/API.md 결제 수단). Pure: no Flutter imports.
+/// "Ways to get paid" (docs/API.md 결제 수단). Validation returns codes; the screens word them ([methodErrorText]).
 library;
 
 import '../core/money.dart';
+import '../l10n/app_localizations.dart';
 
 abstract final class PaymentTypes {
   static const paypal = 'paypal';
@@ -33,14 +34,14 @@ class PaymentMethod {
       {'type': type, 'value': value, 'holder': ?holder, 'bank': ?bank, 'bic': ?bic};
 }
 
-String methodLabel(String type) => switch (type) {
+String methodLabel(String type, AppLocalizations l) => switch (type) {
       PaymentTypes.paypal => 'PayPal',
       PaymentTypes.wise => 'Wise',
       PaymentTypes.venmo => 'Venmo',
       PaymentTypes.revolut => 'Revolut',
       PaymentTypes.kakaopay => 'KakaoPay',
       PaymentTypes.iban => 'IBAN',
-      PaymentTypes.krBank => 'Korean bank',
+      PaymentTypes.krBank => l.koreanBank,
       _ => type,
     };
 
@@ -64,44 +65,60 @@ bool ibanValid(String iban) {
   return mod == 1;
 }
 
-/// Error for one field (`value`, `holder`, `bank`, `bic`) of a method of [type], or null if valid.
-/// Mirrors the validation table in docs/API.md; the server is the authority.
+/// Error code for one field (`value`, `holder`, `bank`, `bic`) of a method of [type], or null if valid: `USERNAME`,
+/// `LINK_PREFIX`, `TOO_LONG`, `IBAN`, `HOLDER`, `BIC`, `KR_ACCOUNT`, `BANK`. Mirrors the validation table in
+/// docs/API.md; the server is the authority.
 String? methodFieldError(String type, String field, String? input) {
   final v = input?.trim() ?? '';
   switch ((type, field)) {
     case (PaymentTypes.paypal || PaymentTypes.revolut || PaymentTypes.venmo, 'value'):
-      return _username.hasMatch(v) ? null : 'Letters, digits, . _ - only (max 40)';
+      return _username.hasMatch(v) ? null : 'USERNAME';
     case (PaymentTypes.wise, 'value'):
       return _link(v, 'https://wise.com/');
     case (PaymentTypes.kakaopay, 'value'):
       return _link(v, 'https://qr.kakaopay.com/');
     case (PaymentTypes.iban, 'value'):
-      return ibanValid(normalizeIban(v)) ? null : 'Not a valid IBAN';
+      return ibanValid(normalizeIban(v)) ? null : 'IBAN';
     case (PaymentTypes.iban || PaymentTypes.krBank, 'holder'):
-      return v.isEmpty || v.length > 70 ? 'Account holder name (1–70 characters)' : null;
+      return v.isEmpty || v.length > 70 ? 'HOLDER' : null;
     case (PaymentTypes.iban, 'bic'):
       if (v.isEmpty) return null;
-      return v.length == 8 || v.length == 11 ? null : 'BIC has 8 or 11 characters';
+      return v.length == 8 || v.length == 11 ? null : 'BIC';
     case (PaymentTypes.krBank, 'value'):
       final digits = v.replaceAll('-', '');
       return RegExp(r'^[\d-]+$').hasMatch(v) && digits.length >= 8 && digits.length <= 20
           ? null
-          : 'Digits and hyphens, 8–20 digits';
+          : 'KR_ACCOUNT';
     case (PaymentTypes.krBank, 'bank'):
-      return v.isEmpty || v.length > 30 ? 'Bank name (1–30 characters)' : null;
+      return v.isEmpty || v.length > 30 ? 'BANK' : null;
     default:
       return null;
   }
 }
 
 String? _link(String v, String prefix) {
-  if (!v.startsWith(prefix)) return 'Must start with $prefix';
-  return v.length > 200 ? 'Max 200 characters' : null;
+  if (!v.startsWith(prefix)) return 'LINK_PREFIX';
+  return v.length > 200 ? 'TOO_LONG' : null;
 }
 
-/// First error in [m], or null.
+/// A validation code of [type]'s fields as the form shows it.
+String methodErrorText(AppLocalizations l, String type, String code) => switch (code) {
+      'USERNAME' => l.methodErrorUsername,
+      'LINK_PREFIX' => l.methodErrorLinkPrefix(type == PaymentTypes.wise ? 'https://wise.com/' : 'https://qr.kakaopay.com/'),
+      'TOO_LONG' => l.methodErrorTooLong,
+      'IBAN' => l.methodErrorIban,
+      'HOLDER' => l.methodErrorHolder,
+      'BIC' => l.methodErrorBic,
+      'KR_ACCOUNT' => l.methodErrorKrAccount,
+      'BANK' => l.methodErrorBank,
+      'UNKNOWN_TYPE' => l.methodErrorUnknownType,
+      'TOO_MANY' => l.methodErrorTooMany,
+      _ => l.errorGeneric(code),
+    };
+
+/// First error code in [m], or null.
 String? methodError(PaymentMethod m) {
-  if (!PaymentTypes.all.contains(m.type)) return 'Unknown type';
+  if (!PaymentTypes.all.contains(m.type)) return 'UNKNOWN_TYPE';
   for (final (f, v) in [('value', m.value), ('holder', m.holder), ('bank', m.bank), ('bic', m.bic)]) {
     final e = methodFieldError(m.type, f, v);
     if (e != null) return e;
@@ -109,16 +126,15 @@ String? methodError(PaymentMethod m) {
   return null;
 }
 
-/// Error for the whole list (per-method errors and limits), or null.
+/// Error code for the whole list (`TOO_MANY` past the limits, else the first method's), or null.
 String? methodsError(List<PaymentMethod> ms) {
-  if (ms.length > maxMethods) return 'At most $maxMethods ways to get paid';
+  if (ms.length > maxMethods) return 'TOO_MANY';
   for (final t in PaymentTypes.all) {
-    final n = ms.where((m) => m.type == t).length;
-    if (n > maxPerType(t)) return 'At most ${maxPerType(t)} ${methodLabel(t)}';
+    if (ms.where((m) => m.type == t).length > maxPerType(t)) return 'TOO_MANY';
   }
   for (final m in ms) {
     final e = methodError(m);
-    if (e != null) return '${methodLabel(m.type)}: $e';
+    if (e != null) return e;
   }
   return null;
 }
@@ -203,7 +219,8 @@ String methodSummary(PaymentMethod m) => switch (m.type) {
     };
 
 /// Share text for "Request": "You owe me €15.00 for Trip on Evensies. Pay with: PayPal https://… · IBAN •••• 1234".
-String requestText({
+String requestText(
+  AppLocalizations l, {
   required String formattedAmount,
   required String group,
   required List<PaymentMethod> methods,
@@ -215,9 +232,10 @@ String requestText({
       switch (m.type) {
         PaymentTypes.iban => 'IBAN ${mask(m.value)}',
         PaymentTypes.krBank => '${m.bank} ${mask(m.value)}',
-        _ => '${methodLabel(m.type)} ${payLink(m, amountMinor: amountMinor, currency: currency, note: 'Evensies: $group')}',
+        _ => '${methodLabel(m.type, l)} ${payLink(m, amountMinor: amountMinor, currency: currency, note: 'Evensies: $group')}',
       },
   ];
-  final base = 'You owe me $formattedAmount for $group on Evensies.';
-  return ways.isEmpty ? base : '$base Pay with: ${ways.join(' · ')}';
+  return ways.isEmpty
+      ? l.requestText(formattedAmount, group)
+      : l.requestTextWays(formattedAmount, group, ways.join(' · '));
 }

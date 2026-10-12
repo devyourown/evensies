@@ -12,9 +12,26 @@ class UserDto {
 
   /// Null until the user picks one, and from servers before Phase 4 (no key).
   final String? homeCurrency;
-  const UserDto({required this.id, required this.displayName, this.homeCurrency});
+
+  /// The language the server writes to this user in (push, reminders); null = English or a server before Phase 9.
+  final String? language;
+  const UserDto({required this.id, required this.displayName, this.homeCurrency, this.language});
   factory UserDto.fromJson(Map<String, dynamic> j) => UserDto(
-      id: j['id'] as String, displayName: j['displayName'] as String, homeCurrency: j['homeCurrency'] as String?);
+      id: j['id'] as String,
+      displayName: j['displayName'] as String,
+      homeCurrency: j['homeCurrency'] as String?,
+      language: j['language'] as String?);
+}
+
+/// `GET /info` (docs/API.md 9단계): the web app's sign-in buttons. Unknown keys (Phase 10) are ignored.
+class ServerInfo {
+  final String? appleServicesId, googleWebClientId;
+  final bool devLogin;
+  const ServerInfo({this.appleServicesId, this.googleWebClientId, this.devLogin = false});
+  factory ServerInfo.fromJson(Map<String, dynamic> j) => ServerInfo(
+      appleServicesId: j['appleServicesId'] as String?,
+      googleWebClientId: j['googleWebClientId'] as String?,
+      devLogin: j['devLogin'] == true);
 }
 
 /// `GET /fx` (docs/API.md 환율): [rates] = units per 1 EUR; [date] = the latest quote date in it.

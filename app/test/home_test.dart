@@ -137,6 +137,36 @@ void main() {
     await unmount(t);
   });
 
+  testWidgets('the overall card words the home-currency total as owe/owed, never as a minus amount', (t) async {
+    // Net: Eva owes me ¥3,000 (€20.00 at 150), I owe €25.00 → I owe ≈ €5.00.
+    t.view.physicalSize = const Size(800, 2000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(ProviderScope(
+      overrides: [
+        dbProvider.overrideWithValue(db),
+        apiProvider.overrideWithValue(api),
+        syncProvider.overrideWithValue(sync),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        latestFxProvider.overrideWith((_) => Stream.value(const FxTable(date: '2026-10-11', rates: {'EUR': 1, 'JPY': 150}))),
+      ],
+      child: Consumer(builder: (_, ref, _) => MaterialApp.router(routerConfig: ref.watch(routerProvider))),
+    ));
+    await settle(t);
+    expect(find.text('You owe ≈ €5.00 in total'), findsOneWidget);
+    expect(find.textContaining('−'), findsNothing);
+    await unmount(t);
+  });
+
+  test('members come by name, case-insensitively', () async {
+    await group('g-abc', 'ABC', 'group', 'z', const [
+      Member(id: 'z', name: 'zoe'),
+      Member(id: 'b', name: 'Ben'),
+      Member(id: 'a', name: 'anna'),
+    ]);
+    expect([for (final m in await db.watchMembers('g-abc').first) m.name], ['anna', 'Ben', 'zoe']);
+  });
+
   testWidgets('Friends tab: everyone across groups, the largest currency then *, settled people closed', (t) async {
     await open(t);
     await t.tap(find.text('Friends').last);
@@ -220,11 +250,11 @@ void main() {
     }
     expect(y(find.text('lunch')) < y(find.text('taxi')), isTrue); // newest first
     // Day headers in each section, like the group's list.
-    expect(y(find.text('Thu, 15 Oct').first), allOf(greaterThan(nonGroup), lessThan(y(find.text('lunch')))));
-    expect(y(find.text('Wed, 14 Oct').first),
+    expect(y(find.text('Thu, Oct 15').first), allOf(greaterThan(nonGroup), lessThan(y(find.text('lunch')))));
+    expect(y(find.text('Wed, Oct 14').first),
         allOf(greaterThan(y(find.text('lunch'))), lessThan(y(find.text('taxi')))));
     expect(y(find.text('hotel')) > rome, isTrue); // Ben paid, I share
-    expect(y(find.text('Thu, 15 Oct').last), allOf(greaterThan(rome), lessThan(y(find.text('hotel'))))); // its day too
+    expect(y(find.text('Thu, Oct 15').last), allOf(greaterThan(rome), lessThan(y(find.text('hotel'))))); // its day too
     expect(t.widget<ExpenseTile>(find.ancestor(of: find.text('hotel'), matching: find.byType(ExpenseTile))).extra, isNull);
     await t.tap(find.byKey(const Key('together-g-rome')));
     await settle(t);

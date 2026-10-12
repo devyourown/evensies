@@ -1,0 +1,3307 @@
+{
+  "_doc": "Text both sides render from one table (docs/API.md '언어·웹'): activity sentences (app feed, server push), push batch and reminder text, invite landing pages, category labels, frequency words and the money notation M(x). Keyed by language (en ko nl fr de id it ja pl pt es sv th); 'en' is the source and the fallback: a missing language renders 'en', a missing key or variant renders the 'en' one. Copies that must stay byte-equal: app/assets/strings.json, server/src/main/resources/strings.json. Templates use {placeholders} only (no ICU, no plurals): a value is inserted verbatim in one left-to-right pass, so a description containing '{A}' stays as typed. Every language has every key and variant of 'en' with the same placeholders. activity.<kind> variants: 'self' when the subject is the viewer, 'you' when the object is the viewer, else 'other' (a missing variant falls back to 'other'). A {name}-like placeholder can hold a member name, words.you or words.someone: don't attach affixes that only fit names (e.g. Korean 님) to placeholders that can hold words.you. words.you/words.someone at the very start of a sentence get their first letter upper-cased; member names never change. Batch sentences ({n}) must read correctly for every n >= 2. suffix.* is joined to a sentence with words.dot and also stands alone (the app's feed line). Not translated: member and group names, descriptions, comments, brand and provider names, currency codes, ISO dates in change lists.",
+  "en": {
+    "money": {
+      "pattern": "{s}{n}",
+      "group": ",",
+      "decimal": ".",
+      "symbols": {}
+    },
+    "words": {
+      "you": "you",
+      "someone": "someone",
+      "dot": " · ",
+      "categoryOther": "{parent} - Other",
+      "frequency": {
+        "weekly": "weekly",
+        "biweekly": "every 2 weeks",
+        "monthly": "monthly",
+        "yearly": "yearly"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} created the group “{name}”",
+        "self": "You created the group “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} changed the group: {changes}",
+        "self": "You changed the group: {changes}"
+      },
+      "member_added": {
+        "other": "{A} added {member}",
+        "self": "You added {member}",
+        "you": "{A} added you"
+      },
+      "member_joined": {
+        "other": "{member} joined",
+        "self": "You joined"
+      },
+      "member_left": {
+        "other": "{member} left the group",
+        "self": "You left the group"
+      },
+      "member_removed": {
+        "other": "{A} removed {member}",
+        "self": "You removed {member}",
+        "you": "{A} removed you"
+      },
+      "friend_added": {
+        "other": "{A} added {member} as a friend",
+        "self": "You added {member} as a friend",
+        "you": "{A} added you as a friend"
+      },
+      "expense_added": {
+        "other": "{A} added “{description}” · {amount}",
+        "self": "You added “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} added a refund “{description}” · {amount}",
+        "self": "You added a refund “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "“{description}” · {amount} was added (repeats {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "A refund “{description}” · {amount} was added (repeats {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} changed “{description}”: {changes}",
+        "self": "You changed “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} deleted “{description}”",
+        "self": "You deleted “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} restored “{description}”",
+        "self": "You restored “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} moved “{description}” to another group",
+        "self": "You moved “{description}” to another group"
+      },
+      "comment_added": {
+        "other": "{A} commented on “{description}”: {text}",
+        "self": "You commented on “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} commented on a payment of {amount} from {from} to {to}: {text}",
+        "self": "You commented on a payment of {amount} from {from} to {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} added a receipt to “{description}”",
+        "self": "You added a receipt to “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} added {n} receipts to “{description}”",
+        "self": "You added {n} receipts to “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} removed a receipt from “{description}”",
+        "self": "You removed a receipt from “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} removed {n} receipts from “{description}”",
+        "self": "You removed {n} receipts from “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} set “{description}” to repeat {frequency}",
+        "self": "You set “{description}” to repeat {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} changed future “{description}”: {changes}",
+        "self": "You changed future “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} stopped “{description}” repeating",
+        "self": "You stopped “{description}” repeating"
+      },
+      "payment_added": {
+        "other": "{from} paid {to} {amount}",
+        "self": "You paid {to} {amount}",
+        "you": "{from} paid you {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A} confirmed receiving {amount} from {from}",
+        "self": "You confirmed receiving {amount} from {from}",
+        "you": "{A} confirmed receiving {amount} from you"
+      },
+      "payment_deleted": {
+        "other": "{A} deleted a payment of {amount} from {from} to {to}",
+        "self": "You deleted a payment of {amount} from {from} to {to}"
+      },
+      "payment_edited": {
+        "other": "{A} edited a payment of {amount} from {from} to {to}",
+        "self": "You edited a payment of {amount} from {from} to {to}"
+      },
+      "payment_restored": {
+        "other": "{A} restored a payment of {amount} from {from} to {to}",
+        "self": "You restored a payment of {amount} from {from} to {to}"
+      },
+      "unknown": {
+        "other": "{A} made a change",
+        "self": "You made a change"
+      }
+    },
+    "suffix": {
+      "owe": "you owe {amount}",
+      "lent": "you lent {amount}",
+      "getBack": "you get back {amount}",
+      "waiting": {
+        "other": "waiting for {to} to confirm",
+        "you": "waiting for you to confirm"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "name “{from}” → “{to}”",
+      "currency": "currency {from} → {to}",
+      "simplifyDebtsOn": "simplify debts on",
+      "simplifyDebtsOff": "simplify debts off",
+      "defaultSplit": "default split",
+      "description": "description “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "exchange rate",
+      "paidBy": "paid by {from} → {to}",
+      "payers": "payers",
+      "refundOn": "refund on",
+      "refundOff": "refund off",
+      "date": "date {from} → {to}",
+      "category": "category {from} → {to}",
+      "categorySame": "category",
+      "split": "split",
+      "notes": "notes",
+      "other": "other changes"
+    },
+    "batch": {
+      "expenses": "{A} added {n} expenses",
+      "comments": "{A} added {n} comments",
+      "repeats": "{n} repeating expenses were added",
+      "changes": "{A} made {n} changes",
+      "mixed": "{n} new changes"
+    },
+    "remind": {
+      "title": "{A} sent a reminder",
+      "body": "You owe {A} {amounts}.",
+      "two": "{a} and {b}",
+      "more": "{a}, {b} and more"
+    },
+    "landing": {
+      "title": "Join {group} on Evensies",
+      "invited": "You’re invited to split expenses in this group.",
+      "members": "Members: {count}",
+      "friendTitle": "{name} on Evensies",
+      "friendCode": "{name} wants to split expenses with you.",
+      "friendAdded": "{name} added you as a friend on Evensies.",
+      "code": "Invite code",
+      "openApp": "Open in the app",
+      "openWeb": "Continue in the browser",
+      "hint": "Have the app? Open it, tap “Join with a code” and enter {code}.",
+      "appStore": "App Store (coming soon)",
+      "googlePlay": "Google Play (coming soon)"
+    },
+    "categories": {
+      "food": "Food and drink",
+      "transportation": "Transportation",
+      "entertainment": "Entertainment",
+      "home": "Home",
+      "life": "Life",
+      "utilities": "Utilities",
+      "uncategorized": "Uncategorized",
+      "food.dining_out": "Dining out",
+      "food.groceries": "Groceries",
+      "food.liquor": "Liquor",
+      "food.other": "Other",
+      "transportation.plane": "Plane",
+      "transportation.bus_train": "Bus/train",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Car",
+      "transportation.gas_fuel": "Gas/fuel",
+      "transportation.parking": "Parking",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Bicycle",
+      "transportation.other": "Other",
+      "entertainment.movies": "Movies",
+      "entertainment.music": "Music",
+      "entertainment.games": "Games",
+      "entertainment.sports": "Sports",
+      "entertainment.other": "Other",
+      "home.rent": "Rent",
+      "home.mortgage": "Mortgage",
+      "home.household_supplies": "Household supplies",
+      "home.furniture": "Furniture",
+      "home.electronics": "Electronics",
+      "home.maintenance": "Maintenance",
+      "home.pets": "Pets",
+      "home.services": "Services",
+      "home.other": "Other",
+      "life.medical": "Medical expenses",
+      "life.gifts": "Gifts",
+      "life.clothing": "Clothing",
+      "life.education": "Education",
+      "life.childcare": "Childcare",
+      "life.insurance": "Insurance",
+      "life.taxes": "Taxes",
+      "life.other": "Other",
+      "utilities.electricity": "Electricity",
+      "utilities.heat_gas": "Heat/gas",
+      "utilities.water": "Water",
+      "utilities.tv_phone_internet": "TV/Phone/Internet",
+      "utilities.trash": "Trash",
+      "utilities.cleaning": "Cleaning",
+      "utilities.other": "Other",
+      "uncategorized.general": "General"
+    }
+  },
+  "ko": {
+    "money": {
+      "pattern": "{s}{n}",
+      "group": ",",
+      "decimal": ".",
+      "symbols": {}
+    },
+    "words": {
+      "you": "나",
+      "someone": "알 수 없는 멤버",
+      "dot": " · ",
+      "categoryOther": "{parent} - 기타",
+      "frequency": {
+        "weekly": "매주",
+        "biweekly": "2주마다",
+        "monthly": "매달",
+        "yearly": "매년"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A}님이 ‘{name}’ 그룹을 만들었어요",
+        "self": "‘{name}’ 그룹을 만들었어요"
+      },
+      "group_updated": {
+        "other": "{A}님이 그룹을 변경했어요: {changes}",
+        "self": "그룹을 변경했어요: {changes}"
+      },
+      "member_added": {
+        "other": "{A}님이 {member}님을 추가했어요",
+        "self": "{member}님을 추가했어요",
+        "you": "{A}님이 나를 추가했어요"
+      },
+      "member_joined": {
+        "other": "{member}님이 참여했어요",
+        "self": "그룹에 참여했어요"
+      },
+      "member_left": {
+        "other": "{member}님이 그룹을 나갔어요",
+        "self": "그룹을 나갔어요"
+      },
+      "member_removed": {
+        "other": "{A}님이 {member}님을 내보냈어요",
+        "self": "{member}님을 내보냈어요",
+        "you": "{A}님이 나를 내보냈어요"
+      },
+      "friend_added": {
+        "other": "{A}님이 {member}님을 친구로 추가했어요",
+        "self": "{member}님을 친구로 추가했어요",
+        "you": "{A}님이 나를 친구로 추가했어요"
+      },
+      "expense_added": {
+        "other": "{A}님이 ‘{description}’ 지출을 추가했어요 · {amount}",
+        "self": "‘{description}’ 지출을 추가했어요 · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A}님이 ‘{description}’ 환불을 추가했어요 · {amount}",
+        "self": "‘{description}’ 환불을 추가했어요 · {amount}"
+      },
+      "expense_repeated": {
+        "other": "‘{description}’ 지출이 추가됐어요 · {amount} ({frequency} 반복)"
+      },
+      "expense_repeated_refund": {
+        "other": "‘{description}’ 환불이 추가됐어요 · {amount} ({frequency} 반복)"
+      },
+      "expense_updated": {
+        "other": "{A}님이 ‘{description}’ 지출을 변경했어요: {changes}",
+        "self": "‘{description}’ 지출을 변경했어요: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A}님이 ‘{description}’ 지출을 삭제했어요",
+        "self": "‘{description}’ 지출을 삭제했어요"
+      },
+      "expense_restored": {
+        "other": "{A}님이 ‘{description}’ 지출을 복원했어요",
+        "self": "‘{description}’ 지출을 복원했어요"
+      },
+      "expense_moved": {
+        "other": "{A}님이 ‘{description}’ 지출을 다른 그룹으로 옮겼어요",
+        "self": "‘{description}’ 지출을 다른 그룹으로 옮겼어요"
+      },
+      "comment_added": {
+        "other": "{A}님이 ‘{description}’에 댓글을 남겼어요: {text}",
+        "self": "‘{description}’에 댓글을 남겼어요: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A}님이 송금({from} → {to} · {amount})에 댓글을 남겼어요: {text}",
+        "self": "송금({from} → {to} · {amount})에 댓글을 남겼어요: {text}"
+      },
+      "receipt_added": {
+        "other": "{A}님이 ‘{description}’에 영수증을 추가했어요",
+        "self": "‘{description}’에 영수증을 추가했어요"
+      },
+      "receipts_added": {
+        "other": "{A}님이 ‘{description}’에 영수증 {n}장을 추가했어요",
+        "self": "‘{description}’에 영수증 {n}장을 추가했어요"
+      },
+      "receipt_removed": {
+        "other": "{A}님이 ‘{description}’에서 영수증을 삭제했어요",
+        "self": "‘{description}’에서 영수증을 삭제했어요"
+      },
+      "receipts_removed": {
+        "other": "{A}님이 ‘{description}’에서 영수증 {n}장을 삭제했어요",
+        "self": "‘{description}’에서 영수증 {n}장을 삭제했어요"
+      },
+      "recurrence_created": {
+        "other": "{A}님이 ‘{description}’ 지출을 {frequency} 반복하도록 설정했어요",
+        "self": "‘{description}’ 지출을 {frequency} 반복하도록 설정했어요"
+      },
+      "recurrence_updated": {
+        "other": "{A}님이 ‘{description}’의 앞으로의 반복을 변경했어요: {changes}",
+        "self": "‘{description}’의 앞으로의 반복을 변경했어요: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A}님이 ‘{description}’ 반복을 중지했어요",
+        "self": "‘{description}’ 반복을 중지했어요"
+      },
+      "payment_added": {
+        "other": "{from} → {to} 송금 · {amount}",
+        "self": "{to}에게 송금했어요 · {amount}",
+        "you": "{from}님이 나에게 송금했어요 · {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A}님이 {from}님에게서 받은 송금을 확인했어요 · {amount}",
+        "self": "{from}님에게서 받은 송금을 확인했어요 · {amount}",
+        "you": "{A}님이 내가 보낸 송금을 확인했어요 · {amount}"
+      },
+      "payment_deleted": {
+        "other": "{A}님이 송금({from} → {to} · {amount})을 삭제했어요",
+        "self": "송금({from} → {to} · {amount})을 삭제했어요"
+      },
+      "payment_edited": {
+        "other": "{A}님이 송금({from} → {to} · {amount})을 수정했어요",
+        "self": "송금({from} → {to} · {amount})을 수정했어요"
+      },
+      "payment_restored": {
+        "other": "{A}님이 송금({from} → {to} · {amount})을 복원했어요",
+        "self": "송금({from} → {to} · {amount})을 복원했어요"
+      },
+      "unknown": {
+        "other": "{A}님이 내용을 변경했어요",
+        "self": "내용을 변경했어요"
+      }
+    },
+    "suffix": {
+      "owe": "내가 갚을 돈 {amount}",
+      "lent": "내가 받을 돈 {amount}",
+      "getBack": "돌려받을 돈 {amount}",
+      "waiting": {
+        "other": "{to}의 확인을 기다리는 중",
+        "you": "내 확인을 기다리는 중"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "이름 ‘{from}’ → ‘{to}’",
+      "currency": "통화 {from} → {to}",
+      "simplifyDebtsOn": "빚 간소화 켬",
+      "simplifyDebtsOff": "빚 간소화 끔",
+      "defaultSplit": "기본 분할",
+      "description": "설명 ‘{from}’ → ‘{to}’",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "환율",
+      "paidBy": "결제한 사람 {from} → {to}",
+      "payers": "결제한 사람들",
+      "refundOn": "환불로 표시",
+      "refundOff": "환불 표시 해제",
+      "date": "날짜 {from} → {to}",
+      "category": "카테고리 {from} → {to}",
+      "categorySame": "카테고리",
+      "split": "분할 방식",
+      "notes": "메모",
+      "other": "기타 변경"
+    },
+    "batch": {
+      "expenses": "{A}님이 지출 {n}개를 추가했어요",
+      "comments": "{A}님이 댓글 {n}개를 남겼어요",
+      "repeats": "반복 지출 {n}개가 추가됐어요",
+      "changes": "{A}님이 {n}개 항목을 변경했어요",
+      "mixed": "새 변경 {n}개"
+    },
+    "remind": {
+      "title": "{A}님이 리마인더를 보냈어요",
+      "body": "{A}님에게 {amounts} 갚아야 해요.",
+      "two": "{a} 및 {b}",
+      "more": "{a}, {b} 외"
+    },
+    "landing": {
+      "title": "Evensies에서 {group} 그룹에 참여하세요",
+      "invited": "이 그룹에서 함께 비용을 나누자는 초대를 받았어요.",
+      "members": "멤버: {count}명",
+      "friendTitle": "Evensies의 {name}님",
+      "friendCode": "{name}님이 함께 비용을 나누고 싶어 해요.",
+      "friendAdded": "{name}님이 Evensies에서 나를 친구로 추가했어요.",
+      "code": "초대 코드",
+      "openApp": "앱에서 열기",
+      "openWeb": "브라우저에서 계속하기",
+      "hint": "앱이 있나요? 앱을 열고 이 코드를 입력하세요: {code}",
+      "appStore": "App Store (출시 예정)",
+      "googlePlay": "Google Play (출시 예정)"
+    },
+    "categories": {
+      "food": "식비",
+      "transportation": "교통",
+      "entertainment": "여가",
+      "home": "주거",
+      "life": "생활",
+      "utilities": "공과금",
+      "uncategorized": "미분류",
+      "food.dining_out": "외식",
+      "food.groceries": "장보기",
+      "food.liquor": "술",
+      "food.other": "기타",
+      "transportation.plane": "항공",
+      "transportation.bus_train": "버스/기차",
+      "transportation.taxi": "택시",
+      "transportation.car": "자동차",
+      "transportation.gas_fuel": "주유",
+      "transportation.parking": "주차",
+      "transportation.hotel": "숙박",
+      "transportation.bicycle": "자전거",
+      "transportation.other": "기타",
+      "entertainment.movies": "영화",
+      "entertainment.music": "음악",
+      "entertainment.games": "게임",
+      "entertainment.sports": "스포츠",
+      "entertainment.other": "기타",
+      "home.rent": "월세",
+      "home.mortgage": "주택담보대출",
+      "home.household_supplies": "생활용품",
+      "home.furniture": "가구",
+      "home.electronics": "전자제품",
+      "home.maintenance": "수리·관리",
+      "home.pets": "반려동물",
+      "home.services": "서비스",
+      "home.other": "기타",
+      "life.medical": "의료비",
+      "life.gifts": "선물",
+      "life.clothing": "의류",
+      "life.education": "교육",
+      "life.childcare": "육아",
+      "life.insurance": "보험",
+      "life.taxes": "세금",
+      "life.other": "기타",
+      "utilities.electricity": "전기",
+      "utilities.heat_gas": "난방/가스",
+      "utilities.water": "수도",
+      "utilities.tv_phone_internet": "TV/전화/인터넷",
+      "utilities.trash": "쓰레기",
+      "utilities.cleaning": "청소",
+      "utilities.other": "기타",
+      "uncategorized.general": "일반"
+    }
+  },
+  "nl": {
+    "money": {
+      "pattern": "{s}\u00a0{n}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "jou",
+      "someone": "iemand",
+      "dot": " · ",
+      "categoryOther": "{parent} - Overig",
+      "frequency": {
+        "weekly": "wekelijks",
+        "biweekly": "om de 2 weken",
+        "monthly": "maandelijks",
+        "yearly": "jaarlijks"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} heeft de groep ‘{name}’ gemaakt",
+        "self": "Je hebt de groep ‘{name}’ gemaakt"
+      },
+      "group_updated": {
+        "other": "{A} heeft de groep gewijzigd: {changes}",
+        "self": "Je hebt de groep gewijzigd: {changes}"
+      },
+      "member_added": {
+        "other": "{A} heeft {member} toegevoegd",
+        "self": "Je hebt {member} toegevoegd",
+        "you": "{A} heeft je toegevoegd"
+      },
+      "member_joined": {
+        "other": "{member} doet nu mee",
+        "self": "Je doet nu mee"
+      },
+      "member_left": {
+        "other": "{member} heeft de groep verlaten",
+        "self": "Je hebt de groep verlaten"
+      },
+      "member_removed": {
+        "other": "{A} heeft {member} verwijderd",
+        "self": "Je hebt {member} verwijderd",
+        "you": "{A} heeft je verwijderd"
+      },
+      "friend_added": {
+        "other": "{A} is nu bevriend met {member}",
+        "self": "Je bent nu bevriend met {member}",
+        "you": "{A} is nu bevriend met jou"
+      },
+      "expense_added": {
+        "other": "{A} heeft ‘{description}’ toegevoegd · {amount}",
+        "self": "Je hebt ‘{description}’ toegevoegd · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} heeft een terugbetaling ‘{description}’ toegevoegd · {amount}",
+        "self": "Je hebt een terugbetaling ‘{description}’ toegevoegd · {amount}"
+      },
+      "expense_repeated": {
+        "other": "‘{description}’ · {amount} is toegevoegd (herhaalt {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Terugbetaling ‘{description}’ · {amount} is toegevoegd (herhaalt {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} heeft ‘{description}’ gewijzigd: {changes}",
+        "self": "Je hebt ‘{description}’ gewijzigd: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} heeft ‘{description}’ verwijderd",
+        "self": "Je hebt ‘{description}’ verwijderd"
+      },
+      "expense_restored": {
+        "other": "{A} heeft ‘{description}’ hersteld",
+        "self": "Je hebt ‘{description}’ hersteld"
+      },
+      "expense_moved": {
+        "other": "{A} heeft ‘{description}’ naar een andere groep verplaatst",
+        "self": "Je hebt ‘{description}’ naar een andere groep verplaatst"
+      },
+      "comment_added": {
+        "other": "{A} heeft gereageerd op ‘{description}’: {text}",
+        "self": "Je hebt gereageerd op ‘{description}’: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} heeft gereageerd op een betaling van {amount} van {from} aan {to}: {text}",
+        "self": "Je hebt gereageerd op een betaling van {amount} van {from} aan {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} heeft een bon toegevoegd aan ‘{description}’",
+        "self": "Je hebt een bon toegevoegd aan ‘{description}’"
+      },
+      "receipts_added": {
+        "other": "{A} heeft {n} bonnen toegevoegd aan ‘{description}’",
+        "self": "Je hebt {n} bonnen toegevoegd aan ‘{description}’"
+      },
+      "receipt_removed": {
+        "other": "{A} heeft een bon verwijderd van ‘{description}’",
+        "self": "Je hebt een bon verwijderd van ‘{description}’"
+      },
+      "receipts_removed": {
+        "other": "{A} heeft {n} bonnen verwijderd van ‘{description}’",
+        "self": "Je hebt {n} bonnen verwijderd van ‘{description}’"
+      },
+      "recurrence_created": {
+        "other": "{A} laat ‘{description}’ {frequency} herhalen",
+        "self": "Je laat ‘{description}’ {frequency} herhalen"
+      },
+      "recurrence_updated": {
+        "other": "{A} heeft de volgende herhalingen van ‘{description}’ gewijzigd: {changes}",
+        "self": "Je hebt de volgende herhalingen van ‘{description}’ gewijzigd: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} heeft de herhaling van ‘{description}’ gestopt",
+        "self": "Je hebt de herhaling van ‘{description}’ gestopt"
+      },
+      "payment_added": {
+        "other": "{from} heeft {amount} aan {to} betaald",
+        "self": "Je hebt {amount} aan {to} betaald",
+        "you": "{from} heeft je {amount} betaald"
+      },
+      "payment_confirmed": {
+        "other": "{A} heeft bevestigd {amount} van {from} te hebben ontvangen",
+        "self": "Je hebt bevestigd {amount} van {from} te hebben ontvangen",
+        "you": "{A} heeft bevestigd {amount} van jou te hebben ontvangen"
+      },
+      "payment_deleted": {
+        "other": "{A} heeft een betaling van {amount} van {from} aan {to} verwijderd",
+        "self": "Je hebt een betaling van {amount} van {from} aan {to} verwijderd"
+      },
+      "payment_edited": {
+        "other": "{A} heeft een betaling van {amount} van {from} aan {to} bewerkt",
+        "self": "Je hebt een betaling van {amount} van {from} aan {to} bewerkt"
+      },
+      "payment_restored": {
+        "other": "{A} heeft een betaling van {amount} van {from} aan {to} hersteld",
+        "self": "Je hebt een betaling van {amount} van {from} aan {to} hersteld"
+      },
+      "unknown": {
+        "other": "{A} heeft iets gewijzigd",
+        "self": "Je hebt iets gewijzigd"
+      }
+    },
+    "suffix": {
+      "owe": "je bent {amount} schuldig",
+      "lent": "je krijgt {amount}",
+      "getBack": "je krijgt {amount} terug",
+      "waiting": {
+        "other": "wacht op bevestiging van {to}",
+        "you": "wacht op jouw bevestiging"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "naam ‘{from}’ → ‘{to}’",
+      "currency": "valuta {from} → {to}",
+      "simplifyDebtsOn": "schulden vereenvoudigen aan",
+      "simplifyDebtsOff": "schulden vereenvoudigen uit",
+      "defaultSplit": "standaardverdeling",
+      "description": "omschrijving ‘{from}’ → ‘{to}’",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "wisselkoers",
+      "paidBy": "betaald door {from} → {to}",
+      "payers": "betalers",
+      "refundOn": "terugbetaling aan",
+      "refundOff": "terugbetaling uit",
+      "date": "datum {from} → {to}",
+      "category": "categorie {from} → {to}",
+      "categorySame": "categorie",
+      "split": "verdeling",
+      "notes": "notities",
+      "other": "andere wijzigingen"
+    },
+    "batch": {
+      "expenses": "{A} heeft {n} uitgaven toegevoegd",
+      "comments": "{A} heeft {n} reacties toegevoegd",
+      "repeats": "{n} terugkerende uitgaven toegevoegd",
+      "changes": "{A} heeft {n} wijzigingen gemaakt",
+      "mixed": "{n} nieuwe wijzigingen"
+    },
+    "remind": {
+      "title": "{A} heeft je een herinnering gestuurd",
+      "body": "Je bent {A} {amounts} schuldig.",
+      "two": "{a} en {b}",
+      "more": "{a}, {b} en meer"
+    },
+    "landing": {
+      "title": "Doe mee met {group} op Evensies",
+      "invited": "Je bent uitgenodigd om uitgaven te delen in deze groep.",
+      "members": "Leden: {count}",
+      "friendTitle": "{name} op Evensies",
+      "friendCode": "{name} wil uitgaven met je delen.",
+      "friendAdded": "{name} is nu bevriend met jou op Evensies.",
+      "code": "Uitnodigingscode",
+      "openApp": "Openen in de app",
+      "openWeb": "Doorgaan in de browser",
+      "hint": "Heb je de app? Open hem en doe mee met de code {code}.",
+      "appStore": "App Store (binnenkort)",
+      "googlePlay": "Google Play (binnenkort)"
+    },
+    "categories": {
+      "food": "Eten en drinken",
+      "transportation": "Vervoer",
+      "entertainment": "Vrije tijd",
+      "home": "Wonen",
+      "life": "Leven",
+      "utilities": "Vaste lasten",
+      "uncategorized": "Geen categorie",
+      "food.dining_out": "Uit eten",
+      "food.groceries": "Boodschappen",
+      "food.liquor": "Alcohol",
+      "food.other": "Overig",
+      "transportation.plane": "Vliegtuig",
+      "transportation.bus_train": "Bus/trein",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Auto",
+      "transportation.gas_fuel": "Brandstof",
+      "transportation.parking": "Parkeren",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Fiets",
+      "transportation.other": "Overig",
+      "entertainment.movies": "Film",
+      "entertainment.music": "Muziek",
+      "entertainment.games": "Games",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Overig",
+      "home.rent": "Huur",
+      "home.mortgage": "Hypotheek",
+      "home.household_supplies": "Huishoudartikelen",
+      "home.furniture": "Meubels",
+      "home.electronics": "Elektronica",
+      "home.maintenance": "Onderhoud",
+      "home.pets": "Huisdieren",
+      "home.services": "Diensten",
+      "home.other": "Overig",
+      "life.medical": "Medische kosten",
+      "life.gifts": "Cadeaus",
+      "life.clothing": "Kleding",
+      "life.education": "Onderwijs",
+      "life.childcare": "Kinderopvang",
+      "life.insurance": "Verzekering",
+      "life.taxes": "Belastingen",
+      "life.other": "Overig",
+      "utilities.electricity": "Elektriciteit",
+      "utilities.heat_gas": "Verwarming/gas",
+      "utilities.water": "Water",
+      "utilities.tv_phone_internet": "Tv/telefoon/internet",
+      "utilities.trash": "Afval",
+      "utilities.cleaning": "Schoonmaak",
+      "utilities.other": "Overig",
+      "uncategorized.general": "Algemeen"
+    }
+  },
+  "fr": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": "\u202f",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "vous",
+      "someone": "quelqu’un",
+      "dot": " · ",
+      "categoryOther": "{parent} - Autre",
+      "frequency": {
+        "weekly": "chaque semaine",
+        "biweekly": "toutes les 2 semaines",
+        "monthly": "chaque mois",
+        "yearly": "chaque année"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} a créé le groupe «\u00a0{name}\u00a0»",
+        "self": "Vous avez créé le groupe «\u00a0{name}\u00a0»"
+      },
+      "group_updated": {
+        "other": "{A} a modifié le groupe\u00a0: {changes}",
+        "self": "Vous avez modifié le groupe\u00a0: {changes}"
+      },
+      "member_added": {
+        "other": "{A} a ajouté {member}",
+        "self": "Vous avez ajouté {member}",
+        "you": "{A} vous a ajouté au groupe"
+      },
+      "member_joined": {
+        "other": "{member} a rejoint le groupe",
+        "self": "Vous avez rejoint le groupe"
+      },
+      "member_left": {
+        "other": "{member} a quitté le groupe",
+        "self": "Vous avez quitté le groupe"
+      },
+      "member_removed": {
+        "other": "{A} a retiré {member}",
+        "self": "Vous avez retiré {member}",
+        "you": "{A} vous a retiré du groupe"
+      },
+      "friend_added": {
+        "other": "{A} a ajouté {member} à ses amis",
+        "self": "Vous avez ajouté {member} à vos amis",
+        "you": "{A} vous compte parmi ses amis"
+      },
+      "expense_added": {
+        "other": "{A} a ajouté «\u00a0{description}\u00a0» · {amount}",
+        "self": "Vous avez ajouté «\u00a0{description}\u00a0» · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} a ajouté un remboursement «\u00a0{description}\u00a0» · {amount}",
+        "self": "Vous avez ajouté un remboursement «\u00a0{description}\u00a0» · {amount}"
+      },
+      "expense_repeated": {
+        "other": "Nouvelle occurrence de «\u00a0{description}\u00a0» · {amount} (se répète {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Nouvelle occurrence du remboursement «\u00a0{description}\u00a0» · {amount} (se répète {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} a modifié «\u00a0{description}\u00a0»\u00a0: {changes}",
+        "self": "Vous avez modifié «\u00a0{description}\u00a0»\u00a0: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} a supprimé «\u00a0{description}\u00a0»",
+        "self": "Vous avez supprimé «\u00a0{description}\u00a0»"
+      },
+      "expense_restored": {
+        "other": "{A} a restauré «\u00a0{description}\u00a0»",
+        "self": "Vous avez restauré «\u00a0{description}\u00a0»"
+      },
+      "expense_moved": {
+        "other": "{A} a déplacé «\u00a0{description}\u00a0» vers un autre groupe",
+        "self": "Vous avez déplacé «\u00a0{description}\u00a0» vers un autre groupe"
+      },
+      "comment_added": {
+        "other": "{A} a commenté «\u00a0{description}\u00a0»\u00a0: {text}",
+        "self": "Vous avez commenté «\u00a0{description}\u00a0»\u00a0: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} a commenté un paiement de {amount} ({from} → {to})\u00a0: {text}",
+        "self": "Vous avez commenté un paiement de {amount} ({from} → {to})\u00a0: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} a ajouté un reçu à «\u00a0{description}\u00a0»",
+        "self": "Vous avez ajouté un reçu à «\u00a0{description}\u00a0»"
+      },
+      "receipts_added": {
+        "other": "{A} a ajouté {n} reçus à «\u00a0{description}\u00a0»",
+        "self": "Vous avez ajouté {n} reçus à «\u00a0{description}\u00a0»"
+      },
+      "receipt_removed": {
+        "other": "{A} a retiré un reçu de «\u00a0{description}\u00a0»",
+        "self": "Vous avez retiré un reçu de «\u00a0{description}\u00a0»"
+      },
+      "receipts_removed": {
+        "other": "{A} a retiré {n} reçus de «\u00a0{description}\u00a0»",
+        "self": "Vous avez retiré {n} reçus de «\u00a0{description}\u00a0»"
+      },
+      "recurrence_created": {
+        "other": "{A} a programmé «\u00a0{description}\u00a0» pour se répéter {frequency}",
+        "self": "Vous avez programmé «\u00a0{description}\u00a0» pour se répéter {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} a modifié les prochaines occurrences de «\u00a0{description}\u00a0»\u00a0: {changes}",
+        "self": "Vous avez modifié les prochaines occurrences de «\u00a0{description}\u00a0»\u00a0: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} a arrêté la répétition de «\u00a0{description}\u00a0»",
+        "self": "Vous avez arrêté la répétition de «\u00a0{description}\u00a0»"
+      },
+      "payment_added": {
+        "other": "{from} a payé {amount} à {to}",
+        "self": "Vous avez payé {amount} à {to}",
+        "you": "{from} vous a payé {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A} a confirmé avoir reçu {amount} de {from}",
+        "self": "Vous avez confirmé avoir reçu {amount} de {from}",
+        "you": "{A} a confirmé avoir reçu {amount} de votre part"
+      },
+      "payment_deleted": {
+        "other": "{A} a supprimé un paiement de {amount} ({from} → {to})",
+        "self": "Vous avez supprimé un paiement de {amount} ({from} → {to})"
+      },
+      "payment_edited": {
+        "other": "{A} a modifié un paiement de {amount} ({from} → {to})",
+        "self": "Vous avez modifié un paiement de {amount} ({from} → {to})"
+      },
+      "payment_restored": {
+        "other": "{A} a restauré un paiement de {amount} ({from} → {to})",
+        "self": "Vous avez restauré un paiement de {amount} ({from} → {to})"
+      },
+      "unknown": {
+        "other": "{A} a effectué une modification",
+        "self": "Vous avez effectué une modification"
+      }
+    },
+    "suffix": {
+      "owe": "vous devez {amount}",
+      "lent": "on vous doit {amount}",
+      "getBack": "vous récupérez {amount}",
+      "waiting": {
+        "other": "en attente de la confirmation de {to}",
+        "you": "en attente de votre confirmation"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nom «\u00a0{from}\u00a0» → «\u00a0{to}\u00a0»",
+      "currency": "devise {from} → {to}",
+      "simplifyDebtsOn": "simplification des dettes activée",
+      "simplifyDebtsOff": "simplification des dettes désactivée",
+      "defaultSplit": "répartition par défaut",
+      "description": "description «\u00a0{from}\u00a0» → «\u00a0{to}\u00a0»",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "taux de change",
+      "paidBy": "payé par {from} → {to}",
+      "payers": "qui a payé",
+      "refundOn": "remboursement activé",
+      "refundOff": "remboursement désactivé",
+      "date": "date {from} → {to}",
+      "category": "catégorie {from} → {to}",
+      "categorySame": "catégorie",
+      "split": "répartition",
+      "notes": "notes",
+      "other": "autres modifications"
+    },
+    "batch": {
+      "expenses": "{A} a ajouté {n} dépenses",
+      "comments": "{A} a ajouté {n} commentaires",
+      "repeats": "{n} dépenses récurrentes ont été ajoutées",
+      "changes": "{A} a effectué {n} modifications",
+      "mixed": "{n} nouvelles modifications"
+    },
+    "remind": {
+      "title": "{A} vous a envoyé un rappel",
+      "body": "Vous devez {amounts} à {A}.",
+      "two": "{a} et {b}",
+      "more": "{a}, {b} et plus"
+    },
+    "landing": {
+      "title": "Rejoignez {group} sur Evensies",
+      "invited": "Vous avez reçu une invitation à partager les dépenses de ce groupe.",
+      "members": "Membres\u00a0: {count}",
+      "friendTitle": "{name} sur Evensies",
+      "friendCode": "{name} souhaite partager des dépenses avec vous.",
+      "friendAdded": "{name} vous compte parmi ses amis sur Evensies.",
+      "code": "Code d’invitation",
+      "openApp": "Ouvrir dans l’app",
+      "openWeb": "Continuer dans le navigateur",
+      "hint": "Vous avez l’app\u00a0? Ouvrez-la et rejoignez le groupe avec le code {code}.",
+      "appStore": "App Store (bientôt disponible)",
+      "googlePlay": "Google Play (bientôt disponible)"
+    },
+    "categories": {
+      "food": "Alimentation et boissons",
+      "transportation": "Transport",
+      "entertainment": "Loisirs",
+      "home": "Maison",
+      "life": "Vie quotidienne",
+      "utilities": "Charges",
+      "uncategorized": "Sans catégorie",
+      "food.dining_out": "Restaurant",
+      "food.groceries": "Courses",
+      "food.liquor": "Alcool",
+      "food.other": "Autre",
+      "transportation.plane": "Avion",
+      "transportation.bus_train": "Bus/train",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Voiture",
+      "transportation.gas_fuel": "Carburant",
+      "transportation.parking": "Parking",
+      "transportation.hotel": "Hôtel",
+      "transportation.bicycle": "Vélo",
+      "transportation.other": "Autre",
+      "entertainment.movies": "Cinéma",
+      "entertainment.music": "Musique",
+      "entertainment.games": "Jeux",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Autre",
+      "home.rent": "Loyer",
+      "home.mortgage": "Prêt immobilier",
+      "home.household_supplies": "Produits ménagers",
+      "home.furniture": "Meubles",
+      "home.electronics": "Électronique",
+      "home.maintenance": "Entretien",
+      "home.pets": "Animaux",
+      "home.services": "Services",
+      "home.other": "Autre",
+      "life.medical": "Frais médicaux",
+      "life.gifts": "Cadeaux",
+      "life.clothing": "Vêtements",
+      "life.education": "Éducation",
+      "life.childcare": "Garde d’enfants",
+      "life.insurance": "Assurance",
+      "life.taxes": "Impôts",
+      "life.other": "Autre",
+      "utilities.electricity": "Électricité",
+      "utilities.heat_gas": "Chauffage/gaz",
+      "utilities.water": "Eau",
+      "utilities.tv_phone_internet": "TV/Téléphone/Internet",
+      "utilities.trash": "Déchets",
+      "utilities.cleaning": "Ménage",
+      "utilities.other": "Autre",
+      "uncategorized.general": "Général"
+    }
+  },
+  "de": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "du",
+      "someone": "jemand",
+      "dot": " · ",
+      "categoryOther": "{parent} - Sonstiges",
+      "frequency": {
+        "weekly": "wöchentlich",
+        "biweekly": "alle 2 Wochen",
+        "monthly": "monatlich",
+        "yearly": "jährlich"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} hat die Gruppe „{name}“ erstellt",
+        "self": "Du hast die Gruppe „{name}“ erstellt"
+      },
+      "group_updated": {
+        "other": "{A} hat die Gruppe geändert: {changes}",
+        "self": "Du hast die Gruppe geändert: {changes}"
+      },
+      "member_added": {
+        "other": "{A} hat {member} hinzugefügt",
+        "self": "Du hast {member} hinzugefügt",
+        "you": "{A} hat dich hinzugefügt"
+      },
+      "member_joined": {
+        "other": "{member} ist beigetreten",
+        "self": "Du bist beigetreten"
+      },
+      "member_left": {
+        "other": "{member} hat die Gruppe verlassen",
+        "self": "Du hast die Gruppe verlassen"
+      },
+      "member_removed": {
+        "other": "{A} hat {member} entfernt",
+        "self": "Du hast {member} entfernt",
+        "you": "{A} hat dich entfernt"
+      },
+      "friend_added": {
+        "other": "{A} ist jetzt mit {member} befreundet",
+        "self": "Du bist jetzt mit {member} befreundet",
+        "you": "{A} ist jetzt mit dir befreundet"
+      },
+      "expense_added": {
+        "other": "{A} hat „{description}“ hinzugefügt · {amount}",
+        "self": "Du hast „{description}“ hinzugefügt · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} hat die Erstattung „{description}“ hinzugefügt · {amount}",
+        "self": "Du hast die Erstattung „{description}“ hinzugefügt · {amount}"
+      },
+      "expense_repeated": {
+        "other": "„{description}“ · {amount} wurde hinzugefügt (wiederholt sich {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Die Erstattung „{description}“ · {amount} wurde hinzugefügt (wiederholt sich {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} hat „{description}“ geändert: {changes}",
+        "self": "Du hast „{description}“ geändert: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} hat „{description}“ gelöscht",
+        "self": "Du hast „{description}“ gelöscht"
+      },
+      "expense_restored": {
+        "other": "{A} hat „{description}“ wiederhergestellt",
+        "self": "Du hast „{description}“ wiederhergestellt"
+      },
+      "expense_moved": {
+        "other": "{A} hat „{description}“ in eine andere Gruppe verschoben",
+        "self": "Du hast „{description}“ in eine andere Gruppe verschoben"
+      },
+      "comment_added": {
+        "other": "{A} hat „{description}“ kommentiert: {text}",
+        "self": "Du hast „{description}“ kommentiert: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} hat eine Zahlung über {amount} kommentiert ({from} → {to}): {text}",
+        "self": "Du hast eine Zahlung über {amount} kommentiert ({from} → {to}): {text}"
+      },
+      "receipt_added": {
+        "other": "{A} hat einen Beleg zu „{description}“ hinzugefügt",
+        "self": "Du hast einen Beleg zu „{description}“ hinzugefügt"
+      },
+      "receipts_added": {
+        "other": "{A} hat {n} Belege zu „{description}“ hinzugefügt",
+        "self": "Du hast {n} Belege zu „{description}“ hinzugefügt"
+      },
+      "receipt_removed": {
+        "other": "{A} hat einen Beleg von „{description}“ entfernt",
+        "self": "Du hast einen Beleg von „{description}“ entfernt"
+      },
+      "receipts_removed": {
+        "other": "{A} hat {n} Belege von „{description}“ entfernt",
+        "self": "Du hast {n} Belege von „{description}“ entfernt"
+      },
+      "recurrence_created": {
+        "other": "{A} hat „{description}“ so eingestellt, dass es sich {frequency} wiederholt",
+        "self": "Du hast „{description}“ so eingestellt, dass es sich {frequency} wiederholt"
+      },
+      "recurrence_updated": {
+        "other": "{A} hat künftige Wiederholungen von „{description}“ geändert: {changes}",
+        "self": "Du hast künftige Wiederholungen von „{description}“ geändert: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} hat die Wiederholung von „{description}“ beendet",
+        "self": "Du hast die Wiederholung von „{description}“ beendet"
+      },
+      "payment_added": {
+        "other": "{from} hat {amount} an {to} gezahlt",
+        "self": "Du hast {amount} an {to} gezahlt",
+        "you": "{from} hat dir {amount} gezahlt"
+      },
+      "payment_confirmed": {
+        "other": "{A} hat den Erhalt von {amount} von {from} bestätigt",
+        "self": "Du hast den Erhalt von {amount} von {from} bestätigt",
+        "you": "{A} hat den Erhalt von {amount} von dir bestätigt"
+      },
+      "payment_deleted": {
+        "other": "{A} hat eine Zahlung über {amount} gelöscht ({from} → {to})",
+        "self": "Du hast eine Zahlung über {amount} gelöscht ({from} → {to})"
+      },
+      "payment_edited": {
+        "other": "{A} hat eine Zahlung über {amount} bearbeitet ({from} → {to})",
+        "self": "Du hast eine Zahlung über {amount} bearbeitet ({from} → {to})"
+      },
+      "payment_restored": {
+        "other": "{A} hat eine Zahlung über {amount} wiederhergestellt ({from} → {to})",
+        "self": "Du hast eine Zahlung über {amount} wiederhergestellt ({from} → {to})"
+      },
+      "unknown": {
+        "other": "{A} hat etwas geändert",
+        "self": "Du hast etwas geändert"
+      }
+    },
+    "suffix": {
+      "owe": "du schuldest {amount}",
+      "lent": "du bekommst {amount} zurück",
+      "getBack": "du erhältst {amount} zurück",
+      "waiting": {
+        "other": "wartet auf Bestätigung von {to}",
+        "you": "wartet auf deine Bestätigung"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "Name „{from}“ → „{to}“",
+      "currency": "Währung {from} → {to}",
+      "simplifyDebtsOn": "Schulden vereinfachen aktiviert",
+      "simplifyDebtsOff": "Schulden vereinfachen deaktiviert",
+      "defaultSplit": "Standardaufteilung",
+      "description": "Beschreibung „{from}“ → „{to}“",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "Wechselkurs",
+      "paidBy": "bezahlt von: {from} → {to}",
+      "payers": "Zahlende",
+      "refundOn": "als Erstattung markiert",
+      "refundOff": "nicht mehr als Erstattung markiert",
+      "date": "Datum {from} → {to}",
+      "category": "Kategorie {from} → {to}",
+      "categorySame": "Kategorie",
+      "split": "Aufteilung",
+      "notes": "Notizen",
+      "other": "weitere Änderungen"
+    },
+    "batch": {
+      "expenses": "{A} hat {n} Ausgaben hinzugefügt",
+      "comments": "{A} hat {n} Kommentare hinzugefügt",
+      "repeats": "{n} wiederkehrende Ausgaben wurden hinzugefügt",
+      "changes": "{A} hat {n} Änderungen vorgenommen",
+      "mixed": "{n} neue Änderungen"
+    },
+    "remind": {
+      "title": "{A} hat dich erinnert",
+      "body": "Du schuldest {A} {amounts}.",
+      "two": "{a} und {b}",
+      "more": "{a}, {b} und mehr"
+    },
+    "landing": {
+      "title": "Tritt {group} auf Evensies bei",
+      "invited": "Du bist eingeladen, Ausgaben in dieser Gruppe zu teilen.",
+      "members": "Mitglieder: {count}",
+      "friendTitle": "{name} auf Evensies",
+      "friendCode": "{name} möchte Ausgaben mit dir teilen.",
+      "friendAdded": "{name} ist jetzt auf Evensies mit dir befreundet.",
+      "code": "Einladungscode",
+      "openApp": "In der App öffnen",
+      "openWeb": "Im Browser fortfahren",
+      "hint": "Du hast die App? Öffne sie und tritt mit dem Code {code} bei.",
+      "appStore": "App Store (bald verfügbar)",
+      "googlePlay": "Google Play (bald verfügbar)"
+    },
+    "categories": {
+      "food": "Essen und Trinken",
+      "transportation": "Transport",
+      "entertainment": "Unterhaltung",
+      "home": "Zuhause",
+      "life": "Leben",
+      "utilities": "Nebenkosten",
+      "uncategorized": "Ohne Kategorie",
+      "food.dining_out": "Restaurant",
+      "food.groceries": "Lebensmittel",
+      "food.liquor": "Alkohol",
+      "food.other": "Sonstiges",
+      "transportation.plane": "Flugzeug",
+      "transportation.bus_train": "Bus/Bahn",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Auto",
+      "transportation.gas_fuel": "Benzin",
+      "transportation.parking": "Parken",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Fahrrad",
+      "transportation.other": "Sonstiges",
+      "entertainment.movies": "Kino",
+      "entertainment.music": "Musik",
+      "entertainment.games": "Spiele",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Sonstiges",
+      "home.rent": "Miete",
+      "home.mortgage": "Hypothek",
+      "home.household_supplies": "Haushaltsbedarf",
+      "home.furniture": "Möbel",
+      "home.electronics": "Elektronik",
+      "home.maintenance": "Instandhaltung",
+      "home.pets": "Haustiere",
+      "home.services": "Dienstleistungen",
+      "home.other": "Sonstiges",
+      "life.medical": "Arztkosten",
+      "life.gifts": "Geschenke",
+      "life.clothing": "Kleidung",
+      "life.education": "Bildung",
+      "life.childcare": "Kinderbetreuung",
+      "life.insurance": "Versicherung",
+      "life.taxes": "Steuern",
+      "life.other": "Sonstiges",
+      "utilities.electricity": "Strom",
+      "utilities.heat_gas": "Heizung/Gas",
+      "utilities.water": "Wasser",
+      "utilities.tv_phone_internet": "TV/Telefon/Internet",
+      "utilities.trash": "Müll",
+      "utilities.cleaning": "Reinigung",
+      "utilities.other": "Sonstiges",
+      "uncategorized.general": "Allgemein"
+    }
+  },
+  "id": {
+    "money": {
+      "pattern": "{s}{n}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "Anda",
+      "someone": "seseorang",
+      "dot": " · ",
+      "categoryOther": "{parent} - Lainnya",
+      "frequency": {
+        "weekly": "setiap minggu",
+        "biweekly": "setiap 2 minggu",
+        "monthly": "setiap bulan",
+        "yearly": "setiap tahun"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} membuat grup “{name}”",
+        "self": "Anda membuat grup “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} mengubah grup: {changes}",
+        "self": "Anda mengubah grup: {changes}"
+      },
+      "member_added": {
+        "other": "{A} menambahkan {member}",
+        "self": "Anda menambahkan {member}",
+        "you": "{A} menambahkan Anda"
+      },
+      "member_joined": {
+        "other": "{member} bergabung",
+        "self": "Anda bergabung"
+      },
+      "member_left": {
+        "other": "{member} keluar dari grup",
+        "self": "Anda keluar dari grup"
+      },
+      "member_removed": {
+        "other": "{A} mengeluarkan {member}",
+        "self": "Anda mengeluarkan {member}",
+        "you": "{A} mengeluarkan Anda"
+      },
+      "friend_added": {
+        "other": "{A} menambahkan {member} sebagai teman",
+        "self": "Anda menambahkan {member} sebagai teman",
+        "you": "{A} menambahkan Anda sebagai teman"
+      },
+      "expense_added": {
+        "other": "{A} menambahkan “{description}” · {amount}",
+        "self": "Anda menambahkan “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} menambahkan pengembalian dana “{description}” · {amount}",
+        "self": "Anda menambahkan pengembalian dana “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "“{description}” · {amount} ditambahkan (berulang {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Pengembalian dana “{description}” · {amount} ditambahkan (berulang {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} mengubah “{description}”: {changes}",
+        "self": "Anda mengubah “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} menghapus “{description}”",
+        "self": "Anda menghapus “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} memulihkan “{description}”",
+        "self": "Anda memulihkan “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} memindahkan “{description}” ke grup lain",
+        "self": "Anda memindahkan “{description}” ke grup lain"
+      },
+      "comment_added": {
+        "other": "{A} mengomentari “{description}”: {text}",
+        "self": "Anda mengomentari “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} mengomentari pembayaran {amount} dari {from} ke {to}: {text}",
+        "self": "Anda mengomentari pembayaran {amount} dari {from} ke {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} menambahkan struk ke “{description}”",
+        "self": "Anda menambahkan struk ke “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} menambahkan {n} struk ke “{description}”",
+        "self": "Anda menambahkan {n} struk ke “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} menghapus struk dari “{description}”",
+        "self": "Anda menghapus struk dari “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} menghapus {n} struk dari “{description}”",
+        "self": "Anda menghapus {n} struk dari “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} mengatur “{description}” agar berulang {frequency}",
+        "self": "Anda mengatur “{description}” agar berulang {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} mengubah pengulangan berikutnya dari “{description}”: {changes}",
+        "self": "Anda mengubah pengulangan berikutnya dari “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} menghentikan pengulangan “{description}”",
+        "self": "Anda menghentikan pengulangan “{description}”"
+      },
+      "payment_added": {
+        "other": "{from} membayar {amount} ke {to}",
+        "self": "Anda membayar {amount} ke {to}",
+        "you": "{from} membayar {amount} ke Anda"
+      },
+      "payment_confirmed": {
+        "other": "{A} mengonfirmasi telah menerima {amount} dari {from}",
+        "self": "Anda mengonfirmasi telah menerima {amount} dari {from}",
+        "you": "{A} mengonfirmasi telah menerima {amount} dari Anda"
+      },
+      "payment_deleted": {
+        "other": "{A} menghapus pembayaran {amount} dari {from} ke {to}",
+        "self": "Anda menghapus pembayaran {amount} dari {from} ke {to}"
+      },
+      "payment_edited": {
+        "other": "{A} mengedit pembayaran {amount} dari {from} ke {to}",
+        "self": "Anda mengedit pembayaran {amount} dari {from} ke {to}"
+      },
+      "payment_restored": {
+        "other": "{A} memulihkan pembayaran {amount} dari {from} ke {to}",
+        "self": "Anda memulihkan pembayaran {amount} dari {from} ke {to}"
+      },
+      "unknown": {
+        "other": "{A} membuat perubahan",
+        "self": "Anda membuat perubahan"
+      }
+    },
+    "suffix": {
+      "owe": "Anda berutang {amount}",
+      "lent": "Anda meminjamkan {amount}",
+      "getBack": "Anda menerima kembali {amount}",
+      "waiting": {
+        "other": "menunggu konfirmasi dari {to}",
+        "you": "menunggu konfirmasi Anda"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nama “{from}” → “{to}”",
+      "currency": "mata uang {from} → {to}",
+      "simplifyDebtsOn": "sederhanakan utang aktif",
+      "simplifyDebtsOff": "sederhanakan utang nonaktif",
+      "defaultSplit": "pembagian default",
+      "description": "deskripsi “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "kurs",
+      "paidBy": "dibayar oleh {from} → {to}",
+      "payers": "pembayar",
+      "refundOn": "pengembalian dana aktif",
+      "refundOff": "pengembalian dana nonaktif",
+      "date": "tanggal {from} → {to}",
+      "category": "kategori {from} → {to}",
+      "categorySame": "kategori",
+      "split": "pembagian",
+      "notes": "catatan",
+      "other": "perubahan lain"
+    },
+    "batch": {
+      "expenses": "{A} menambahkan {n} pengeluaran",
+      "comments": "{A} menambahkan {n} komentar",
+      "repeats": "{n} pengeluaran berulang ditambahkan",
+      "changes": "{A} membuat {n} perubahan",
+      "mixed": "{n} perubahan baru"
+    },
+    "remind": {
+      "title": "{A} mengirim pengingat",
+      "body": "Anda berutang {amounts} kepada {A}.",
+      "two": "{a} dan {b}",
+      "more": "{a}, {b}, dan lainnya"
+    },
+    "landing": {
+      "title": "Gabung ke {group} di Evensies",
+      "invited": "Anda diundang untuk berbagi pengeluaran di grup ini.",
+      "members": "Anggota: {count}",
+      "friendTitle": "{name} di Evensies",
+      "friendCode": "{name} ingin berbagi pengeluaran dengan Anda.",
+      "friendAdded": "{name} menambahkan Anda sebagai teman di Evensies.",
+      "code": "Kode undangan",
+      "openApp": "Buka di aplikasi",
+      "openWeb": "Lanjutkan di browser",
+      "hint": "Sudah punya aplikasinya? Buka aplikasi dan gabung dengan kode {code}.",
+      "appStore": "App Store (segera hadir)",
+      "googlePlay": "Google Play (segera hadir)"
+    },
+    "categories": {
+      "food": "Makanan dan minuman",
+      "transportation": "Transportasi",
+      "entertainment": "Hiburan",
+      "home": "Rumah",
+      "life": "Kehidupan",
+      "utilities": "Utilitas",
+      "uncategorized": "Tanpa kategori",
+      "food.dining_out": "Makan di luar",
+      "food.groceries": "Belanja bahan makanan",
+      "food.liquor": "Minuman beralkohol",
+      "food.other": "Lainnya",
+      "transportation.plane": "Pesawat",
+      "transportation.bus_train": "Bus/kereta",
+      "transportation.taxi": "Taksi",
+      "transportation.car": "Mobil",
+      "transportation.gas_fuel": "Bensin",
+      "transportation.parking": "Parkir",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Sepeda",
+      "transportation.other": "Lainnya",
+      "entertainment.movies": "Film",
+      "entertainment.music": "Musik",
+      "entertainment.games": "Game",
+      "entertainment.sports": "Olahraga",
+      "entertainment.other": "Lainnya",
+      "home.rent": "Sewa",
+      "home.mortgage": "KPR",
+      "home.household_supplies": "Perlengkapan rumah",
+      "home.furniture": "Perabot",
+      "home.electronics": "Elektronik",
+      "home.maintenance": "Perawatan",
+      "home.pets": "Hewan peliharaan",
+      "home.services": "Jasa",
+      "home.other": "Lainnya",
+      "life.medical": "Biaya medis",
+      "life.gifts": "Hadiah",
+      "life.clothing": "Pakaian",
+      "life.education": "Pendidikan",
+      "life.childcare": "Pengasuhan anak",
+      "life.insurance": "Asuransi",
+      "life.taxes": "Pajak",
+      "life.other": "Lainnya",
+      "utilities.electricity": "Listrik",
+      "utilities.heat_gas": "Pemanas/gas",
+      "utilities.water": "Air",
+      "utilities.tv_phone_internet": "TV/Telepon/Internet",
+      "utilities.trash": "Sampah",
+      "utilities.cleaning": "Kebersihan",
+      "utilities.other": "Lainnya",
+      "uncategorized.general": "Umum"
+    }
+  },
+  "it": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "te",
+      "someone": "qualcuno",
+      "dot": " · ",
+      "categoryOther": "{parent} - Altro",
+      "frequency": {
+        "weekly": "ogni settimana",
+        "biweekly": "ogni 2 settimane",
+        "monthly": "ogni mese",
+        "yearly": "ogni anno"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} ha creato il gruppo “{name}”",
+        "self": "Hai creato il gruppo “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} ha modificato il gruppo: {changes}",
+        "self": "Hai modificato il gruppo: {changes}"
+      },
+      "member_added": {
+        "other": "{A} ha aggiunto {member}",
+        "self": "Hai aggiunto {member}",
+        "you": "{A} ti ha aggiunto"
+      },
+      "member_joined": {
+        "other": "{member} fa ora parte del gruppo",
+        "self": "Ora fai parte del gruppo"
+      },
+      "member_left": {
+        "other": "{member} ha lasciato il gruppo",
+        "self": "Hai lasciato il gruppo"
+      },
+      "member_removed": {
+        "other": "{A} ha rimosso {member}",
+        "self": "Hai rimosso {member}",
+        "you": "{A} ti ha rimosso"
+      },
+      "friend_added": {
+        "other": "{A} ha aggiunto {member} agli amici",
+        "self": "Hai aggiunto {member} agli amici",
+        "you": "{A} ti ha aggiunto agli amici"
+      },
+      "expense_added": {
+        "other": "{A} ha aggiunto “{description}” · {amount}",
+        "self": "Hai aggiunto “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} ha aggiunto un rimborso “{description}” · {amount}",
+        "self": "Hai aggiunto un rimborso “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "Nuova occorrenza di “{description}” · {amount} (si ripete {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Nuova occorrenza del rimborso “{description}” · {amount} (si ripete {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} ha modificato “{description}”: {changes}",
+        "self": "Hai modificato “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} ha eliminato “{description}”",
+        "self": "Hai eliminato “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} ha ripristinato “{description}”",
+        "self": "Hai ripristinato “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} ha spostato “{description}” in un altro gruppo",
+        "self": "Hai spostato “{description}” in un altro gruppo"
+      },
+      "comment_added": {
+        "other": "{A} ha commentato “{description}”: {text}",
+        "self": "Hai commentato “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} ha commentato un pagamento di {amount} da {from} a {to}: {text}",
+        "self": "Hai commentato un pagamento di {amount} da {from} a {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} ha aggiunto una ricevuta a “{description}”",
+        "self": "Hai aggiunto una ricevuta a “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} ha aggiunto {n} ricevute a “{description}”",
+        "self": "Hai aggiunto {n} ricevute a “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} ha rimosso una ricevuta da “{description}”",
+        "self": "Hai rimosso una ricevuta da “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} ha rimosso {n} ricevute da “{description}”",
+        "self": "Hai rimosso {n} ricevute da “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} ha impostato “{description}” per ripetersi {frequency}",
+        "self": "Hai impostato “{description}” per ripetersi {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} ha modificato le prossime ripetizioni di “{description}”: {changes}",
+        "self": "Hai modificato le prossime ripetizioni di “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} ha interrotto la ripetizione di “{description}”",
+        "self": "Hai interrotto la ripetizione di “{description}”"
+      },
+      "payment_added": {
+        "other": "{from} ha pagato {amount} a {to}",
+        "self": "Hai pagato {amount} a {to}",
+        "you": "{from} ti ha pagato {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A} ha confermato di aver ricevuto {amount} da {from}",
+        "self": "Hai confermato di aver ricevuto {amount} da {from}",
+        "you": "{A} ha confermato di aver ricevuto {amount} da te"
+      },
+      "payment_deleted": {
+        "other": "{A} ha eliminato un pagamento di {amount} da {from} a {to}",
+        "self": "Hai eliminato un pagamento di {amount} da {from} a {to}"
+      },
+      "payment_edited": {
+        "other": "{A} ha modificato un pagamento di {amount} da {from} a {to}",
+        "self": "Hai modificato un pagamento di {amount} da {from} a {to}"
+      },
+      "payment_restored": {
+        "other": "{A} ha ripristinato un pagamento di {amount} da {from} a {to}",
+        "self": "Hai ripristinato un pagamento di {amount} da {from} a {to}"
+      },
+      "unknown": {
+        "other": "{A} ha fatto una modifica",
+        "self": "Hai fatto una modifica"
+      }
+    },
+    "suffix": {
+      "owe": "devi {amount}",
+      "lent": "ti devono {amount}",
+      "getBack": "ti torneranno {amount}",
+      "waiting": {
+        "other": "in attesa della conferma di {to}",
+        "you": "in attesa della tua conferma"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nome “{from}” → “{to}”",
+      "currency": "valuta {from} → {to}",
+      "simplifyDebtsOn": "semplificazione dei debiti attivata",
+      "simplifyDebtsOff": "semplificazione dei debiti disattivata",
+      "defaultSplit": "divisione predefinita",
+      "description": "descrizione “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "tasso di cambio",
+      "paidBy": "pagato da {from} → {to}",
+      "payers": "chi ha pagato",
+      "refundOn": "rimborso attivato",
+      "refundOff": "rimborso disattivato",
+      "date": "data {from} → {to}",
+      "category": "categoria {from} → {to}",
+      "categorySame": "categoria",
+      "split": "divisione",
+      "notes": "note",
+      "other": "altre modifiche"
+    },
+    "batch": {
+      "expenses": "{A} ha aggiunto {n} spese",
+      "comments": "{A} ha aggiunto {n} commenti",
+      "repeats": "Aggiunte {n} spese ricorrenti",
+      "changes": "{A} ha fatto {n} modifiche",
+      "mixed": "{n} nuove modifiche"
+    },
+    "remind": {
+      "title": "{A} ti ha inviato un promemoria",
+      "body": "Devi {amounts} a {A}.",
+      "two": "{a} e {b}",
+      "more": "{a}, {b} e altro"
+    },
+    "landing": {
+      "title": "Unisciti a {group} su Evensies",
+      "invited": "Hai ricevuto un invito a dividere le spese in questo gruppo.",
+      "members": "Membri: {count}",
+      "friendTitle": "{name} su Evensies",
+      "friendCode": "{name} vuole dividere le spese con te.",
+      "friendAdded": "{name} ti ha aggiunto agli amici su Evensies.",
+      "code": "Codice di invito",
+      "openApp": "Apri nell’app",
+      "openWeb": "Continua nel browser",
+      "hint": "Hai l’app? Aprila e unisciti con il codice {code}.",
+      "appStore": "App Store (in arrivo)",
+      "googlePlay": "Google Play (in arrivo)"
+    },
+    "categories": {
+      "food": "Cibo e bevande",
+      "transportation": "Trasporti",
+      "entertainment": "Svago",
+      "home": "Casa",
+      "life": "Vita",
+      "utilities": "Utenze",
+      "uncategorized": "Senza categoria",
+      "food.dining_out": "Ristoranti",
+      "food.groceries": "Spesa alimentare",
+      "food.liquor": "Alcolici",
+      "food.other": "Altro",
+      "transportation.plane": "Aereo",
+      "transportation.bus_train": "Autobus/treno",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Auto",
+      "transportation.gas_fuel": "Carburante",
+      "transportation.parking": "Parcheggio",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Bicicletta",
+      "transportation.other": "Altro",
+      "entertainment.movies": "Cinema",
+      "entertainment.music": "Musica",
+      "entertainment.games": "Giochi",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Altro",
+      "home.rent": "Affitto",
+      "home.mortgage": "Mutuo",
+      "home.household_supplies": "Prodotti per la casa",
+      "home.furniture": "Mobili",
+      "home.electronics": "Elettronica",
+      "home.maintenance": "Manutenzione",
+      "home.pets": "Animali domestici",
+      "home.services": "Servizi",
+      "home.other": "Altro",
+      "life.medical": "Spese mediche",
+      "life.gifts": "Regali",
+      "life.clothing": "Abbigliamento",
+      "life.education": "Istruzione",
+      "life.childcare": "Assistenza all’infanzia",
+      "life.insurance": "Assicurazione",
+      "life.taxes": "Tasse",
+      "life.other": "Altro",
+      "utilities.electricity": "Elettricità",
+      "utilities.heat_gas": "Riscaldamento/gas",
+      "utilities.water": "Acqua",
+      "utilities.tv_phone_internet": "TV/Telefono/Internet",
+      "utilities.trash": "Rifiuti",
+      "utilities.cleaning": "Pulizie",
+      "utilities.other": "Altro",
+      "uncategorized.general": "Generale"
+    }
+  },
+  "ja": {
+    "money": {
+      "pattern": "{s}{n}",
+      "group": ",",
+      "decimal": ".",
+      "symbols": {}
+    },
+    "words": {
+      "you": "あなた",
+      "someone": "不明なメンバー",
+      "dot": " · ",
+      "categoryOther": "{parent} - その他",
+      "frequency": {
+        "weekly": "毎週",
+        "biweekly": "2週間ごと",
+        "monthly": "毎月",
+        "yearly": "毎年"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A}がグループ「{name}」を作成しました",
+        "self": "グループ「{name}」を作成しました"
+      },
+      "group_updated": {
+        "other": "{A}がグループを変更しました: {changes}",
+        "self": "グループを変更しました: {changes}"
+      },
+      "member_added": {
+        "other": "{A}が{member}を追加しました",
+        "self": "{member}を追加しました",
+        "you": "{A}があなたを追加しました"
+      },
+      "member_joined": {
+        "other": "{member}が参加しました",
+        "self": "グループに参加しました"
+      },
+      "member_left": {
+        "other": "{member}がグループを退出しました",
+        "self": "グループを退出しました"
+      },
+      "member_removed": {
+        "other": "{A}が{member}を削除しました",
+        "self": "{member}を削除しました",
+        "you": "{A}があなたを削除しました"
+      },
+      "friend_added": {
+        "other": "{A}が{member}を友達に追加しました",
+        "self": "{member}を友達に追加しました",
+        "you": "{A}があなたを友達に追加しました"
+      },
+      "expense_added": {
+        "other": "{A}が「{description}」を追加しました · {amount}",
+        "self": "「{description}」を追加しました · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A}が払い戻し「{description}」を追加しました · {amount}",
+        "self": "払い戻し「{description}」を追加しました · {amount}"
+      },
+      "expense_repeated": {
+        "other": "「{description}」 · {amount} が追加されました（繰り返し: {frequency}）"
+      },
+      "expense_repeated_refund": {
+        "other": "払い戻し「{description}」 · {amount} が追加されました（繰り返し: {frequency}）"
+      },
+      "expense_updated": {
+        "other": "{A}が「{description}」を変更しました: {changes}",
+        "self": "「{description}」を変更しました: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A}が「{description}」を削除しました",
+        "self": "「{description}」を削除しました"
+      },
+      "expense_restored": {
+        "other": "{A}が「{description}」を復元しました",
+        "self": "「{description}」を復元しました"
+      },
+      "expense_moved": {
+        "other": "{A}が「{description}」を別のグループに移動しました",
+        "self": "「{description}」を別のグループに移動しました"
+      },
+      "comment_added": {
+        "other": "{A}が「{description}」にコメントしました: {text}",
+        "self": "「{description}」にコメントしました: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A}が{from}から{to}への{amount}の支払いにコメントしました: {text}",
+        "self": "{from}から{to}への{amount}の支払いにコメントしました: {text}"
+      },
+      "receipt_added": {
+        "other": "{A}が「{description}」にレシートを追加しました",
+        "self": "「{description}」にレシートを追加しました"
+      },
+      "receipts_added": {
+        "other": "{A}が「{description}」にレシートを{n}枚追加しました",
+        "self": "「{description}」にレシートを{n}枚追加しました"
+      },
+      "receipt_removed": {
+        "other": "{A}が「{description}」からレシートを削除しました",
+        "self": "「{description}」からレシートを削除しました"
+      },
+      "receipts_removed": {
+        "other": "{A}が「{description}」からレシートを{n}枚削除しました",
+        "self": "「{description}」からレシートを{n}枚削除しました"
+      },
+      "recurrence_created": {
+        "other": "{A}が「{description}」の繰り返しを設定しました（{frequency}）",
+        "self": "「{description}」の繰り返しを設定しました（{frequency}）"
+      },
+      "recurrence_updated": {
+        "other": "{A}が「{description}」の今後の繰り返しを変更しました: {changes}",
+        "self": "「{description}」の今後の繰り返しを変更しました: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A}が「{description}」の繰り返しを停止しました",
+        "self": "「{description}」の繰り返しを停止しました"
+      },
+      "payment_added": {
+        "other": "{from}が{to}に{amount}を支払いました",
+        "self": "{to}に{amount}を支払いました",
+        "you": "{from}があなたに{amount}を支払いました"
+      },
+      "payment_confirmed": {
+        "other": "{A}が{from}からの{amount}の受け取りを確認しました",
+        "self": "{from}からの{amount}の受け取りを確認しました",
+        "you": "{A}があなたからの{amount}の受け取りを確認しました"
+      },
+      "payment_deleted": {
+        "other": "{A}が{from}から{to}への{amount}の支払いを削除しました",
+        "self": "{from}から{to}への{amount}の支払いを削除しました"
+      },
+      "payment_edited": {
+        "other": "{A}が{from}から{to}への{amount}の支払いを編集しました",
+        "self": "{from}から{to}への{amount}の支払いを編集しました"
+      },
+      "payment_restored": {
+        "other": "{A}が{from}から{to}への{amount}の支払いを復元しました",
+        "self": "{from}から{to}への{amount}の支払いを復元しました"
+      },
+      "unknown": {
+        "other": "{A}が変更を加えました",
+        "self": "変更を加えました"
+      }
+    },
+    "suffix": {
+      "owe": "あなたの負担 {amount}",
+      "lent": "あなたの立て替え {amount}",
+      "getBack": "あなたへの返金 {amount}",
+      "waiting": {
+        "other": "{to}の確認待ち",
+        "you": "あなたの確認待ち"
+      }
+    },
+    "changes": {
+      "joiner": "、",
+      "name": "名前「{from}」→「{to}」",
+      "currency": "通貨 {from} → {to}",
+      "simplifyDebtsOn": "借金の簡略化をオン",
+      "simplifyDebtsOff": "借金の簡略化をオフ",
+      "defaultSplit": "デフォルトの分割",
+      "description": "説明「{from}」→「{to}」",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "為替レート",
+      "paidBy": "支払者 {from} → {to}",
+      "payers": "支払者",
+      "refundOn": "払い戻しをオン",
+      "refundOff": "払い戻しをオフ",
+      "date": "日付 {from} → {to}",
+      "category": "カテゴリ {from} → {to}",
+      "categorySame": "カテゴリ",
+      "split": "分割",
+      "notes": "メモ",
+      "other": "その他の変更"
+    },
+    "batch": {
+      "expenses": "{A}が{n}件の支出を追加しました",
+      "comments": "{A}が{n}件のコメントを追加しました",
+      "repeats": "{n}件の繰り返し支出が追加されました",
+      "changes": "{A}が{n}件の変更を加えました",
+      "mixed": "{n}件の新しい変更"
+    },
+    "remind": {
+      "title": "{A}からリマインダーが届きました",
+      "body": "{A}に{amounts}を支払う必要があります。",
+      "two": "{a}と{b}",
+      "more": "{a}、{b}など"
+    },
+    "landing": {
+      "title": "Evensiesで{group}に参加",
+      "invited": "このグループで費用を分け合うよう招待されています。",
+      "members": "メンバー: {count}人",
+      "friendTitle": "Evensiesの{name}",
+      "friendCode": "{name}があなたと費用を分け合いたいと考えています。",
+      "friendAdded": "{name}がEvensiesであなたを友達に追加しました。",
+      "code": "招待コード",
+      "openApp": "アプリで開く",
+      "openWeb": "ブラウザで続ける",
+      "hint": "アプリをお持ちですか？アプリを開いて、コード {code} で参加してください。",
+      "appStore": "App Store（近日公開）",
+      "googlePlay": "Google Play（近日公開）"
+    },
+    "categories": {
+      "food": "飲食",
+      "transportation": "交通",
+      "entertainment": "エンターテインメント",
+      "home": "住まい",
+      "life": "生活",
+      "utilities": "公共料金",
+      "uncategorized": "未分類",
+      "food.dining_out": "外食",
+      "food.groceries": "食料品",
+      "food.liquor": "お酒",
+      "food.other": "その他",
+      "transportation.plane": "飛行機",
+      "transportation.bus_train": "バス/電車",
+      "transportation.taxi": "タクシー",
+      "transportation.car": "車",
+      "transportation.gas_fuel": "ガソリン",
+      "transportation.parking": "駐車場",
+      "transportation.hotel": "ホテル",
+      "transportation.bicycle": "自転車",
+      "transportation.other": "その他",
+      "entertainment.movies": "映画",
+      "entertainment.music": "音楽",
+      "entertainment.games": "ゲーム",
+      "entertainment.sports": "スポーツ",
+      "entertainment.other": "その他",
+      "home.rent": "家賃",
+      "home.mortgage": "住宅ローン",
+      "home.household_supplies": "日用品",
+      "home.furniture": "家具",
+      "home.electronics": "電化製品",
+      "home.maintenance": "メンテナンス",
+      "home.pets": "ペット",
+      "home.services": "サービス",
+      "home.other": "その他",
+      "life.medical": "医療費",
+      "life.gifts": "ギフト",
+      "life.clothing": "衣類",
+      "life.education": "教育",
+      "life.childcare": "育児",
+      "life.insurance": "保険",
+      "life.taxes": "税金",
+      "life.other": "その他",
+      "utilities.electricity": "電気",
+      "utilities.heat_gas": "暖房/ガス",
+      "utilities.water": "水道",
+      "utilities.tv_phone_internet": "テレビ/電話/インターネット",
+      "utilities.trash": "ごみ",
+      "utilities.cleaning": "掃除",
+      "utilities.other": "その他",
+      "uncategorized.general": "一般"
+    }
+  },
+  "pl": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": "\u00a0",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "ty",
+      "someone": "ktoś",
+      "dot": " · ",
+      "categoryOther": "{parent} - Inne",
+      "frequency": {
+        "weekly": "co tydzień",
+        "biweekly": "co 2 tygodnie",
+        "monthly": "co miesiąc",
+        "yearly": "co rok"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} tworzy grupę „{name}”",
+        "self": "Tworzysz grupę „{name}”"
+      },
+      "group_updated": {
+        "other": "{A} zmienia grupę: {changes}",
+        "self": "Zmieniasz grupę: {changes}"
+      },
+      "member_added": {
+        "other": "{A} dodaje {member}",
+        "self": "Dodajesz {member}",
+        "you": "{A} dodaje cię do grupy"
+      },
+      "member_joined": {
+        "other": "{member} dołącza do grupy",
+        "self": "Dołączasz do grupy"
+      },
+      "member_left": {
+        "other": "{member} opuszcza grupę",
+        "self": "Opuszczasz grupę"
+      },
+      "member_removed": {
+        "other": "{A} usuwa {member}",
+        "self": "Usuwasz {member}",
+        "you": "{A} usuwa cię z grupy"
+      },
+      "friend_added": {
+        "other": "{A} dodaje {member} do znajomych",
+        "self": "Dodajesz {member} do znajomych",
+        "you": "{A} dodaje cię do znajomych"
+      },
+      "expense_added": {
+        "other": "{A} dodaje „{description}” · {amount}",
+        "self": "Dodajesz „{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} dodaje zwrot „{description}” · {amount}",
+        "self": "Dodajesz zwrot „{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "Dodano „{description}” · {amount} (powtarza się {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Dodano zwrot „{description}” · {amount} (powtarza się {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} zmienia „{description}”: {changes}",
+        "self": "Zmieniasz „{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} usuwa „{description}”",
+        "self": "Usuwasz „{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} przywraca „{description}”",
+        "self": "Przywracasz „{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} przenosi „{description}” do innej grupy",
+        "self": "Przenosisz „{description}” do innej grupy"
+      },
+      "comment_added": {
+        "other": "{A} komentuje „{description}”: {text}",
+        "self": "Komentujesz „{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} komentuje płatność {amount} ({from} → {to}): {text}",
+        "self": "Komentujesz płatność {amount} ({from} → {to}): {text}"
+      },
+      "receipt_added": {
+        "other": "{A} dodaje paragon do „{description}”",
+        "self": "Dodajesz paragon do „{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} dodaje paragony do „{description}”: {n}",
+        "self": "Dodajesz paragony do „{description}”: {n}"
+      },
+      "receipt_removed": {
+        "other": "{A} usuwa paragon z „{description}”",
+        "self": "Usuwasz paragon z „{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} usuwa paragony z „{description}”: {n}",
+        "self": "Usuwasz paragony z „{description}”: {n}"
+      },
+      "recurrence_created": {
+        "other": "{A} ustawia powtarzanie „{description}” {frequency}",
+        "self": "Ustawiasz powtarzanie „{description}” {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} zmienia przyszłe powtórzenia „{description}”: {changes}",
+        "self": "Zmieniasz przyszłe powtórzenia „{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} wyłącza powtarzanie „{description}”",
+        "self": "Wyłączasz powtarzanie „{description}”"
+      },
+      "payment_added": {
+        "other": "{from} płaci {amount} → {to}",
+        "self": "Płacisz {amount} → {to}",
+        "you": "{from} płaci ci {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A} potwierdza otrzymanie {amount} od {from}",
+        "self": "Potwierdzasz otrzymanie {amount} od {from}",
+        "you": "{A} potwierdza otrzymanie {amount} od ciebie"
+      },
+      "payment_deleted": {
+        "other": "{A} usuwa płatność {amount} ({from} → {to})",
+        "self": "Usuwasz płatność {amount} ({from} → {to})"
+      },
+      "payment_edited": {
+        "other": "{A} edytuje płatność {amount} ({from} → {to})",
+        "self": "Edytujesz płatność {amount} ({from} → {to})"
+      },
+      "payment_restored": {
+        "other": "{A} przywraca płatność {amount} ({from} → {to})",
+        "self": "Przywracasz płatność {amount} ({from} → {to})"
+      },
+      "unknown": {
+        "other": "{A} wprowadza zmianę",
+        "self": "Wprowadzasz zmianę"
+      }
+    },
+    "suffix": {
+      "owe": "do zapłaty: {amount}",
+      "lent": "do odzyskania: {amount}",
+      "getBack": "zwrot dla ciebie: {amount}",
+      "waiting": {
+        "other": "czeka na potwierdzenie: {to}",
+        "you": "czeka na twoje potwierdzenie"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nazwa „{from}” → „{to}”",
+      "currency": "waluta {from} → {to}",
+      "simplifyDebtsOn": "upraszczanie długów włączone",
+      "simplifyDebtsOff": "upraszczanie długów wyłączone",
+      "defaultSplit": "domyślny podział",
+      "description": "opis „{from}” → „{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "kurs wymiany",
+      "paidBy": "kto płaci: {from} → {to}",
+      "payers": "osoby płacące",
+      "refundOn": "zwrot włączony",
+      "refundOff": "zwrot wyłączony",
+      "date": "data {from} → {to}",
+      "category": "kategoria {from} → {to}",
+      "categorySame": "kategoria",
+      "split": "podział",
+      "notes": "notatki",
+      "other": "inne zmiany"
+    },
+    "batch": {
+      "expenses": "{A} dodaje wydatki: {n}",
+      "comments": "{A} dodaje komentarze: {n}",
+      "repeats": "Dodano wydatki cykliczne: {n}",
+      "changes": "{A} wprowadza zmiany: {n}",
+      "mixed": "Nowe zmiany: {n}"
+    },
+    "remind": {
+      "title": "{A} wysyła przypomnienie",
+      "body": "Do zapłaty: {amounts} → {A}.",
+      "two": "{a} i {b}",
+      "more": "{a}, {b} i więcej"
+    },
+    "landing": {
+      "title": "Dołącz do {group} w Evensies",
+      "invited": "Masz zaproszenie do wspólnego dzielenia wydatków w tej grupie.",
+      "members": "Liczba członków: {count}",
+      "friendTitle": "{name} w Evensies",
+      "friendCode": "{name} chce dzielić z tobą wydatki.",
+      "friendAdded": "{name} dodaje cię do znajomych w Evensies.",
+      "code": "Kod zaproszenia",
+      "openApp": "Otwórz w aplikacji",
+      "openWeb": "Kontynuuj w przeglądarce",
+      "hint": "Masz aplikację? Otwórz ją i dołącz za pomocą kodu {code}.",
+      "appStore": "App Store (wkrótce)",
+      "googlePlay": "Google Play (wkrótce)"
+    },
+    "categories": {
+      "food": "Jedzenie i picie",
+      "transportation": "Transport",
+      "entertainment": "Rozrywka",
+      "home": "Dom",
+      "life": "Życie",
+      "utilities": "Media",
+      "uncategorized": "Bez kategorii",
+      "food.dining_out": "Restauracje",
+      "food.groceries": "Zakupy spożywcze",
+      "food.liquor": "Alkohol",
+      "food.other": "Inne",
+      "transportation.plane": "Samolot",
+      "transportation.bus_train": "Autobus/pociąg",
+      "transportation.taxi": "Taksówka",
+      "transportation.car": "Samochód",
+      "transportation.gas_fuel": "Paliwo",
+      "transportation.parking": "Parking",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Rower",
+      "transportation.other": "Inne",
+      "entertainment.movies": "Kino",
+      "entertainment.music": "Muzyka",
+      "entertainment.games": "Gry",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Inne",
+      "home.rent": "Czynsz",
+      "home.mortgage": "Kredyt hipoteczny",
+      "home.household_supplies": "Artykuły domowe",
+      "home.furniture": "Meble",
+      "home.electronics": "Elektronika",
+      "home.maintenance": "Konserwacja",
+      "home.pets": "Zwierzęta",
+      "home.services": "Usługi",
+      "home.other": "Inne",
+      "life.medical": "Wydatki medyczne",
+      "life.gifts": "Prezenty",
+      "life.clothing": "Ubrania",
+      "life.education": "Edukacja",
+      "life.childcare": "Opieka nad dziećmi",
+      "life.insurance": "Ubezpieczenie",
+      "life.taxes": "Podatki",
+      "life.other": "Inne",
+      "utilities.electricity": "Prąd",
+      "utilities.heat_gas": "Ogrzewanie/gaz",
+      "utilities.water": "Woda",
+      "utilities.tv_phone_internet": "TV/telefon/internet",
+      "utilities.trash": "Śmieci",
+      "utilities.cleaning": "Sprzątanie",
+      "utilities.other": "Inne",
+      "uncategorized.general": "Ogólne"
+    }
+  },
+  "pt": {
+    "money": {
+      "pattern": "{s}\u00a0{n}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "você",
+      "someone": "alguém",
+      "dot": " · ",
+      "categoryOther": "{parent} - Outros",
+      "frequency": {
+        "weekly": "toda semana",
+        "biweekly": "a cada 2 semanas",
+        "monthly": "todo mês",
+        "yearly": "todo ano"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} criou o grupo “{name}”",
+        "self": "Você criou o grupo “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} alterou o grupo: {changes}",
+        "self": "Você alterou o grupo: {changes}"
+      },
+      "member_added": {
+        "other": "{A} adicionou {member}",
+        "self": "Você adicionou {member}",
+        "you": "{A} adicionou você"
+      },
+      "member_joined": {
+        "other": "{member} entrou no grupo",
+        "self": "Você entrou no grupo"
+      },
+      "member_left": {
+        "other": "{member} saiu do grupo",
+        "self": "Você saiu do grupo"
+      },
+      "member_removed": {
+        "other": "{A} removeu {member}",
+        "self": "Você removeu {member}",
+        "you": "{A} removeu você"
+      },
+      "friend_added": {
+        "other": "{A} adicionou {member} aos amigos",
+        "self": "Você adicionou {member} aos amigos",
+        "you": "{A} adicionou você aos amigos"
+      },
+      "expense_added": {
+        "other": "{A} adicionou “{description}” · {amount}",
+        "self": "Você adicionou “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} adicionou um reembolso “{description}” · {amount}",
+        "self": "Você adicionou um reembolso “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "Nova ocorrência de “{description}” · {amount} (repete {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Nova ocorrência do reembolso “{description}” · {amount} (repete {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} alterou “{description}”: {changes}",
+        "self": "Você alterou “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} excluiu “{description}”",
+        "self": "Você excluiu “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} restaurou “{description}”",
+        "self": "Você restaurou “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} moveu “{description}” para outro grupo",
+        "self": "Você moveu “{description}” para outro grupo"
+      },
+      "comment_added": {
+        "other": "{A} comentou em “{description}”: {text}",
+        "self": "Você comentou em “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} comentou em um pagamento de {amount} de {from} para {to}: {text}",
+        "self": "Você comentou em um pagamento de {amount} de {from} para {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} adicionou um recibo a “{description}”",
+        "self": "Você adicionou um recibo a “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} adicionou {n} recibos a “{description}”",
+        "self": "Você adicionou {n} recibos a “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} removeu um recibo de “{description}”",
+        "self": "Você removeu um recibo de “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} removeu {n} recibos de “{description}”",
+        "self": "Você removeu {n} recibos de “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} programou “{description}” para repetir {frequency}",
+        "self": "Você programou “{description}” para repetir {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} alterou as próximas repetições de “{description}”: {changes}",
+        "self": "Você alterou as próximas repetições de “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} parou de repetir “{description}”",
+        "self": "Você parou de repetir “{description}”"
+      },
+      "payment_added": {
+        "other": "{from} pagou {amount} para {to}",
+        "self": "Você pagou {amount} para {to}",
+        "you": "{from} pagou {amount} para você"
+      },
+      "payment_confirmed": {
+        "other": "{A} confirmou o recebimento de {amount} de {from}",
+        "self": "Você confirmou o recebimento de {amount} de {from}",
+        "you": "{A} confirmou o recebimento de {amount} de você"
+      },
+      "payment_deleted": {
+        "other": "{A} excluiu um pagamento de {amount} de {from} para {to}",
+        "self": "Você excluiu um pagamento de {amount} de {from} para {to}"
+      },
+      "payment_edited": {
+        "other": "{A} editou um pagamento de {amount} de {from} para {to}",
+        "self": "Você editou um pagamento de {amount} de {from} para {to}"
+      },
+      "payment_restored": {
+        "other": "{A} restaurou um pagamento de {amount} de {from} para {to}",
+        "self": "Você restaurou um pagamento de {amount} de {from} para {to}"
+      },
+      "unknown": {
+        "other": "{A} fez uma alteração",
+        "self": "Você fez uma alteração"
+      }
+    },
+    "suffix": {
+      "owe": "você deve {amount}",
+      "lent": "você tem {amount} a receber",
+      "getBack": "você recebe de volta {amount}",
+      "waiting": {
+        "other": "aguardando a confirmação de {to}",
+        "you": "aguardando a sua confirmação"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nome “{from}” → “{to}”",
+      "currency": "moeda {from} → {to}",
+      "simplifyDebtsOn": "simplificar dívidas ativado",
+      "simplifyDebtsOff": "simplificar dívidas desativado",
+      "defaultSplit": "divisão padrão",
+      "description": "descrição “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "taxa de câmbio",
+      "paidBy": "pago por {from} → {to}",
+      "payers": "quem pagou",
+      "refundOn": "reembolso ativado",
+      "refundOff": "reembolso desativado",
+      "date": "data {from} → {to}",
+      "category": "categoria {from} → {to}",
+      "categorySame": "categoria",
+      "split": "divisão",
+      "notes": "notas",
+      "other": "outras alterações"
+    },
+    "batch": {
+      "expenses": "{A} adicionou {n} despesas",
+      "comments": "{A} adicionou {n} comentários",
+      "repeats": "{n} despesas recorrentes foram adicionadas",
+      "changes": "{A} fez {n} alterações",
+      "mixed": "{n} novas alterações"
+    },
+    "remind": {
+      "title": "{A} enviou um lembrete",
+      "body": "Você deve {amounts} para {A}.",
+      "two": "{a} e {b}",
+      "more": "{a}, {b} e mais"
+    },
+    "landing": {
+      "title": "Entre em {group} no Evensies",
+      "invited": "Você recebeu um convite para dividir despesas neste grupo.",
+      "members": "Membros: {count}",
+      "friendTitle": "{name} no Evensies",
+      "friendCode": "{name} quer dividir despesas com você.",
+      "friendAdded": "{name} adicionou você aos amigos no Evensies.",
+      "code": "Código de convite",
+      "openApp": "Abrir no app",
+      "openWeb": "Continuar no navegador",
+      "hint": "Já tem o app? Abra e entre com o código {code}.",
+      "appStore": "App Store (em breve)",
+      "googlePlay": "Google Play (em breve)"
+    },
+    "categories": {
+      "food": "Comida e bebida",
+      "transportation": "Transporte",
+      "entertainment": "Entretenimento",
+      "home": "Casa",
+      "life": "Vida",
+      "utilities": "Contas da casa",
+      "uncategorized": "Sem categoria",
+      "food.dining_out": "Restaurantes",
+      "food.groceries": "Mercado",
+      "food.liquor": "Bebidas alcoólicas",
+      "food.other": "Outros",
+      "transportation.plane": "Avião",
+      "transportation.bus_train": "Ônibus/trem",
+      "transportation.taxi": "Táxi",
+      "transportation.car": "Carro",
+      "transportation.gas_fuel": "Combustível",
+      "transportation.parking": "Estacionamento",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Bicicleta",
+      "transportation.other": "Outros",
+      "entertainment.movies": "Cinema",
+      "entertainment.music": "Música",
+      "entertainment.games": "Jogos",
+      "entertainment.sports": "Esportes",
+      "entertainment.other": "Outros",
+      "home.rent": "Aluguel",
+      "home.mortgage": "Financiamento imobiliário",
+      "home.household_supplies": "Produtos para casa",
+      "home.furniture": "Móveis",
+      "home.electronics": "Eletrônicos",
+      "home.maintenance": "Manutenção",
+      "home.pets": "Animais de estimação",
+      "home.services": "Serviços",
+      "home.other": "Outros",
+      "life.medical": "Despesas médicas",
+      "life.gifts": "Presentes",
+      "life.clothing": "Roupas",
+      "life.education": "Educação",
+      "life.childcare": "Cuidados infantis",
+      "life.insurance": "Seguros",
+      "life.taxes": "Impostos",
+      "life.other": "Outros",
+      "utilities.electricity": "Eletricidade",
+      "utilities.heat_gas": "Aquecimento/gás",
+      "utilities.water": "Água",
+      "utilities.tv_phone_internet": "TV/Telefone/Internet",
+      "utilities.trash": "Lixo",
+      "utilities.cleaning": "Limpeza",
+      "utilities.other": "Outros",
+      "uncategorized.general": "Geral"
+    }
+  },
+  "es": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": ".",
+      "decimal": ",",
+      "symbols": {}
+    },
+    "words": {
+      "you": "ti",
+      "someone": "alguien",
+      "dot": " · ",
+      "categoryOther": "{parent} - Otros",
+      "frequency": {
+        "weekly": "cada semana",
+        "biweekly": "cada 2 semanas",
+        "monthly": "cada mes",
+        "yearly": "cada año"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} creó el grupo “{name}”",
+        "self": "Creaste el grupo “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} cambió el grupo: {changes}",
+        "self": "Cambiaste el grupo: {changes}"
+      },
+      "member_added": {
+        "other": "{A} añadió a {member}",
+        "self": "Añadiste a {member}",
+        "you": "{A} te añadió"
+      },
+      "member_joined": {
+        "other": "{member} se unió",
+        "self": "Te uniste"
+      },
+      "member_left": {
+        "other": "{member} salió del grupo",
+        "self": "Saliste del grupo"
+      },
+      "member_removed": {
+        "other": "{A} eliminó a {member}",
+        "self": "Eliminaste a {member}",
+        "you": "{A} te eliminó"
+      },
+      "friend_added": {
+        "other": "{A} añadió a {member} a sus amistades",
+        "self": "Añadiste a {member} a tus amistades",
+        "you": "{A} te añadió a sus amistades"
+      },
+      "expense_added": {
+        "other": "{A} añadió “{description}” · {amount}",
+        "self": "Añadiste “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} añadió un reembolso “{description}” · {amount}",
+        "self": "Añadiste un reembolso “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "Se añadió “{description}” · {amount} (se repite {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "Se añadió un reembolso “{description}” · {amount} (se repite {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} cambió “{description}”: {changes}",
+        "self": "Cambiaste “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} eliminó “{description}”",
+        "self": "Eliminaste “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} restauró “{description}”",
+        "self": "Restauraste “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} movió “{description}” a otro grupo",
+        "self": "Moviste “{description}” a otro grupo"
+      },
+      "comment_added": {
+        "other": "{A} comentó en “{description}”: {text}",
+        "self": "Comentaste en “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} comentó en un pago de {amount} de {from} a {to}: {text}",
+        "self": "Comentaste en un pago de {amount} de {from} a {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} añadió un recibo a “{description}”",
+        "self": "Añadiste un recibo a “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} añadió {n} recibos a “{description}”",
+        "self": "Añadiste {n} recibos a “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} quitó un recibo de “{description}”",
+        "self": "Quitaste un recibo de “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} quitó {n} recibos de “{description}”",
+        "self": "Quitaste {n} recibos de “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} programó “{description}” para repetirse {frequency}",
+        "self": "Programaste “{description}” para repetirse {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} cambió las próximas repeticiones de “{description}”: {changes}",
+        "self": "Cambiaste las próximas repeticiones de “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} dejó de repetir “{description}”",
+        "self": "Dejaste de repetir “{description}”"
+      },
+      "payment_added": {
+        "other": "{from} le pagó {amount} a {to}",
+        "self": "Le pagaste {amount} a {to}",
+        "you": "{from} te pagó {amount}"
+      },
+      "payment_confirmed": {
+        "other": "{A} confirmó que recibió {amount} de {from}",
+        "self": "Confirmaste que recibiste {amount} de {from}",
+        "you": "{A} confirmó que recibió {amount} de ti"
+      },
+      "payment_deleted": {
+        "other": "{A} eliminó un pago de {amount} de {from} a {to}",
+        "self": "Eliminaste un pago de {amount} de {from} a {to}"
+      },
+      "payment_edited": {
+        "other": "{A} editó un pago de {amount} de {from} a {to}",
+        "self": "Editaste un pago de {amount} de {from} a {to}"
+      },
+      "payment_restored": {
+        "other": "{A} restauró un pago de {amount} de {from} a {to}",
+        "self": "Restauraste un pago de {amount} de {from} a {to}"
+      },
+      "unknown": {
+        "other": "{A} hizo un cambio",
+        "self": "Hiciste un cambio"
+      }
+    },
+    "suffix": {
+      "owe": "debes {amount}",
+      "lent": "te deben {amount}",
+      "getBack": "recuperas {amount}",
+      "waiting": {
+        "other": "esperando a que {to} confirme",
+        "you": "esperando tu confirmación"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "nombre “{from}” → “{to}”",
+      "currency": "moneda {from} → {to}",
+      "simplifyDebtsOn": "simplificar deudas activado",
+      "simplifyDebtsOff": "simplificar deudas desactivado",
+      "defaultSplit": "división predeterminada",
+      "description": "descripción “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "tipo de cambio",
+      "paidBy": "pagado por {from} → {to}",
+      "payers": "quién pagó",
+      "refundOn": "reembolso activado",
+      "refundOff": "reembolso desactivado",
+      "date": "fecha {from} → {to}",
+      "category": "categoría {from} → {to}",
+      "categorySame": "categoría",
+      "split": "división",
+      "notes": "notas",
+      "other": "otros cambios"
+    },
+    "batch": {
+      "expenses": "{A} añadió {n} gastos",
+      "comments": "{A} añadió {n} comentarios",
+      "repeats": "Se añadieron {n} gastos recurrentes",
+      "changes": "{A} hizo {n} cambios",
+      "mixed": "{n} cambios nuevos"
+    },
+    "remind": {
+      "title": "{A} te envió un recordatorio",
+      "body": "Le debes {amounts} a {A}.",
+      "two": "{a} y {b}",
+      "more": "{a}, {b} y más"
+    },
+    "landing": {
+      "title": "Únete a {group} en Evensies",
+      "invited": "Te invitaron a compartir gastos en este grupo.",
+      "members": "Miembros: {count}",
+      "friendTitle": "{name} en Evensies",
+      "friendCode": "{name} quiere compartir gastos contigo.",
+      "friendAdded": "{name} te añadió a sus amistades en Evensies.",
+      "code": "Código de invitación",
+      "openApp": "Abrir en la app",
+      "openWeb": "Continuar en el navegador",
+      "hint": "¿Tienes la app? Ábrela y únete con el código {code}.",
+      "appStore": "App Store (próximamente)",
+      "googlePlay": "Google Play (próximamente)"
+    },
+    "categories": {
+      "food": "Comida y bebida",
+      "transportation": "Transporte",
+      "entertainment": "Entretenimiento",
+      "home": "Hogar",
+      "life": "Vida",
+      "utilities": "Servicios básicos",
+      "uncategorized": "Sin categoría",
+      "food.dining_out": "Restaurantes",
+      "food.groceries": "Supermercado",
+      "food.liquor": "Alcohol",
+      "food.other": "Otros",
+      "transportation.plane": "Avión",
+      "transportation.bus_train": "Autobús/tren",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Coche",
+      "transportation.gas_fuel": "Gasolina",
+      "transportation.parking": "Estacionamiento",
+      "transportation.hotel": "Hotel",
+      "transportation.bicycle": "Bicicleta",
+      "transportation.other": "Otros",
+      "entertainment.movies": "Cine",
+      "entertainment.music": "Música",
+      "entertainment.games": "Juegos",
+      "entertainment.sports": "Deportes",
+      "entertainment.other": "Otros",
+      "home.rent": "Alquiler",
+      "home.mortgage": "Hipoteca",
+      "home.household_supplies": "Artículos del hogar",
+      "home.furniture": "Muebles",
+      "home.electronics": "Electrónica",
+      "home.maintenance": "Mantenimiento",
+      "home.pets": "Mascotas",
+      "home.services": "Servicios",
+      "home.other": "Otros",
+      "life.medical": "Gastos médicos",
+      "life.gifts": "Regalos",
+      "life.clothing": "Ropa",
+      "life.education": "Educación",
+      "life.childcare": "Cuidado infantil",
+      "life.insurance": "Seguros",
+      "life.taxes": "Impuestos",
+      "life.other": "Otros",
+      "utilities.electricity": "Electricidad",
+      "utilities.heat_gas": "Calefacción/gas",
+      "utilities.water": "Agua",
+      "utilities.tv_phone_internet": "TV/Teléfono/Internet",
+      "utilities.trash": "Basura",
+      "utilities.cleaning": "Limpieza",
+      "utilities.other": "Otros",
+      "uncategorized.general": "General"
+    }
+  },
+  "sv": {
+    "money": {
+      "pattern": "{n}\u00a0{s}",
+      "group": "\u00a0",
+      "decimal": ",",
+      "symbols": {
+        "SEK": "kr"
+      }
+    },
+    "words": {
+      "you": "dig",
+      "someone": "någon",
+      "dot": " · ",
+      "categoryOther": "{parent} - Övrigt",
+      "frequency": {
+        "weekly": "varje vecka",
+        "biweekly": "varannan vecka",
+        "monthly": "varje månad",
+        "yearly": "varje år"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} skapade gruppen ”{name}”",
+        "self": "Du skapade gruppen ”{name}”"
+      },
+      "group_updated": {
+        "other": "{A} ändrade gruppen: {changes}",
+        "self": "Du ändrade gruppen: {changes}"
+      },
+      "member_added": {
+        "other": "{A} lade till {member}",
+        "self": "Du lade till {member}",
+        "you": "{A} lade till dig"
+      },
+      "member_joined": {
+        "other": "{member} gick med",
+        "self": "Du gick med"
+      },
+      "member_left": {
+        "other": "{member} lämnade gruppen",
+        "self": "Du lämnade gruppen"
+      },
+      "member_removed": {
+        "other": "{A} tog bort {member}",
+        "self": "Du tog bort {member}",
+        "you": "{A} tog bort dig"
+      },
+      "friend_added": {
+        "other": "{A} lade till {member} som vän",
+        "self": "Du lade till {member} som vän",
+        "you": "{A} lade till dig som vän"
+      },
+      "expense_added": {
+        "other": "{A} lade till ”{description}” · {amount}",
+        "self": "Du lade till ”{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} lade till en återbetalning ”{description}” · {amount}",
+        "self": "Du lade till en återbetalning ”{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "”{description}” · {amount} lades till (upprepas {frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "En återbetalning ”{description}” · {amount} lades till (upprepas {frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} ändrade ”{description}”: {changes}",
+        "self": "Du ändrade ”{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} raderade ”{description}”",
+        "self": "Du raderade ”{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} återställde ”{description}”",
+        "self": "Du återställde ”{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} flyttade ”{description}” till en annan grupp",
+        "self": "Du flyttade ”{description}” till en annan grupp"
+      },
+      "comment_added": {
+        "other": "{A} kommenterade ”{description}”: {text}",
+        "self": "Du kommenterade ”{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} kommenterade en betalning på {amount} från {from} till {to}: {text}",
+        "self": "Du kommenterade en betalning på {amount} från {from} till {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} lade till ett kvitto till ”{description}”",
+        "self": "Du lade till ett kvitto till ”{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} lade till {n} kvitton till ”{description}”",
+        "self": "Du lade till {n} kvitton till ”{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} tog bort ett kvitto från ”{description}”",
+        "self": "Du tog bort ett kvitto från ”{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} tog bort {n} kvitton från ”{description}”",
+        "self": "Du tog bort {n} kvitton från ”{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} ställde in att ”{description}” upprepas {frequency}",
+        "self": "Du ställde in att ”{description}” upprepas {frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} ändrade kommande upprepningar av ”{description}”: {changes}",
+        "self": "Du ändrade kommande upprepningar av ”{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} slutade upprepa ”{description}”",
+        "self": "Du slutade upprepa ”{description}”"
+      },
+      "payment_added": {
+        "other": "{from} betalade {amount} till {to}",
+        "self": "Du betalade {amount} till {to}",
+        "you": "{from} betalade {amount} till dig"
+      },
+      "payment_confirmed": {
+        "other": "{A} bekräftade att {amount} från {from} har tagits emot",
+        "self": "Du bekräftade att {amount} från {from} har tagits emot",
+        "you": "{A} bekräftade att {amount} från dig har tagits emot"
+      },
+      "payment_deleted": {
+        "other": "{A} raderade en betalning på {amount} från {from} till {to}",
+        "self": "Du raderade en betalning på {amount} från {from} till {to}"
+      },
+      "payment_edited": {
+        "other": "{A} redigerade en betalning på {amount} från {from} till {to}",
+        "self": "Du redigerade en betalning på {amount} från {from} till {to}"
+      },
+      "payment_restored": {
+        "other": "{A} återställde en betalning på {amount} från {from} till {to}",
+        "self": "Du återställde en betalning på {amount} från {from} till {to}"
+      },
+      "unknown": {
+        "other": "{A} gjorde en ändring",
+        "self": "Du gjorde en ändring"
+      }
+    },
+    "suffix": {
+      "owe": "du är skyldig {amount}",
+      "lent": "du har lagt ut {amount}",
+      "getBack": "du får tillbaka {amount}",
+      "waiting": {
+        "other": "väntar på att {to} bekräftar",
+        "you": "väntar på att du bekräftar"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "namn ”{from}” → ”{to}”",
+      "currency": "valuta {from} → {to}",
+      "simplifyDebtsOn": "förenkla skulder på",
+      "simplifyDebtsOff": "förenkla skulder av",
+      "defaultSplit": "standarddelning",
+      "description": "beskrivning ”{from}” → ”{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "växelkurs",
+      "paidBy": "betalat av {from} → {to}",
+      "payers": "vem som betalade",
+      "refundOn": "återbetalning på",
+      "refundOff": "återbetalning av",
+      "date": "datum {from} → {to}",
+      "category": "kategori {from} → {to}",
+      "categorySame": "kategori",
+      "split": "delning",
+      "notes": "anteckningar",
+      "other": "andra ändringar"
+    },
+    "batch": {
+      "expenses": "{A} lade till {n} utgifter",
+      "comments": "{A} lade till {n} kommentarer",
+      "repeats": "{n} återkommande utgifter lades till",
+      "changes": "{A} gjorde {n} ändringar",
+      "mixed": "{n} nya ändringar"
+    },
+    "remind": {
+      "title": "{A} skickade en påminnelse",
+      "body": "Du är skyldig {A} {amounts}.",
+      "two": "{a} och {b}",
+      "more": "{a}, {b} och mer"
+    },
+    "landing": {
+      "title": "Gå med i {group} på Evensies",
+      "invited": "Du är inbjuden att dela utgifter i den här gruppen.",
+      "members": "Medlemmar: {count}",
+      "friendTitle": "{name} på Evensies",
+      "friendCode": "{name} vill dela utgifter med dig.",
+      "friendAdded": "{name} lade till dig som vän på Evensies.",
+      "code": "Inbjudningskod",
+      "openApp": "Öppna i appen",
+      "openWeb": "Fortsätt i webbläsaren",
+      "hint": "Har du appen? Öppna den och ange koden {code}.",
+      "appStore": "App Store (kommer snart)",
+      "googlePlay": "Google Play (kommer snart)"
+    },
+    "categories": {
+      "food": "Mat och dryck",
+      "transportation": "Transport",
+      "entertainment": "Nöje",
+      "home": "Hem",
+      "life": "Livet",
+      "utilities": "Hushållskostnader",
+      "uncategorized": "Okategoriserat",
+      "food.dining_out": "Restaurang",
+      "food.groceries": "Livsmedel",
+      "food.liquor": "Alkohol",
+      "food.other": "Övrigt",
+      "transportation.plane": "Flyg",
+      "transportation.bus_train": "Buss/tåg",
+      "transportation.taxi": "Taxi",
+      "transportation.car": "Bil",
+      "transportation.gas_fuel": "Bränsle",
+      "transportation.parking": "Parkering",
+      "transportation.hotel": "Hotell",
+      "transportation.bicycle": "Cykel",
+      "transportation.other": "Övrigt",
+      "entertainment.movies": "Bio",
+      "entertainment.music": "Musik",
+      "entertainment.games": "Spel",
+      "entertainment.sports": "Sport",
+      "entertainment.other": "Övrigt",
+      "home.rent": "Hyra",
+      "home.mortgage": "Bolån",
+      "home.household_supplies": "Hushållsartiklar",
+      "home.furniture": "Möbler",
+      "home.electronics": "Elektronik",
+      "home.maintenance": "Underhåll",
+      "home.pets": "Husdjur",
+      "home.services": "Tjänster",
+      "home.other": "Övrigt",
+      "life.medical": "Vårdkostnader",
+      "life.gifts": "Presenter",
+      "life.clothing": "Kläder",
+      "life.education": "Utbildning",
+      "life.childcare": "Barnomsorg",
+      "life.insurance": "Försäkring",
+      "life.taxes": "Skatter",
+      "life.other": "Övrigt",
+      "utilities.electricity": "El",
+      "utilities.heat_gas": "Värme/gas",
+      "utilities.water": "Vatten",
+      "utilities.tv_phone_internet": "TV/telefon/internet",
+      "utilities.trash": "Sopor",
+      "utilities.cleaning": "Städning",
+      "utilities.other": "Övrigt",
+      "uncategorized.general": "Allmänt"
+    }
+  },
+  "th": {
+    "money": {
+      "pattern": "{s}{n}",
+      "group": ",",
+      "decimal": ".",
+      "symbols": {}
+    },
+    "words": {
+      "you": "คุณ",
+      "someone": "สมาชิกที่ไม่รู้จัก",
+      "dot": " · ",
+      "categoryOther": "{parent} - อื่นๆ",
+      "frequency": {
+        "weekly": "ทุกสัปดาห์",
+        "biweekly": "ทุก 2 สัปดาห์",
+        "monthly": "ทุกเดือน",
+        "yearly": "ทุกปี"
+      }
+    },
+    "activity": {
+      "group_created": {
+        "other": "{A} สร้างกลุ่ม “{name}”",
+        "self": "คุณสร้างกลุ่ม “{name}”"
+      },
+      "group_updated": {
+        "other": "{A} แก้ไขกลุ่ม: {changes}",
+        "self": "คุณแก้ไขกลุ่ม: {changes}"
+      },
+      "member_added": {
+        "other": "{A} เพิ่ม {member}",
+        "self": "คุณเพิ่ม {member}",
+        "you": "{A} เพิ่มคุณเข้ากลุ่ม"
+      },
+      "member_joined": {
+        "other": "{member} เข้าร่วมกลุ่มแล้ว",
+        "self": "คุณเข้าร่วมกลุ่มแล้ว"
+      },
+      "member_left": {
+        "other": "{member} ออกจากกลุ่ม",
+        "self": "คุณออกจากกลุ่ม"
+      },
+      "member_removed": {
+        "other": "{A} นำ {member} ออกจากกลุ่ม",
+        "self": "คุณนำ {member} ออกจากกลุ่ม",
+        "you": "{A} นำคุณออกจากกลุ่ม"
+      },
+      "friend_added": {
+        "other": "{A} เพิ่ม {member} เป็นเพื่อน",
+        "self": "คุณเพิ่ม {member} เป็นเพื่อน",
+        "you": "{A} เพิ่มคุณเป็นเพื่อน"
+      },
+      "expense_added": {
+        "other": "{A} เพิ่ม “{description}” · {amount}",
+        "self": "คุณเพิ่ม “{description}” · {amount}"
+      },
+      "expense_added_refund": {
+        "other": "{A} เพิ่มเงินคืน “{description}” · {amount}",
+        "self": "คุณเพิ่มเงินคืน “{description}” · {amount}"
+      },
+      "expense_repeated": {
+        "other": "เพิ่ม “{description}” · {amount} แล้ว (ซ้ำ{frequency})"
+      },
+      "expense_repeated_refund": {
+        "other": "เพิ่มเงินคืน “{description}” · {amount} แล้ว (ซ้ำ{frequency})"
+      },
+      "expense_updated": {
+        "other": "{A} แก้ไข “{description}”: {changes}",
+        "self": "คุณแก้ไข “{description}”: {changes}"
+      },
+      "expense_deleted": {
+        "other": "{A} ลบ “{description}”",
+        "self": "คุณลบ “{description}”"
+      },
+      "expense_restored": {
+        "other": "{A} กู้คืน “{description}”",
+        "self": "คุณกู้คืน “{description}”"
+      },
+      "expense_moved": {
+        "other": "{A} ย้าย “{description}” ไปยังกลุ่มอื่น",
+        "self": "คุณย้าย “{description}” ไปยังกลุ่มอื่น"
+      },
+      "comment_added": {
+        "other": "{A} แสดงความคิดเห็นใน “{description}”: {text}",
+        "self": "คุณแสดงความคิดเห็นใน “{description}”: {text}"
+      },
+      "comment_added_payment": {
+        "other": "{A} แสดงความคิดเห็นในการชำระเงิน {amount} จาก {from} ถึง {to}: {text}",
+        "self": "คุณแสดงความคิดเห็นในการชำระเงิน {amount} จาก {from} ถึง {to}: {text}"
+      },
+      "receipt_added": {
+        "other": "{A} เพิ่มใบเสร็จใน “{description}”",
+        "self": "คุณเพิ่มใบเสร็จใน “{description}”"
+      },
+      "receipts_added": {
+        "other": "{A} เพิ่มใบเสร็จ {n} ใบใน “{description}”",
+        "self": "คุณเพิ่มใบเสร็จ {n} ใบใน “{description}”"
+      },
+      "receipt_removed": {
+        "other": "{A} นำใบเสร็จออกจาก “{description}”",
+        "self": "คุณนำใบเสร็จออกจาก “{description}”"
+      },
+      "receipts_removed": {
+        "other": "{A} นำใบเสร็จ {n} ใบออกจาก “{description}”",
+        "self": "คุณนำใบเสร็จ {n} ใบออกจาก “{description}”"
+      },
+      "recurrence_created": {
+        "other": "{A} ตั้งให้ “{description}” ซ้ำ{frequency}",
+        "self": "คุณตั้งให้ “{description}” ซ้ำ{frequency}"
+      },
+      "recurrence_updated": {
+        "other": "{A} แก้ไขการทำซ้ำครั้งต่อไปของ “{description}”: {changes}",
+        "self": "คุณแก้ไขการทำซ้ำครั้งต่อไปของ “{description}”: {changes}"
+      },
+      "recurrence_deleted": {
+        "other": "{A} หยุดการทำซ้ำ “{description}”",
+        "self": "คุณหยุดการทำซ้ำ “{description}”"
+      },
+      "payment_added": {
+        "other": "{from} จ่าย {amount} ให้ {to}",
+        "self": "คุณจ่าย {amount} ให้ {to}",
+        "you": "{from} จ่าย {amount} ให้คุณ"
+      },
+      "payment_confirmed": {
+        "other": "{A} ยืนยันว่าได้รับ {amount} จาก {from}",
+        "self": "คุณยืนยันว่าได้รับ {amount} จาก {from}",
+        "you": "{A} ยืนยันว่าได้รับ {amount} จากคุณ"
+      },
+      "payment_deleted": {
+        "other": "{A} ลบการชำระเงิน {amount} จาก {from} ถึง {to}",
+        "self": "คุณลบการชำระเงิน {amount} จาก {from} ถึง {to}"
+      },
+      "payment_edited": {
+        "other": "{A} แก้ไขการชำระเงิน {amount} จาก {from} ถึง {to}",
+        "self": "คุณแก้ไขการชำระเงิน {amount} จาก {from} ถึง {to}"
+      },
+      "payment_restored": {
+        "other": "{A} กู้คืนการชำระเงิน {amount} จาก {from} ถึง {to}",
+        "self": "คุณกู้คืนการชำระเงิน {amount} จาก {from} ถึง {to}"
+      },
+      "unknown": {
+        "other": "{A} ทำการเปลี่ยนแปลง",
+        "self": "คุณทำการเปลี่ยนแปลง"
+      }
+    },
+    "suffix": {
+      "owe": "คุณต้องจ่าย {amount}",
+      "lent": "คุณจะได้รับ {amount}",
+      "getBack": "คุณได้เงินคืน {amount}",
+      "waiting": {
+        "other": "รอ {to} ยืนยัน",
+        "you": "รอคุณยืนยัน"
+      }
+    },
+    "changes": {
+      "joiner": ", ",
+      "name": "ชื่อ “{from}” → “{to}”",
+      "currency": "สกุลเงิน {from} → {to}",
+      "simplifyDebtsOn": "เปิดการรวมหนี้",
+      "simplifyDebtsOff": "ปิดการรวมหนี้",
+      "defaultSplit": "การแบ่งเริ่มต้น",
+      "description": "คำอธิบาย “{from}” → “{to}”",
+      "amount": "{from} → {to}",
+      "fxRateToDefault": "อัตราแลกเปลี่ยน",
+      "paidBy": "จ่ายโดย {from} → {to}",
+      "payers": "ผู้จ่าย",
+      "refundOn": "ตั้งเป็นเงินคืน",
+      "refundOff": "ยกเลิกเงินคืน",
+      "date": "วันที่ {from} → {to}",
+      "category": "หมวดหมู่ {from} → {to}",
+      "categorySame": "หมวดหมู่",
+      "split": "การแบ่ง",
+      "notes": "บันทึก",
+      "other": "การเปลี่ยนแปลงอื่นๆ"
+    },
+    "batch": {
+      "expenses": "{A} เพิ่มค่าใช้จ่าย {n} รายการ",
+      "comments": "{A} เพิ่มความคิดเห็น {n} รายการ",
+      "repeats": "เพิ่มค่าใช้จ่ายที่เกิดซ้ำ {n} รายการแล้ว",
+      "changes": "{A} ทำการเปลี่ยนแปลง {n} รายการ",
+      "mixed": "การเปลี่ยนแปลงใหม่ {n} รายการ"
+    },
+    "remind": {
+      "title": "{A} ส่งการแจ้งเตือน",
+      "body": "คุณต้องจ่าย {A} {amounts}",
+      "two": "{a} และ {b}",
+      "more": "{a}, {b} และอื่นๆ"
+    },
+    "landing": {
+      "title": "เข้าร่วม {group} บน Evensies",
+      "invited": "คุณได้รับเชิญให้แบ่งค่าใช้จ่ายในกลุ่มนี้",
+      "members": "สมาชิก: {count}",
+      "friendTitle": "{name} บน Evensies",
+      "friendCode": "{name} ต้องการแบ่งค่าใช้จ่ายกับคุณ",
+      "friendAdded": "{name} เพิ่มคุณเป็นเพื่อนบน Evensies",
+      "code": "รหัสเชิญ",
+      "openApp": "เปิดในแอป",
+      "openWeb": "ดำเนินการต่อในเบราว์เซอร์",
+      "hint": "มีแอปแล้วใช่ไหม เปิดแอปแล้วเข้าร่วมด้วยรหัส {code}",
+      "appStore": "App Store (เร็วๆ นี้)",
+      "googlePlay": "Google Play (เร็วๆ นี้)"
+    },
+    "categories": {
+      "food": "อาหารและเครื่องดื่ม",
+      "transportation": "การเดินทาง",
+      "entertainment": "ความบันเทิง",
+      "home": "บ้าน",
+      "life": "ชีวิตประจำวัน",
+      "utilities": "สาธารณูปโภค",
+      "uncategorized": "ไม่มีหมวดหมู่",
+      "food.dining_out": "ทานอาหารนอกบ้าน",
+      "food.groceries": "ซื้อของเข้าบ้าน",
+      "food.liquor": "เครื่องดื่มแอลกอฮอล์",
+      "food.other": "อื่นๆ",
+      "transportation.plane": "เครื่องบิน",
+      "transportation.bus_train": "รถบัส/รถไฟ",
+      "transportation.taxi": "แท็กซี่",
+      "transportation.car": "รถยนต์",
+      "transportation.gas_fuel": "น้ำมัน",
+      "transportation.parking": "ที่จอดรถ",
+      "transportation.hotel": "โรงแรม",
+      "transportation.bicycle": "จักรยาน",
+      "transportation.other": "อื่นๆ",
+      "entertainment.movies": "ภาพยนตร์",
+      "entertainment.music": "ดนตรี",
+      "entertainment.games": "เกม",
+      "entertainment.sports": "กีฬา",
+      "entertainment.other": "อื่นๆ",
+      "home.rent": "ค่าเช่า",
+      "home.mortgage": "ผ่อนบ้าน",
+      "home.household_supplies": "ของใช้ในบ้าน",
+      "home.furniture": "เฟอร์นิเจอร์",
+      "home.electronics": "อุปกรณ์อิเล็กทรอนิกส์",
+      "home.maintenance": "ซ่อมบำรุง",
+      "home.pets": "สัตว์เลี้ยง",
+      "home.services": "บริการ",
+      "home.other": "อื่นๆ",
+      "life.medical": "ค่ารักษาพยาบาล",
+      "life.gifts": "ของขวัญ",
+      "life.clothing": "เสื้อผ้า",
+      "life.education": "การศึกษา",
+      "life.childcare": "ดูแลเด็ก",
+      "life.insurance": "ประกัน",
+      "life.taxes": "ภาษี",
+      "life.other": "อื่นๆ",
+      "utilities.electricity": "ค่าไฟ",
+      "utilities.heat_gas": "เครื่องทำความร้อน/แก๊ส",
+      "utilities.water": "ค่าน้ำ",
+      "utilities.tv_phone_internet": "ทีวี/โทรศัพท์/อินเทอร์เน็ต",
+      "utilities.trash": "ขยะ",
+      "utilities.cleaning": "ทำความสะอาด",
+      "utilities.other": "อื่นๆ",
+      "uncategorized.general": "ทั่วไป"
+    }
+  }
+}

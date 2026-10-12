@@ -23,8 +23,9 @@ class Http(port: Int, private val mapper: ObjectMapper) {
     private val client = RestClient.builder().baseUrl("http://localhost:$port")
         .requestFactory(HttpComponentsClientHttpRequestFactory(HttpClients.custom().disableAutomaticRetries().build())).build()
 
-    fun send(method: HttpMethod, path: String, body: Any? = null, token: String? = null): Resp {
-        val spec = client.method(method).uri(path).headers { h -> token?.let { h.setBearerAuth(it) } }
+    /** [headers]: extra request headers (`Accept-Language`). */
+    fun send(method: HttpMethod, path: String, body: Any? = null, token: String? = null, headers: Map<String, String> = emptyMap()): Resp {
+        val spec = client.method(method).uri(path).headers { h -> token?.let { h.setBearerAuth(it) }; headers.forEach { (k, v) -> h.set(k, v) } }
         if (body != null) spec.contentType(MediaType.APPLICATION_JSON).body(mapper.writeValueAsString(body))
         return exchange(spec)
     }
@@ -45,7 +46,7 @@ class Http(port: Int, private val mapper: ObjectMapper) {
         Resp(res.statusCode.value(), bytes.decodeToString(), bytes, res.headers.toSingleValueMap().mapKeys { it.key.lowercase() }).also { it.mapper = mapper }
     }
 
-    fun get(path: String, token: String? = null) = send(HttpMethod.GET, path, null, token)
+    fun get(path: String, token: String? = null, headers: Map<String, String> = emptyMap()) = send(HttpMethod.GET, path, null, token, headers)
     fun post(path: String, body: Any?, token: String? = null) = send(HttpMethod.POST, path, body, token)
     fun delete(path: String, token: String? = null) = send(HttpMethod.DELETE, path, null, token)
     fun patch(path: String, body: Any?, token: String? = null) = send(HttpMethod.PATCH, path, body, token)

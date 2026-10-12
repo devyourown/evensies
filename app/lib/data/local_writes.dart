@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../core/ids.dart';
+import '../core/snack.dart' show errorForCode;
 import '../domain/balances.dart' show balancesOf, leaveBlocker;
 import '../domain/models.dart';
 import '../domain/recurrence.dart' show Series;
@@ -209,8 +210,8 @@ class LocalWrites {
               createdAt: nowIsoUtc()),
       ]);
     } on ApiException catch (x) {
-      throw MoveException(
-          x.code == 'NETWORK' ? "Couldn't move it. Try again when you're online" : "Couldn't move it: ${x.message}");
+      final l = sync.l10n;
+      throw MoveException(x.code == 'NETWORK' ? l.moveOffline : l.moveFailed(errorForCode(l, x.code)));
     }
     await deleteExpense(fromGroup, e.id, movedTo: (groupId: toGroup, expenseId: moved.id));
     sync.syncLater(toGroup);
@@ -450,17 +451,17 @@ class LocalWrites {
       await sync.sync(groupId);
       if (await db.getGroup(groupId) == null) return; // already out: removed by someone else (sync dropped it)
       if ((await db.unsentOutbox(groupId)).isNotEmpty) {
-        throw const LeaveException('Still syncing. Try again in a moment.');
+        throw LeaveException(sync.l10n.leaveSyncing);
       }
       final state = await sync.store.load(groupId);
-      final why = leaveBlocker(balancesOf(state), me) ?? state.seriesBlocker(me);
+      final why = leaveBlocker(sync.l10n, balancesOf(state), me) ?? state.seriesBlocker(sync.l10n, me);
       if (why != null) throw LeaveException(why);
       await sync.api.pushEvents(groupId, [
         OutboundEvent(
             clientId: newId(), type: EventTypes.memberRemoved, payload: {'memberId': me}, createdAt: nowIsoUtc()),
       ]);
     } on ApiException catch (e) {
-      if (e.code == 'NETWORK') throw const LeaveException('You need to be online to leave');
+      if (e.code == 'NETWORK') throw LeaveException(sync.l10n.leaveOffline);
       rethrow;
     }
     await sync.dropGroup(groupId);

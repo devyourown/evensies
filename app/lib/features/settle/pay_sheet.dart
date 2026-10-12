@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../domain/payment_methods.dart';
@@ -22,10 +23,10 @@ Future<void> payWith(BuildContext context, PaymentMethod m,
   final uri = payLink(m, amountMinor: amount, currency: currency, note: note);
   if (uri == null) return _bankSheet(context, m, toName: toName, amount: amount, currency: currency, note: note);
   if (!prefillsAmount(m.type)) {
-    await _copy(context, plainAmount(amount, currency), 'Amount copied: ${formatMoney(amount, currency)}');
+    await _copy(context, inputAmount(amount, currency), context.l.amountCopied(formatMoney(amount, currency)));
   }
   final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
-  if (!ok && context.mounted) showInfo(context, 'Could not open $uri');
+  if (!ok && context.mounted) showInfo(context, context.l.couldNotOpen('$uri'));
 }
 
 /// One chip per way to pay; nothing while loading, a muted line when offline or there is none.
@@ -41,14 +42,15 @@ class PayChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
     final ms = methods;
-    if (failed) return Text('Offline: ways to pay are not available', style: muted);
-    if (ms == null) return Text('Loading ways to pay…', style: muted);
-    if (ms.isEmpty) return Text('Ask $toName to add a way to get paid', style: muted);
+    final l = context.l;
+    if (failed) return Text(l.payOffline, style: muted);
+    if (ms == null) return Text(l.payLoading, style: muted);
+    if (ms.isEmpty) return Text(l.payAskToAdd(toName), style: muted);
     return Wrap(spacing: 8, runSpacing: 4, children: [
       for (final m in ms)
         ActionChip(
           avatar: Icon(methodIcon(m.type), size: 18),
-          label: Text(m.type == PaymentTypes.krBank ? m.bank ?? methodLabel(m.type) : methodLabel(m.type)),
+          label: Text(m.type == PaymentTypes.krBank ? m.bank ?? methodLabel(m.type, l) : methodLabel(m.type, l)),
           onPressed: () => onPay(m),
         ),
     ]);
@@ -68,6 +70,7 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
     builder: (ctx) {
       final cs = Theme.of(ctx).colorScheme;
       final text = Theme.of(ctx).textTheme;
+      final l = ctx.l;
       Widget line(String label, String value) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -79,7 +82,7 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Pay $toName $formatted', style: text.titleLarge),
+            Text(l.payTitle(toName, formatted), style: text.titleLarge),
             const SizedBox(height: 12),
             if (qr) ...[
               Center(
@@ -97,34 +100,34 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
                 ),
               ),
               const SizedBox(height: 8),
-              Text('Scan with your banking app (SEPA QR)',
+              Text(l.payScanQr,
                   textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 12),
             ] else if (iban) ...[
-              Text('QR code is only available for EUR transfers.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              Text(l.payQrEurOnly, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 8),
             ],
-            if (!iban) line('Bank', m.bank ?? ''),
-            line(iban ? 'IBAN' : 'Account', account),
-            if (iban && m.bic != null) line('BIC', m.bic!),
-            line('Holder', m.holder ?? ''),
-            line('Amount', formatted),
+            if (!iban) line(l.bankLabel, m.bank ?? ''),
+            line(iban ? l.ibanLabel : l.accountLabel, account),
+            if (iban && m.bic != null) line(l.bicLabel, m.bic!),
+            line(l.holderLabel, m.holder ?? ''),
+            line(l.amountLabel, formatted),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.copy, size: 18),
-                  label: Text(iban ? 'Copy IBAN' : 'Copy account'),
+                  label: Text(iban ? l.copyIban : l.copyAccount),
                   onPressed: () =>
-                      _copy(ctx, iban ? m.value : '${m.bank} ${m.value}', iban ? 'IBAN copied' : 'Account copied'),
+                      _copy(ctx, iban ? m.value : '${m.bank} ${m.value}', iban ? l.ibanCopied : l.accountCopied),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('Copy amount'),
-                  onPressed: () => _copy(ctx, plainAmount(amount, currency), 'Amount copied: $formatted'),
+                  label: Text(l.copyAmount),
+                  onPressed: () => _copy(ctx, inputAmount(amount, currency), l.amountCopied(formatted)),
                 ),
               ),
             ]),

@@ -1,12 +1,13 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../data/db/database.dart';
 import '../../domain/itemized.dart';
 import '../../domain/split.dart';
-import '../expense_form/split_editor.dart' show itemizedErrorText, minorToText, trimNum;
+import '../expense_form/split_editor.dart' show itemizedErrorText;
 
 /// Server limits on a bill (docs/API.md SplitSpec itemized).
 const maxItemLines = 200, maxItemName = 100;
@@ -21,7 +22,7 @@ Future<ItemizedBill?> showItemize(
   required List<MemberRow> members,
   required String currency,
   ItemizedBill? bill,
-  File? image,
+  Future<Uint8List?>? image,
   int? printedTotal,
   bool printedTip = true,
   String? me,
@@ -44,7 +45,9 @@ class ItemizeScreen extends StatefulWidget {
   final List<MemberRow> members;
   final String currency;
   final ItemizedBill? bill;
-  final File? image;
+
+  /// Read while the screen opens (a phone reads the file; the screen doesn't wait for it).
+  final Future<Uint8List?>? image;
   final int? printedTotal;
   final bool printedTip;
   final String? me;
@@ -92,12 +95,12 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
     for (final l in b?.lines ?? const <ItemLine>[]) {
       _lines.add(_Line()
         ..name.text = l.name
-        ..amount.text = minorToText(l.amount, _cur)
+        ..amount.text = inputAmount(l.amount, _cur)
         ..people.addAll(l.memberIds));
     }
     if (_lines.isEmpty) _lines.add(_Line());
     for (final (e, v) in [(_tax, b?.tax ?? 0), (_tip, b?.tip ?? 0), (_discount, b?.discount ?? 0)]) {
-      if (v != 0) e.text.text = minorToText(v, _cur);
+      if (v != 0) e.text.text = inputAmount(v, _cur);
     }
   }
 
@@ -119,7 +122,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
     final t = e.text.text.trim();
     if (t.isEmpty) return 0;
     if (!e.percent) return parseMoney(t, _cur);
-    final pct = double.tryParse(t.replaceAll(',', '.'));
+    final pct = parseDecimal(t);
     return pct == null || !pct.isFinite || pct < 0 ? null : percentOf(subtotal, pct);
   }
 
@@ -130,7 +133,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
     setState(() {
       e.percent = percent;
       if (v == null || v == 0) return;
-      e.text.text = percent ? (subtotal == 0 ? '' : trimNum(v * 100 / subtotal)) : minorToText(v, _cur);
+      e.text.text = percent ? (subtotal == 0 ? '' : numberText(v * 100 / subtotal)) : inputAmount(v, _cur);
     });
   }
 
@@ -146,6 +149,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final names = {for (final m in widget.members) m.id: m.name};
 
     // What the screen holds as a bill, or why not yet.
@@ -154,21 +158,21 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
     final tax = _extra(_tax, subtotal), tip = _extra(_tip, subtotal), discount = _extra(_discount, subtotal);
     String? problem;
     if (_lines.isEmpty) {
-      problem = 'Add an item';
+      problem = l.addAnItem;
     } else if (_lines.length > maxItemLines) {
-      problem = 'At most $maxItemLines items';
-    } else if (_lines.any((l) => l.name.text.trim().isEmpty)) {
-      problem = 'Give every item a name';
-    } else if (_lines.any((l) => l.name.text.trim().length > maxItemName)) {
-      problem = 'An item name is too long';
+      problem = l.atMostItems(maxItemLines);
+    } else if (_lines.any((x) => x.name.text.trim().isEmpty)) {
+      problem = l.giveItemName;
+    } else if (_lines.any((x) => x.name.text.trim().length > maxItemName)) {
+      problem = l.itemNameTooLong;
     } else if (amounts.any((v) => v == null || v < 0) || tax == null || tip == null || discount == null) {
-      problem = 'Check the amounts';
+      problem = l.checkAmounts;
     }
-    final unassigned = _lines.where((l) => l.people.isEmpty).length;
+    final unassigned = _lines.where((x) => x.people.isEmpty).length;
     final bill = ItemizedBill(
       lines: [
-        for (final (i, l) in _lines.indexed)
-          ItemLine(name: l.name.text.trim(), amount: amounts[i] ?? 0, memberIds: [...l.people]),
+        for (final (i, x) in _lines.indexed)
+          ItemLine(name: x.name.text.trim(), amount: amounts[i] ?? 0, memberIds: [...x.people]),
       ],
       tax: tax ?? 0,
       tip: tip ?? 0,
@@ -179,7 +183,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
       try {
         shares = computeItemizedSplit(bill);
       } on SplitException catch (e) {
-        problem = itemizedErrorText(e.code);
+        problem = itemizedErrorText(l, e.code);
       }
     }
     final total = itemizedTotal(bill);
@@ -194,14 +198,14 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Items'),
+        title: Text(l.items),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(
               key: const Key('itemize-done'),
               onPressed: problem == null ? () => Navigator.pop(context, bill) : null,
-              child: const Text('Done'),
+              child: Text(l.done),
             ),
           ),
         ],
@@ -217,27 +221,32 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
                 key: const Key('itemize-photo'),
                 initiallyExpanded: true,
                 leading: const Icon(Icons.receipt_long_outlined),
-                title: const Text('Receipt'),
+                title: Text(l.receiptTitle),
                 shape: const Border(),
                 children: [
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 320),
-                    child: InteractiveViewer(maxScale: 5, child: Image.file(img, fit: BoxFit.contain)),
+                    child: FutureBuilder(
+                      future: img,
+                      builder: (_, snap) => snap.data == null
+                          ? const SizedBox(height: 120, child: Center(child: Icon(Icons.image_outlined)))
+                          : InteractiveViewer(maxScale: 5, child: Image.memory(snap.data!, fit: BoxFit.contain)),
+                    ),
                   ),
                 ],
               ),
             ),
-          for (final l in _lines)
+          for (final x in _lines)
             _LineCard(
-              key: l.key,
-              line: l,
+              key: x.key,
+              line: x,
               currency: _cur,
               active: _active,
               names: names,
               onChanged: () => setState(() {}),
               onRemove: () => setState(() {
-                _lines.remove(l);
-                l.dispose();
+                _lines.remove(x);
+                x.dispose();
               }),
             ),
           Wrap(spacing: 8, runSpacing: 4, children: [
@@ -245,21 +254,21 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
               key: const Key('itemize-add'),
               onPressed: _lines.length >= maxItemLines ? null : _addLine,
               icon: const Icon(Icons.add),
-              label: const Text('Add item'),
+              label: Text(l.addItem),
             ),
             if (unassigned > 0 && _active.isNotEmpty)
               TextButton.icon(
                 key: const Key('itemize-everyone'),
                 onPressed: _everyone,
                 icon: const Icon(Icons.groups_outlined),
-                label: const Text('Give the rest to everyone'),
+                label: Text(l.giveRestToEveryone),
               ),
           ]),
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 8),
-          row('Subtotal', money(subtotal, key: const Key('itemize-subtotal'))),
-          for (final (label, e, key) in [('Tax', _tax, 'tax'), ('Tip or service', _tip, 'tip'), ('Discount', _discount, 'discount')])
+          row(l.subtotal, money(subtotal, key: const Key('itemize-subtotal'))),
+          for (final (label, e, key) in [(l.tax, _tax, 'tax'), (l.tipService, _tip, 'tip'), (l.discount, _discount, 'discount')])
             _ExtraRow(
               key: Key('itemize-$key'),
               label: label,
@@ -270,7 +279,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
               onChanged: () => setState(() {}),
             ),
           const SizedBox(height: 4),
-          row('Total', money(total, key: const Key('itemize-total'), style: text.titleMedium), style: text.titleMedium),
+          row(l.total, money(total, key: const Key('itemize-total'), style: text.titleMedium), style: text.titleMedium),
           if (printed != null && printed != onReceipt)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -279,7 +288,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Receipt says ${formatMoney(printed, _cur)} · items differ by ${formatMoney((printed - onReceipt).abs(), _cur)}',
+                    l.receiptSays(formatMoney(printed, _cur), formatMoney((printed - onReceipt).abs(), _cur)),
                     key: const Key('itemize-mismatch'),
                     style: text.bodySmall?.copyWith(color: cs.tertiary),
                   ),
@@ -287,15 +296,15 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
               ]),
             ),
           const SizedBox(height: 16),
-          Text('Each person', style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+          Text(l.eachPerson, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 4),
           if (problem != null)
             Row(children: [
               Icon(Icons.error_outline, size: 16, color: cs.error),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(unassigned > 0 && problem == itemizedErrorText('UNASSIGNED_ITEM')
-                    ? '$unassigned item${unassigned == 1 ? '' : 's'} without a person'
+                child: Text(unassigned > 0 && problem == itemizedErrorText(l, 'UNASSIGNED_ITEM')
+                    ? l.itemsWithoutPerson(unassigned)
                     : problem,
                     key: const Key('itemize-problem'), style: text.bodySmall?.copyWith(color: cs.error)),
               ),
@@ -304,7 +313,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
             // Me first as "You", then the others in the group's order (a set: each once).
             for (final id in {?widget.me, for (final m in widget.members) m.id, ...shares!.keys})
               if (shares[id] case final v?)
-                row(id == widget.me ? 'You' : names[id] ?? 'Someone', money(v, key: Key('itemize-person-$id'))),
+                row(id == widget.me ? l.you : names[id] ?? l.someone, money(v, key: Key('itemize-person-$id'))),
         ],
       ),
     );
@@ -335,6 +344,7 @@ class _LineCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final large = MediaQuery.textScalerOf(context).scale(1) > 2;
     final l = line;
+    final t = context.l;
     final empty = l.people.isEmpty;
     final all = active.isNotEmpty && active.every((m) => l.people.contains(m.id));
     // Removed members stay on lines they were on, by name.
@@ -343,7 +353,7 @@ class _LineCard extends StatelessWidget {
       key: const Key('item-name'),
       controller: l.name,
       textCapitalization: TextCapitalization.sentences,
-      decoration: const InputDecoration(hintText: 'Item', isDense: true),
+      decoration: InputDecoration(hintText: t.itemHint, isDense: true),
       onChanged: (_) => onChanged(),
     );
     final amount = TextField(
@@ -351,7 +361,7 @@ class _LineCard extends StatelessWidget {
       controller: l.amount,
       textAlign: TextAlign.end,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(hintText: minorToText(0, currency), suffixText: currency, isDense: true),
+      decoration: InputDecoration(hintText: inputAmount(0, currency), suffixText: currency, isDense: true),
       onChanged: (_) => onChanged(),
     );
     return Dismissible(
@@ -381,7 +391,7 @@ class _LineCard extends StatelessWidget {
             Wrap(spacing: 6, runSpacing: 4, children: [
               FilterChip(
                 key: const Key('item-all'),
-                label: const Text('All'),
+                label: Text(t.categoryAll),
                 selected: all,
                 onSelected: (on) {
                   on ? l.people.addAll(active.map((m) => m.id)) : l.people.removeAll(active.map((m) => m.id));
@@ -400,7 +410,7 @@ class _LineCard extends StatelessWidget {
                 ),
               for (final id in gone)
                 FilterChip(
-                  label: Text('${names[id] ?? 'Someone'} (left)'),
+                  label: Text(t.memberLeft(names[id] ?? t.someone)),
                   selected: true,
                   onSelected: (_) {
                     l.people.remove(id);
@@ -411,7 +421,7 @@ class _LineCard extends StatelessWidget {
             if (empty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('Who had this?', style: text.bodySmall?.copyWith(color: cs.error)),
+                child: Text(t.whoHadThis, style: text.bodySmall?.copyWith(color: cs.error)),
               ),
           ]),
         ),
@@ -462,7 +472,7 @@ class _ExtraRow extends StatelessWidget {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(
           isDense: true,
-          hintText: extra.percent ? '0' : minorToText(0, currency),
+          hintText: extra.percent ? '0' : inputAmount(0, currency),
           suffixText: extra.percent ? '%' : null,
         ),
         onChanged: (_) => onChanged(),

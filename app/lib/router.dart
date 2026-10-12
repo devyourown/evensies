@@ -23,7 +23,22 @@ import 'features/settings/payment_methods_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settle/payment_detail_screen.dart';
 import 'features/settle/settle_screen.dart';
+import 'data/db/database.dart' show SessionRow;
 import 'providers.dart';
+
+/// A `next` that stays in the app: a path (`/join/K7P4QX`), never another origin (`//evil.example`, `https:`).
+String? safeNext(String? next) => next != null && next.startsWith('/') && !next.startsWith('//') ? next : null;
+
+/// Where a location goes before and after sign-in (docs/API.md 로그인 뒤 돌아가기): signed out → `/login?next=<it>`
+/// (a landing page's `/app/#/join/K7P4QX` too), then the name screen if needed (keeping `next`), then `next`.
+String? authRedirect(SessionRow? s, String loc, Uri uri) {
+  Uri withNext(String path, String? next) =>
+      Uri(path: path, queryParameters: next == null || next == '/' ? null : {'next': next});
+  final next = loc == '/login' || loc == '/name' ? safeNext(uri.queryParameters['next']) : uri.toString();
+  if (s == null) return loc == '/login' ? null : withNext('/login', next).toString();
+  if (needsDisplayName(s)) return loc == '/name' ? null : withNext('/name', next).toString();
+  return loc == '/login' ? next ?? '/' : null;
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Re-run redirects on any session change (sign-in, sign-out, name saved).
@@ -39,13 +54,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     refreshListenable: refresh,
     initialLocation: '/',
-    redirect: (_, state) {
-      final s = ref.read(sessionProvider).value;
-      final loc = state.matchedLocation;
-      if (s == null) return loc == '/login' ? null : '/login';
-      if (needsDisplayName(s)) return loc == '/name' ? null : '/name';
-      return loc == '/login' ? '/' : null;
-    },
+    redirect: (_, state) => authRedirect(ref.read(sessionProvider).value, state.matchedLocation, state.uri),
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/name', builder: (_, _) => const NameScreen()),

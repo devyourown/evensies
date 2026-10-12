@@ -15,7 +15,7 @@ import 'fakes.dart';
 void main() {
   late AppDatabase db;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
   setUp(() => db = AppDatabase(NativeDatabase.memory()));
   tearDown(() => db.close());
 

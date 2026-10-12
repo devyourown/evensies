@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../data/db/database.dart';
 import '../../domain/itemized.dart';
 import '../../domain/models.dart';
 import '../../domain/split.dart';
+import '../../l10n/app_localizations_en.dart';
 
 /// Whether a percent or shares [spec] still computes for [ids] (people missing from it get 0): false when e.g. the
 /// percentages of people who left no longer add up to 100.
@@ -20,27 +22,14 @@ bool splitFits(SplitSpec spec, List<String> ids) {
 }
 
 /// Why an itemized bill can't be saved (computeItemizedSplit's codes).
-String itemizedErrorText(String code) => switch (code) {
-      'UNASSIGNED_ITEM' => 'Give every item a person',
-      'ZERO_SUBTOTAL' => 'Add the item prices before tax or tip',
-      'NEGATIVE_TOTAL' => 'The discount is more than the bill',
-      'NEGATIVE_AMOUNT' => 'An amount is below zero',
-      _ => "The items don't add up",
+String itemizedErrorText(AppLocalizations l, String code) => switch (code) {
+      'UNASSIGNED_ITEM' => l.itemsGiveEveryone,
+      'ZERO_SUBTOTAL' => l.itemsAddPrices,
+      'NEGATIVE_TOTAL' => l.itemsDiscountTooBig,
+      'NEGATIVE_AMOUNT' => l.errorNegativeAmount,
+      _ => l.itemsDontAddUp,
     };
 
-/// "1.5", "-10.00" → text; minor units go through the currency's decimals.
-String minorToText(int minor, String currency) {
-  final d = Money.digits(currency);
-  final s = minor.abs().toString().padLeft(d + 1, '0');
-  final r = d == 0 ? s : '${s.substring(0, s.length - d)}.${s.substring(s.length - d)}';
-  return minor < 0 ? '-$r' : r;
-}
-
-/// At most two decimals, no trailing zeros: 33.3, 12.5, 2.
-String trimNum(num v) => v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
-
-/// A typed number as it was typed: 2, 1.5, 33.333.
-String _numText(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
 /// What the rows add up to: [shares] (memberId → minor units) when an amount was given and the split works,
 /// a [status] line for under the rows, and whether it can be saved.
@@ -110,7 +99,7 @@ class SplitEditorController extends ChangeNotifier {
       c.value.text = '';
     }
     for (final e in (spec.input ?? const <String, double>{}).entries) {
-      field(mode, e.key).text = mode == SplitMode.adjustment ? minorToText(e.value.round(), currency) : _numText(e.value);
+      field(mode, e.key).text = mode == SplitMode.adjustment ? inputAmount(e.value.round(), currency) : numberText(e.value, decimals: 6);
     }
     notifyListeners();
   }
@@ -119,7 +108,7 @@ class SplitEditorController extends ChangeNotifier {
     _mode = SplitMode.exact;
     _items = false;
     for (final s in shares) {
-      field(SplitMode.exact, s.memberId).text = minorToText(s.amount, currency);
+      field(SplitMode.exact, s.memberId).text = inputAmount(s.amount, currency);
     }
     notifyListeners();
   }
@@ -136,7 +125,7 @@ class SplitEditorController extends ChangeNotifier {
       }
       final num? v = switch (_mode) {
         SplitMode.exact || SplitMode.adjustment => parseMoney(t, currency),
-        _ => double.tryParse(t),
+        _ => parseDecimal(t),
       };
       if (v == null || !v.isFinite) return null;
       if ((_mode == SplitMode.percent || _mode == SplitMode.shares) && v < 0) return null;
@@ -157,76 +146,80 @@ class SplitEditorController extends ChangeNotifier {
     },
   };
 
-  /// [ids] = the members on screen; [amount] null = no total yet (the default-split sheet).
-  SplitOutcome evaluate({required int? amount, required List<String> ids, required String currency}) {
+  /// [ids] = the members on screen; [amount] null = no total yet (the default-split sheet). The status is in [l]'s
+  /// language (English when not given: callers that only read `ok`).
+  SplitOutcome evaluate(
+      {required int? amount, required List<String> ids, required String currency, AppLocalizations? l}) {
+    final t = l ?? AppLocalizationsEn();
     final has = amount != null && amount > 0;
     Map<String, int> run(List<String> members, Map<String, double>? input) =>
         computeSplit(amount: amount!, mode: _mode, members: members, input: input);
     String error(SplitException e) => switch (e.code) {
-      'NEGATIVE_SHARE' => "Adjustments don't fit the total",
-      'NO_MEMBERS' => 'Give someone a share',
-      'INVALID_INPUT' => 'Check the numbers',
-      _ => "The split doesn't add up",
+      'NEGATIVE_SHARE' => t.adjustmentsDontFit,
+      'NO_MEMBERS' => t.giveSomeoneShare,
+      'INVALID_INPUT' => t.checkNumbers,
+      _ => t.splitDoesntAddUp,
     };
     if (_items) {
       final b = _bill;
-      if (b == null) return (shares: null, status: 'Add the items', ok: false);
+      if (b == null) return (shares: null, status: t.addTheItems, ok: false);
       try {
         return (shares: computeItemizedSplit(b), status: '', ok: true); // the summary names everyone's part
       } on SplitException catch (e) {
-        return (shares: null, status: itemizedErrorText(e.code), ok: false);
+        return (shares: null, status: itemizedErrorText(t, e.code), ok: false);
       }
     }
     try {
       switch (_mode) {
         case SplitMode.equal:
           final ticked = ids.where((id) => !unticked.contains(id)).toList();
-          if (ticked.isEmpty) return (shares: null, status: 'Pick at least one person', ok: false);
-          final people = '${ticked.length} ${ticked.length == 1 ? 'person' : 'people'}';
-          if (!has) return (shares: null, status: 'Split equally between $people', ok: true);
+          if (ticked.isEmpty) return (shares: null, status: t.pickOnePerson, ok: false);
+          if (!has) return (shares: null, status: t.splitEquallyBetween(ticked.length), ok: true);
           return (
             shares: run(ticked, null),
             status: ticked.length == 1
-                ? 'All of it for 1 person'
-                : 'Split equally between $people · ${formatMoney(amount ~/ ticked.length, currency)} each',
+                ? t.allForOnePerson
+                : t.splitEquallyEach(ticked.length, formatMoney(amount ~/ ticked.length, currency)),
             ok: true,
           );
         case SplitMode.exact:
           final input = this.input(ids, currency);
-          if (input == null) return (shares: null, status: 'Check the amounts', ok: false);
-          if (!has) return (shares: null, status: 'Enter the total first', ok: false);
+          if (input == null) return (shares: null, status: t.checkAmounts, ok: false);
+          if (!has) return (shares: null, status: t.enterTotalFirst, ok: false);
           final rem = amount - input.values.fold(0.0, (a, b) => a + b).round();
           if (rem != 0) {
             final r = formatMoney(rem.abs(), currency);
-            return (shares: null, status: rem > 0 ? 'remaining: $r' : 'over by: $r', ok: false);
+            return (shares: null, status: rem > 0 ? t.remaining(r) : t.overBy(r), ok: false);
           }
-          return (shares: run(ids, input), status: 'Adds up', ok: true);
+          return (shares: run(ids, input), status: t.addsUp, ok: true);
         case SplitMode.percent:
           final input = this.input(ids, currency);
-          if (input == null) return (shares: null, status: 'Check the numbers', ok: false);
+          if (input == null) return (shares: null, status: t.checkNumbers, ok: false);
           final rem = 100 - input.values.fold(0.0, (a, b) => a + b);
           if (rem.abs() >= 0.001) {
             return (
               shares: null,
-              status: rem > 0 ? 'remaining: ${trimNum(rem)}%' : 'over by: ${trimNum(-rem)}%',
+              status: rem > 0
+                  ? t.remaining(t.percentValue(numberText(rem)))
+                  : t.overBy(t.percentValue(numberText(-rem))),
               ok: false,
             );
           }
-          if (!has) return (shares: null, status: 'Adds up', ok: true);
-          return (shares: run(ids, input), status: 'Adds up', ok: true);
+          if (!has) return (shares: null, status: t.addsUp, ok: true);
+          return (shares: run(ids, input), status: t.addsUp, ok: true);
         case SplitMode.shares:
           final input = this.input(ids, currency);
-          if (input == null) return (shares: null, status: 'Check the numbers', ok: false);
+          if (input == null) return (shares: null, status: t.checkNumbers, ok: false);
           final total = input.values.fold(0.0, (a, b) => a + b);
-          if (total <= 0) return (shares: null, status: 'Give someone a share', ok: false);
-          final status = '${trimNum(total)} ${total == 1 ? 'share' : 'shares'} in total';
+          if (total <= 0) return (shares: null, status: t.giveSomeoneShare, ok: false);
+          final status = total == 1 ? t.oneShareInTotal : t.sharesInTotal(numberText(total));
           if (!has) return (shares: null, status: status, ok: true);
           return (shares: run(ids, input), status: status, ok: true);
         case SplitMode.adjustment:
           final input = this.input(ids, currency);
-          if (input == null) return (shares: null, status: 'Check the amounts', ok: false);
-          if (!has) return (shares: null, status: 'Enter the total first', ok: false);
-          return (shares: run(ids, input), status: 'The rest is split equally', ok: true);
+          if (input == null) return (shares: null, status: t.checkAmounts, ok: false);
+          if (!has) return (shares: null, status: t.enterTotalFirst, ok: false);
+          return (shares: run(ids, input), status: t.restSplitEqually, ok: true);
       }
     } on SplitException catch (e) {
       return (shares: null, status: error(e), ok: false);
@@ -264,20 +257,20 @@ class SplitEditor extends StatelessWidget {
     this.onItems,
   });
 
-  static String? _tooltip(SplitMode m) => switch (m) {
-        SplitMode.percent => 'By percent',
-        SplitMode.shares => 'By shares',
-        SplitMode.adjustment => 'Adjust: extra or less for someone, the rest equally',
+  static String? _tooltip(AppLocalizations l, SplitMode m) => switch (m) {
+        SplitMode.percent => l.byPercent,
+        SplitMode.shares => l.byShares,
+        SplitMode.adjustment => l.byAdjustment,
         _ => null,
       };
 
-  static const _labels = {
-    SplitMode.equal: 'Equal',
-    SplitMode.exact: 'Exact',
-    SplitMode.percent: '%',
-    SplitMode.shares: 'Shares',
-    SplitMode.adjustment: '±',
-  };
+  static String _label(AppLocalizations l, SplitMode m) => switch (m) {
+        SplitMode.equal => l.modeEqual,
+        SplitMode.exact => l.modeExact,
+        SplitMode.percent => '%',
+        SplitMode.shares => l.modeShares,
+        SplitMode.adjustment => '±',
+      };
 
   @override
   Widget build(BuildContext context) =>
@@ -287,8 +280,9 @@ class SplitEditor extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final c = controller;
+    final l = context.l;
     final ids = [for (final m in members) m.id];
-    final out = c.evaluate(amount: amount, ids: ids, currency: currency);
+    final out = c.evaluate(amount: amount, ids: ids, currency: currency, l: l);
     final shares = out.shares;
     final mode = c.mode;
 
@@ -319,8 +313,8 @@ class SplitEditor extends StatelessWidget {
       final (String? prefix, String? suffix, String hint) = switch (mode) {
         SplitMode.percent => (null, '%', '0'),
         SplitMode.shares => (null, null, '0'),
-        SplitMode.adjustment => ('±', currency, minorToText(0, currency)),
-        _ => (null, currency, minorToText(0, currency)), // 0, 0.00 or 0.000: the currency's decimals
+        SplitMode.adjustment => ('±', currency, inputAmount(0, currency)),
+        _ => (null, currency, inputAmount(0, currency)), // 0, 0.00 or 0.000: the currency's decimals
       };
       final field = TextField(
         key: Key('share-${m.id}'),
@@ -360,15 +354,15 @@ class SplitEditor extends StatelessWidget {
         Wrap(spacing: 8, runSpacing: 4, children: [
           for (final m in modes)
             ChoiceChip(
-              label: Text(_labels[m]!, key: Key('mode-${m.name}')),
-              tooltip: _tooltip(m),
+              label: Text(_label(l, m), key: Key('mode-${m.name}')),
+              tooltip: _tooltip(l, m),
               selected: !items && m == mode,
               onSelected: (_) => c.mode = m,
             ),
           if (onItems != null)
             ChoiceChip(
-              label: const Text('Items', key: Key('mode-itemized')),
-              tooltip: 'By item, from a receipt',
+              label: Text(l.items, key: const Key('mode-itemized')),
+              tooltip: l.byItem,
               selected: items,
               // Back to the items already made, else the Itemize screen.
               onSelected: (_) => c.bill == null ? onItems!() : c.setItems(c.bill!),
@@ -381,7 +375,7 @@ class SplitEditor extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'Add or take off an amount for someone; the rest is split equally.',
+                l.adjustmentHelp,
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ),
@@ -390,7 +384,7 @@ class SplitEditor extends StatelessWidget {
         if (members.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('No members', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            child: Text(l.noMembers, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           )
         else if (out.status.isNotEmpty)
           Padding(
@@ -437,16 +431,17 @@ class _ItemsSummary extends StatelessWidget {
     final s = shares ?? const <String, int>{};
     // In the order people are listed, anyone else (not shown here) after them.
     final ids = [for (final m in members) if (s.containsKey(m.id)) m.id, for (final id in s.keys) if (!names.containsKey(id)) id];
-    final parts = [for (final id in ids) '${names[id] ?? 'Someone'} ${formatMoney(s[id]!, currency)}'];
+    final l = context.l;
+    final parts = [for (final id in ids) '${names[id] ?? l.someone} ${formatMoney(s[id]!, currency)}'];
     return Card(
       key: const Key('items-summary'),
       margin: const EdgeInsets.only(top: 12),
       color: cs.surfaceContainerHigh,
       child: ListTile(
         leading: Icon(Icons.receipt_long_outlined, color: cs.primary),
-        title: Text('$n item${n == 1 ? '' : 's'}', style: text.titleSmall),
+        title: Text(l.itemCount(n), style: text.titleSmall),
         subtitle: parts.isEmpty ? null : Text(parts.join(' · ')),
-        trailing: TextButton(key: const Key('items-edit'), onPressed: onEdit, child: const Text('Edit')),
+        trailing: TextButton(key: const Key('items-edit'), onPressed: onEdit, child: Text(l.edit)),
         onTap: onEdit,
       ),
     );

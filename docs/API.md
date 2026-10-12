@@ -16,17 +16,24 @@
 | POST | `/auth/dev` | `{"name": "Anna"}` — **`evensies.auth.dev-login=true`일 때만** 존재. 같은 name이면 같은 사용자 | 위와 같음 |
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh 회전) |
 | GET | `/me` | | `UserDto`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
-| PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string}` — 하나 이상 필요. `displayName`은 공백 제거 후 1~30자(이모지 허용), `homeCurrency`는 `shared/currencies.json`의 코드(대문자 그대로) | `UserDto`(바꾼 뒤). 아래 규칙 |
+| PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string, "language"?: string\|null}` — 하나 이상 필요. `displayName`은 공백 제거 후 1~30자(이모지 허용), `homeCurrency`는 `shared/currencies.json`의 코드(대문자 그대로), `language`(9단계)는 `^[a-z]{2,3}$` 또는 `null`(지움) | `UserDto`(바꾼 뒤). 아래 규칙 |
+| GET | `/info` | 인증 불필요(9단계) | `ServerInfo`(아래). 미리 빌드한 웹 앱 하나가 어느 서버에서든 로그인 버튼을 고르게 한다 |
 | DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환). 6단계: `friend_code`를 `NULL`로 하고 그 사용자의 `friendships`·`reminders`(보낸 것·받은 것)·`activity_seen` 행을 지우며, 커밋 뒤 프로필 사진 파일을 지운다(친구에게는 기록이 그대로인 자리표시 친구로 보인다) |
 | POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다) |
 | DELETE | `/devices/{deviceId}` | | 204. 호출자 본인의 그 기기 행만 지운다(없거나 다른 사용자의 기기면 아무것도 안 하고 204). 앱은 로그아웃할 때 세션을 지우기 **전에** 보낸다. 오프라인이면 실패해도 로그아웃은 진행한다. 앱은 세션이 사라지면(로그아웃, 계정 삭제, 토큰 갱신 실패) 그 폰의 FCM 토큰도 지운다(FCM `deleteToken`, 오프라인이면 로그아웃 상태로 다음 실행·복귀 때 다시 시도). 그러면 서버의 다음 발송이 `UNREGISTERED`를 받아 남은 행을 지운다 |
 
 ```
-UserDto {"id","displayName","homeCurrency": string|null}
+UserDto {"id","displayName","homeCurrency": string|null,"language": string|null}
+ServerInfo {"appleServicesId": string|null, "googleWebClientId": string|null, "devLogin": bool}
 ```
 - `homeCurrency`(4단계): 사용자의 표시용 통화("≈ $13.46"). 저장한 적 없으면 `null`이고 앱은 기기 지역의 통화(`Money.currencyForLocale`)를 쓴다. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽는다.
 - 새로 고침(5단계): 앱은 저장된 세션으로 시작할 때와 앞으로 돌아올 때마다(resume, `syncAll`과 함께) `GET /me`를 불러 받은 `displayName`·`homeCurrency`를 세션에 덮어쓴다. 다른 폰에서 바꾼 이름·홈 통화가 다시 로그인하지 않아도 보인다. 오프라인·5xx·429면 저장된 값을 그대로 둔다. 401은 지금처럼(토큰 갱신이 실패하면 로그아웃). 로그인 직후에는 로그인 응답의 `user`를 쓴다. 받은 `displayName`이 빈 문자열이면 이름 입력 화면(위).
-- `PATCH /me` 검사(모두 검사한 뒤 한꺼번에 저장): `null`인 키는 없는 것으로 본다. 두 키가 모두 없으면(`{}` 포함) 400 `VALIDATION`. `displayName`이 범위 밖이면 400 `VALIDATION`. `homeCurrency`가 문자열이 아니면 400 `VALIDATION`, 목록에 없는 코드면(`"usd"` 포함) 400 `UNKNOWN_CURRENCY`. 홈 통화는 지울 수 없다(바꾸기만). 이전 본문 `{"displayName"}`은 그대로 동작한다. 앱은 온라인일 때만 보낸다(오프라인 큐 없음). 삭제된 계정은 401(지금과 같음).
+- `language`(9단계, "언어·웹"): 서버가 이 사용자에게 만드는 글(푸시·리마인더, 10단계 이메일)의 언어. `null` = 정한 적 없음 = 영어. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽고, 화면 언어는 이 값이 아니라 기기 언어(또는 Settings → Language)로 정한다(아래 "앱의 언어").
+- `PATCH /me` 검사(모두 검사한 뒤 한꺼번에 저장): `displayName`·`homeCurrency`는 `null`이면 없는 것으로 본다. `language`만 다르다: 키가 없으면 그대로, `null`이면 지운다(영어), 문자열이면 `^[a-z]{2,3}$`(대문자·지역 `de_AT`·`de-AT`·한 글자·`deutsch`·`<b>`는 400 `VALIDATION`), 그 밖의 JSON 타입은 400 `VALIDATION`. 맞는 형식이면 `strings.json`에 없는 언어(`xx`)도 저장하고 영어로 만든다. 세 키가 모두 없으면(`{}`, `{"displayName": null}` 포함, `{"language": null}`은 키가 있으므로 지우기) 400 `VALIDATION`. `displayName`이 범위 밖이면 400 `VALIDATION`. `homeCurrency`가 문자열이 아니면 400 `VALIDATION`, 목록에 없는 코드면(`"usd"` 포함) 400 `UNKNOWN_CURRENCY`. 홈 통화는 지울 수 없다(바꾸기만). 이전 본문 `{"displayName"}`은 그대로 동작한다. 앱은 온라인일 때만 보낸다(오프라인 큐 없음). 삭제된 계정은 401(지금과 같음).
+
+- `GET /info`(9단계): `appleServicesId` = `EVENSIES_APPLE_SERVICES_ID`, `googleWebClientId` = `EVENSIES_GOOGLE_WEB_CLIENT_ID`(빈 값이면 `null`), `devLogin` = `evensies.auth.dev-login`. 속도 제한 없음. 앱은 웹에서만 부른다(폰 앱은 빌드에 든 값). 10단계가 `emailLogin`·`appleLogin`·`googleLogin`·`supportEmail`을 더한다(앱은 모르는 키를 무시한다).
+- 받는 `aud`(9단계): `/auth/apple`은 {`EVENSIES_APPLE_CLIENT_ID`(iOS 번들 ID), `EVENSIES_APPLE_SERVICES_ID`(웹 Services ID)} 가운데 빈 값이 아닌 것, `/auth/google`은 `EVENSIES_GOOGLE_CLIENT_IDS` ∪ {`EVENSIES_GOOGLE_WEB_CLIENT_ID`}(빈 값 제외). 둘 다 비면 지금처럼 400 `AUTH_NOT_CONFIGURED`, 그 밖의 `aud`는 401. Services ID는 Apple에서 기본 App ID 아래로 묶으므로 웹과 iOS의 `sub`가 같다(같은 사용자). 폰의 `google_sign_in`은 이미 웹 클라이언트 id를 `serverClientId`로 써서 그 `aud`의 토큰을 받으므로 `EVENSIES_GOOGLE_WEB_CLIENT_ID`는 보통 `EVENSIES_GOOGLE_CLIENT_IDS`에 이미 있는 값이다(합집합이라 겹쳐도 된다). Google의 `sub`는 계정마다 하나라 웹·폰이 같다.
+- 토큰 갱신(앱, 9단계에 정함): 동시에 난 401들은 갱신 `Future` 하나를 함께 기다린다(지금과 같음). 갱신이 401로 실패했는데 저장된 refresh 토큰이 그 사이 바뀌었으면(다른 탭이나 다른 요청이 먼저 갱신) 세션을 지우지 않고 저장된 access 토큰으로 그 요청을 한 번 다시 보낸다. 저장된 토큰이 그대로면 지금처럼 `clearSession()`. 웹의 두 탭은 drift DB 하나를 함께 쓰므로 이 규칙으로 서로를 로그아웃시키지 않는다.
 
 access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 
@@ -88,6 +95,8 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 | `ATTACHMENT_NOT_UPLOADED` | the photo didn't upload (7단계) |
 | `FORBIDDEN` | you're not allowed to make that change |
 | 그 밖(`VALIDATION` 등) | the server refused it |
+
+9단계: `Couldn't save {무엇}: {이유}`와 위의 {무엇}·{이유}는 ARB의 영어 원문이고 화면 언어로 보인다. 조각을 잇지 않고 {무엇}마다 문장 하나(`rejectedNewExpense(description)` 등), {이유}는 코드별 ARB, 모르는 코드는 `errorGeneric(code)`. 서버의 `message`는 보이지 않는다.
 
 ### pull
 `GET /groups/{id}/events?after=<seq>&limit=500`
@@ -313,7 +322,7 @@ FxTable {"date": "2026-10-10", "base": "EUR", "rates": {"EUR": 1.0, "USD": 1.121
 - Splitwise 분류 그대로: 부모 7개(`parents[]`), 하위 43개(`categories[]`). 사용자 정의 카테고리는 없다.
 - 복사본 `app/assets/categories.json`(앱이 시작할 때 `Money.loadFromAssets()` 옆에서 읽는다)과 `server/src/main/resources/categories.json`은 바이트 단위로 같아야 한다(양쪽 테스트, `currencies.json`과 같은 방식).
 - `key`: `expense.category`에 저장하는 값. `categories[]`의 key만 지출 카테고리다(부모 key `food`는 아니다). 이름을 바꾸거나 지우지 않는다.
-- `label`: 영어(9단계가 key로 번역). `icon`: Flutter Material 아이콘 이름(`Icons.<icon>`). 없는 카테고리(`*.other`, `uncategorized.general`)는 부모의 것. `keywords`: 추측용, 사람이 쓰는 대로 적고 읽을 때 fold한다.
+- `label`: 영어. 9단계: 화면과 활동 문장의 이름은 `shared/strings.json`의 `categories[key]`(부모 7개 + 하위 43개, 언어별. `en` 값은 이 `label`과 같아야 한다 — 양쪽 테스트)이고 ARB에는 두지 않는다(서버 푸시의 `category X → Y`도 같은 이름을 쓰므로). 부모 제목 밖에서 `*.other`를 보일 때(`labelOf`, 변경 표기, 인사이트)는 `words.categoryOther`(`{parent} - Other`, `{parent}` = 그 언어의 부모 이름). `resolveCategory`·`keyForLabel`·`guessCategory`의 label 비교, 내보내기 CSV, Splitwise 가져오기는 계속 이 영어 `label`이다(저장된 legacy 글은 영어로 적혔고, CSV를 다시 가져올 수 있어야 한다). 검색(5단계)은 화면 언어의 이름과 그 부모 이름으로 찾는다(`shared/search-cases.json`은 `en`). `icon`: Flutter Material 아이콘 이름(`Icons.<icon>`). 없는 카테고리(`*.other`, `uncategorized.general`)는 부모의 것. `keywords`: 추측용, 사람이 쓰는 대로 적고 읽을 때 fold한다.
 - 파일 순서 = 선택기 순서 = 추측 동점 순서.
 
 ### 값의 뜻
@@ -406,7 +415,7 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 | GET | `/me/friend-code` | | `FriendCode`. 처음 부를 때 만든다 |
 | POST | `/me/friend-code/rotate` | | `FriendCode`(새 코드). 이전 코드는 그때부터 404 |
 | GET | `/friend-invites/{code}` | 인증 불필요, 코드 정규화 | `{"displayName": "Anna"}`. 없는 코드 404 `NOT_FOUND`, IP 제한 429 `RATE_LIMITED` |
-| GET | `/f/{code}` | 인증 불필요, 코드 정규화 | HTML 랜딩 "{displayName} wants to split expenses with you"와 **Open in app** → `evensies://f/{code}`(`/j/`와 같은 템플릿 함수, 이름은 HTML escape). 없는 코드 404, 429 |
+| GET | `/f/{code}` | 인증 불필요, 코드 정규화 | HTML 랜딩 "{displayName} wants to split expenses with you"와 **Open in app** → `evensies://f/{code}`(`/j/`와 같은 템플릿 함수, 이름은 HTML escape). 9단계: 글은 `Accept-Language`의 언어, **Continue in the browser** → `/app/#/friends/add?code={CODE}`("언어·웹"의 "랜딩 페이지"). 없는 코드 404, 429 |
 | POST | `/friends` | `{"id", "defaultCurrency"}` + `"code"`·`"userId"`·`"name"` 가운데 정확히 하나 | `GroupDto`(`kind: "friend"`, `myMemberId` = 호출자의 멤버). 아래 |
 | POST | `/friends/{userId}/remind` | | 아래 "리마인더" |
 
@@ -473,7 +482,7 @@ Overview {
   - **Add expense**(7단계에 정함): 친구 그룹이 있으면 언제나 보인다. 보통 그룹의 자리표시(`m:` 키)에는 없다(그 그룹에서 더한다). 친구 그룹이 없는 연결 사용자는 **지금 함께 있는 그룹**(로컬의 `kind: "group"` 그룹 가운데 나에게 연결된 removed 아닌 멤버와 그 사람에게 연결된 removed 아닌 멤버가 둘 다 있는 그룹 — `POST /friends {userId}`의 서버 조건과 같다)이 있을 때만 보인다. 없으면 버튼 대신 `You no longer share a group with {name}. Send them your friend link to add expenses.` 한 줄과 **Share friend link**(`GET /me/friend-code`의 링크를 Add friend 화면과 같은 글 `Add me on Evensies to split expenses: {link}\nOr enter my code {code}`로 공유 시트에. 오프라인이면 `Sharing your friend link needs a connection.`)를 보인다. 로컬 상태가 늦어 `POST /friends`가 403 `FORBIDDEN`이면 서버 오류 글 대신 같은 한 줄과 버튼을 보인다. 홈의 Add expense(*with whom?* 고르기)에서 그런 사람을 누르면 같은 글과 **Share friend link**·Cancel 대화 상자.
   - 행: 통화가 하나면 `owes you €12.00` 또는 `you owe $5.00`. 여럿이면 가장 큰 것 뒤에 `*`. "가장 큰 것" = 최신 로컬 환율 표(4단계 `FxDays`)로 EUR 주 단위로 바꾼 절댓값(`|amount| / 10^digits / perEur[c]`, 정렬에만 쓰고 보이지 않는다)이 가장 큰 통화. 환율이 없는 통화는 뒤로, 같으면 통화 코드순.
   - 칩 All · Owes me(어느 통화든 > 0) · I owe(어느 통화든 < 0)는 두 탭(사람, 그룹의 내 잔액)에 같다. 모든 통화에서 0인 사람·그룹은 **Settled up (n)** 아래(기본 닫힘).
-  - 전체 카드(두 탭 위): `You are owed €42.10 · $15.00`(`owedToMe`, 통화 코드순), `You owe €8.00`(`iOwe`), `≈ €61.20 overall`(홈 통화 H로 통화마다 `convertAmount(owedToMe − iOwe, …, crossRate(최신 표, c, H))`의 합. 환율이 하나라도 없으면 숨긴다).
+  - 전체 카드(두 탭 위): `You are owed €42.10 · $15.00`(`owedToMe`, 통화 코드순), `You owe €8.00`(`iOwe`), `You are owed ≈ €61.20 in total` 또는 `You owe ≈ €5.00 in total`(홈 통화 H로 통화마다 `convertAmount(owedToMe − iOwe, …, crossRate(최신 표, c, H))`의 합 S. 문장은 S의 부호로 고르고 금액은 M(|S|, H), 마이너스 부호는 쓰지 않는다. 통화가 둘 이상이거나 하나뿐인 통화가 H가 아닐 때만 보이고, 환율이 하나라도 없거나 S = 0이면 숨긴다).
   - `overviewProvider`는 로컬 그룹이 바뀔 때마다 모두 다시 계산한다(`ponytail:` 전체 재계산. 그룹이 수백 개면 그룹별 캐시).
   - 친구 페이지: 머리(사진, 통화별 net), 그룹별 줄(`byGroup`, 누르면 그 그룹. 친구 그룹 줄은 `Non-group`), 함께한 기록(아래), **Settle up**(위 "송금 기록·편집"), **Remind**(연결된 사람이 나에게 줄 돈이 있을 때) 또는 **Request**(자리표시), 자리표시 친구면 **Invite**(그 그룹의 `/j/` 링크), 더 보기에서 non-group 지출 CSV·JSON 내보내기.
   - **함께한 기록**(7단계, parity #109 — Splitwise의 친구 화면): 그 사람과 함께 있는 모든 로컬 그룹의 지출·송금을 **그룹별 섹션**으로 보인다(앱만, 서버 변경 없음). 그룹은 `personOf`로 내 멤버와 그 사람의 멤버(removed 포함)가 둘 다 있는 그룹이다. 친구 그룹은 삭제 안 된 지출·송금 전부. 그 밖의 그룹은 삭제 안 된 지출 가운데 내 멤버 하나와 그 사람의 멤버 하나가 각각 `payers`나 `shares`에 0이 아닌 금액으로 있는 것, 그리고 삭제 안 된 송금 가운데 내 멤버와 그 사람의 멤버 사이(방향 무관)의 것. 섹션 순서: 친구 그룹(여럿이면 하나로 합침) `Non-group`이 먼저, 그다음 보통 그룹을 그 섹션의 가장 최근 행 날짜 내림차순(같으면 이름순). 섹션 머리는 그룹 이름이고 누르면 그 그룹. 섹션 안은 date 내림차순, 같으면 상태에서 나중 것 먼저. 행은 그룹 목록과 같은 읽기 전용 타일이고 누르면 지출 상세(`/groups/:id/expenses/:eid`)나 송금 상세(`/groups/:id/payments/:pid`)를 연다. 기록이 없고 친구 그룹이 있으면 `Nothing together yet. Add an expense below.` 8단계: 섹션마다 날짜가 바뀌는 곳에 그룹 목록과 같은 날짜 머리(`DateHeader`, `EEE, d MMM`)를 넣는다(친구 그룹 섹션과 공유 그룹 섹션 모두. 지금은 행에 날짜가 없다).
@@ -509,7 +518,7 @@ Overview {
 4. 기회를 원자적으로 잡는다: `INSERT INTO reminders (from_user, to_user, sent_at) VALUES (:me, :them, now()) ON CONFLICT (from_user, to_user) DO UPDATE SET sent_at = now() WHERE reminders.sent_at < now() - interval '24 hours'`. 바뀐 행이 0이면 429 `RATE_LIMITED`, `Retry-After` = 남은 초(올림, 1 이상).
 5. 상대의 `notification_prefs.reminders`가 `true`면 상대의 모든 기기로 표시 알림을 보낸다(`PushSender`, 죽은 토큰은 다른 푸시처럼 지운다). `false`면 보내지 않는다. 응답은 어느 쪽이든 같은 200이다.
 - `amounts`: 통화 코드 오름차순, 금액은 최소 단위 양수.
-- 푸시: title `{A} sent a reminder`. body: 통화 1개 `You owe {A} {M1}.`, 2개 `You owe {A} {M1} and {M2}.`, 3개 이상 `You owe {A} {M1}, {M2} and more.`(`amounts` 순서). `{A}` = 보낸 사람의 `displayName`(비었으면 `Someone`), 금액 표기와 title/body 자르기는 "문장"·"푸시"와 같다(`ActivityText`). data `{"type": "remind", "fromUserId": "<uuid>"}`. 배지 없음, APNs `thread-id` 없음.
+- 푸시: title `{A} sent a reminder`. body: 통화 1개 `You owe {A} {M1}.`, 2개 `You owe {A} {M1} and {M2}.`, 3개 이상 `You owe {A} {M1}, {M2} and more.`(`amounts` 순서). `{A}` = 보낸 사람의 `displayName`(비었으면 `Someone`), 금액 표기와 title/body 자르기는 "문장"·"푸시"와 같다(`ActivityText`). 9단계: 받는 사람의 `users.language`로 `strings.json`의 `remind.title`·`remind.body`(`{amounts}` = M1, `remind.two` `{a}`·`{b}`, `remind.more` `{a}`·`{b}`). 이름이 비면 `words.someone`이고 맨 앞(title)에서만 첫 글자를 대문자로 한다(영어 body는 `You owe someone €12.00.` — 이전에는 `Someone`). data `{"type": "remind", "fromUserId": "<uuid>"}`. 배지 없음, APNs `thread-id` 없음.
 - 앱: 친구 페이지의 **Remind**(연결된 사람이 나에게 줄 돈이 있을 때). 429면 `You can remind {name} again tomorrow`, 409면 `{name} doesn't owe you anything`. 자리표시에게는 1단계 **Request** 공유 텍스트. 알림을 누르면 `/friends/{fromUserId}`. Settings의 알림 스위치에 Reminders(`PUT /me/notifications`의 `reminders`).
 
 ## 6단계 오류 코드
@@ -662,7 +671,7 @@ ALTER TABLE expenses
   - 시리즈가 없거나 멈춘 시리즈의 지출: Repeat는 Never에서 시작하고, 고르면 저장할 때 `repeatFrom(…)`(stop 없음, 새 시리즈).
   - 활성 시리즈 지출의 Delete: Cancel / Delete this one / **Delete and stop repeating**(`expense.deleted` + `recurrence.deleted`, 한 트랜잭션).
 - Expenses 탭: 활성 시리즈의 지출에 `Icons.repeat`.
-- 지출 상세: 활성 시리즈의 지출은 날짜 줄 끝에 `Repeats monthly`(빈도 단어는 활동과 같다). 마지막 반복이면 `· next Sun, 1 Nov 2026`(위 `Next:`와 같은 계산), template의 금액·통화가 이 지출과 다르면 `· next €1,300.00 on Sun, 1 Nov 2026`.
+- 지출 상세: 활성 시리즈의 지출은 날짜 줄 끝에 `Repeats monthly`(빈도 단어는 활동과 같다). 마지막 반복이면 `· next Sun, 1 Nov 2026`(위 `Next:`와 같은 계산), template의 금액·통화가 이 지출과 다르면 `· next €1,300.00 on Sun, 1 Nov 2026`. **9단계**: 폼과 같은 말로 바꾸고 날짜 줄에서 떼어 그 아래 한 줄(`Icons.repeat`)로 보인다: `Repeats every month`(폼의 Repeat 선택지 Every week / Every 2 weeks / Every month / Every year와 같은 말), 마지막 반복이면 `Repeats every month · next on Sun, 1 Nov`, 금액·통화가 다르면 `Repeats every month · next €1,300.00 on Sun, 1 Nov`(날짜는 `DateFormat.MMMEd(언어)`, 다음 반복은 언제나 1년 안). ARB 문장 셋(빈도는 ICU `select`), 조각을 잇지 않는다. 폼의 `Next:` 줄은 `DateFormat.yMMMEd(언어)`.
 - Members 화면: 활성 시리즈의 template(`payers`나 `shares`에 0보다 큰 금액)에 있는 멤버를 빼려 하면 한 줄을 더한다: `Ben is still in 2 repeating expenses (Rent, Netflix); they keep Ben's share until you edit the latest one.`(이름은 시리즈를 만든 순서로 최대 3개, 그 뒤는 `and N more`. removed 멤버도 멤버라 서버는 그대로 받고 반복은 그 몫으로 생긴다).
 - 옮기기(6단계): `remapForMove`는 `recurrenceId`·`occurrence`를 버린다(대상의 새 지출은 시리즈 없음). 시리즈는 원래 그룹에 남는다.
 - 오프라인: 만들기·고치기·멈추기는 오프라인에서도 된다. 첫 번째 뒤의 반복은 서버만 만든다(동기화하면 pull로 온다).
@@ -671,6 +680,171 @@ ALTER TABLE expenses
 
 ## 8단계 오류 코드
 새 코드는 없다. 다시 쓰는 코드: `VALIDATION`(400), `LIMIT_EXCEEDED`(409, 그룹당 시리즈 100), template 검사의 지출 코드(`SUM_MISMATCH`·`PAYERS_SUM_MISMATCH`·`NEGATIVE_AMOUNT`·`UNKNOWN_MEMBER`·`UNKNOWN_CURRENCY`, 400). 이전 서버는 `recurrence.*`에 `UNKNOWN_TYPE`(400). 새 환경 변수는 없다.
+
+## 언어·웹 (9단계)
+한 Flutter 코드가 폰과 브라우저(`/app/`)에서 돈다. 화면은 13개 언어이고, 서버가 만드는 글(푸시·리마인더·랜딩 페이지)은 받는 사람의 언어다. **새 이벤트 종류·필드·적용 규칙·snapshot·pull 변경은 없다**(`shared/sync-cases.json`·`split-cases.json`·`settlement-cases.json` 그대로, 다음 적용 규칙 번호는 10단계의 17). Flyway **V11**(아래), drift `schemaVersion` **9 그대로**(언어·화면 모양·앱 잠금은 `SharedPreferences`). 효준님 함수는 없다.
+
+언어: `en ko nl fr de id it ja pl pt es sv th`(Splitwise의 12개 + 한국어, `pt`는 브라질 포르투갈어). 영어가 원문이자 대체 언어다. RTL·중국어·지역 변형(`de_AT` 문구)은 없다.
+
+### 글이 사는 곳
+| 글 | 곳 |
+|---|---|
+| 앱 화면의 모든 글(1~8단계 화면: 분할 편집기, 그룹 설정, 통화 선택기, 인사이트, 친구·개요, 항목별 분할·영수증, 반복), 오류 코드의 이유(서버 `code`, `SplitException`, `FxException`, 결제 수단 검사), 거부된 이벤트, 공유 글(초대·Request·5단계 요약·친구 링크, 보내는 사람의 언어), 위젯, 잠금 화면 | ARB `app/lib/l10n/app_<lang>.arb` |
+| 활동 문장, 푸시 묶음, 리마인더, 랜딩 페이지, 카테고리 이름, 빈도 말, 금액 표기 | `shared/strings.json`(앱과 서버) |
+| 사용자 글(이름·설명·댓글·그룹 이름), 브랜드·결제 서비스 이름, 통화 코드·기호, 변경 목록의 ISO 날짜, 통화 이름(`currencies.json` `names`, 선택기 검색), 내보내기 CSV(머리글, 카테고리 label, `paidBy` 표기 — 다시 가져올 수 있어야 한다) | 번역 안 함 |
+
+### 사용자 언어 (서버)
+Flyway `V11__user_language.sql`:
+```sql
+-- Language for server-rendered text (push now, email in Phase 10). NULL = English.
+ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
+```
+- `PATCH /me`·`UserDto`는 위 "인증". `User`·`UserRepository.update`에 `language`를 더한다(지우기를 위해 "키 없음"과 `null`을 구별한다). `DELETE /me`는 건드리지 않는다(삭제된 사용자에게는 아무것도 보내지 않는다).
+- 고르기: `users.language`가 `strings.json`의 언어면 그것, 아니면(`null`, `xx`) `en`. 쓰는 곳: 표시 푸시와 묶음("푸시"), 리마인더("리마인더"), 10단계 이메일.
+
+### 앱의 언어
+- 화면 언어 = Settings → Language(prefs `language`: 13개 코드 가운데 하나, 없으면 System)가 있으면 그것, 없으면 기기 언어 목록을 `supportedLocales`(언어 코드만)로 해석한 것(Flutter 기본 해석), 없으면 `en`. 선택지 이름은 그 언어로(`lib/core/l10n.dart`의 endonym 표: `한국어`, `Deutsch`, …). 바꾸면 다시 시작하지 않고 모든 화면이 바뀐다(`MaterialApp.router`의 `locale`, `onGenerateTitle`). `Money.lang`도 같은 값.
+- 서버에 알리기: 로그인 직후와 화면 언어가 바뀔 때마다 `PATCH /me {"language": "<code>"}`(영어도 `"en"`). prefs `sentLanguage`가 그 코드와 같으면 보내지 않고, 2xx면 `sentLanguage`를 쓴다. 실패(오프라인, 이전 서버의 400)는 무시하고 다음 실행·복귀 때 다시 본다. 로그아웃·계정 삭제는 `sentLanguage`를 지운다. 계정에 언어는 하나이므로 마지막으로 보낸 기기가 이긴다.
+- ARB: `app/l10n.yaml`(`arb-dir: lib/l10n`, `template-arb-file: app_en.arb`, `output-localization-file: app_localizations.dart`, `nullable-getter: false`, `required-resource-attributes: true`, `preferred-supported-locales: [en]`), `flutter_localizations`, `flutter: generate: true`, 만든 파일은 커밋한다. 접근은 `context.l`. 영어 ARB는 지금 화면 글과 바이트 단위로 같게 옮긴다(위젯 테스트는 `test/app_harness.dart`로 영어). 문장 통째로·ICU 복수형(`one`/`other`, 폴란드어 `few`/`many`)·금액은 표기한 글로 받는다·이름은 성별 없이·말투(아래 `strings.json`과 같다)를 `@description`에 적는다.
+- 도메인 코드는 글을 만들지 않는다: `methodFieldError`·`methodsError`는 코드(`USERNAME`, `LINK_PREFIX`, `TOO_LONG`, `IBAN`, `HOLDER`, `BIC`, `KR_ACCOUNT`, `BANK`, `UNKNOWN_TYPE`, `TOO_MANY`, 10단계 `UPI`)를 돌려주고 화면이 ARB로 바꾼다. `requestText`는 번역된 조각을 받는다.
+- 날짜: `Intl.defaultLocale` = 기기 지역이 화면 언어와 같은 언어면 그 지역(`de_AT`), 아니면 화면 언어. `main()`에서 `initializeDateFormatting()`. 고정 틀(`EEE, d MMM`, `EEE, d MMM yyyy`) 대신 `DateFormat.MMMEd()`·`yMMMEd()`.
+- iOS `CFBundleLocalizations` = 13개 코드.
+
+### `shared/strings.json`
+복사본 `app/assets/strings.json`·`server/src/main/resources/strings.json`은 바이트 단위로 같다(양쪽 테스트, `currencies.json`과 같은 방식). 앱은 시작할 때 `Money`·`Categories` 옆에서 읽는다.
+```
+{"_doc": "...",
+ "<lang>": {"money":      {"pattern", "group", "decimal", "symbols": {"<code>": "<symbol>"}},
+            "words":      {"you", "someone", "dot", "categoryOther", "frequency": {"weekly", "biweekly", "monthly", "yearly"}},
+            "activity":   {"<key>": {"other", "self"?, "you"?}},
+            "suffix":     {"owe", "lent", "getBack", "waiting": {"other", "you"}},
+            "changes":    {"joiner", "name", "currency", "simplifyDebtsOn", "simplifyDebtsOff", "defaultSplit", "description", "amount",
+                           "fxRateToDefault", "paidBy", "payers", "refundOn", "refundOff", "date", "category", "categorySame",
+                           "split", "notes", "other"},
+            "batch":      {"expenses", "comments", "repeats", "changes", "mixed"},
+            "remind":     {"title", "body", "two", "more"},
+            "landing":    {"title", "invited", "members", "friendTitle", "friendCode", "friendAdded", "code", "openApp", "openWeb",
+                           "hint", "appStore", "googlePlay"},
+            "categories": {"<parent key or category key>": "<label>"}}}
+```
+- `en`이 계약이다: 8단계까지 서버·공유 문장의 글 전부(내용은 파일). 설계의 초안에서 바꾼 것: 꼬리(`suffix`)는 앞의 ` · ` 없이 독립 구절이고 `words.dot`으로 잇는다(앱 목록이 `myDelta`를 따로 한 줄로 보이므로), 환불·송금 댓글·영수증 여러 장·모르는 kind의 틀(`expense_added_refund`, `expense_repeated_refund`, `comment_added_payment`, `receipts_added`, `receipts_removed`, `unknown`), 이미 있던 `expense_moved`·`payment_edited`·`payment_restored`, `batch.repeats`, 카테고리 변경 `category`(`{from} → {to}`)·`categorySame`, `changes.other`, `remind.two`·`more`(조각 잇기 대신 `{a}`·`{b}` 틀), 랜딩 글(현재 페이지 기준), `categories`. `shares`와 `split` 변경은 같은 말이라 `split` 하나.
+- 다른 언어는 `en`의 키·변형·자리표시를 모두 가진다(양쪽 테스트: 같은 키 집합, 같은 변형, 틀마다 같은 자리표시 집합). 10단계가 `email.*`, `group_deleted`·`group_restored`, 변경 label `type`·`coverImageId`를 더한다.
+- 대체: 없는 언어 → `en`. 없는 키(잎 단위, 변형 포함) → `en`의 그 값. 덜 번역된 언어도 영어 조각으로 동작한다(완전한지는 테스트가 따로 본다).
+- 자리표시: `{이름}`(`[A-Za-z]+`)만, ICU 없음. 틀을 왼쪽부터 **한 번** 훑으며 값을 그대로 넣는다: 값 안의 `{A}`(설명·댓글에 쓴 글)는 다시 바꾸지 않는다. 모르는 자리표시는 그대로 둔다.
+- 번역 규칙(`_doc`과 같다): 문장 통째로 옮긴다. `{A}`·`{member}`·`{from}`·`{to}`·`{name}`에는 `words.you`·`words.someone`이 들어갈 수 있으니 이름에만 맞는 접사(한국어 `님`)를 붙이지 않는다(목적어가 나일 수 없는 `you` 변형의 주어처럼 들어갈 수 없는 자리는 예외). `{n}` 문장은 모든 n ≥ 2에 맞게. 말투: de·es·it·nl·sv·pl·pt는 반말(informal), fr는 `vous`, ja는 です/ます, ko는 해요체. 고정 용어: expense, balance, settle up, owe, owed, share, split, group, payment, refund, receipt, repeat. 따옴표는 그 언어대로(`„…“`, `「…」`, `« … »`).
+- 지금 파일: 13개 언어 모두 완전하다(양쪽 테스트). `en`이 원문, 나머지는 Claude의 기계 번역이다(한국어는 효준님 검토 대기, README에 "machine-translated — reviews welcome"). `shared/activity-cases.json` `localized` 골든이 고정한 문장(de·ko·it·ja)을 바꾸면 골든도 함께 바꾼다(번역 검토의 일부). 번역에서 정한 것: 성별이 드러나는 과거형을 피한다(pl은 현재형 `{A} dodaje …`, fr·it·pt는 `Nouvelle occurrence de …` 같은 명사구), `words.you`는 전치사 뒤 꼴(`jou`, `dig`, `ti`, `te`)이고 격이 갈리는 de·pl·fr·ko는 송금의 `{from}`·`{to}`를 `({from} → {to})`로 쓴다, ko는 자리표시 뒤에 받침에 따라 달라지는 조사를 두지 않는다(`님`은 나일 수 없는 자리에만), pl의 `{n}` 문장은 복수형이 갈리지 않게 `wydatki: {n}`, `landing.hint`는 앱 버튼 이름을 인용하지 않는다(ARB 번역과 어긋나지 않게, `en`만 예전 그대로).
+
+### 문장 만들기 (앱 `domain/activity.dart`, 서버 `activity/ActivityText.kt`, `shared/activity-cases.json`)
+보는 사람 `me`, 이름 표 `names`, 언어 `lang`(앱은 화면 언어, 서버는 받는 사람의 언어):
+1. **틀 key** = `kind`. 단 `refund`인 `expense_added`·`expense_repeated`는 `expense_added_refund`·`expense_repeated_refund`, `paymentId`가 있는 `comment_added`는 `comment_added_payment`, 앱 목록이 영수증 여러 장을 한 줄로 보일 때(`count` ≥ 2) `receipts_added`·`receipts_removed`. `en`에 없는 kind는 `unknown`.
+2. **변형**: 주어 = `actorMemberId`(단 `member_joined`·`member_left`는 `memberId`, `payment_added`는 `fromMember`). 목적어 = `member_added`·`member_removed`·`friend_added`는 `memberId`, `payment_added`는 `toMember`, `payment_confirmed`는 `fromMember`(그 밖은 없음). 주어가 `me`이고 `en` 틀에 `self`가 있으면 `self`, 아니고 목적어가 `me`이고 `you`가 있으면 `you`, 아니면 `other`.
+3. **값**: `{A}`(actor), `{member}`, `{from}`·`{to}`(송금 멤버)는 이름 규칙 — `me`면 `words.you`, `null`이거나 `names`에 없으면 `words.someone`, 그 밖에는 이름 그대로. `{name}` 그룹 이름, `{description}`·`{text}`(없으면 `""`), `{amount}` = M(`amount`, `currency`, `lang`), `{frequency}` = `words.frequency[frequency]`(모르는 값은 그대로), `{changes}`(6), `{n}`(ASCII 숫자).
+4. **대문자**: 틀이 자리표시로 시작하고 그 값이 `words.you`·`words.someone`에서 왔으면 첫 UTF-16 문자를 대문자로(Dart `toUpperCase()`, Kotlin `uppercase()`). 멤버 이름은 그대로다(이름이 `someone`이어도). 문장 가운데는 바꾸지 않는다.
+5. **꼬리**(`words.dot`으로 잇는다): `expense_added`·`expense_repeated`의 `myDelta` < 0 → `suffix.owe`(`{amount}` = M(−myDelta)), > 0 → `refund`면 `suffix.getBack`, 아니면 `suffix.lent`, 0·`null` → 없음. `payment_added`이고 `status == "sent"` → `suffix.waiting`(`toMember`가 `me`면 `you`, 아니면 `other`, `{to}`는 3의 값). 앱 목록이 `myDelta`를 따로 한 줄로 보일 때(`withDelta: false`)는 그 꼬리 구절만 그 줄에 쓴다.
+6. **`{changes}`**: `changes[]` 순서대로 label을 만들고 `changes.joiner`로 잇는다. 남는 것이 없으면(빈 `changes`) `changes.other`.
+   - `group_updated`: `name` → `changes.name`(`{from}`·`{to}` 그대로), `defaultCurrency` → `changes.currency`, `simplifyDebts` → `to == true`면 `simplifyDebtsOn`, 아니면 `simplifyDebtsOff`, `defaultSplit` → `defaultSplit`.
+   - `expense_updated`·`recurrence_updated`: `description` → `changes.description`; `amount` → `changes.amount`(`{from}` = M(from, `currency` 변경이 있으면 그 `from` 통화, 없으면 `currency`), `{to}` = M(to, `currency`)); `currency` → `changes.currency`; `fxRateToDefault` → `fxRateToDefault`; `paidBy` → `changes.paidBy`(이름 규칙, 대문자 없음); `payers` → `payers`; `refund` → `refundOn`/`refundOff`; `date` → `changes.date`(ISO 그대로); `category` → 두 쪽의 이름 `categoryLabel(raw, lang)`(= `resolveCategory(raw)`의 key가 `*.other`면 `words.categoryOther`(`{parent}` = 그 언어의 부모 이름), 아니면 `categories[key]`)이 같으면 `categorySame`, 다르면 `changes.category`; `shares` → `amount` 변경이 없을 때만 `split`; `split` → `amount`·`shares` 변경이 없을 때만 `split`; `notes` → `notes`.
+   - 모르는 field는 `changes.other`를 한 번만 넣는다(이전: 서버는 field 이름, 앱은 뺐다. 서버는 아는 field만 보내므로 새 서버와 이전 앱이 만날 때만 보인다).
+7. **푸시 묶음**(서버, "푸시"의 빼기·묶음 규칙 그대로): 1개면 그 문장, actor가 섞이면 `batch.mixed`, 모두 `expense_added` → `batch.expenses`, 모두 `comment_added` → `batch.comments`, 모두 `expense_repeated` → `batch.repeats`, 그 밖 `batch.changes`. `{A}`는 3·4 규칙.
+- `en`의 결과는 9단계 전과 바이트 단위로 같다(`activity-cases.json`의 `cases`·`batches` 그대로. 금액만 아래 "금액 표기").
+- 서버: `ActivityText.sentence`·`body`·`reminder`와 `Money.display`가 `lang`을 받는다(설계의 `Sentences.render`는 이름만 다르다. 지금 이름을 둔다). `title`은 그대로. 앱: `activityText(item, names, me, {lang, withDelta, count})`, `myDeltaText(item, {lang})`.
+
+### 금액 표기 M(x) (앱 `formatMoney`, 서버 `Money.display`, `activity-cases.json` `money`)
+`M(minor, currency, lang)`, `L` = `strings.json`의 그 언어(없는 언어·키는 `en`):
+1. d = `currencies.json` `decimals[currency]`(없으면 2). |minor|를 d자리에서 나눠 정수부를 오른쪽부터 3자리씩 `L.money.group`으로 묶고, d > 0이면 `L.money.decimal`과 소수부(d자리, 0 채움).
+2. 기호 s = `L.money.symbols[currency]` → `currencies.json` `symbols[currency]` → ISO 코드.
+3. `L.money.pattern`의 `{s}`·`{n}`을 한 번에 바꾼다. 틀이 `{s}{n}`이고 s의 마지막 문자가 라틴 문자(`A–Z`, `a–z`, U+00C0–U+024F 가운데 U+00D7 `×`·U+00F7 `÷` 제외)면 그 사이에 U+00A0.
+4. 음수는 맨 앞에 `−`(U+2212, 앱이 이미 쓰는 기호. 설계의 `-`를 이렇게 정했다): `−€48.00`, `−48,00 €`. 공유 문장과 서버 글에는 음수가 없다.
+
+| 언어 | pattern | group | decimal | EUR 123456 |
+|---|---|---|---|---|
+| en, ko, ja, th | `{s}{n}` | `,` | `.` | `€1,234.56` |
+| id | `{s}{n}` | `.` | `,` | `€1.234,56` |
+| nl, pt | `{s}␣{n}` | `.` | `,` | `€ 1.234,56` |
+| de, it, es | `{n}␣{s}` | `.` | `,` | `1.234,56 €` |
+| fr | `{n}␣{s}` | U+202F | `,` | `1 234,56 €` |
+| pl, sv | `{n}␣{s}` | U+00A0 | `,` | `1 234,56 €` |
+
+␣ = U+00A0. 언어별 `symbols`는 sv의 `{"SEK": "kr"}`뿐이다. `currencies.json`의 `symbols`에서 여러 통화가 함께 쓰던 기호를 뺐다: CAD `CA$`, AUD `A$`, SGD `S$`, HKD `HK$`, MXN `MX$`, CNY `CN¥`, SEK·NOK·DKK·ISK·KWD·BHD·AED·CLP는 표에서 빠져 ISO 코드(USD `$`, JPY `¥`는 그대로). 예: en `CA$12.34`, `CHF 12.50`, `RM 12.50`, `PYG 1,234`, `KWD 1,234.567`; sv `999,00 kr`, `12,50 NOK`; pt `R$ 1.234,56`; id `Rp 123.456`; ko `₩15,000`.
+- 앱은 intl `NumberFormat.simpleCurrency`를 더 쓰지 않는다. `formatMoney(minor, currency, {String? lang})`(기본 `Money.lang`). 화면·활동·위젯·푸시가 같은 표기다. `plainAmount`(URL의 금액, EPC QR)는 언제나 `.`이고 묶음이 없다(1단계 그대로).
+
+### 금액 입력 (앱만)
+`parseMoney(text, currency, {lang})` → 최소 단위 정수 또는 `null`(지금은 `12,50`이 조용히 €1,250.00으로 저장되고 `1,08` 환율은 사라진다):
+1. 공백(U+00A0·U+202F 포함), `'`, `’`를 지우고, 숫자·`.`·`,`·맨 앞의 `-` 말고는 모두 지운다. 비거나 `-`뿐이면 `null`.
+2. 구분자가 없으면 정수 단위.
+3. c = 마지막 구분자, k = 그 뒤 숫자 개수, D = 그 언어의 `money.decimal`, d = 통화 자릿수. `c == D` → 소수점(k > d면 `null`). `c ≠ D`이고 k == 3 → 묶음, 소수 없음(D가 어디든 있으면 `null`). 그 밖 → 소수점(관대하게, k > d면 `null`).
+4. 소수점 앞에 같은 문자가 또 있으면 `null`. 다른 구분자는 버린다.
+- `money_input_test.dart`: de EUR `1.234,56` → 123456, `12,5` → 1250, `12.50` → 1250, `12.345` → 1234500, `12,` → 1200, `-10,00` → −1000(조정); en EUR `1,234.56` → 123456, `12.345` → `null`, `1.2.3` → `null`; fr EUR `1 234,56`(U+202F) → 123456; en KRW `1,234` → 1234; ko KRW `12.3` → `null`; en KWD `1,234` → 1234000; de KWD `1,234` → 1234.
+- `parseDecimal(text)`(퍼센트·환율·몫 개수): 마지막 구분자가 소수점, 다른 종류는 묶음, 같은 종류가 또 있으면 `null`(`1,0842` → 1.0842, `33,33` → 33.33).
+- `inputAmount(minor, currency, {lang})`: 그 언어의 소수점, 묶음 없음(미리 채우기, 힌트, **Copy amount**: de `12,50`). UI 코드에 `toStringAsFixed`·숫자 `toString()`을 쓰지 않는다(`hardcoded_strings_test.dart`가 찾는다).
+
+### 랜딩 페이지 (`/j/{code}`, `/f/{code}`)
+- 언어 = `Locale.lookupTag(Locale.LanguageRange.parse(Accept-Language), strings.json의 언어들)`. 헤더가 없거나, 파싱이 실패하거나, 맞는 것이 없으면 `en`(`ko-KR` → ko, `fr-CA` → fr, `pt-BR` → pt, `xx` → en). `<html lang="{lang}">`, 응답 헤더 `Vary: Accept-Language`.
+- 글(`landing.*`, 모든 값과 글을 HTML escape): 보통 그룹의 `/j/`는 `<title>` = `title`(`{group}`), 머리 = 그룹 이름, 본문 `invited`와 `members`(`{count}`. 복수형이 없도록 바꿨다. 이전 영어는 `You have been invited to split expenses with 3 members.`). 친구 그룹의 `/j/`는 `friendTitle`·머리 `{name}`·`friendAdded`(`{name}` = 연결된 멤버 이름). `/f/`는 `friendTitle`·머리 `{name}`·`friendCode`(`{name}` = `displayName`). 이름이 비면 `words.someone`(맨 앞이면 대문자). 그다음 `code`와 코드(`K7P-4QX`), **`openApp`** → `evensies://join/{code}`·`evensies://f/{code}`(그대로), **`openWeb`** → `/app/#/join/{CODE}`·`/app/#/friends/add?code={CODE}`(정규화한 코드, 같은 origin의 상대 경로), `appStore`·`googlePlay`, `hint`(`{code}`). 이전 `<b>` 강조는 없다.
+- 속도 제한·404·이름 escape는 그대로.
+
+### 웹 앱 (서버 이미지 안, `/app/`)
+- **빌드**: `deploy/Dockerfile`의 첫 단계 `FROM ghcr.io/cirruslabs/flutter:3.41.4 AS web`(CI `subosito/flutter-action`도 같은 버전)이 `app/pubspec.yaml`·`pubspec.lock`·`l10n.yaml`·`analysis_options.yaml`·`lib`·`web`·`assets`를 복사하고 `flutter build web --release --base-href /app/ --no-web-resources-cdn --csp`. Gradle 단계가 `build/web/`을 `server/src/main/resources/static/app/`(gitignore)에 넣고 `bootJar`. 저장소 루트 `.dockerignore`: `app/build`, `app/ios/Pods`, `app/.dart_tool`, `**/*.jks`, `**/key.properties`, `deploy/secrets`, `deploy/backups`, `deploy/data`. CI `app` 작업이 같은 `flutter build web` 명령을 돌린다. 출시 때: CI가 `ghcr.io/devyourown/evensies-server`를 만들고 `update.sh`는 `docker compose pull`(4 GB 서버에서 Flutter를 빌드하지 않게).
+- **경로**(`WebConfig`): `GET /` → 302 `/app/`, `GET /app` → 302 `/app/`, `GET /app/` → `forward:/app/index.html`, `/app/**`는 정적 파일. `/`, `/app`, `/app/**`는 인증 없이(`permitAll`). 정적 파일은 `Cache-Control: no-cache`(`spring.web.resources.cache.cachecontrol.no-cache: true`), `.wasm`은 `application/wasm`(Tomcat 기본 매핑). 앱 안 경로는 해시 URL(`/app/#/groups/<id>`)이라 서버가 알 필요가 없다. API(`GET /groups` 등)는 지금처럼 토큰이 없으면 401 JSON, `/j/*`·`/f/*`·Caddy는 그대로.
+- **CSP**(Spring Security `headers { contentSecurityPolicy }`, API·랜딩·정적 파일 **모든 응답**):
+  ```
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com/gsi/client https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https://*.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' blob: https://fonts.gstatic.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://appleid.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  ```
+  토큰이 IndexedDB(drift)에 있으므로 우리 origin에서는 로그인 스크립트(Google·Apple) 말고 제3자 스크립트가 돌지 않는다. `connect-src`의 `blob:`은 고른 사진·파일을 그 blob: URL에서 읽기 위해서다(`'self'`는 blob:을 포함하지 않고, blob: URL은 이 origin만 만든다. 9단계 브라우저 확인에서 빠진 것을 찾음). 브라우저 확인에서 위반이 나오면 같은 커밋에서 이 문자열과 함께 고친다. Flutter 웹은 Roboto·Noto를 `fonts.gstatic.com`에서 받는다(`docs/privacy.md`). 사진(프로필, 영수증, 10단계 표지)은 언제나 `ApiClient`로 받아 `Image.memory`로 보인다(같은 origin, CORS·CSP 변경 없음).
+- **CORS**(개발 전용): `EVENSIES_CORS_ORIGINS`의 정확한 origin만(`CorsConfigurationSource`, `/**`). 메서드 `GET, POST, PUT, PATCH, DELETE`, 헤더 `Authorization, Content-Type`, max age 3600, credentials 없음(토큰은 헤더). 목록에 없는 origin의 preflight는 403(Spring 본문, 우리 오류 JSON이 아니다), 목록이 비면 CORS 헤더를 내지 않는다.
+- **로그인**(웹은 `GET /info`를 읽는다): Apple(`appleServicesId`가 있을 때) `getAppleIDCredential(…, webAuthenticationOptions: WebAuthenticationOptions(clientId: servicesId, redirectUri: Uri.parse('${Uri.base.origin}/app/')))`(Apple은 localhost를 받지 않으므로 출시 때 확인). Google(`googleWebClientId`가 있을 때) `GoogleSignIn.instance.initialize(clientId: …)` + `package:google_sign_in_web/web_only.dart`의 `renderButton()`(조건부 import `dart.library.js_interop`, `google_sign_in_web` 1.1.3을 직접 의존성으로). 받은 id 토큰은 폰과 같은 `/auth/apple`·`/auth/google`로 간다. Dev login은 `devLogin`이나 `--dart-define=DEV_LOGIN`일 때. `appleAvailable` = `kIsWeb || iOS || macOS`.
+- **서버 주소**: 웹은 `Uri.base.origin`(개발은 `--dart-define=EVENSIES_SERVER_URL`). Settings → Server 칸은 웹에서 숨긴다.
+- **로그인 뒤 돌아가기**: 로그인이 필요한 경로는 `/login?next=<원래 위치(경로+질의), URL 인코딩>`으로 보내고, 로그인 뒤 `next`가 `/`로 시작하고 `//`로 시작하지 않을 때만 그리로 간다(아니면 `/`). 랜딩의 `/app/#/join/{CODE}`가 로그인을 거쳐 참여 화면으로 간다.
+- **데이터**: drift `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'), driftWorker: Uri.parse('drift_worker-2.34.4.js'), onResult: …)`. 두 파일은 `app/web/`에 커밋하고 버전은 `pubspec.lock`의 `sqlite3`(3.5.2)·`drift`(2.34.4)와 같아야 한다(`web_assets_test.dart`). COOP/COEP가 없으므로 IndexedDB + shared worker이고 탭들이 DB 하나를 함께 쓴다(Android Chrome은 탭마다 IndexedDB). `ponytail:` OPFS는 cross-origin isolation이 필요해 로그인 팝업이 깨진다.
+- **새로 고침**: 웹 푸시는 없다. 탭이 앞에 올 때와 보이는 동안 60초마다 `syncAll()`(지금의 resume과 같이 `GET /me`·`GET /activity/unread`도).
+- **`lib/`에 `dart:io` 없음**: 내보내기는 폰에서 `XFile.fromData`(+ `fileNameOverrides`)를 공유 시트로, 웹에서는 Blob 링크(`download` 속성, `core/browser_web.dart`의 `downloadFile`)로 내려받는다(share_plus는 `navigator.share`를 불러 macOS의 Chrome·Safari에서 저장할 수 없는 시스템 공유 시트가 뜬다), Splitwise 가져오기는 `pickFiles(withData: true)` + `MultipartFile.fromBytes`(`importSplitwise(String groupId, List<int> bytes)`), 영수증·프로필 사진은 메모리 경로, `initPush`·`_listenDeepLinks`는 웹에서 건너뛴다, `path_provider`·`path` 직접 의존성 삭제.
+- **사진(웹)**: `image_picker`의 `maxWidth`·`maxHeight`·`imageQuality`(캔버스로 줄이고 EXIF를 버린다). `flutter_image_compress`는 폰에서만(`kIsWeb` 뒤). 결과가 JPEG가 아니면 앱이 `Choose a JPEG photo`로 거부한다. `ponytail:` 필요해지면 캔버스로 PNG → JPEG.
+
+| 1~8단계 기능 | 웹 |
+|---|---|
+| 그룹·지출·분할·통화·카테고리·검색·인사이트·활동·댓글·복원·친구·개요·리마인더 보내기·옮기기·송금 기록·편집·반복 지출·내보내기(CSV/JSON/ZIP 내려받기)·Splitwise 가져오기·결제 수단·계정 삭제 | 그대로 |
+| 오프라인에서 쓰고 나중에 동기화 | 그대로(IndexedDB). 아직 못 올린 영수증 사진은 메모리에만 있어 탭을 닫으면 사라지고, 다음 동기화가 "영수증"의 "로컬 파일이 없으면" 규칙대로 그 영수증을 지운다 |
+| 영수증 사진 붙이기·보기 | 파일 선택(휴대폰 브라우저는 카메라도 고른다), 보기는 메모리 캐시(새로 고침하면 다시 받는다). **Scan(글자 인식)은 숨긴다**: 브라우저에는 기기 안 글자 인식이 없다(7단계 MethodChannel). 손으로 쓰는 Items는 된다 |
+| 프로필 사진 | 파일 선택, JPEG만 |
+| 결제 앱 링크(PayPal 등) | 새 탭. EPC QR(`qr_flutter`)·IBAN·계좌 복사 그대로 |
+| 초대 QR·링크, 공유 글(초대·Request·요약·친구 링크) | QR 그대로. 공유 시트 대신 클립보드 복사와 스낵바 |
+| 딥 링크(`evensies://`, Universal Links) | 없음. 랜딩의 **Continue in the browser**와 해시 URL |
+| 푸시(표시·data), 알림 권한 묻기, 앱 아이콘 배지 | 없음(웹 푸시는 하지 않는다. 위 "새로 고침"). 알림 설정 화면은 보인다(계정 설정이라 폰에 적용) |
+| 홈 화면 위젯, 앱 잠금 | 없음(브라우저에 해당 기능이 없다). 화면 모양은 된다 |
+| 반복 지출의 시간대 | 브라우저의 지금 오프셋(8단계 `deviceTimeZone()` 그대로) |
+| 인쇄용 요약(parity #38) | Insights의 **Print summary**(웹만)가 5단계 요약 글만 담은 새 탭(`<pre>`, 이름이 들어 있으므로 HTML이 아닌 `textContent`)을 열고 브라우저 인쇄 창을 띄운다. 앱 화면 자체는 캔버스라 그대로 인쇄하지 않는다. 팝업이 막히면 아무 일도 없고 공유 버튼(클립보드)은 그대로 |
+| 11단계 팁 | 숨긴다(웹에는 앱 내 결제가 없다) |
+| 화면 배치 | 640px 가운데 열, 바깥은 `surfaceContainerLow`. 데스크톱 배치·데스크톱 앱은 없다 |
+
+### 홈 화면 위젯 (앱만: iOS small/medium, Android 2×2)
+Dart가 번역·표기를 마친 JSON 하나를 쓰고, 네이티브(Swift `EvensiesWidget`, Kotlin `BalanceWidgetProvider` + `org.json`)는 그리기만 한다. `home_widget` 0.9.3, 키 `summary`(iOS App Group `group.dev.nariinfo.evensies`, Android home_widget prefs).
+```json
+{"v": 1,
+ "lines": [{"text": "You are owed", "amount": "€42.10", "tone": "owed"},
+           {"text": "You owe", "amount": "₩12,000", "tone": "owe"}],
+ "empty": null,
+ "updated": "Updated 11 Oct, 10:42"}
+```
+- `lines`: 6단계 `Overview`에서 통화마다 net = `owedToMe[c] − iOwe[c]`, 0은 뺀다. `tone`은 net > 0이면 `owed`, < 0이면 `owe`, `amount` = M(|net|, c). 정렬은 Friends 행의 "가장 큰 것"과 같다(최신 로컬 환율 표로 EUR 주 단위로 바꾼 |net| 내림차순, 환율 없는 통화는 뒤, 같으면 통화 코드순). 최대 4줄(작은 크기는 2줄, 넘치면 `…`).
+- 통화가 둘 이상이고 모든 통화에 홈 통화 H로의 환율이 있으면(4단계 "≈"와 같은 계산) 대신 한 줄: 합 = Σ `convertAmount(net, …, crossRate(최신 표, c, H))`, `amount` = `≈ ` + M(|합|, H), `tone`은 합의 부호. 합이 0이면 통화별 줄을 쓴다.
+- 로그아웃: `lines: []`, `empty` = `Sign in to see your balance`. 모든 net이 0: `lines: []`, `empty` = `All settled up`. 한 번도 쓰지 않았으면 위젯은 `Evensies`만 보인다.
+- 글은 화면 언어의 ARB, `updated`는 `Updated {DateFormat.MMMd + 시각}`.
+- 쓰는 때: 개요나 화면 언어가 바뀌면 1초 디바운스, 내용이 같으면 쓰지 않는다. 그다음 `HomeWidget.updateWidget(iOSName: 'EvensiesWidget', androidName: 'BalanceWidgetProvider')`. 로그아웃·계정 삭제는 로그아웃 payload를 쓴다. 백그라운드 갱신 없음, 웹은 아무것도 하지 않는다.
+- iOS: Widget Extension(iOS 17, 앱은 15.5 그대로), timeline `.never`, `.privacySensitive()`(잠긴 화면에서 금액을 가린다), teal = owed, red = owe. Android: `balance_widget.xml`(제목, 3줄, updated), `balance_widget_info.xml`(2×2, 크기 조절, `updatePeriodMillis="0"`), `values-night` 색, 누르면 `HomeWidgetLaunchIntent.getActivity`. 기기의 위젯 저장소에 잔액 사본이 있다(`docs/privacy.md`).
+- 설계의 "`balancesOf`가 null이면 `l.notImplemented`"와 `tryCore` 대비는 없다: 7단계부터 `balancesOf`는 언제나 값을 돌려주고 `tryCore`는 지워졌다.
+
+### 화면 모양·앱 잠금 (앱만)
+- 화면 모양: prefs `themeMode` = `system`(기본)·`light`·`dark` → `MaterialApp.themeMode`(`themeModeProvider`). Settings의 segmented control. 웹도 된다.
+- 앱 잠금(폰만, `local_auth` 3.x): prefs `appLock`(bool, 기본 `false`). Settings → Security → **App lock**은 `isDeviceSupported()`일 때만 보인다. 켜려면 `authenticate(localizedReason: l.lockReason, biometricOnly: false)`가 한 번 성공해야 한다(기기 암호도 된다). 잠금 화면은 `MaterialApp.builder`에서 navigator 위에 있다: 차가운 시작은 잠김, `inactive`·`hidden`·`paused` 동안 덮개(앱 전환기에 내용이 보이지 않게), 돌아올 때 60초 이상 떠나 있었으면 잠김(59초는 그대로). 버튼은 **Unlock**(잠금 화면이 나타날 때 한 번 자동으로 묻는다)과 **Sign out**(확인 뒤 로그아웃·로컬 데이터 삭제, 잠금도 끈다 — 암호를 잊었을 때의 길). 인증 실패는 잠긴 채. Android `MainActivity`는 `FlutterFragmentActivity()`, iOS `NSFaceIDUsageDescription`(영어 한 줄).
+
+### 호환(9단계)
+- 이벤트·적용 규칙·snapshot·pull이 그대로이므로 lastSeq를 되돌리지 않는다. drift `schemaVersion` 9 그대로.
+- Flyway V11(`users.language`). 서버를 먼저 올린다: 이전 서버는 `GET /info`에 401(웹 앱은 로그인 버튼을 고르지 못한다)이고, `{"language": …}`만 있는 `PATCH /me`를 400 `VALIDATION`(두 키 없음)으로 거부한다(앱은 무시하고 다음에 다시 보낸다).
+- 이전 앱(출시 1 포함)은 영어이고 `UserDto.language`를 무시한다. 그 사용자의 `users.language`는 `null`이므로 푸시도 영어다. 서버가 만드는 영어 금액만 새 표기다(`CA$12.34`, `CHF 12.50`).
+- `shared/activity-cases.json`: 영어 `money` 골든 6개가 바뀌었다(`CHF 12.50`, `KWD 1,234.567`, `SEK 999.00`, `ZAR 1,234.56`, `OMR 1,234.567`, `XOF 1,500`. 설계의 "3개"는 원래 ISO 코드였던 셋을 빠뜨렸다). `money[]`에 `lang`, 새 `localized[]`. `cases`·`batches`의 영어 문장은 그대로다.
+
+### 9단계 오류 코드
+새 코드는 없다. `PATCH /me`의 `language` → 400 `VALIDATION`. 웹 로그인의 `aud` 오류는 지금처럼 401, 설정이 없으면 400 `AUTH_NOT_CONFIGURED`. 허용되지 않은 CORS preflight → 403(Spring 본문). 새 환경 변수: `EVENSIES_APPLE_SERVICES_ID`, `EVENSIES_GOOGLE_WEB_CLIENT_ID`, `EVENSIES_CORS_ORIGINS`(아래 "환경 변수").
 
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
@@ -750,11 +924,11 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
   7. `changes`가 빈 `expense_updated`·`recurrence_updated`(8단계: 시리즈 표시 `recurrenceId`·`occurrence`만 바뀐 수정 — 일정을 바꿀 때 지출을 새 시리즈에 다시 붙이는 것. `changes`는 표시를 보지 않는다. template의 지출 필드가 아닌 키만 바뀐 `recurrence.updated`도).
 - 서버는 push 트랜잭션 안에서 이벤트마다 직전·직후 상태를 알고 있으므로 피드에 필요한 값(actorMemberId, 대상 지출·송금의 직전·직후 값, 상태 변화 여부)을 이벤트 행의 `meta`(서버 내부, pull에 없음)에 기록하고 피드는 그것만 읽는다. 이 기능 이전에 저장된 이벤트는 서버가 시작할 때 그룹 로그를 seq 1부터 다시 적용해 `meta`를 채운다.
 
-### 문장 (영어, 앱 목록·서버 푸시 공통)
-보는 사람을 `me`(그 그룹의 내 멤버)로 두고 만든다. 9단계(언어)에서 번역할 때까지 영어 한 가지.
-- 이름: `me`이면 문장 맨 앞 `You`, 그 밖 `you`. id가 `null`이거나 이름을 모르면 `Someone`/`someone`. 그 밖에는 멤버 이름 그대로.
-- 금액 표기: `shared/currencies.json`의 `symbols[통화]` + 정수부 3자리마다 `,` + (소수 자릿수가 0이 아니면) `.`과 소수부(자릿수만큼 0 채움). 기호와 숫자 사이 공백 없음: `€30.00`, `₩15,000`, `CHF12.50`, `din1,234.567`. 앱의 `formatMoney`(intl en_US)와 같은 결과다. `symbols`에 없는 통화(4단계의 새 통화)는 ISO 코드가 기호 자리에 온다: `ZAR1,234.56`, `OMR1,234.567`, `XOF1,500`(앱 `formatMoney`도 intl의 기호 대신 코드를 쓴다. 9단계가 최종 표기를 정한다). 음수는 쓰지 않는다(`myDelta`는 절댓값).
-- 따옴표는 `“ ”`(U+201C/U+201D), 구분점은 ` · `(U+00B7 앞뒤 공백), 화살표는 ` → `(U+2192 앞뒤 공백). `{A}` = actor 이름(문장 맨 앞 규칙), `{M(x)}` = 금액 표기.
+### 문장 (앱 목록·서버 푸시 공통)
+보는 사람을 `me`(그 그룹의 내 멤버)로 두고 만든다. **9단계**: 문장은 언어마다 `shared/strings.json`의 틀로 만든다(위 "언어·웹"의 "문장 만들기"). 앱 목록은 화면 언어, 서버 푸시는 받는 사람의 `users.language`. 아래 표는 `en` 틀과 같은 영어 원문이고(바이트 단위로 같다, `shared/activity-cases.json`), 다른 언어는 같은 자리표시를 가진 번역이다.
+- 이름: `me`이면 문장 맨 앞 `You`, 그 밖 `you`. id가 `null`이거나 이름을 모르면 `Someone`/`someone`. 그 밖에는 멤버 이름 그대로. 9단계: `words.you`·`words.someone`과 `self`·`you` 틀(아래 "문장 만들기").
+- 금액 표기: 9단계부터 언어별 M(x)(위 "언어·웹"의 "금액 표기"). 영어는 지금처럼 `€30.00`, `₩15,000`이고, 기호가 라틴 문자로 끝나면 U+00A0이 들어간다: `CHF 12.50`, `ZAR 1,234.56`, `KWD 1,234.567`(9단계에 KWD·SEK 등은 기호 표에서 빠져 ISO 코드). 음수는 쓰지 않는다(`myDelta`는 절댓값).
+- 따옴표는 `“ ”`(U+201C/U+201D), 구분점은 ` · `(U+00B7 앞뒤 공백), 화살표는 ` → `(U+2192 앞뒤 공백). `{A}` = actor 이름(문장 맨 앞 규칙), `{M(x)}` = 금액 표기. 다른 언어는 따옴표 등을 그 언어대로 쓴다(독일어 `„…“`, 일본어 `「…」`).
 
 | kind | 문장 |
 |---|---|
@@ -783,7 +957,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | `recurrence_updated` | `{A} changed future “{description}”: {변경들}` (8단계, 변경 표기는 `expense_updated`와 같다) |
 | `recurrence_deleted` | `{A} stopped “{description}” repeating` (8단계) |
 
-`{frequency}`(8단계): `weekly` → `weekly`, `biweekly` → `every 2 weeks`, `monthly` → `monthly`, `yearly` → `yearly`(9단계가 번역한다).
+`{frequency}`(8단계): `weekly` → `weekly`, `biweekly` → `every 2 weeks`, `monthly` → `monthly`, `yearly` → `yearly`(9단계: `strings.json`의 `words.frequency`, 모르는 값은 그대로).
 
 `expense_updated`의 변경 표기: `description` → `description “{from}” → “{to}”` · `amount` → `{M(from)} → {M(to)}`(from은 `currency` 변경이 있으면 그 `from` 통화로, 없으면 `currency`로 표기) · `currency` → `currency {from} → {to}` · `fxRateToDefault` → `exchange rate` · `paidBy` → `paid by {from 이름} → {to 이름}` · `payers` → `payers` · `refund` → `refund on`/`refund off`(`to` 값) · `date` → `date {from} → {to}`(YYYY-MM-DD 그대로) · `category` → `category {from 이름} → {to 이름}`(이름은 앱이 그 저장 값을 보여 주는 이름(`labelOf`): `categories[]` key·한 번만 나오는 label이면 그 label, `*.other`는 `{부모 label} - Other`, `null`·legacy는 `General`. 서버는 `Categories.label(Categories.keyForLabel(v)) ?: "General"`. 두 이름이 같으면(`null` → `uncategorized.general` 등) 그냥 `category`) · `shares` → `split`(단, `amount`도 바뀌었으면 생략 — 금액이 바뀌면 분할은 늘 바뀐다) · `split` → `split`(단, `shares`나 `amount`도 바뀌었으면 생략) · `notes` → `notes`.
 
@@ -798,6 +972,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 - 7단계: 표시 알림의 항목에서 같은 묶음에 같은 `expenseId`의 `expense_added`가 있는 `receipt_added`는 먼저 뺀다(영수증을 붙여 새 지출을 저장하면 그 지출의 문장 하나. `shared/activity-cases.json`의 `batches`). 피드에서는 빼지 않는다.
 - 묶음 문장(항목 2개 이상, 수신자는 actor가 아니므로 `You`는 나오지 않는다): 모든 항목의 `actorMemberId`가 같고 모두 `expense_added`면 `{A} added {n} expenses`, 모두 `comment_added`면 `{A} added {n} comments`, 모두 `expense_repeated`(8단계, actor 없음)면 `{n} repeating expenses were added`, 그 밖이면 `{A} made {n} changes`. actor가 섞이면 `{n} new changes`(actor 없음도 하나의 actor다).
 - 앱: 표시 알림을 누르면 그 그룹의 활동 탭을 연다(친구 그룹이면 친구 페이지, `remind`면 `/friends/{fromUserId}`). 8단계: 활동 목록의 `expense_repeated` 행은 그 지출을, `recurrence_*` 행은 그 시리즈의 마지막 반복(아래 "반복 지출"의 "앱", 없으면 아무것도 안 함)을 연다. 앱의 `myDeltaText`는 `expense_repeated`에도 쓴다. 앱이 앞에 있을 때 온 알림은 시스템 알림 대신 앱 안 배너(같은 title/body)로 보여 주고 sync한다.
+- 언어(9단계): body·묶음 문장은 받는 사람마다 그 사용자의 `users.language`로 만든다(`null`·`strings.json`에 없는 언어는 영어). 묶어 둔 알림은 보내는 순간의 언어로 만든다. title(그룹 이름, 친구 그룹은 상대 멤버의 이름)은 사용자가 쓴 글이라 그대로다. 토큰은 지금처럼 같은 (title, body, badge)끼리 멀티캐스트하므로 언어가 다르면 따로 간다.
 - 길이: title은 100자, body는 200자(UTF-16)를 넘으면 잘라서 끝을 `…`로 한다(`…` 포함 그 길이, 서로게이트 쌍은 자르지 않음). 긴 댓글·설명·그룹 이름이 FCM/APNs 4096바이트 한도를 넘겨 data까지 잃지 않게 하기 위해서다. 앱 목록의 문장은 자르지 않는다.
 - FCM 멀티캐스트는 토큰 500개씩 나눠 보낸다. FCM이 `UNREGISTERED`로 답한 토큰과, 같은 멀티캐스트에서 다른 토큰은 성공했는데 `INVALID_ARGUMENT`로 답한 토큰은 기기 행을 지운다.
 - iOS(APNs): 표시 알림은 `sound: default`, `thread-id: <groupId>`(그룹별로 묶임), 6단계부터 `badge: <total>`(Android는 `notification.notification_count`). 수신자마다 배지가 다르므로 `PushNotifier`는 (body, badge)가 같은 토큰끼리 묶어 멀티캐스트한다. data만 있는 메시지는 `content-available: 1`, `apns-priority: 5`, `apns-push-type: background`(앱이 백그라운드에서 깨어 sync).
@@ -837,8 +1012,11 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminde
 | `EVENSIES_DB_USER` / `EVENSIES_DB_PASSWORD` | `evensies` / `evensies` | |
 | `EVENSIES_JWT_SECRET` | (필수, 32자 이상) | |
 | `EVENSIES_AUTH_DEV_LOGIN` | `false` | `true`면 `/auth/dev` 활성 (개발 전용) |
-| `EVENSIES_APPLE_CLIENT_ID` | | Apple 서비스 ID (앱 번들 ID) |
+| `EVENSIES_APPLE_CLIENT_ID` | | iOS 앱의 번들 ID(`dev.nariinfo.evensies`), `/auth/apple`이 받는 `aud` |
+| `EVENSIES_APPLE_SERVICES_ID` | | 9단계: 웹 로그인용 Apple Services ID(`dev.nariinfo.evensies.web`). 받는 `aud`에 더하고 `GET /info`의 `appleServicesId`. 비면 웹에 Apple 버튼 없음 |
 | `EVENSIES_GOOGLE_CLIENT_IDS` | | 쉼표 구분 |
+| `EVENSIES_GOOGLE_WEB_CLIENT_ID` | | 9단계: Google 웹 OAuth 클라이언트 id. 받는 `aud`에 더하고 `GET /info`의 `googleWebClientId`. 비면 웹에 Google 버튼 없음 |
+| `EVENSIES_CORS_ORIGINS` | (빈 값) | 9단계, 개발 전용: CORS를 허용할 정확한 origin(쉼표 구분, `*` 없음). `dev` 프로필은 `http://localhost:7357`(`flutter run -d chrome --web-port 7357`). 운영은 같은 origin(`/app/`)이라 비워 둔다 |
 | `EVENSIES_FCM_CREDENTIALS_FILE` | | 없으면 푸시 비활성 |
 | `EVENSIES_PUSH_BATCH_SECONDS` | `30` | 수신자·그룹마다 표시 알림 사이의 최소 간격(그 안의 변경은 묶어서 보냄) |
 | `EVENSIES_INVITE_RATE_PER_MINUTE` | `10` | 초대 조회·참여·랜딩의 IP당 분당 허용 횟수 |

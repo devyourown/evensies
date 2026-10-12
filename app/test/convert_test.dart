@@ -123,7 +123,7 @@ void main() {
     await settle(t);
     expect(find.text('Convert to EUR'), findsNWidgets(2)); // title and button
     expect(find.text('¥3,345 · 2 expenses'), findsOneWidget);
-    expect(find.text('rate of 10 Oct'), findsOneWidget);
+    expect(find.text('rate of Oct 10'), findsOneWidget);
     expect(t.widget<TextField>(find.byKey(const Key('convert-rate-JPY'))).controller!.text, '0.00563349');
     await t.enterText(find.byKey(const Key('convert-rate-JPY')), '0');
     await t.pump();

@@ -23,7 +23,7 @@
 | 6 | **People** | Friends: 1:1 expenses outside groups; overall balance across all groups and friends; profile photo; "remind to pay" | friend pairs as 2-person hidden groups (reuses sync), reminders, avatar upload | Friends tab, overall dashboard, reminders | object storage (Phase 6 shares it) |
 | 7 | **Receipts** | Attach receipt photos; on-device OCR to itemize a receipt and assign items to people | presigned upload to object storage, attachments table | camera/gallery, viewer, ML Kit text recognition, itemized split | Hetzner Object Storage ≈ €5/month (or local volume to start: 0) |
 | 8 | **Recurring expenses** | Repeat weekly / every 2 weeks / monthly / yearly (rent, subscriptions) | scheduler that emits `expense.created` on schedule | recurrence picker, "next on …" | 0 |
-| 9 | **Platforms & language** | Web app (same Flutter code); Korean, Italian, English (+ ES/FR/DE); home-screen widget with balance | CORS, web auth (Apple/Google on web) | Flutter web build, `intl` ARB files, iOS/Android widgets | static hosting via Caddy: 0 |
+| 9 | **Platforms & language** | Web app at `/app/`; 13 languages with local money and date formats; localized push, reminders and landing pages; home-screen widget; appearance toggle; app lock | Web build inside the server image, CSP, CORS (dev only), `GET /info`, `users.language`, `shared/strings.json` | Flutter web + drift wasm, ARB i18n, shared sentence templates, `home_widget`, `local_auth` | 0 |
 | 10 | **Email & account polish** | Email notifications/digest for members who turned push off; invite by email; group cover images; group types (trip/home/couple) | transactional email provider | settings, group header | email: free tier (e.g. Resend 3k/month) |
 | 11 | **Support Evensies** | Optional tips from Settings (in-app purchase, unlock nothing); the store app talks only to the official server | — | tip screen, `in_app_purchase`, release builds without the Server URL field | stores keep 15% of tips |
 
@@ -155,7 +155,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 11 | Split | Default split per group | Pro | have (Phase 3; shares and ± defaults since Hyojun's `computeSplit` landed) |
 | 12 | Expense | Description, amount, date, payer | Free | have |
 | 13 | Expense | Currency per expense, last one remembered | Free | have (per group since Phase 4) |
-| 14 | Expense | Category with icon, auto-guessed | Free | have (Phase 5): Splitwise's 43 subcategories with icons, guessed on the device from the description and the group's history ("auto" until picked); English labels until Phase 9 |
+| 14 | Expense | Category with icon, auto-guessed | Free | have (Phase 5): Splitwise's 43 subcategories with icons, guessed on the device from the description and the group's history ("auto" until picked); labels in all 13 languages since Phase 9 |
 | 15 | Expense | Notes | Free | have (Phase 2) |
 | 16 | Expense | Receipt photo | Free (Pro 10 GB) | have (Phase 7): up to 10 per expense, offline upload later, ZIP export with receipts |
 | 17 | Expense | Repeat | Free | have (Phase 8): Repeat on the expense form, added by the server at 09:00 in the creator's time zone |
@@ -179,7 +179,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 35 | Groups | Balances per member, per currency | Free | have (Phase 4): rated expenses fold into the group currency (Hyojun's `convertExpense`); unrated ones keep a "Not converted · JPY" section per currency on Balances, Settle up and the groups list |
 | 36 | Groups | Totals screen | Free | have (Phase 5, Insights): per month or all time, per currency; rated foreign expenses join the group-currency totals (Hyojun's `convertExpense`), unrated ones keep a "Not converted" card per currency |
 | 37 | Groups | Charts | Pro | have (Phase 5, free): bars by month (group / mine), by category and by person; no pie chart, on purpose |
-| 38 | Groups | Printable summary | Free (web) | partly (Phase 5): share-sheet text with the totals, top categories and balances; browser printing in Phase 9 |
+| 38 | Groups | Printable summary | Free (web) | have (Phase 5 text, Phase 9 print): share-sheet text with the totals, top categories and balances (copied to the clipboard on the web); on the web, Insights → Print summary opens that text on its own tab with the browser's print dialog |
 | 39 | Groups | Whiteboard | legacy | n/a |
 | 40 | Groups | Personal (solo) group | Free | have |
 | 41 | Invite | Invite link | Free | have |
@@ -200,7 +200,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 56 | Dashboard | Global add-expense button | Free | have (Phase 6) |
 | 57 | Activity | Activity feed | Free | have (Phase 2) |
 | 58 | Activity | Overall activity | Free | have (Phase 2) |
-| 59 | Notifications | Push for others' changes | Free | have (Phase 2); new kinds in Phases 3, 6, 7, 8, 10; localized in Phase 9 |
+| 59 | Notifications | Push for others' changes | Free | have (Phase 2); new kinds in Phases 3, 6, 7, 8, 10; in each recipient's language since Phase 9 |
 | 60 | Notifications | Delay against noise | Free | have (30 s batching) |
 | 61 | Notifications | Per-type settings | Free | have (push per type in Phases 2 and 6); email summary choice in Phase 10 |
 | 62 | Notifications | Email notifications | Free | Phase 10 (as a digest; per-event emails out of scope) |
@@ -226,11 +226,11 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 82 | Import | Bank/card transactions | Pro | out of scope (open-banking contracts cost money) |
 | 83 | Import | From other apps | n/a | have (Splitwise CSV, fixed in Phases 3 and 5) |
 | 84 | Platform | Offline add, sync later | Free | have |
-| 85 | Platform | Web app | Free | Phase 9 |
-| 86 | Platform | Languages | Free | Phase 9 (Splitwise's 12 + Korean) |
+| 85 | Platform | Web app | Free | have (Phase 9): the same app at `/app/` on the server; data kept in the browser, tabs share one database; sync on focus and every 60 s instead of push; no receipt scan, widget or app lock; a centred phone-width column (no desktop layout) |
+| 86 | Platform | Languages | Free | have (Phase 9): Splitwise's 12 + Korean, from the system or Settings → Language; feed, push and invite pages in each reader's language; local money and date formats; machine-translated, Korean review by Hyojun pending |
 | 87 | Platform | Dark mode follows the system | Free | have |
-| 88 | Platform | Appearance toggle | Free | Phase 9 |
-| 89 | Platform | Home-screen widget | n/a | Phase 9 (extra) |
+| 88 | Platform | Appearance toggle | Free | have (Phase 9): System / Light / Dark |
+| 89 | Platform | Home-screen widget | n/a | have (Phase 9, extra): iOS small/medium, Android 2×2; overall net per currency, refreshed when the app syncs |
 | 90 | Account | Sign-in methods | Free | have (Apple, Google); Phase 10 (email code); Facebook out of scope |
 | 91 | Account | Email login, password reset, change email | Free | Phase 10 (codes, no passwords) |
 | 92 | Account | Facebook login | Free | out of scope (Meta review and tracking; Apple/Google/email cover users) |
@@ -239,7 +239,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 95 | Account | Profile photo | Free | have (Phase 6) |
 | 96 | Account | Time zone | Free | have (Phase 8): per repeating series, from the device; no account setting |
 | 97 | Account | Log out on all devices | Free | Phase 10 |
-| 98 | Account | Passcode / Face ID lock | Free | Phase 9 |
+| 98 | Account | Passcode / Face ID lock | Free | have (Phase 9): Face ID / Touch ID / fingerprint with the device passcode as fallback; no separate app passcode |
 | 99 | Account | 2FA | n/a | n/a (Apple/Google accounts carry 2FA) |
 | 100 | Account | Close account | Free | have (`DELETE /me`; Phases 6 and 10 extend the cleanup) |
 | 101 | Privacy | Only people who share a group see it | Free | have |

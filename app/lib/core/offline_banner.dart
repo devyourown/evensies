@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import 'l10n.dart';
 
 /// Thin banner shown while SyncService reports offline. Renders nothing otherwise.
 class OfflineBanner extends ConsumerWidget {
@@ -19,7 +20,7 @@ class OfflineBanner extends ConsumerWidget {
           Icon(Icons.cloud_off_outlined, size: 18, color: cs.onTertiaryContainer),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Offline — changes will sync later',
+            child: Text(context.l.offlineBanner,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onTertiaryContainer)),
           ),
         ]),

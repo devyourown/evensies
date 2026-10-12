@@ -15,6 +15,26 @@ Offline-first expense splitting client for the Evensies server. Contract: `../do
 | `EVENSIES_SERVER_URL` | `https://evensies.nariinfo.dev` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
 | `DEV_LOGIN` | `false` | shows a "Dev login" button that calls `POST /auth/dev {name}` |
 
+## Web (`/app/` on the server, same origin)
+
+```sh
+flutter run -d chrome --web-port 7357 --dart-define=EVENSIES_SERVER_URL=http://localhost:8080   # against bootRun (dev profile)
+flutter build web --release --base-href /app/ --no-web-resources-cdn --csp                       # what CI and the image build
+```
+
+Without `EVENSIES_SERVER_URL` the web app talks to the origin it was served from; the login screen asks `GET /info`
+which buttons to show. `web/` carries drift's worker and sqlite3's wasm named by version
+(`drift_worker-<drift>.js`, `sqlite3-<sqlite3>.wasm`): after a `pub upgrade` that moves either, replace both files and
+the names in `lib/data/db/database.dart` (`test/web_assets_test.dart` fails until then).
+
+## Languages
+
+UI text lives in `lib/l10n/app_<lang>.arb` (English `app_en.arb` is the source, with a `@description` per key); run
+`flutter gen-l10n` after editing and commit the generated `app_localizations*.dart`. Activity sentences, category
+names, frequency words and the money notation come from `assets/strings.json`, a byte-equal copy of
+`../shared/strings.json`. `test/l10n_test.dart` checks keys and placeholders, `test/hardcoded_strings_test.dart`
+fails on new English literals in widgets.
+
 ## Tests
 
 ```sh
@@ -37,14 +57,15 @@ The domain logic lives in three small, pure files, each checked against the JSON
 ## Layout
 
 ```
-lib/core/        env.dart money.dart ids.dart core_guard.dart snack.dart
+lib/core/        env.dart money.dart ids.dart core_guard.dart snack.dart l10n.dart strings.dart appearance.dart
+lib/l10n/        app_<lang>.arb (+ generated app_localizations*.dart)
 lib/data/db/     database.dart (+ .g.dart)      drift tables
 lib/data/api/    api_client.dart dto.dart        every endpoint in API.md, 401 → refresh once → retry
 lib/data/sync/   sync_service.dart               push outbox → pull after lastSeq → applyEvent → save
                  group_state_store.dart          GroupState ⇄ drift
 lib/data/local_writes.dart                       every local change = drift rows + outbox event
 lib/domain/      models.dart split.dart settlement.dart
-lib/features/    auth groups group_detail expense_form settle members settings
+lib/features/    auth groups group_detail expense_form settle members settings lock home_widget …
 ```
 
 ## Platform setup still needed (before TestFlight / Play)

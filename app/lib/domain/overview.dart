@@ -6,6 +6,7 @@ library;
 import 'dart:math' show pow;
 
 import '../core/money.dart';
+import '../l10n/app_localizations.dart';
 import 'balances.dart';
 import 'models.dart';
 import 'settlement.dart';
@@ -193,12 +194,12 @@ String largestCurrency(Map<String, int> amounts, Map<String, double>? perEur) {
 }
 
 /// "owes you €12.00", "you owe $5.00", with `*` when there are several currencies; "settled up" when empty.
-String personBalanceText(Map<String, int> net, Map<String, double>? perEur) {
-  if (net.isEmpty) return 'settled up';
+String personBalanceText(AppLocalizations l, Map<String, int> net, Map<String, double>? perEur) {
+  if (net.isEmpty) return l.personSettledUp;
   final c = largestCurrency(net, perEur);
   final v = net[c]!;
   final m = formatMoney(v.abs(), c);
-  return '${v > 0 ? 'owes you $m' : 'you owe $m'}${net.length > 1 ? '*' : ''}';
+  return '${v > 0 ? l.personOwesYou(m) : l.personYouOwe(m)}${net.length > 1 ? '*' : ''}';
 }
 
 /// One Settle up transfer between me and a person, in one group and currency (docs/API.md 친구와 한 번에 정산).

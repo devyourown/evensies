@@ -1,0 +1,4 @@
+// The extension's version must be the app's (an install or upload refuses one without it): FLUTTER_BUILD_NAME and
+// FLUTTER_BUILD_NUMBER for Info.plist. Only Generated.xcconfig, not Flutter/Debug.xcconfig: that one also brings the
+// Runner pods' linker flags, which would load Flutter and every plugin into the widget.
+#include "../Flutter/Generated.xcconfig"

@@ -144,7 +144,7 @@ void main() {
             ...overrides(),
             pickPhotoProvider.overrideWithValue((ImageSource source, {required int maxEdge, required int quality}) async {
               expect((maxEdge, quality), (512, 85));
-              return File('/tmp/picked-$source.jpg');
+              return Uint8List.fromList('picked-$source'.codeUnits);
             }),
           ],
           child: const MaterialApp(home: SettingsScreen()),
@@ -161,7 +161,7 @@ void main() {
       expect(find.text('Take photo'), findsOneWidget);
       await t.tap(find.text('Choose from library'));
       await settle(t);
-      expect(api.avatarUploads, ['/tmp/picked-ImageSource.gallery.jpg']);
+      expect(api.avatarUploads, ['picked-ImageSource.gallery']);
       await t.tap(find.byKey(const Key('my-photo')));
       await settle(t);
       await t.tap(find.text('Remove photo'));

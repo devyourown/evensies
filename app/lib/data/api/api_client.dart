@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -18,7 +17,10 @@ class ApiClient {
   final String Function() baseUrl;
   late final Dio _dio;
 
-  ApiClient({required this.db, required this.baseUrl, Dio? dio}) {
+  /// How long a refused refresh waits for another tab's new tokens before signing out (see [_refresh]).
+  final Duration otherTabGrace;
+
+  ApiClient({required this.db, required this.baseUrl, Dio? dio, this.otherTabGrace = const Duration(seconds: 2)}) {
     _dio = dio ?? Dio(BaseOptions(connectTimeout: const Duration(seconds: 10), receiveTimeout: const Duration(seconds: 30)));
     _dio.interceptors.add(InterceptorsWrapper(onRequest: _onRequest, onError: _onError));
   }
@@ -55,7 +57,10 @@ class ApiClient {
   }
 
   /// False if it failed. Signs out only when the server refused [s]'s refresh token and nothing replaced it meanwhile
-  /// (not when offline).
+  /// (not when offline). Replaced meanwhile (another tab of the web app, or a request that refreshed first) is a
+  /// success: the retry goes with the stored access token (docs/API.md 토큰 갱신). Two tabs that refresh at once send
+  /// the same token and only one wins; the loser looks again after [otherTabGrace], since the winner's new tokens may
+  /// not be saved yet when the refusal arrives.
   Future<bool> _refresh(SessionRow s) async {
     try {
       final r = await _dio.post<Map<String, dynamic>>('/auth/refresh',
@@ -63,9 +68,14 @@ class ApiClient {
       await db.saveTokens(s.userId, r.data!['accessToken'] as String, r.data!['refreshToken'] as String);
       return true;
     } on DioException catch (x) {
-      if (x.response?.statusCode == 401 && (await db.getSession())?.refreshToken == s.refreshToken) {
-        await db.clearSession();
+      if (x.response?.statusCode != 401) return false;
+      for (final wait in [Duration.zero, otherTabGrace]) {
+        await Future<void>.delayed(wait);
+        final now = await db.getSession();
+        if (now == null) return false;
+        if (now.refreshToken != s.refreshToken) return true;
       }
+      await db.clearSession();
       return false;
     }
   }
@@ -107,10 +117,16 @@ class ApiClient {
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
   Future<UserDto> me() => _call(() => _dio.get('/me'), (d) => UserDto.fromJson(_map(d)));
-  /// Only the given keys are sent (docs/API.md PATCH /me); at least one is needed.
-  Future<UserDto> updateMe({String? displayName, String? homeCurrency}) => _call(
-      () => _dio.patch('/me', data: {'displayName': ?displayName, 'homeCurrency': ?homeCurrency}),
+  /// Only the given keys are sent (docs/API.md PATCH /me); at least one is needed. [language] (Phase 9) is sent only
+  /// when given, as the code (a server before Phase 9 refuses a body with only it: 400).
+  Future<UserDto> updateMe({String? displayName, String? homeCurrency, String? language}) => _call(
+      () => _dio.patch('/me',
+          data: {'displayName': ?displayName, 'homeCurrency': ?homeCurrency, 'language': ?language}),
       (d) => UserDto.fromJson(_map(d)));
+
+  /// `GET /info` (no auth): which sign-in buttons this server offers on the web.
+  Future<ServerInfo> info() => _call(
+      () => _dio.get('/info', options: Options(extra: {'noAuth': true})), (d) => ServerInfo.fromJson(_map(d)));
 
   /// Rates per 1 EUR for [date] (YYYY-MM-DD; null = today). Gives up after 3 s so the form falls back to the cache.
   Future<FxTable> fx([String? date]) => _call(
@@ -186,9 +202,8 @@ class ApiClient {
           });
 
   // --- profile photo (docs/API.md 프로필 사진)
-  Future<void> putAvatar(File jpeg) => _call(
-        () async => _dio.put('/me/avatar',
-            data: FormData.fromMap({'file': await MultipartFile.fromFile(jpeg.path, filename: 'avatar.jpg')})),
+  Future<void> putAvatar(Uint8List jpeg) => _call(
+        () => _dio.put('/me/avatar', data: FormData.fromMap({'file': MultipartFile.fromBytes(jpeg, filename: 'avatar.jpg')})),
         (_) {},
       );
   Future<void> deleteAvatar() => _call(() => _dio.delete('/me/avatar'), (_) {});
@@ -261,11 +276,11 @@ class ApiClient {
 
   // --- receipts (docs/API.md 영수증)
   /// Uploads a prepared receipt under the id the app made; a retry of a stored one answers 200 and keeps the files.
-  Future<void> uploadAttachment(String groupId, String attachmentId, File image, File thumb) => _call(
-        () async => _dio.post('/groups/$groupId/attachments/$attachmentId',
+  Future<void> uploadAttachment(String groupId, String attachmentId, Uint8List image, Uint8List thumb) => _call(
+        () => _dio.post('/groups/$groupId/attachments/$attachmentId',
             data: FormData.fromMap({
-              'image': await MultipartFile.fromFile(image.path, filename: 'receipt.jpg'),
-              'thumb': await MultipartFile.fromFile(thumb.path, filename: 'thumb.jpg'),
+              'image': MultipartFile.fromBytes(image, filename: 'receipt.jpg'),
+              'thumb': MultipartFile.fromBytes(thumb, filename: 'thumb.jpg'),
             })),
         (_) {},
       );
@@ -282,12 +297,18 @@ class ApiClient {
           queryParameters: {'format': format}, options: Options(responseType: ResponseType.plain)),
       (d) => d as String);
 
-  /// `format=zip` (group.json plus every receipt, Phase 7), streamed into the file at [path] (it can be large).
-  Future<void> exportZip(String groupId, String path) => _call(
-      () => _dio.download('/groups/$groupId/export', path, queryParameters: {'format': 'zip'}), (_) {});
-  Future<({int imported, int latestSeq})> importSplitwise(String groupId, File csv) => _call(
-        () async => _dio.post('/groups/$groupId/import/splitwise',
-            data: FormData.fromMap({'file': await MultipartFile.fromFile(csv.path, filename: 'splitwise.csv')})),
+  /// `format=zip` (group.json plus every receipt, Phase 7) in memory: the web, which has no files.
+  Future<Uint8List> exportZip(String groupId) => _call(
+      () => _dio.get('/groups/$groupId/export',
+          queryParameters: {'format': 'zip'}, options: Options(responseType: ResponseType.bytes)),
+      (d) => Uint8List.fromList(d as List<int>));
+
+  /// The same ZIP streamed into the file at [path] (phones: hundreds of receipts are hundreds of MB).
+  Future<void> exportZipTo(String groupId, String path) =>
+      _call(() => _dio.download('/groups/$groupId/export', path, queryParameters: {'format': 'zip'}), (_) {});
+  Future<({int imported, int latestSeq})> importSplitwise(String groupId, List<int> csv) => _call(
+        () => _dio.post('/groups/$groupId/import/splitwise',
+            data: FormData.fromMap({'file': MultipartFile.fromBytes(csv, filename: 'splitwise.csv')})),
         (d) => (imported: (_map(d)['imported'] as num).toInt(), latestSeq: (_map(d)['latestSeq'] as num).toInt()),
       );
 }

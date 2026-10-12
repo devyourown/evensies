@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:drift/native.dart';
+import 'package:evensies/core/money.dart';
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/data/api/api_client.dart';
 import 'package:evensies/data/api/dto.dart';
@@ -29,6 +31,7 @@ Expense x(String id, int amount) => Expense(
 );
 
 void main() {
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2},"symbols":{"EUR":"€"}}'));
   late AppDatabase db;
   late FakeApi api;
   late SyncService sync;
@@ -207,10 +210,10 @@ void main() {
   });
 
   test('unknown codes read "the server refused it"; receipts have their own reasons', () {
-    expect(rejectionReason('VALIDATION'), 'the server refused it');
-    expect(rejectionReason('ATTACHMENT_NOT_UPLOADED', 'attachment.added'), "the photo didn't upload");
-    expect(rejectionReason('LIMIT_EXCEEDED', 'attachment.added'), 'an expense can have at most 10 receipts');
-    expect(rejectionReason('LIMIT_EXCEEDED', 'member.added'), 'the group is full');
+    expect(rejectionReason(AppLocalizationsEn(), 'VALIDATION'), 'the server refused it');
+    expect(rejectionReason(AppLocalizationsEn(), 'ATTACHMENT_NOT_UPLOADED', 'attachment.added'), "the photo didn't upload");
+    expect(rejectionReason(AppLocalizationsEn(), 'LIMIT_EXCEEDED', 'attachment.added'), 'an expense can have at most 10 receipts');
+    expect(rejectionReason(AppLocalizationsEn(), 'LIMIT_EXCEEDED', 'member.added'), 'the group is full');
   });
 
   test('syncAll drops groups missing from GET /groups (left or removed elsewhere)', () async {

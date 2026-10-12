@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
+import '../../core/browser_stub.dart' if (dart.library.js_interop) '../../core/browser_web.dart' show printText;
+import '../../core/snack.dart' show errorText, shareText;
 import '../../domain/categories.dart';
 import '../../domain/insights.dart';
 import '../../providers.dart';
@@ -39,10 +42,10 @@ List<String> monthRange(Iterable<String> keys) {
   ];
 }
 
-/// "October 2026" for `2026-10`; anything else (a `?month=` link) as it is.
-String monthLabel(String m, {String pattern = 'MMMM yyyy'}) {
+/// "October 2026" for `2026-10` ([short]: "Oct 2026"), in the UI language; anything else (a `?month=` link) as it is.
+String monthLabel(String m, {bool short = false}) {
   final d = _monthStart(m);
-  return d == null ? m : DateFormat(pattern).format(d);
+  return d == null ? m : (short ? DateFormat.yMMM() : DateFormat.yMMMM()).format(d);
 }
 
 /// Group totals and charts (route `/groups/{id}/insights`): a period bar, totals, by month, by category, by person,
@@ -67,12 +70,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final res = ref.watch(balancesProvider(gid)).valueOrNull; // Balances failing never hides Insights
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final buckets = async.valueOrNull;
     if (group == null || buckets == null || state == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Insights')),
+        appBar: AppBar(title: Text(l.insights)),
         body: Center(
-            child: async.hasError ? Text("Insights can't be shown: ${async.error}") : const CircularProgressIndicator()),
+            child: async.hasError
+                ? Text(l.insightsError(errorText(l, async.error!)))
+                : const CircularProgressIndicator()),
       );
     }
     final d = group.defaultCurrency;
@@ -85,16 +91,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     if (months.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Insights')),
+        appBar: AppBar(title: Text(l.insights)),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.insights, size: 64, color: cs.primary),
               const SizedBox(height: 16),
-              Text('Nothing to show yet', style: text.titleMedium),
+              Text(l.nothingToShow, style: text.titleMedium),
               const SizedBox(height: 4),
-              Text('Totals and charts appear once the group has expenses.',
+              Text(l.insightsEmptyHelp,
                   textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
             ]),
           ),
@@ -105,7 +111,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final shown = month ?? months.last;
     final i = months.indexOf(shown);
     void go(String m) => setState(() => _month = m);
-    final period = month == null ? 'All time' : monthLabel(month);
+    final period = month == null ? l.allTime : monthLabel(month);
+    String summary() => insightsSummary(
+          l,
+          group: group.name,
+          period: period,
+          currency: d,
+          totals: {for (final MapEntry(key: cur, value: b) in buckets.entries) cur: pick(b)},
+          names: names,
+          balances: res?.balances ?? const {},
+        );
 
     Widget header(String s, {Widget? trailing}) => Padding(
           padding: const EdgeInsets.only(top: 28, bottom: 8),
@@ -117,23 +132,20 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Insights'),
+          Text(l.insights),
           Text(group.name, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         ]),
         actions: [
+          if (kIsWeb)
+            IconButton(
+              tooltip: l.printSummary,
+              icon: const Icon(Icons.print_outlined),
+              onPressed: () => printText(group.name, summary()),
+            ),
           IconButton(
-            tooltip: 'Share summary',
+            tooltip: l.shareSummary,
             icon: const Icon(Icons.ios_share),
-            onPressed: () => SharePlus.instance.share(ShareParams(
-              text: insightsSummary(
-                group: group.name,
-                period: period,
-                currency: d,
-                totals: {for (final MapEntry(key: cur, value: b) in buckets.entries) cur: pick(b)},
-                names: names,
-                balances: res?.balances ?? const {},
-              ),
-            )),
+            onPressed: () => shareText(context, summary()),
           ),
         ],
       ),
@@ -143,26 +155,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           _spread(
             ChoiceChip(
               key: const Key('period-all'),
-              label: const Text('All time'),
+              label: Text(l.allTime),
               selected: month == null,
               onSelected: (_) => setState(() => _month = null),
             ),
             Row(mainAxisSize: MainAxisSize.min, children: [
               IconButton(
-                tooltip: 'Previous month',
+                tooltip: l.previousMonth,
                 onPressed: i > 0 ? () => go(months[i - 1]) : null,
                 icon: const Icon(Icons.chevron_left),
               ),
               Flexible(
                 child: ChoiceChip(
                   key: const Key('period-month'),
-                  label: Text(monthLabel(shown, pattern: 'MMM yyyy')),
+                  label: Text(monthLabel(shown, short: true)),
                   selected: month != null,
                   onSelected: (_) => go(shown),
                 ),
               ),
               IconButton(
-                tooltip: 'Next month',
+                tooltip: l.nextMonth,
                 onPressed: i < months.length - 1 ? () => go(months[i + 1]) : null,
                 icon: const Icon(Icons.chevron_right),
               ),
@@ -170,13 +182,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           ),
           const SizedBox(height: 8),
           _TotalsCard(totals: t, currency: d),
-          header('By month',
+          header(l.byMonth,
               trailing: SegmentedButton<bool>(
                 showSelectedIcon: false,
                 style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Group')),
-                  ButtonSegment(value: true, label: Text('Mine')),
+                segments: [
+                  ButtonSegment(value: false, label: Text(l.groupSegment)),
+                  ButtonSegment(value: true, label: Text(l.mineSegment)),
                 ],
                 selected: {_mine},
                 onSelectionChanged: (v) => setState(() => _mine = v.first),
@@ -189,9 +201,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             selected: month,
             onTap: go,
           ),
-          header('By category'),
+          header(l.byCategory),
           if (t.byCategory.isEmpty)
-            Text('No expenses in this period.', style: TextStyle(color: cs.onSurfaceVariant))
+            Text(l.noExpensesPeriod, style: TextStyle(color: cs.onSurfaceVariant))
           else
             _Categories(
               byCategory: t.byCategory,
@@ -199,15 +211,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               onTap: (key) => context.push(
                   Uri(path: '/search', queryParameters: {'group': gid, 'category': key, 'month': ?month}).toString()),
             ),
-          header('By person'),
+          header(l.byPerson),
           if (t.byMember.isEmpty)
-            Text('Nobody paid or owed anything in this period.', style: TextStyle(color: cs.onSurfaceVariant))
+            Text(l.nobodyPaidPeriod, style: TextStyle(color: cs.onSurfaceVariant))
           else
             _People(byMember: t.byMember, names: names, me: group.myMemberId, currency: d),
           for (final MapEntry(key: cur, value: b) in buckets.entries)
             if (cur != d && !pick(b).isEmpty) ...[
-              header('Not converted · $cur'),
-              Text('Kept in $cur until it is converted to $d.',
+              header(l.summaryNotConverted(cur)),
+              Text(l.keptUntilConverted(cur, d),
                   style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 8),
               _TotalsCard(key: Key('totals-$cur'), totals: pick(b), currency: cur),
@@ -240,6 +252,7 @@ class _TotalsCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final t = totals;
+    final l = context.l;
     Widget row(String label, int v, {bool big = false}) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: _spread(
@@ -254,15 +267,15 @@ class _TotalsCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(children: [
-          row('Total spent', t.spent, big: true),
+          row(l.totalSpent, t.spent, big: true),
           const Divider(),
-          row('You paid', t.youPaid),
-          row('Your share', t.yourShare),
-          row('Payments made', t.paymentsMade),
-          row('Payments received', t.paymentsReceived),
+          row(l.youPaidRow, t.youPaid),
+          row(l.yourShare, t.yourShare),
+          row(l.paymentsMade, t.paymentsMade),
+          row(l.paymentsReceived, t.paymentsReceived),
           const Divider(),
           _spread(
-            Text('Change in your balance', style: text.bodyMedium),
+            Text(l.balanceChange, style: text.bodyMedium),
             Text(
               '${net > 0 ? '+' : net < 0 ? '−' : ''}${formatMoney(net.abs(), currency)}',
               key: Key('net-$currency'),
@@ -330,9 +343,9 @@ class _MonthBars extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    _word(Text(monthLabel(m, pattern: 'MMM'),
+                    _word(Text(DateFormat.MMM().format(_monthStart(m)!),
                         style: text.labelMedium?.copyWith(fontWeight: m == selected ? FontWeight.w700 : null))),
-                    _word(Text(monthLabel(m, pattern: 'yy'),
+                    _word(Text(DateFormat('yy').format(_monthStart(m)!),
                         style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant))),
                   ]),
                 ),
@@ -387,7 +400,7 @@ class _Categories extends StatelessWidget {
           shape: const Border(),
           leading: ax ? null : CategoryAvatar.parent(p.key),
           // The amount in the title, not trailing, so it wraps under the label at the largest text sizes.
-          title: _spread(_label(Categories.parent(p.key)?.label ?? Categories.labelOf(p.key)),
+          title: _spread(_label(Categories.parent(p.key) != null ? Categories.nameOf(p.key) : Categories.labelOf(p.key)),
               Text(formatMoney(sum(p.value), currency), style: Theme.of(context).textTheme.titleSmall)),
           subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: _bar(context, sum(p.value), top, cs.primary)),
           children: [
@@ -429,14 +442,15 @@ class _People extends StatelessWidget {
           const SizedBox(width: 12),
         ]);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [dot(cs.primary, 'Paid'), dot(cs.tertiary, 'Share')]),
+      Row(children: [dot(cs.primary, context.l.paidLegend), dot(cs.tertiary, context.l.shareLegend)]),
       for (final r in rows)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             _spread(
-              Text(r.key == me ? 'You' : names[r.key] ?? 'Someone', maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text('paid ${formatMoney(r.value.paid, currency)} · share ${formatMoney(r.value.share, currency)}',
+              Text(r.key == me ? context.l.you : names[r.key] ?? context.l.someone,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(context.l.paidShareLine(formatMoney(r.value.paid, currency), formatMoney(r.value.share, currency)),
                   style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             ),
             const SizedBox(height: 6),

@@ -83,9 +83,10 @@ void main() {
             picks.add(scan);
             final id = 'r${picks.length}';
             for (final thumb in [false, true]) {
-              final f = await files.pending(id, thumb: thumb);
-              f.parent.createSync(recursive: true); // sync: no real async IO inside the test's fake time
-              f.writeAsBytesSync(_png);
+              // sync: no real async IO inside the test's fake time
+              File('${tmp.path}/s/pending_attachments/$id${thumb ? '_thumb' : ''}.jpg')
+                ..parent.createSync(recursive: true)
+                ..writeAsBytesSync(_png);
             }
             return (id: id, lines: scan ? scanned ?? diner : null);
           }),
@@ -331,7 +332,7 @@ void main() {
     expect(find.byKey(const Key('new-receipt-r1')), findsOneWidget);
     await unmount(t);
     await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-    expect((await t.runAsync(() async => (await files.pending('r1')).exists()))!, isFalse);
+    expect(await t.runAsync(() => files.pending('r1')), isNull);
     expect(await outbox(t), isEmpty);
   });
 }

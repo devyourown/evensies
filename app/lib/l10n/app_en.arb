@@ -1,0 +1,4185 @@
+{
+  "@@locale": "en",
+  "appTitle": "Evensies",
+  "@appTitle": {
+    "description": "The app's name; not translated."
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Button that closes a dialog without doing anything."
+  },
+  "delete": "Delete",
+  "@delete": {
+    "description": "Button that deletes something."
+  },
+  "remove": "Remove",
+  "@remove": {
+    "description": "Button that removes something (a receipt, a member, a payment method)."
+  },
+  "save": "Save",
+  "@save": {
+    "description": "Button that saves a form."
+  },
+  "done": "Done",
+  "@done": {
+    "description": "Button that finishes a step."
+  },
+  "undo": "Undo",
+  "@undo": {
+    "description": "Snackbar action that reverts a delete."
+  },
+  "retry": "Retry",
+  "@retry": {
+    "description": "Button that retries a failed load."
+  },
+  "ok": "OK",
+  "@ok": {
+    "description": "Button that acknowledges a message."
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Button that closes a screen or sheet."
+  },
+  "edit": "Edit",
+  "@edit": {
+    "description": "Button or menu item that opens a form to change something."
+  },
+  "add": "Add",
+  "@add": {
+    "description": "Button that adds something."
+  },
+  "offlineBanner": "Offline — changes will sync later",
+  "@offlineBanner": {
+    "description": "Banner shown while the app can't reach the server."
+  },
+  "tooLong": "Too long",
+  "@tooLong": {
+    "description": "Error under a text field whose text is over the limit."
+  },
+  "allCurrencies": "All currencies",
+  "@allCurrencies": {
+    "description": "Divider in the currency menu between the pinned currencies and the full list."
+  },
+  "errorUnexpected": "Something went wrong. Try again.",
+  "@errorUnexpected": {
+    "description": "An unexpected error with no code."
+  },
+  "errorNetwork": "You are offline. Try again later.",
+  "@errorNetwork": {
+    "description": "The server can't be reached."
+  },
+  "errorRateLimited": "Too many tries. Wait a minute and try again.",
+  "@errorRateLimited": {
+    "description": "The server answered 429."
+  },
+  "errorNotFound": "That doesn't exist any more.",
+  "@errorNotFound": {
+    "description": "The server answered 404 NOT_FOUND."
+  },
+  "errorForbidden": "You're not allowed to do that.",
+  "@errorForbidden": {
+    "description": "The server answered 403 FORBIDDEN."
+  },
+  "errorValidation": "The server refused it.",
+  "@errorValidation": {
+    "description": "The server answered 400 VALIDATION."
+  },
+  "errorSumMismatch": "The split doesn't add up.",
+  "@errorSumMismatch": {
+    "description": "Error code SUM_MISMATCH."
+  },
+  "errorPayersSumMismatch": "The payers don't add up.",
+  "@errorPayersSumMismatch": {
+    "description": "Error code PAYERS_SUM_MISMATCH."
+  },
+  "errorNegativeAmount": "An amount is below zero.",
+  "@errorNegativeAmount": {
+    "description": "Error code NEGATIVE_AMOUNT."
+  },
+  "errorNegativeShare": "Someone's share would be below zero.",
+  "@errorNegativeShare": {
+    "description": "Error code NEGATIVE_SHARE (adjustment split)."
+  },
+  "errorNegativeTotal": "The total would be below zero.",
+  "@errorNegativeTotal": {
+    "description": "Error code NEGATIVE_TOTAL (itemized split)."
+  },
+  "errorZeroSubtotal": "Add item prices before tax, tip or discount.",
+  "@errorZeroSubtotal": {
+    "description": "Error code ZERO_SUBTOTAL (itemized split)."
+  },
+  "errorUnassignedItem": "Every item needs at least one person.",
+  "@errorUnassignedItem": {
+    "description": "Error code UNASSIGNED_ITEM (itemized split)."
+  },
+  "errorNoMembers": "Pick at least one person to split with.",
+  "@errorNoMembers": {
+    "description": "Error code NO_MEMBERS."
+  },
+  "errorInvalidInput": "Check the numbers.",
+  "@errorInvalidInput": {
+    "description": "Error code INVALID_INPUT (a share or adjustment that isn't a number)."
+  },
+  "errorBadRate": "The exchange rate must be above zero.",
+  "@errorBadRate": {
+    "description": "Error code BAD_RATE."
+  },
+  "errorUnknownMember": "It refers to someone who isn't in the group.",
+  "@errorUnknownMember": {
+    "description": "Error code UNKNOWN_MEMBER."
+  },
+  "errorUnknownCurrency": "The currency isn't supported.",
+  "@errorUnknownCurrency": {
+    "description": "Error code UNKNOWN_CURRENCY."
+  },
+  "errorMemberTaken": "That member is already taken.",
+  "@errorMemberTaken": {
+    "description": "Error code MEMBER_TAKEN."
+  },
+  "errorLimitExceeded": "The limit is reached.",
+  "@errorLimitExceeded": {
+    "description": "Error code LIMIT_EXCEEDED."
+  },
+  "errorTooLarge": "The photo is too large.",
+  "@errorTooLarge": {
+    "description": "Error codes TOO_LARGE and IMAGE_TOO_LARGE."
+  },
+  "errorNotJpeg": "Choose a JPEG photo",
+  "@errorNotJpeg": {
+    "description": "The picked photo isn't a JPEG (web) or the server answered NOT_JPEG."
+  },
+  "errorFxUnavailable": "Exchange rates aren't available right now.",
+  "@errorFxUnavailable": {
+    "description": "Error code FX_UNAVAILABLE."
+  },
+  "errorImportFailed": "That file couldn't be imported.",
+  "@errorImportFailed": {
+    "description": "Error code IMPORT_FAILED."
+  },
+  "errorAuthNotConfigured": "This server can't sign you in that way.",
+  "@errorAuthNotConfigured": {
+    "description": "Error code AUTH_NOT_CONFIGURED."
+  },
+  "errorDuplicate": "That already exists.",
+  "@errorDuplicate": {
+    "description": "Error code DUPLICATE."
+  },
+  "errorGeneric": "Something went wrong ({code}).",
+  "@errorGeneric": {
+    "description": "Any other error code; {code} is the server's code, e.g. VALIDATION. Keep it as is.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedReceipt": "Couldn't save the receipt on “{name}”: {reason}",
+  "@rejectedReceipt": {
+    "description": "A receipt photo the server refused. {name} is the expense's description, {reason} one of the rejection reasons.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedReceiptUnnamed": "Couldn't save the receipt on an expense: {reason}",
+  "@rejectedReceiptUnnamed": {
+    "description": "Like rejectedReceipt when the expense isn't known.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedReceiptRemove": "Couldn't save removing a receipt from “{name}”: {reason}",
+  "@rejectedReceiptRemove": {
+    "description": "Removing a receipt was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedReceiptRemoveUnnamed": "Couldn't save removing a receipt from an expense: {reason}",
+  "@rejectedReceiptRemoveUnnamed": {
+    "description": "Like rejectedReceiptRemove when the expense isn't known.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedRepeating": "Couldn't save repeating “{name}”: {reason}",
+  "@rejectedRepeating": {
+    "description": "A new repeating expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedRepeatingUnnamed": "Couldn't save a repeating expense: {reason}",
+  "@rejectedRepeatingUnnamed": {
+    "description": "Like rejectedRepeating without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedSeriesChange": "Couldn't save a change to future “{name}”: {reason}",
+  "@rejectedSeriesChange": {
+    "description": "A change to a repeating expense's future was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedSeriesChangeUnnamed": "Couldn't save a change to a repeating expense: {reason}",
+  "@rejectedSeriesChangeUnnamed": {
+    "description": "Like rejectedSeriesChange without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedSeriesStop": "Couldn't save stopping “{name}” from repeating: {reason}",
+  "@rejectedSeriesStop": {
+    "description": "Stopping a repeating expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedSeriesStopUnnamed": "Couldn't save stopping a repeating expense: {reason}",
+  "@rejectedSeriesStopUnnamed": {
+    "description": "Like rejectedSeriesStop without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedSavedNoRepeat": "“{name}” was saved but won't repeat: {reason}",
+  "@rejectedSavedNoRepeat": {
+    "description": "The first expense of a new repeating expense was saved, but the series was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPaymentRestore": "Couldn't save restoring a payment: {reason}",
+  "@rejectedPaymentRestore": {
+    "description": "Restoring a deleted payment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedNewExpense": "Couldn't save the new expense “{name}”: {reason}",
+  "@rejectedNewExpense": {
+    "description": "A new expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedNewExpenseUnnamed": "Couldn't save a new expense: {reason}",
+  "@rejectedNewExpenseUnnamed": {
+    "description": "Like rejectedNewExpense without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseChange": "Couldn't save a change to “{name}”: {reason}",
+  "@rejectedExpenseChange": {
+    "description": "A change to an expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseChangeUnnamed": "Couldn't save a change to an expense: {reason}",
+  "@rejectedExpenseChangeUnnamed": {
+    "description": "Like rejectedExpenseChange without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseDelete": "Couldn't save deleting “{name}”: {reason}",
+  "@rejectedExpenseDelete": {
+    "description": "Deleting an expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseDeleteUnnamed": "Couldn't save deleting an expense: {reason}",
+  "@rejectedExpenseDeleteUnnamed": {
+    "description": "Like rejectedExpenseDelete without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseRestore": "Couldn't save restoring “{name}”: {reason}",
+  "@rejectedExpenseRestore": {
+    "description": "Restoring an expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedExpenseRestoreUnnamed": "Couldn't save restoring an expense: {reason}",
+  "@rejectedExpenseRestoreUnnamed": {
+    "description": "Like rejectedExpenseRestore without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedComment": "Couldn't save a comment on “{name}”: {reason}",
+  "@rejectedComment": {
+    "description": "A comment on an expense was refused.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedCommentUnnamed": "Couldn't save a comment on an expense: {reason}",
+  "@rejectedCommentUnnamed": {
+    "description": "Like rejectedComment without a description.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPaymentComment": "Couldn't save a comment on a payment: {reason}",
+  "@rejectedPaymentComment": {
+    "description": "A comment on a payment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedCommentDelete": "Couldn't save deleting a comment: {reason}",
+  "@rejectedCommentDelete": {
+    "description": "Deleting a comment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPayment": "Couldn't save a payment: {reason}",
+  "@rejectedPayment": {
+    "description": "A new payment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPaymentDelete": "Couldn't save deleting a payment: {reason}",
+  "@rejectedPaymentDelete": {
+    "description": "Deleting a payment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedPaymentConfirm": "Couldn't save confirming a payment: {reason}",
+  "@rejectedPaymentConfirm": {
+    "description": "Confirming a payment was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedGroupSettings": "Couldn't save a group settings change: {reason}",
+  "@rejectedGroupSettings": {
+    "description": "A change to the group's settings was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedMemberAdd": "Couldn't save adding {name}: {reason}",
+  "@rejectedMemberAdd": {
+    "description": "Adding a member was refused; {name} is the member's name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedMemberAddUnnamed": "Couldn't save adding a member: {reason}",
+  "@rejectedMemberAddUnnamed": {
+    "description": "Like rejectedMemberAdd without a name.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedMemberRemove": "Couldn't save removing a member: {reason}",
+  "@rejectedMemberRemove": {
+    "description": "Removing a member was refused.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "rejectedOther": "Couldn't save a change: {reason}",
+  "@rejectedOther": {
+    "description": "Any other refused change.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "reasonReceiptLimit": "an expense can have at most 10 receipts",
+  "@reasonReceiptLimit": {
+    "description": "{reason} in the rejected* messages: the receipt limit. Lower case, it continues a sentence."
+  },
+  "reasonSeriesLimit": "a group can have at most 100 repeating expenses",
+  "@reasonSeriesLimit": {
+    "description": "{reason}: the repeating expense limit."
+  },
+  "reasonNotUploaded": "the photo didn't upload",
+  "@reasonNotUploaded": {
+    "description": "{reason}: the receipt photo never reached the server."
+  },
+  "reasonSumMismatch": "the split doesn't add up",
+  "@reasonSumMismatch": {
+    "description": "{reason}: code SUM_MISMATCH."
+  },
+  "reasonPayersSumMismatch": "the payers don't add up",
+  "@reasonPayersSumMismatch": {
+    "description": "{reason}: code PAYERS_SUM_MISMATCH."
+  },
+  "reasonNegativeAmount": "an amount is below zero",
+  "@reasonNegativeAmount": {
+    "description": "{reason}: code NEGATIVE_AMOUNT."
+  },
+  "reasonUnknownMember": "it refers to someone who isn't in the group",
+  "@reasonUnknownMember": {
+    "description": "{reason}: code UNKNOWN_MEMBER."
+  },
+  "reasonUnknownCurrency": "the currency isn't supported",
+  "@reasonUnknownCurrency": {
+    "description": "{reason}: code UNKNOWN_CURRENCY."
+  },
+  "reasonMemberTaken": "that member is already taken",
+  "@reasonMemberTaken": {
+    "description": "{reason}: code MEMBER_TAKEN."
+  },
+  "reasonGroupFull": "the group is full",
+  "@reasonGroupFull": {
+    "description": "{reason}: code LIMIT_EXCEEDED."
+  },
+  "reasonForbidden": "you're not allowed to make that change",
+  "@reasonForbidden": {
+    "description": "{reason}: code FORBIDDEN."
+  },
+  "reasonRefused": "the server refused it",
+  "@reasonRefused": {
+    "description": "{reason}: any other code."
+  },
+  "leaveOwe": "You owe {amount} · settle up first",
+  "@leaveOwe": {
+    "description": "Why you can't leave a group yet. {amount} is formatted money, e.g. €12.00.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveOweIn": "You owe {amount} · settle up in {currency} first",
+  "@leaveOweIn": {
+    "description": "Like leaveOwe for a debt in another currency; {currency} is a code like USD.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveOwed": "You are owed {amount} · settle up first",
+  "@leaveOwed": {
+    "description": "Why you can't leave yet: others owe you.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveOwedIn": "You are owed {amount} · settle up in {currency} first",
+  "@leaveOwedIn": {
+    "description": "Like leaveOwed for another currency.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveSeries": "{count, plural, =1{You're still in 1 repeating expense ({names}) · edit the latest one or stop it first} other{You're still in {count} repeating expenses ({names}) · edit the latest one or stop them first}}",
+  "@leaveSeries": {
+    "description": "Why you can't leave: repeating expenses still include you. {names} is a list like \"Rent, Netflix and 2 more\".",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "seriesNamesMore": "{names} and {count} more",
+  "@seriesNamesMore": {
+    "description": "The end of a list of at most three repeating expense names, e.g. \"Rent, Netflix, Gym and 2 more\".",
+    "placeholders": {
+      "names": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesUnnamed": "an expense",
+  "@seriesUnnamed": {
+    "description": "Stands in for a repeating expense without a description in a list of names."
+  },
+  "listJoiner": ", ",
+  "@listJoiner": {
+    "description": "Separator between names in a list, e.g. \"Rent, Netflix\". Include any spaces."
+  },
+  "repeatNever": "Never",
+  "@repeatNever": {
+    "description": "Repeat menu: the expense doesn't repeat."
+  },
+  "repeatWeekly": "Every week",
+  "@repeatWeekly": {
+    "description": "Repeat menu option."
+  },
+  "repeatBiweekly": "Every 2 weeks",
+  "@repeatBiweekly": {
+    "description": "Repeat menu option."
+  },
+  "repeatMonthly": "Every month",
+  "@repeatMonthly": {
+    "description": "Repeat menu option."
+  },
+  "repeatYearly": "Every year",
+  "@repeatYearly": {
+    "description": "Repeat menu option."
+  },
+  "summaryNotConverted": "Not converted · {currency}",
+  "@summaryNotConverted": {
+    "description": "Share summary of a period: heading for a currency that wasn't converted to the group currency.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTotalSpent": "Total spent: {amount}",
+  "@summaryTotalSpent": {
+    "description": "Share summary line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryPaidShare": "You paid: {paid} · Your share: {share}",
+  "@summaryPaidShare": {
+    "description": "Share summary line.",
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "share": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryPayments": "Payments made: {made} · received: {received}",
+  "@summaryPayments": {
+    "description": "Share summary line.",
+    "placeholders": {
+      "made": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryTopCategories": "Top categories: {list}",
+  "@summaryTopCategories": {
+    "description": "Share summary line; {list} is like \"Dining out €30.00, Groceries €12.00\".",
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryBalancesToday": "Balances today",
+  "@summaryBalancesToday": {
+    "description": "Share summary heading for the balances as of today."
+  },
+  "summaryGetsBack": "{name} gets back {amount}",
+  "@summaryGetsBack": {
+    "description": "Share summary balance line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryOwes": "{name} owes {amount}",
+  "@summaryOwes": {
+    "description": "Share summary balance line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "summaryFooter": "Shared from Evensies",
+  "@summaryFooter": {
+    "description": "Last line of a shared text."
+  },
+  "koreanBank": "Korean bank",
+  "@koreanBank": {
+    "description": "Payment method type: a Korean bank account."
+  },
+  "requestText": "You owe me {amount} for {group} on Evensies.",
+  "@requestText": {
+    "description": "Share text of Request. {group} is the group name, or \"our shared expenses\" for expenses outside a group.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "requestTextWays": "You owe me {amount} for {group} on Evensies. Pay with: {ways}",
+  "@requestTextWays": {
+    "description": "Like requestText with the ways to pay, e.g. \"PayPal https://… · IBAN •••• 1234\".",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      },
+      "ways": {
+        "type": "String"
+      }
+    }
+  },
+  "requestNoGroup": "our shared expenses",
+  "@requestNoGroup": {
+    "description": "{group} in requestText for expenses with a friend outside any group."
+  },
+  "leaveSyncing": "Still syncing. Try again in a moment.",
+  "@leaveSyncing": {
+    "description": "Leaving a group while changes are still being sent."
+  },
+  "leaveOffline": "You need to be online to leave",
+  "@leaveOffline": {
+    "description": "Leaving a group needs a connection."
+  },
+  "moveOffline": "Couldn't move it. Try again when you're online",
+  "@moveOffline": {
+    "description": "Moving an expense to another group failed offline."
+  },
+  "moveFailed": "Couldn't move it: {reason}",
+  "@moveFailed": {
+    "description": "Moving an expense failed; {reason} is an error sentence.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "photoNoAccess": "Evensies has no access. Allow it in the Settings app.",
+  "@photoNoAccess": {
+    "description": "The camera or photo library permission was denied."
+  },
+  "photoNoCamera": "Couldn't open the camera.",
+  "@photoNoCamera": {
+    "description": "The camera couldn't be opened."
+  },
+  "photoNoLibrary": "Couldn't open the photo library.",
+  "@photoNoLibrary": {
+    "description": "The photo library couldn't be opened."
+  },
+  "photoUnusable": "That photo couldn't be used. Try another one.",
+  "@photoUnusable": {
+    "description": "The picked photo couldn't be read."
+  },
+  "methodErrorUsername": "Letters, digits, . _ - only (max 40)",
+  "@methodErrorUsername": {
+    "description": "Payment method form error (code USERNAME): a PayPal, Venmo or Revolut username."
+  },
+  "methodErrorLinkPrefix": "Must start with {prefix}",
+  "@methodErrorLinkPrefix": {
+    "description": "Payment method form error (code LINK_PREFIX); {prefix} is a URL like https://wise.com/.",
+    "placeholders": {
+      "prefix": {
+        "type": "String"
+      }
+    }
+  },
+  "methodErrorTooLong": "Max 200 characters",
+  "@methodErrorTooLong": {
+    "description": "Payment method form error (code TOO_LONG): a link over 200 characters."
+  },
+  "methodErrorIban": "Not a valid IBAN",
+  "@methodErrorIban": {
+    "description": "Payment method form error (code IBAN)."
+  },
+  "methodErrorHolder": "Account holder name (1–70 characters)",
+  "@methodErrorHolder": {
+    "description": "Payment method form error (code HOLDER)."
+  },
+  "methodErrorBic": "BIC has 8 or 11 characters",
+  "@methodErrorBic": {
+    "description": "Payment method form error (code BIC)."
+  },
+  "methodErrorKrAccount": "Digits and hyphens, 8–20 digits",
+  "@methodErrorKrAccount": {
+    "description": "Payment method form error (code KR_ACCOUNT): a Korean bank account number."
+  },
+  "methodErrorBank": "Bank name (1–30 characters)",
+  "@methodErrorBank": {
+    "description": "Payment method form error (code BANK)."
+  },
+  "methodErrorUnknownType": "Unknown type",
+  "@methodErrorUnknownType": {
+    "description": "Payment method error (code UNKNOWN_TYPE)."
+  },
+  "methodErrorTooMany": "At most 8 ways to get paid, and 3 of each bank type",
+  "@methodErrorTooMany": {
+    "description": "Payment method error (code TOO_MANY)."
+  },
+  "bannerDismiss": "Dismiss",
+  "@bannerDismiss": {
+    "description": "In-app notification banner: hides it."
+  },
+  "bannerView": "View",
+  "@bannerView": {
+    "description": "In-app notification banner: opens what it is about."
+  },
+  "loginTagline": "Split expenses with friends. No ads, no upsells.",
+  "@loginTagline": {
+    "description": "Login screen line under the app name."
+  },
+  "loginApple": "Continue with Apple",
+  "@loginApple": {
+    "description": "Sign-in button."
+  },
+  "loginGoogle": "Continue with Google",
+  "@loginGoogle": {
+    "description": "Sign-in button."
+  },
+  "loginWebUnavailable": "This server has no sign-in for the browser yet.",
+  "@loginWebUnavailable": {
+    "description": "Web login screen when the server offers neither Apple, Google nor dev sign-in."
+  },
+  "welcomeTitle": "Welcome",
+  "@welcomeTitle": {
+    "description": "Title of the name screen right after the first sign-in."
+  },
+  "yourNameTitle": "Your name",
+  "@yourNameTitle": {
+    "description": "Title of the name screen opened from Settings."
+  },
+  "nameQuestion": "What should your friends call you?",
+  "@nameQuestion": {
+    "description": "Name screen heading after the first sign-in."
+  },
+  "nameExplain": "This is the name other members see.",
+  "@nameExplain": {
+    "description": "Name screen heading when opened from Settings."
+  },
+  "nameHelp": "It is shown to people in your groups. You can change it later in Settings.",
+  "@nameHelp": {
+    "description": "Name screen help text."
+  },
+  "nameLabel": "Name",
+  "@nameLabel": {
+    "description": "Label of a person's name field."
+  },
+  "lockReason": "Unlock Evensies",
+  "@lockReason": {
+    "description": "The reason the system's Face ID, Touch ID or passcode prompt shows."
+  },
+  "lockTitle": "Evensies is locked",
+  "@lockTitle": {
+    "description": "Lock screen title."
+  },
+  "lockSubtitle": "Unlock with Face ID, Touch ID, your fingerprint or the device passcode.",
+  "@lockSubtitle": {
+    "description": "Lock screen explanation."
+  },
+  "lockUnlock": "Unlock",
+  "@lockUnlock": {
+    "description": "Lock screen button that asks for Face ID, a fingerprint or the passcode."
+  },
+  "lockSignOutConfirm": "Sign out and remove this device's data? Your groups stay on the server.",
+  "@lockSignOutConfirm": {
+    "description": "Lock screen: confirming sign-out (the way out when the passcode is forgotten)."
+  },
+  "signOut": "Sign out",
+  "@signOut": {
+    "description": "Button that signs out."
+  },
+  "widgetOwed": "You are owed",
+  "@widgetOwed": {
+    "description": "Home-screen widget line before an amount others owe you. Keep it short."
+  },
+  "widgetOwe": "You owe",
+  "@widgetOwe": {
+    "description": "Home-screen widget line before an amount you owe. Keep it short."
+  },
+  "widgetSignedOut": "Sign in to see your balance",
+  "@widgetSignedOut": {
+    "description": "Home-screen widget when signed out."
+  },
+  "widgetSettled": "All settled up",
+  "@widgetSettled": {
+    "description": "Home-screen widget when every balance is zero."
+  },
+  "widgetUpdated": "Updated {time}",
+  "@widgetUpdated": {
+    "description": "Home-screen widget footer; {time} is a short date and time like \"11 Oct, 10:42\".",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "receiptAdd": "Add a receipt",
+  "@receiptAdd": {
+    "description": "Title of the sheet that picks a receipt photo."
+  },
+  "photoTake": "Take photo",
+  "@photoTake": {
+    "description": "Picks a photo with the camera."
+  },
+  "photoChoose": "Choose from library",
+  "@photoChoose": {
+    "description": "Picks a photo from the photo library."
+  },
+  "photoChooseFile": "Choose a file",
+  "@photoChooseFile": {
+    "description": "In the browser: picks a photo file (phones' browsers also offer the camera)."
+  },
+  "availableWhenOnline": "Available when online",
+  "@availableWhenOnline": {
+    "description": "A receipt photo that isn't on this device and can't be downloaded now."
+  },
+  "receiptPhoto": "Receipt photo",
+  "@receiptPhoto": {
+    "description": "Accessibility label of a receipt photo."
+  },
+  "receiptAvailableOnline": "The photo is available when online",
+  "@receiptAvailableOnline": {
+    "description": "Sharing a receipt photo that isn't on this device while offline."
+  },
+  "receiptRemoveTitle": "Remove receipt?",
+  "@receiptRemoveTitle": {
+    "description": "Confirm dialog title."
+  },
+  "receiptRemoveMessage": "It is removed for everyone in the group.",
+  "@receiptRemoveMessage": {
+    "description": "Confirm dialog text when removing a receipt photo."
+  },
+  "receiptTitle": "Receipt",
+  "@receiptTitle": {
+    "description": "Title of the full-screen receipt photo."
+  },
+  "receiptTitleOf": "Receipt {index} of {count}",
+  "@receiptTitleOf": {
+    "description": "Title of the full-screen receipt photo when there are several.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shareOrSave": "Share or save",
+  "@shareOrSave": {
+    "description": "Tooltip of the share button on a receipt photo."
+  },
+  "share": "Share",
+  "@share": {
+    "description": "Button or tooltip that opens the share sheet (copies to the clipboard in the browser)."
+  },
+  "copiedToClipboard": "Copied to the clipboard",
+  "@copiedToClipboard": {
+    "description": "Snackbar after copying a text to share (the browser has no share sheet)."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Settings screen title."
+  },
+  "photoRemove": "Remove photo",
+  "@photoRemove": {
+    "description": "Removes the profile photo."
+  },
+  "photoNeedsConnection": "Changing your photo needs a connection.",
+  "@photoNeedsConnection": {
+    "description": "Error when changing the profile photo offline."
+  },
+  "photoTooMany": "Too many photo changes. Try again in an hour.",
+  "@photoTooMany": {
+    "description": "Error after too many profile photo changes."
+  },
+  "notifSaveFailed": "Could not save notification settings. Check your connection.",
+  "@notifSaveFailed": {
+    "description": "Error when a notification switch couldn't be saved."
+  },
+  "homeCurrencyNeedsConnection": "Changing your home currency needs a connection.",
+  "@homeCurrencyNeedsConnection": {
+    "description": "Error when changing the home currency offline."
+  },
+  "changePhoto": "Change profile photo",
+  "@changePhoto": {
+    "description": "Accessibility label of the profile photo button."
+  },
+  "yourNameTapToChange": "Your name · tap to change",
+  "@yourNameTapToChange": {
+    "description": "Subtitle under the user's name in Settings."
+  },
+  "waysToGetPaid": "Ways to get paid",
+  "@waysToGetPaid": {
+    "description": "Settings entry and screen title for the user's payment methods (PayPal, IBAN…)."
+  },
+  "waysToGetPaidHint": "PayPal, Wise, IBAN, bank account…",
+  "@waysToGetPaidHint": {
+    "description": "Subtitle of the Ways to get paid entry."
+  },
+  "homeCurrency": "Home currency",
+  "@homeCurrency": {
+    "description": "Settings entry: the currency balances are also shown in."
+  },
+  "homeCurrencyFromRegion": "From your region · balances also show ≈ in it",
+  "@homeCurrencyFromRegion": {
+    "description": "Subtitle of Home currency when the user never picked one."
+  },
+  "homeCurrencyPicked": "Balances also show ≈ in it",
+  "@homeCurrencyPicked": {
+    "description": "Subtitle of Home currency."
+  },
+  "notifications": "Notifications",
+  "@notifications": {
+    "description": "Settings section heading."
+  },
+  "notifExpenses": "Expenses and payments",
+  "@notifExpenses": {
+    "description": "Notification switch."
+  },
+  "notifComments": "Comments",
+  "@notifComments": {
+    "description": "Notification switch."
+  },
+  "notifMembers": "Members and group changes",
+  "@notifMembers": {
+    "description": "Notification switch."
+  },
+  "notifReminders": "Reminders from friends",
+  "@notifReminders": {
+    "description": "Notification switch."
+  },
+  "notifNeedConnection": "Notification settings need a connection",
+  "@notifNeedConnection": {
+    "description": "Shown when the notification settings couldn't be loaded."
+  },
+  "notifOthersOnly": "Only changes made by other people notify you.",
+  "@notifOthersOnly": {
+    "description": "Note under the notification switches."
+  },
+  "notifWebNote": "Notifications go to your phone; the browser updates every minute while it is open.",
+  "@notifWebNote": {
+    "description": "Note under the notification switches in the browser (no web push)."
+  },
+  "exportImport": "Export & import",
+  "@exportImport": {
+    "description": "Settings section heading."
+  },
+  "noGroupsToExport": "No groups to export.",
+  "@noGroupsToExport": {
+    "description": "Shown when there is nothing to export."
+  },
+  "nonGroup": "Non-group",
+  "@nonGroup": {
+    "description": "Label for expenses with a friend outside any group."
+  },
+  "nonGroupWith": "Non-group · {name}",
+  "@nonGroupWith": {
+    "description": "Label of the expenses with one friend outside any group; {name} is the friend's name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "exportJson": "Export JSON",
+  "@exportJson": {
+    "description": "Export menu item."
+  },
+  "exportCsv": "Export CSV",
+  "@exportCsv": {
+    "description": "Export menu item."
+  },
+  "exportZip": "ZIP with receipts",
+  "@exportZip": {
+    "description": "Export menu item: the data plus every receipt photo."
+  },
+  "importSplitwise": "Import Splitwise CSV",
+  "@importSplitwise": {
+    "description": "Import menu item."
+  },
+  "importedCount": "{count, plural, =1{Imported 1 expense} other{Imported {count} expenses}}",
+  "@importedCount": {
+    "description": "Snackbar after importing a Splitwise file.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "server": "Server",
+  "@server": {
+    "description": "Settings section heading."
+  },
+  "serverUrl": "Server URL",
+  "@serverUrl": {
+    "description": "Text field label."
+  },
+  "serverDefault": "Default: {url}",
+  "@serverDefault": {
+    "description": "Helper under the server URL field.",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "serverSaved": "Server URL saved",
+  "@serverSaved": {
+    "description": "Snackbar after saving the server URL."
+  },
+  "account": "Account",
+  "@account": {
+    "description": "Settings section heading."
+  },
+  "licenses": "Licenses",
+  "@licenses": {
+    "description": "Opens the open-source licenses of the libraries the app uses."
+  },
+  "deleteAccount": "Delete account",
+  "@deleteAccount": {
+    "description": "Settings entry."
+  },
+  "signOutTitle": "Sign out?",
+  "@signOutTitle": {
+    "description": "Confirm dialog title."
+  },
+  "signOutMessage": "Local data on this device is removed. Changes that have not synced yet will be lost.",
+  "@signOutMessage": {
+    "description": "Confirm dialog text."
+  },
+  "deleteAccountTitle": "Delete account?",
+  "@deleteAccountTitle": {
+    "description": "Confirm dialog title."
+  },
+  "deleteAccountMessage": "Your memberships become placeholders. Group data stays with the other members. This cannot be undone.",
+  "@deleteAccountMessage": {
+    "description": "Confirm dialog text."
+  },
+  "language": "Language",
+  "@language": {
+    "description": "Settings entry and dialog title: the app's language."
+  },
+  "languageSystem": "System ({language})",
+  "@languageSystem": {
+    "description": "The language option that follows the phone; {language} is the language it gives, in that language, e.g. \"Deutsch\".",
+    "placeholders": {
+      "language": {
+        "type": "String"
+      }
+    }
+  },
+  "appearance": "Appearance",
+  "@appearance": {
+    "description": "Settings section heading: light or dark look."
+  },
+  "appearanceSystem": "System",
+  "@appearanceSystem": {
+    "description": "Appearance option that follows the phone."
+  },
+  "appearanceLight": "Light",
+  "@appearanceLight": {
+    "description": "Appearance option."
+  },
+  "appearanceDark": "Dark",
+  "@appearanceDark": {
+    "description": "Appearance option."
+  },
+  "security": "Security",
+  "@security": {
+    "description": "Settings section heading."
+  },
+  "appLock": "App lock",
+  "@appLock": {
+    "description": "Switch: ask for Face ID, Touch ID, a fingerprint or the passcode to open the app."
+  },
+  "appLockHint": "Face ID, Touch ID or fingerprint, with the device passcode as fallback. Locks after a minute away.",
+  "@appLockHint": {
+    "description": "Explanation under the App lock switch."
+  },
+  "methodRemoveTitle": "Remove {method}?",
+  "@methodRemoveTitle": {
+    "description": "Confirm dialog title; {method} is a payment method name like PayPal or IBAN.",
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "methodsOffline": "Connect to the internet to edit your ways to get paid.",
+  "@methodsOffline": {
+    "description": "Ways to get paid screen when offline."
+  },
+  "methodsLoadFailed": "Couldn't load your ways to get paid.",
+  "@methodsLoadFailed": {
+    "description": "Ways to get paid screen when loading failed for another reason."
+  },
+  "methodsIntro": "Group members see these when they owe you money, so they can pay you in one tap. Evensies never moves money itself.",
+  "@methodsIntro": {
+    "description": "Ways to get paid screen intro."
+  },
+  "methodsEmpty": "No ways to get paid yet.",
+  "@methodsEmpty": {
+    "description": "Ways to get paid screen with none added."
+  },
+  "blurbPaypal": "PayPal.me link, amount filled in",
+  "@blurbPaypal": {
+    "description": "Payment method type description."
+  },
+  "blurbWise": "Wise Quick Pay link, amount filled in",
+  "@blurbWise": {
+    "description": "Payment method type description."
+  },
+  "blurbVenmo": "Venmo username (US)",
+  "@blurbVenmo": {
+    "description": "Payment method type description."
+  },
+  "blurbRevolut": "Revolut.me username",
+  "@blurbRevolut": {
+    "description": "Payment method type description."
+  },
+  "blurbKakaopay": "KakaoPay 송금코드 link",
+  "@blurbKakaopay": {
+    "description": "Payment method type description. Keep \"송금코드\" (KakaoPay's own Korean name for it)."
+  },
+  "blurbIban": "Bank transfer (SEPA QR for EUR)",
+  "@blurbIban": {
+    "description": "Payment method type description."
+  },
+  "blurbKrBank": "Korean bank account (Toss, bank apps)",
+  "@blurbKrBank": {
+    "description": "Payment method type description."
+  },
+  "fieldPaypal": "PayPal.me username",
+  "@fieldPaypal": {
+    "description": "Payment method form field."
+  },
+  "fieldPaypalHint": "Your PayPal.me username, e.g. anna",
+  "@fieldPaypalHint": {
+    "description": "Helper text."
+  },
+  "fieldRevolut": "Revolut.me username",
+  "@fieldRevolut": {
+    "description": "Payment method form field."
+  },
+  "fieldRevolutHint": "Your Revolut.me username, e.g. anna",
+  "@fieldRevolutHint": {
+    "description": "Helper text."
+  },
+  "fieldVenmo": "Venmo username",
+  "@fieldVenmo": {
+    "description": "Payment method form field."
+  },
+  "fieldVenmoHint": "Without the @, e.g. anna-rossi",
+  "@fieldVenmoHint": {
+    "description": "Helper text."
+  },
+  "fieldWise": "Wise Quick Pay link",
+  "@fieldWise": {
+    "description": "Payment method form field."
+  },
+  "fieldWiseHint": "In Wise: Payments → Quick Pay → copy link (https://wise.com/pay/…)",
+  "@fieldWiseHint": {
+    "description": "Helper text; Wise's menu names are in English in many languages, translate if Wise does."
+  },
+  "fieldKakaopay": "KakaoPay 송금코드 link",
+  "@fieldKakaopay": {
+    "description": "Payment method form field."
+  },
+  "fieldKakaopayHint": "In KakaoPay: 송금 → 송금코드 → copy link (https://qr.kakaopay.com/…)",
+  "@fieldKakaopayHint": {
+    "description": "Helper text; keep the Korean menu names."
+  },
+  "fieldHolder": "Account holder",
+  "@fieldHolder": {
+    "description": "Payment method form field."
+  },
+  "fieldHolderHint": "Name exactly as on the account",
+  "@fieldHolderHint": {
+    "description": "Helper text."
+  },
+  "fieldIban": "IBAN",
+  "@fieldIban": {
+    "description": "Payment method form field."
+  },
+  "fieldIbanHint": "e.g. DE89 3704 0044 0532 0130 00",
+  "@fieldIbanHint": {
+    "description": "Helper text with an example IBAN."
+  },
+  "fieldBic": "BIC (optional)",
+  "@fieldBic": {
+    "description": "Payment method form field."
+  },
+  "fieldBicHint": "8 or 11 characters",
+  "@fieldBicHint": {
+    "description": "Helper text."
+  },
+  "fieldBank": "Bank",
+  "@fieldBank": {
+    "description": "Payment method form field."
+  },
+  "fieldBankHint": "e.g. 신한은행, Toss Bank",
+  "@fieldBankHint": {
+    "description": "Helper text with Korean bank names; keep them."
+  },
+  "fieldAccountNumber": "Account number",
+  "@fieldAccountNumber": {
+    "description": "Payment method form field."
+  },
+  "fieldAccountNumberHint": "Digits, hyphens optional",
+  "@fieldAccountNumberHint": {
+    "description": "Helper text."
+  },
+  "amountCopied": "Amount copied: {amount}",
+  "@amountCopied": {
+    "description": "Snackbar after copying an amount; {amount} is formatted money.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotOpen": "Could not open {link}",
+  "@couldNotOpen": {
+    "description": "A payment app link couldn't be opened.",
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "payOffline": "Offline: ways to pay are not available",
+  "@payOffline": {
+    "description": "Settle up when the other person's payment methods can't be loaded."
+  },
+  "payLoading": "Loading ways to pay…",
+  "@payLoading": {
+    "description": "Settle up while loading the other person's payment methods."
+  },
+  "payAskToAdd": "Ask {name} to add a way to get paid",
+  "@payAskToAdd": {
+    "description": "Settle up when the person you pay has no payment methods.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "payTitle": "Pay {name} {amount}",
+  "@payTitle": {
+    "description": "Bank transfer sheet title.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "payScanQr": "Scan with your banking app (SEPA QR)",
+  "@payScanQr": {
+    "description": "Under the EU bank transfer QR code."
+  },
+  "payQrEurOnly": "QR code is only available for EUR transfers.",
+  "@payQrEurOnly": {
+    "description": "Bank sheet note for non-EUR amounts."
+  },
+  "bankLabel": "Bank",
+  "@bankLabel": {
+    "description": "Bank sheet row label."
+  },
+  "ibanLabel": "IBAN",
+  "@ibanLabel": {
+    "description": "Bank sheet row label."
+  },
+  "accountLabel": "Account",
+  "@accountLabel": {
+    "description": "Bank sheet row label: account number."
+  },
+  "bicLabel": "BIC",
+  "@bicLabel": {
+    "description": "Bank sheet row label."
+  },
+  "holderLabel": "Holder",
+  "@holderLabel": {
+    "description": "Bank sheet row label: account holder."
+  },
+  "amountLabel": "Amount",
+  "@amountLabel": {
+    "description": "Label of an amount (field or row)."
+  },
+  "copyIban": "Copy IBAN",
+  "@copyIban": {
+    "description": "Button."
+  },
+  "copyAccount": "Copy account",
+  "@copyAccount": {
+    "description": "Button."
+  },
+  "copyAmount": "Copy amount",
+  "@copyAmount": {
+    "description": "Button."
+  },
+  "ibanCopied": "IBAN copied",
+  "@ibanCopied": {
+    "description": "Snackbar."
+  },
+  "accountCopied": "Account copied",
+  "@accountCopied": {
+    "description": "Snackbar."
+  },
+  "paymentUpdated": "Payment updated",
+  "@paymentUpdated": {
+    "description": "Snackbar after editing a payment."
+  },
+  "paymentRecordedPending": "Recorded {amount}. {name} will confirm.",
+  "@paymentRecordedPending": {
+    "description": "Snackbar after recording a payment the receiver still has to confirm.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentRecordedPendingUnnamed": "Recorded {amount}. They will confirm.",
+  "@paymentRecordedPendingUnnamed": {
+    "description": "Like paymentRecordedPending when the receiver's name is unknown.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentRecorded": "Payment of {amount} recorded",
+  "@paymentRecorded": {
+    "description": "Snackbar after recording a payment.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youSuffix": "{name} (you)",
+  "@youSuffix": {
+    "description": "A member name marked as the user, in pickers.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recordPayment": "Record a payment",
+  "@recordPayment": {
+    "description": "Payment sheet title."
+  },
+  "editPayment": "Edit payment",
+  "@editPayment": {
+    "description": "Payment sheet title when editing."
+  },
+  "fromLabel": "From",
+  "@fromLabel": {
+    "description": "Payment sheet: who paid."
+  },
+  "toLabel": "To",
+  "@toLabel": {
+    "description": "Payment sheet: who received."
+  },
+  "swap": "Swap",
+  "@swap": {
+    "description": "Tooltip of the button that swaps From and To."
+  },
+  "pickTwoPeople": "Pick two different people",
+  "@pickTwoPeople": {
+    "description": "Payment sheet error."
+  },
+  "commentsStayOld": "Comments stay with the old payment",
+  "@commentsStayOld": {
+    "description": "Note when editing a payment that has comments."
+  },
+  "recordPaymentButton": "Record payment",
+  "@recordPaymentButton": {
+    "description": "Payment sheet save button."
+  },
+  "paymentNotHere": "This payment isn't on this device",
+  "@paymentNotHere": {
+    "description": "Payment screen when the payment isn't stored locally."
+  },
+  "notSyncedOrLeft": "It hasn't synced yet, or its group was left.",
+  "@notSyncedOrLeft": {
+    "description": "Explanation under paymentNotHere and expenseNotHere."
+  },
+  "someone": "Someone",
+  "@someone": {
+    "description": "Stands in for a member whose name isn't known."
+  },
+  "paymentEdited": "Edited payment",
+  "@paymentEdited": {
+    "description": "Payment screen title for a payment replaced by an edit."
+  },
+  "paymentDeleted": "Deleted payment",
+  "@paymentDeleted": {
+    "description": "Payment screen title for a deleted payment."
+  },
+  "payment": "Payment",
+  "@payment": {
+    "description": "Payment screen title."
+  },
+  "paymentWasEdited": "This payment was edited",
+  "@paymentWasEdited": {
+    "description": "Banner on a payment replaced by an edit."
+  },
+  "paymentWasEditedNote": "The edited payment counts instead. Its comments stay here.",
+  "@paymentWasEditedNote": {
+    "description": "Banner text."
+  },
+  "paymentWasDeleted": "This payment was deleted",
+  "@paymentWasDeleted": {
+    "description": "Banner on a deleted payment."
+  },
+  "paymentNotCounted": "It doesn't count in balances.",
+  "@paymentNotCounted": {
+    "description": "Banner text on a deleted payment."
+  },
+  "restore": "Restore",
+  "@restore": {
+    "description": "Button that brings back something deleted."
+  },
+  "youPaidName": "You paid {name}",
+  "@youPaidName": {
+    "description": "Payment screen headline.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "namePaidYou": "{name} paid you",
+  "@namePaidYou": {
+    "description": "Payment screen headline.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "namePaidName": "{from} paid {to}",
+  "@namePaidName": {
+    "description": "Payment screen headline.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentSaysSent": "{name} says they sent you this. Did it arrive?",
+  "@paymentSaysSent": {
+    "description": "Payment waiting for the user's confirmation.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForConfirm": "Waiting for {name} to confirm",
+  "@waitingForConfirm": {
+    "description": "Payment the other person still has to confirm.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notReceived": "Not received",
+  "@notReceived": {
+    "description": "Button: the payment never arrived."
+  },
+  "confirmReceived": "Confirm received",
+  "@confirmReceived": {
+    "description": "Button: the payment arrived."
+  },
+  "deletePaymentTitle": "Delete payment?",
+  "@deletePaymentTitle": {
+    "description": "Confirm dialog title."
+  },
+  "deletePaymentMessage": "The debt it settled comes back.",
+  "@deletePaymentMessage": {
+    "description": "Confirm dialog text."
+  },
+  "paymentDeletedSnack": "Payment deleted",
+  "@paymentDeletedSnack": {
+    "description": "Snackbar with Undo."
+  },
+  "notReceivedTitle": "Not received?",
+  "@notReceivedTitle": {
+    "description": "Confirm dialog title."
+  },
+  "notReceivedMessage": "The payment from {name} is removed and the debt comes back.",
+  "@notReceivedMessage": {
+    "description": "Confirm dialog text.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentRemovedSnack": "Payment removed",
+  "@paymentRemovedSnack": {
+    "description": "Snackbar with Undo."
+  },
+  "recordAPayment": "Record a payment",
+  "@recordAPayment": {
+    "description": "Button on Settle up."
+  },
+  "nothingToSettle": "Nothing to settle",
+  "@nothingToSettle": {
+    "description": "Settle up when everyone is even."
+  },
+  "everyoneEven": "Everyone is even.",
+  "@everyoneEven": {
+    "description": "Settle up when everyone is even."
+  },
+  "waitingForConfirmation": "Waiting for confirmation",
+  "@waitingForConfirmation": {
+    "description": "Settle up section heading for payments not confirmed yet."
+  },
+  "debtsAsRecorded": "Debts as recorded · simplify debts is off",
+  "@debtsAsRecorded": {
+    "description": "Settle up heading when \"simplify debts\" is off."
+  },
+  "transfersSettleEverything": "{count, plural, =1{1 transfer settles everything} other{{count} transfers settle everything}}",
+  "@transfersSettleEverything": {
+    "description": "Settle up heading.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "transfersSettleBalance": "{count, plural, =1{1 transfer settles the {currency} balance} other{{count} transfers settle the {currency} balance}}",
+  "@transfersSettleBalance": {
+    "description": "Settle up heading when other currencies are listed below; {currency} is a code like EUR.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "notConvertedSettlesIn": "Not converted · {currency} · settles in {currency}",
+  "@notConvertedSettlesIn": {
+    "description": "Settle up heading for a currency that wasn't converted to the group currency.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "convert": "Convert",
+  "@convert": {
+    "description": "Button that converts expenses to the group currency."
+  },
+  "settleUp": "Settle up",
+  "@settleUp": {
+    "description": "Screen title and button: pay back what is owed."
+  },
+  "saysTheySent": "{name} says they sent you {amount}",
+  "@saysTheySent": {
+    "description": "Settle up card for a payment the user should confirm.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingToConfirmAmount": "Waiting for {name} to confirm {amount}",
+  "@waitingToConfirmAmount": {
+    "description": "Settle up card for a payment the other person should confirm.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "you": "You",
+  "@you": {
+    "description": "The user, in a list of names (e.g. \"You → Ben\")."
+  },
+  "request": "Request",
+  "@request": {
+    "description": "Button that shares a \"you owe me\" message."
+  },
+  "iveSentIt": "I've sent it",
+  "@iveSentIt": {
+    "description": "Button after paying through a payment app."
+  },
+  "markAsPaid": "Mark as paid",
+  "@markAsPaid": {
+    "description": "Button that records a payment."
+  },
+  "markedAsSent": "Marked as sent. {name} will confirm.",
+  "@markedAsSent": {
+    "description": "Snackbar after marking a payment as sent.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "approx": "≈ {amount}",
+  "@approx": {
+    "description": "An approximate amount converted to the home currency; {amount} is formatted money.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "friendOwesYou": "{name} owes you {amount}",
+  "@friendOwesYou": {
+    "description": "A friend's balance: they owe the user.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "friendYouOwe": "You owe {name} {amount}",
+  "@friendYouOwe": {
+    "description": "A friend's balance: the user owes them.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "friendYouOweLine": "you owe {name} {amount}",
+  "@friendYouOweLine": {
+    "description": "Like friendYouOwe on a line under a group name (lower case in English).",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noSharedGroup": "You no longer share a group with {name}. Send them your friend link to add expenses.",
+  "@noSharedGroup": {
+    "description": "Friend page and dialog when no group links the two people any more.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shareFriendLink": "Share friend link",
+  "@shareFriendLink": {
+    "description": "Button."
+  },
+  "firstExpenseNeedsConnection": "The first expense with {name} needs a connection.",
+  "@firstExpenseNeedsConnection": {
+    "description": "Error: creating the friend's group needs to be online.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reminderSent": "Reminder sent to {name}",
+  "@reminderSent": {
+    "description": "Snackbar.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "remindTomorrow": "You can remind {name} again tomorrow",
+  "@remindTomorrow": {
+    "description": "Error: one reminder a day.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "remindNothingOwed": "{name} doesn't owe you anything",
+  "@remindNothingOwed": {
+    "description": "Error when reminding someone who owes nothing.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "remindNeedsConnection": "Sending a reminder needs a connection.",
+  "@remindNeedsConnection": {
+    "description": "Error."
+  },
+  "amountsAnd": "{a} and {b}",
+  "@amountsAnd": {
+    "description": "Joins the last two amounts in a list, e.g. \"€12.00 and ₩5,000\".",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteFriendText": "I added you on Evensies so we can split expenses. Join me: {link}",
+  "@inviteFriendText": {
+    "description": "Share text inviting someone not on Evensies; {link} is a URL.",
+    "placeholders": {
+      "link": {
+        "type": "String"
+      }
+    }
+  },
+  "personNotHere": "This person isn't on this device",
+  "@personNotHere": {
+    "description": "Friend page when the person isn't known locally."
+  },
+  "personNotHereNote": "It hasn't synced yet, or you no longer share a group.",
+  "@personNotHereNote": {
+    "description": "Explanation."
+  },
+  "more": "More",
+  "@more": {
+    "description": "Tooltip of a \"more actions\" menu button."
+  },
+  "exportNonGroupCsv": "Export non-group expenses (CSV)",
+  "@exportNonGroupCsv": {
+    "description": "Friend page menu item."
+  },
+  "exportNonGroupJson": "Export non-group expenses (JSON)",
+  "@exportNonGroupJson": {
+    "description": "Friend page menu item."
+  },
+  "exportNonGroupZip": "Export non-group expenses (ZIP with receipts)",
+  "@exportNonGroupZip": {
+    "description": "Friend page menu item."
+  },
+  "notOnEvensies": "Not on Evensies yet",
+  "@notOnEvensies": {
+    "description": "Under the name of a person without an account."
+  },
+  "allSettledUp": "All settled up",
+  "@allSettledUp": {
+    "description": "A person or group with no balance."
+  },
+  "remind": "Remind",
+  "@remind": {
+    "description": "Button that sends a reminder push."
+  },
+  "invite": "Invite",
+  "@invite": {
+    "description": "Button that shares an invite link."
+  },
+  "balances": "Balances",
+  "@balances": {
+    "description": "Section heading."
+  },
+  "expensesAndPayments": "Expenses and payments",
+  "@expensesAndPayments": {
+    "description": "Section heading."
+  },
+  "nothingTogetherYet": "Nothing together yet. Add an expense below.",
+  "@nothingTogetherYet": {
+    "description": "Friend page with no shared expenses."
+  },
+  "addExpense": "Add expense",
+  "@addExpense": {
+    "description": "Button."
+  },
+  "personOwesYou": "owes you {amount}",
+  "@personOwesYou": {
+    "description": "A person's balance on the Friends tab, under their name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "personYouOwe": "you owe {amount}",
+  "@personYouOwe": {
+    "description": "A person's balance on the Friends tab, under their name.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "personSettledUp": "settled up",
+  "@personSettledUp": {
+    "description": "A person with no balance, on the Friends tab."
+  },
+  "recordedInGroups": "{count, plural, =1{Recorded in 1 group} other{Recorded in {count} groups}}",
+  "@recordedInGroups": {
+    "description": "Snackbar after settling with a friend across groups with no money moving.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "markAsReceived": "Mark as received",
+  "@markAsReceived": {
+    "description": "Button: the friend paid the user."
+  },
+  "clearBothSides": "Clear both sides",
+  "@clearBothSides": {
+    "description": "Button: debts in both directions cancel out, no money moves."
+  },
+  "evenIn": "Even in {currency}",
+  "@evenIn": {
+    "description": "A friend balance of zero in one currency; {currency} is a code like EUR.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "linePayThem": "{group}: you pay {name} {amount}",
+  "@linePayThem": {
+    "description": "One line behind a friend balance; {group} is a group name or \"Non-group\".",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "lineTheyPay": "{group}: {name} pays you {amount}",
+  "@lineTheyPay": {
+    "description": "One line behind a friend balance.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noMoneyMoves": "No money moves: this records both sides as settled.",
+  "@noMoneyMoves": {
+    "description": "Note for Clear both sides."
+  },
+  "convertIn": "Convert in {group}",
+  "@convertIn": {
+    "description": "Button converting expenses in one group.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "settleUpWith": "Settle up with {name}",
+  "@settleUpWith": {
+    "description": "Screen title.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "nothingToSettleWith": "Nothing to settle with {name}",
+  "@nothingToSettleWith": {
+    "description": "Empty state.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settleWithIntro": "Everything between you and {name}, per currency. Recording adds a payment in each group.",
+  "@settleWithIntro": {
+    "description": "Intro on the settle-with-a-friend screen.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "searchFriendsGroups": "Search friends and groups",
+  "@searchFriendsGroups": {
+    "description": "Search field hint."
+  },
+  "friends": "Friends",
+  "@friends": {
+    "description": "Section heading and tab."
+  },
+  "groups": "Groups",
+  "@groups": {
+    "description": "Section heading and tab."
+  },
+  "noFriendsOrGroups": "No friends or groups yet.",
+  "@noFriendsOrGroups": {
+    "description": "Empty state."
+  },
+  "nothingMatches": "Nothing matches “{query}”.",
+  "@nothingMatches": {
+    "description": "Search with no result; {query} is what was typed.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "addExpenseWithWhom": "Add expense · with whom?",
+  "@addExpenseWithWhom": {
+    "description": "Screen title: pick a friend or group for a new expense."
+  },
+  "friendLinkShare": "Add me on Evensies to split expenses: {link}\nOr enter my code {code}",
+  "@friendLinkShare": {
+    "description": "Share text of the user's friend link; {code} looks like K7P-4QX.",
+    "placeholders": {
+      "link": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "friendLinkNeedsConnection": "Sharing your friend link needs a connection.",
+  "@friendLinkNeedsConnection": {
+    "description": "Error."
+  },
+  "selfFriend": "That's your own code",
+  "@selfFriend": {
+    "description": "Error when adding your own friend code."
+  },
+  "noOneForCode": "No one found for this code",
+  "@noOneForCode": {
+    "description": "Error for an unknown friend code."
+  },
+  "addFriendNeedsConnection": "Adding a friend needs a connection.",
+  "@addFriendNeedsConnection": {
+    "description": "Error."
+  },
+  "newFriendCodeTitle": "Get a new friend code?",
+  "@newFriendCodeTitle": {
+    "description": "Confirm dialog title."
+  },
+  "newFriendCodeMessage": "Your current link and code stop working. Friends you already have stay.",
+  "@newFriendCodeMessage": {
+    "description": "Confirm dialog text."
+  },
+  "newCode": "New code",
+  "@newCode": {
+    "description": "Button: replace the friend code."
+  },
+  "addAFriend": "Add a friend",
+  "@addAFriend": {
+    "description": "Screen title."
+  },
+  "friendLinkOffline": "Your friend link needs a connection",
+  "@friendLinkOffline": {
+    "description": "Shown when the friend code can't be loaded."
+  },
+  "yourFriendCode": "Your friend code",
+  "@yourFriendCode": {
+    "description": "Heading above the user's QR code."
+  },
+  "friendQrLabel": "QR code of your friend link",
+  "@friendQrLabel": {
+    "description": "Accessibility label of the QR code."
+  },
+  "friendCodeHelp": "Friends scan this, open the link, or type the code.",
+  "@friendCodeHelp": {
+    "description": "Under the friend code."
+  },
+  "shareLink": "Share link",
+  "@shareLink": {
+    "description": "Button."
+  },
+  "codeCopied": "Code copied",
+  "@codeCopied": {
+    "description": "Snackbar."
+  },
+  "copyCode": "Copy code",
+  "@copyCode": {
+    "description": "Button."
+  },
+  "haveFriendCode": "Have a friend's code?",
+  "@haveFriendCode": {
+    "description": "Section heading."
+  },
+  "onEvensies": "on Evensies",
+  "@onEvensies": {
+    "description": "Under a found person's name."
+  },
+  "notOnEvensiesSection": "Someone not on Evensies yet",
+  "@notOnEvensiesSection": {
+    "description": "Section heading: add a friend by name only."
+  },
+  "notOnEvensiesHelp": "Add expenses with them right away, and invite them later.",
+  "@notOnEvensiesHelp": {
+    "description": "Section help text."
+  },
+  "atMostChars": "At most {max} characters",
+  "@atMostChars": {
+    "description": "Error under a text field.",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "addName": "Add {name}",
+  "@addName": {
+    "description": "Button adding a friend by name.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "search": "Search",
+  "@search": {
+    "description": "Tooltip and screen title."
+  },
+  "activity": "Activity",
+  "@activity": {
+    "description": "Tooltip, tab and screen title: the feed of changes."
+  },
+  "newGroup": "New group",
+  "@newGroup": {
+    "description": "Menu item and tooltip."
+  },
+  "joinWithCode": "Join with a code",
+  "@joinWithCode": {
+    "description": "Menu item and button."
+  },
+  "filterAll": "All",
+  "@filterAll": {
+    "description": "Filter chip."
+  },
+  "filterOwesMe": "Owes me",
+  "@filterOwesMe": {
+    "description": "Filter chip: people or groups that owe the user."
+  },
+  "filterIOwe": "I owe",
+  "@filterIOwe": {
+    "description": "Filter chip: people or groups the user owes."
+  },
+  "settledUpCount": "Settled up ({count})",
+  "@settledUpCount": {
+    "description": "Collapsed section of settled groups or people.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "nobodyOwesYou": "Nobody owes you anything",
+  "@nobodyOwesYou": {
+    "description": "Empty filter result."
+  },
+  "youOweNothing": "You don't owe anything",
+  "@youOweNothing": {
+    "description": "Empty filter result."
+  },
+  "nothingHereYet": "Nothing here yet",
+  "@nothingHereYet": {
+    "description": "Empty list."
+  },
+  "noFriendsYet": "No friends yet",
+  "@noFriendsYet": {
+    "description": "Friends tab empty state title."
+  },
+  "noFriendsHelp": "Add a friend to split expenses outside a group. People you share a group with show up here too.",
+  "@noFriendsHelp": {
+    "description": "Friends tab empty state text."
+  },
+  "allSettledUpYou": "You are all settled up",
+  "@allSettledUpYou": {
+    "description": "Overall card when there are no balances."
+  },
+  "youAreOwedList": "You are owed {amounts}",
+  "@youAreOwedList": {
+    "description": "Overall card; {amounts} is like \"€42.10 · $15.00\".",
+    "placeholders": {
+      "amounts": {
+        "type": "String"
+      }
+    }
+  },
+  "youOweList": "You owe {amounts}",
+  "@youOweList": {
+    "description": "Overall card.",
+    "placeholders": {
+      "amounts": {
+        "type": "String"
+      }
+    }
+  },
+  "notOnEvensiesLower": "not on Evensies yet",
+  "@notOnEvensiesLower": {
+    "description": "Under a person on the Friends tab (lower case in English, joined with other words by \" · \")."
+  },
+  "noGroupsYet": "No groups yet",
+  "@noGroupsYet": {
+    "description": "Groups tab empty state title."
+  },
+  "noGroupsHelp": "Create one for a trip or a flat, or join a friend's group with their invite code.",
+  "@noGroupsHelp": {
+    "description": "Groups tab empty state text."
+  },
+  "createGroup": "Create group",
+  "@createGroup": {
+    "description": "Button."
+  },
+  "settledUp": "Settled up",
+  "@settledUp": {
+    "description": "A group with no balance for the user."
+  },
+  "netApprox": "Net ≈ {amount}",
+  "@netApprox": {
+    "description": "Group card: the net in the home currency; {amount} starts with + or −.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memberCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "@memberCount": {
+    "description": "Number of active members.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "youOweAmount": "You owe {amount}",
+  "@youOweAmount": {
+    "description": "The user's balance in a group.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youAreOwedAmount": "You are owed {amount}",
+  "@youAreOwedAmount": {
+    "description": "The user's balance in a group.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youOweAmountLine": "you owe {amount}",
+  "@youOweAmountLine": {
+    "description": "Like youOweAmount mid-line (lower case in English).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youAreOwedAmountLine": "you are owed {amount}",
+  "@youAreOwedAmountLine": {
+    "description": "Like youAreOwedAmount mid-line (lower case in English).",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "createGroupNeedsConnection": "Creating a group needs a connection.",
+  "@createGroupNeedsConnection": {
+    "description": "Error."
+  },
+  "groupName": "Group name",
+  "@groupName": {
+    "description": "Text field label."
+  },
+  "yourNameInGroup": "Your name in this group",
+  "@yourNameInGroup": {
+    "description": "Text field label."
+  },
+  "defaultCurrency": "Default currency",
+  "@defaultCurrency": {
+    "description": "Currency picker label: the group's currency."
+  },
+  "create": "Create",
+  "@create": {
+    "description": "Button."
+  },
+  "noGroupOrFriendForCode": "No group or friend found for this code",
+  "@noGroupOrFriendForCode": {
+    "description": "Error for an unknown code."
+  },
+  "joinNeedsConnection": "Joining a group needs a connection.",
+  "@joinNeedsConnection": {
+    "description": "Error."
+  },
+  "enterACode": "Enter a code",
+  "@enterACode": {
+    "description": "Screen title."
+  },
+  "enterCodeHelp": "A group code is in the group → Members. A friend code is on their Friends tab → Add a friend.",
+  "@enterCodeHelp": {
+    "description": "Where to find codes."
+  },
+  "pastedFromClipboard": "Pasted from clipboard",
+  "@pastedFromClipboard": {
+    "description": "Note under the code field."
+  },
+  "nameOnEvensies": "{name} · on Evensies",
+  "@nameOnEvensies": {
+    "description": "A found person.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addAsFriend": "Add {name} as a friend",
+  "@addAsFriend": {
+    "description": "Button.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addedYouAsFriend": "{name} added you as a friend",
+  "@addedYouAsFriend": {
+    "description": "Preview of a friend's invite code.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "someoneAddedYouAsFriend": "Someone added you as a friend",
+  "@someoneAddedYouAsFriend": {
+    "description": "Like addedYouAsFriend without a name."
+  },
+  "groupPreview": "{name} · {members}",
+  "@groupPreview": {
+    "description": "Preview of a group invite; {members} is memberCount, e.g. \"3 members\".",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "members": {
+        "type": "String"
+      }
+    }
+  },
+  "continueButton": "Continue",
+  "@continueButton": {
+    "description": "Button."
+  },
+  "wantsToSplit": "{name} wants to split expenses with you",
+  "@wantsToSplit": {
+    "description": "Join screen for a friend's invite.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "joinGroup": "Join group",
+  "@joinGroup": {
+    "description": "Screen title."
+  },
+  "inviteInvalid": "This invite link is no longer valid",
+  "@inviteInvalid": {
+    "description": "Join screen for an unknown or rotated code."
+  },
+  "inviteFailed": "Couldn't open this invite: {reason}",
+  "@inviteFailed": {
+    "description": "Join screen for any other error; {reason} is an error sentence.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "friendInviteUsed": "This friend invite was already used",
+  "@friendInviteUsed": {
+    "description": "Join screen."
+  },
+  "joinToSeeShared": "Join to see and add your shared expenses.",
+  "@joinToSeeShared": {
+    "description": "Join screen for a friend's invite."
+  },
+  "imName": "I'm {name}",
+  "@imName": {
+    "description": "Choice on the join screen: claim a placeholder member.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "join": "Join",
+  "@join": {
+    "description": "Button."
+  },
+  "whoAreYou": "Who are you?",
+  "@whoAreYou": {
+    "description": "Join screen: pick a member or type a new name."
+  },
+  "newMemberName": "New member name",
+  "@newMemberName": {
+    "description": "Text field label."
+  },
+  "insights": "Insights",
+  "@insights": {
+    "description": "Tooltip and screen title: charts and totals."
+  },
+  "membersInvite": "Members & invite",
+  "@membersInvite": {
+    "description": "Tooltip of the group's members button."
+  },
+  "groupSettings": "Group settings",
+  "@groupSettings": {
+    "description": "Tooltip and screen title."
+  },
+  "expenses": "Expenses",
+  "@expenses": {
+    "description": "Tab of a group."
+  },
+  "expenseFab": "Expense",
+  "@expenseFab": {
+    "description": "Button that adds an expense to the group (short)."
+  },
+  "groupNotHere": "This group isn't on this device",
+  "@groupNotHere": {
+    "description": "Group screen when the group isn't stored locally."
+  },
+  "groupNotHereNote": "You left it, someone removed you, or it hasn't synced yet.",
+  "@groupNotHereNote": {
+    "description": "Explanation."
+  },
+  "backToGroups": "Back to groups",
+  "@backToGroups": {
+    "description": "Button."
+  },
+  "noExpensesYet": "No expenses yet",
+  "@noExpensesYet": {
+    "description": "Empty group."
+  },
+  "tapExpenseToAdd": "Tap \"Expense\" to add the first one.",
+  "@tapExpenseToAdd": {
+    "description": "Empty group hint; \"Expense\" is the expenseFab button."
+  },
+  "tilePaidYou": "you paid {amount}",
+  "@tilePaidYou": {
+    "description": "Expense row: the user paid. Lower case in English, the line continues with \" · \".",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tilePaidName": "{name} paid {amount}",
+  "@tilePaidName": {
+    "description": "Expense row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tilePaidPeople": "{count} people paid {amount}",
+  "@tilePaidPeople": {
+    "description": "Expense row with several payers.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tileRefundYou": "refund to you",
+  "@tileRefundYou": {
+    "description": "Expense row of a refund the user received."
+  },
+  "tileRefundName": "refund to {name}",
+  "@tileRefundName": {
+    "description": "Expense row of a refund.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tileRefundPeople": "refund to {count} people",
+  "@tileRefundPeople": {
+    "description": "Expense row of a refund to several people.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notInvolved": "not involved",
+  "@notInvolved": {
+    "description": "Expense row: the user has no part in it."
+  },
+  "allYours": "all yours",
+  "@allYours": {
+    "description": "Refund row: it was all the user's."
+  },
+  "paidForYourself": "you paid for yourself",
+  "@paidForYourself": {
+    "description": "Expense row: the user paid exactly their share."
+  },
+  "youGetBack": "you get back {amount}",
+  "@youGetBack": {
+    "description": "Expense row of a refund.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youLent": "you lent {amount}",
+  "@youLent": {
+    "description": "Expense row.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youBorrowed": "you borrowed {amount}",
+  "@youBorrowed": {
+    "description": "Expense row.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "repeatsLabel": "Repeats",
+  "@repeatsLabel": {
+    "description": "Accessibility label of the repeat mark on an expense row."
+  },
+  "hasReceipt": "{count, plural, =1{Has a receipt} other{Has {count} receipts}}",
+  "@hasReceipt": {
+    "description": "Accessibility label of the receipt mark.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "refund": "Refund",
+  "@refund": {
+    "description": "Refund mark and chip."
+  },
+  "notConverted": "Not converted",
+  "@notConverted": {
+    "description": "Accessibility label: the expense has no usable exchange rate."
+  },
+  "pending": "pending",
+  "@pending": {
+    "description": "Tag on a payment not confirmed yet."
+  },
+  "approxTotalOwe": "You owe ≈ {amount} in total",
+  "@approxTotalOwe": {
+    "description": "Balances tab and the overall card on the home screen: everything in the home currency.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "approxTotalOwed": "You are owed ≈ {amount} in total",
+  "@approxTotalOwed": {
+    "description": "Balances tab and the overall card on the home screen: everything in the home currency.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "approxTotalNote": "In your home currency, at the latest rates",
+  "@approxTotalNote": {
+    "description": "Balances tab note."
+  },
+  "nothingOwedIn": "Nothing owed in {currency}",
+  "@nothingOwedIn": {
+    "description": "Balances tab when only other currencies have balances.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "allSettled": "All settled",
+  "@allSettled": {
+    "description": "Balances tab when nobody owes anything."
+  },
+  "otherCurrenciesBelow": "Expenses in other currencies are below.",
+  "@otherCurrenciesBelow": {
+    "description": "Balances tab note."
+  },
+  "nobodyOwes": "Nobody owes anything.",
+  "@nobodyOwes": {
+    "description": "Balances tab note."
+  },
+  "youPayNext": "You should pay next (you owe {amount}, the most)",
+  "@youPayNext": {
+    "description": "Balances tab hint.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "namePaysNext": "{name} should pay next (owes {amount}, the most)",
+  "@namePaysNext": {
+    "description": "Balances tab hint.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "settleUpWaiting": "Settle up · {count} waiting",
+  "@settleUpWaiting": {
+    "description": "Button with the number of payments waiting for confirmation.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberRemoved": "{name} (removed)",
+  "@memberRemoved": {
+    "description": "A member who left or was removed.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "expensesWithoutRate": "{count, plural, =1{1 expense without a rate to {currency}} other{{count} expenses without a rate to {currency}}}",
+  "@expensesWithoutRate": {
+    "description": "Not converted section.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "expensesBadRate": "{count, plural, =1{1 expense with a rate that can't be converted} other{{count} expenses with a rate that can't be converted}}",
+  "@expensesBadRate": {
+    "description": "Not converted section.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "paymentsIn": "Payments in {currency}",
+  "@paymentsIn": {
+    "description": "Not converted section.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "everyoneEvenIn": "everyone is even in {currency}",
+  "@everyoneEvenIn": {
+    "description": "Not converted section (lower case in English, joined with \" · \").",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "convertTo": "Convert to {currency}",
+  "@convertTo": {
+    "description": "Button.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "balanceSettled": "settled",
+  "@balanceSettled": {
+    "description": "Balance row label."
+  },
+  "balanceGetsBack": "gets back",
+  "@balanceGetsBack": {
+    "description": "Balance row label before an amount."
+  },
+  "balanceOwes": "owes",
+  "@balanceOwes": {
+    "description": "Balance row label before an amount."
+  },
+  "convertedCount": "{count, plural, =1{Converted 1 expense to {currency}} other{Converted {count} expenses to {currency}}}",
+  "@convertedCount": {
+    "description": "Snackbar after converting.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "noAutoRate": "No automatic rate. Enter one.",
+  "@noAutoRate": {
+    "description": "Under the rate field when no rate could be fetched."
+  },
+  "rateOf": "rate of {date}",
+  "@rateOf": {
+    "description": "Under the rate field: the date of the rate, e.g. \"11 Oct\".",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rateOfOffline": "offline · rate of {date}",
+  "@rateOfOffline": {
+    "description": "Like rateOf when the rate came from this device's cache.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "amountCountExpenses": "{amount} · {count, plural, =1{1 expense} other{{count} expenses}}",
+  "@amountCountExpenses": {
+    "description": "Convert sheet line: the total and how many expenses.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "paymentsStayIn": "Payments in {currency} stay in {currency}",
+  "@paymentsStayIn": {
+    "description": "Convert sheet note.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "rateLabel": "Rate: 1 {from} in {to}",
+  "@rateLabel": {
+    "description": "Rate field label, e.g. \"Rate: 1 JPY in EUR\".",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "nothingLeftToConvert": "Nothing left to convert",
+  "@nothingLeftToConvert": {
+    "description": "Rate field helper."
+  },
+  "lookingUpRate": "Looking up the rate…",
+  "@lookingUpRate": {
+    "description": "Rate field helper while loading."
+  },
+  "enterRateAbove0": "Enter a rate above 0",
+  "@enterRateAbove0": {
+    "description": "Rate field error."
+  },
+  "convertExplain": "Fills in this rate on every expense that has none, so they count in {currency} balances. You can still change the rate on each expense.",
+  "@convertExplain": {
+    "description": "Convert sheet explanation.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "nameField": "Name",
+  "@nameField": {
+    "description": "Settings row label: the group's name."
+  },
+  "cantChangeCurrency": "Can't change after the first expense or payment",
+  "@cantChangeCurrency": {
+    "description": "Why the group currency is locked."
+  },
+  "currencyUsedFor": "Balances and payments use it",
+  "@currencyUsedFor": {
+    "description": "Group currency explanation."
+  },
+  "splitting": "Splitting",
+  "@splitting": {
+    "description": "Group settings section heading."
+  },
+  "simplifyDebts": "Simplify debts",
+  "@simplifyDebts": {
+    "description": "Switch."
+  },
+  "simplifyDebtsHelp": "Combines debts so the group needs fewer payments. Nobody's total changes, only who pays whom.",
+  "@simplifyDebtsHelp": {
+    "description": "Switch explanation."
+  },
+  "defaultSplit": "Default split",
+  "@defaultSplit": {
+    "description": "Settings row and sheet title."
+  },
+  "splitStale": "No longer adds up · tap to fix",
+  "@splitStale": {
+    "description": "The default split no longer fits the members."
+  },
+  "membership": "Membership",
+  "@membership": {
+    "description": "Group settings section heading."
+  },
+  "leaveGroup": "Leave group",
+  "@leaveGroup": {
+    "description": "Settings row."
+  },
+  "balanceSettledNote": "Your balance is settled",
+  "@balanceSettledNote": {
+    "description": "Under Leave group when leaving is possible."
+  },
+  "renameGroup": "Rename group",
+  "@renameGroup": {
+    "description": "Dialog title."
+  },
+  "leaveTitle": "Leave “{name}”?",
+  "@leaveTitle": {
+    "description": "Confirm dialog title.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "leaveMessage": "You won't see this group any more. Your past expenses stay with the other members. To come back, ask for the invite code.",
+  "@leaveMessage": {
+    "description": "Confirm dialog text."
+  },
+  "leave": "Leave",
+  "@leave": {
+    "description": "Button."
+  },
+  "youLeft": "You left “{name}”",
+  "@youLeft": {
+    "description": "Snackbar after leaving a group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "splitEqualEveryone": "Equal · everyone",
+  "@splitEqualEveryone": {
+    "description": "Default split summary."
+  },
+  "splitPercentList": "Percent · {list}",
+  "@splitPercentList": {
+    "description": "Default split summary; {list} is like \"Anna 60%, Ben 40%\".",
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "splitSharesList": "Shares · {list}",
+  "@splitSharesList": {
+    "description": "Default split summary; {list} is like \"Anna 2, Ben 1\".",
+    "placeholders": {
+      "list": {
+        "type": "String"
+      }
+    }
+  },
+  "percentValue": "{value}%",
+  "@percentValue": {
+    "description": "A percentage; {value} is a number like 33,3.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "defaultSplitHelp": "New expenses start with this split. You can still change it on each expense.",
+  "@defaultSplitHelp": {
+    "description": "Default split sheet explanation."
+  },
+  "useEqual": "Use equal",
+  "@useEqual": {
+    "description": "Button: no default split."
+  },
+  "inviteCode": "Invite code",
+  "@inviteCode": {
+    "description": "Heading above the group's invite code."
+  },
+  "inviteQrLabel": "QR code of the invite link",
+  "@inviteQrLabel": {
+    "description": "Accessibility label."
+  },
+  "inviteCodeHelp": "Anyone with this code can join and pick their name.",
+  "@inviteCodeHelp": {
+    "description": "Under the invite code."
+  },
+  "inviteShareText": "Join my group \"{group}\" on Evensies: {link}\nOr open the app and enter code {code}",
+  "@inviteShareText": {
+    "description": "Share text of a group invite.",
+    "placeholders": {
+      "group": {
+        "type": "String"
+      },
+      "link": {
+        "type": "String"
+      },
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "rotateCode": "Rotate code",
+  "@rotateCode": {
+    "description": "Button: replace the invite code."
+  },
+  "members": "Members",
+  "@members": {
+    "description": "Section heading."
+  },
+  "notJoinedYet": "not joined yet — share the invite code",
+  "@notJoinedYet": {
+    "description": "Under a placeholder member."
+  },
+  "linked": "linked",
+  "@linked": {
+    "description": "Under a member who joined with an account."
+  },
+  "addPlaceholder": "Add placeholder member",
+  "@addPlaceholder": {
+    "description": "Button: add someone who hasn't joined."
+  },
+  "removeMemberTitle": "Remove {name}?",
+  "@removeMemberTitle": {
+    "description": "Confirm dialog title.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeMemberMessage": "Their past expenses and balance stay in the group.",
+  "@removeMemberMessage": {
+    "description": "Confirm dialog text."
+  },
+  "removeMemberSeries": "{count, plural, =1{{name} is still in 1 repeating expense ({names}); they keep {name}'s share until you edit the latest one.} other{{name} is still in {count} repeating expenses ({names}); they keep {name}'s share until you edit the latest one.}}",
+  "@removeMemberSeries": {
+    "description": "Extra confirm text when removing a member who is in repeating expenses.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      },
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "addMember": "Add member",
+  "@addMember": {
+    "description": "Dialog title."
+  },
+  "rotateInviteTitle": "Rotate invite code?",
+  "@rotateInviteTitle": {
+    "description": "Confirm dialog title."
+  },
+  "rotateInviteMessage": "The current code and link stop working. People who already joined are not affected.",
+  "@rotateInviteMessage": {
+    "description": "Confirm dialog text."
+  },
+  "rotate": "Rotate",
+  "@rotate": {
+    "description": "Button."
+  },
+  "newInviteReady": "New invite code ready",
+  "@newInviteReady": {
+    "description": "Snackbar."
+  },
+  "activityNeedsConnection": "Activity needs a connection",
+  "@activityNeedsConnection": {
+    "description": "Activity empty state while offline."
+  },
+  "activityOfflineNote": "Recent changes show up here once you are back online.",
+  "@activityOfflineNote": {
+    "description": "Activity empty state text."
+  },
+  "noActivityYet": "No activity yet",
+  "@noActivityYet": {
+    "description": "Activity empty state."
+  },
+  "activityAllGroups": "Changes in your groups show up here.",
+  "@activityAllGroups": {
+    "description": "Activity empty state text (all groups)."
+  },
+  "activityThisGroup": "Changes in this group show up here.",
+  "@activityThisGroup": {
+    "description": "Activity empty state text (one group)."
+  },
+  "showingSaved": "Showing saved activity. Pull to refresh.",
+  "@showingSaved": {
+    "description": "Note when the list comes from this device's cache."
+  },
+  "loadMore": "Load more",
+  "@loadMore": {
+    "description": "Button."
+  },
+  "earlier": "Earlier",
+  "@earlier": {
+    "description": "Day heading for items without a date."
+  },
+  "today": "Today",
+  "@today": {
+    "description": "Day heading."
+  },
+  "yesterday": "Yesterday",
+  "@yesterday": {
+    "description": "Day heading."
+  },
+  "forDate": "for {date}",
+  "@forDate": {
+    "description": "Activity row: the date a repeating expense was added for, e.g. \"for Sun, 1 Nov\".",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "youCommented": "You commented",
+  "@youCommented": {
+    "description": "Expense history row: the user commented."
+  },
+  "nameCommented": "{name} commented",
+  "@nameCommented": {
+    "description": "Expense history row.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "restoredName": "Restored “{name}”",
+  "@restoredName": {
+    "description": "Snackbar after restoring an expense.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentRestored": "Payment restored",
+  "@paymentRestored": {
+    "description": "Snackbar."
+  },
+  "expenseNotHere": "This expense isn't on this device",
+  "@expenseNotHere": {
+    "description": "Expense screen when the expense isn't stored locally."
+  },
+  "deletedExpense": "Deleted expense",
+  "@deletedExpense": {
+    "description": "Expense screen title for a deleted expense."
+  },
+  "expense": "Expense",
+  "@expense": {
+    "description": "Expense screen title."
+  },
+  "seriesRepeats": "{frequency, select, weekly{Repeats every week} biweekly{Repeats every 2 weeks} monthly{Repeats every month} yearly{Repeats every year} other{Repeats}}",
+  "@seriesRepeats": {
+    "description": "Line on an expense of a repeating series; same words as the form's Repeat options.",
+    "placeholders": {
+      "frequency": {
+        "type": "String"
+      }
+    }
+  },
+  "seriesRepeatsNext": "{frequency, select, weekly{Repeats every week · next on {date}} biweekly{Repeats every 2 weeks · next on {date}} monthly{Repeats every month · next on {date}} yearly{Repeats every year · next on {date}} other{Repeats · next on {date}}}",
+  "@seriesRepeatsNext": {
+    "description": "Like seriesRepeats on the latest repeat; {date} is like \"Sun, 1 Nov\".",
+    "placeholders": {
+      "frequency": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "seriesRepeatsNextAmount": "{frequency, select, weekly{Repeats every week · next {amount} on {date}} biweekly{Repeats every 2 weeks · next {amount} on {date}} monthly{Repeats every month · next {amount} on {date}} yearly{Repeats every year · next {amount} on {date}} other{Repeats · next {amount} on {date}}}",
+  "@seriesRepeatsNextAmount": {
+    "description": "Like seriesRepeatsNext when the next repeat's amount differs; {amount} is formatted money.",
+    "placeholders": {
+      "frequency": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rateLine": "Rate: 1 {from} = {rate} {to}",
+  "@rateLine": {
+    "description": "The exchange rate of a foreign expense, e.g. \"Rate: 1 JPY = 0,0062 EUR\".",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "notConvertedTo": "Not converted to {currency}",
+  "@notConvertedTo": {
+    "description": "A foreign expense without a rate.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "receivedSplitBack": "Received and split back",
+  "@receivedSplitBack": {
+    "description": "Expense section heading of a refund."
+  },
+  "whoPaidOwes": "Who paid and who owes",
+  "@whoPaidOwes": {
+    "description": "Expense section heading."
+  },
+  "items": "Items",
+  "@items": {
+    "description": "Section heading and split mode: an itemized bill."
+  },
+  "notes": "Notes",
+  "@notes": {
+    "description": "Section heading and field label."
+  },
+  "receipts": "Receipts",
+  "@receipts": {
+    "description": "Section heading."
+  },
+  "history": "History",
+  "@history": {
+    "description": "Section heading: the expense's changes."
+  },
+  "deleteExpenseTitle": "Delete expense?",
+  "@deleteExpenseTitle": {
+    "description": "Confirm dialog title."
+  },
+  "deleteExpenseMessage": "This removes it for everyone in the group. You can restore it from Activity.",
+  "@deleteExpenseMessage": {
+    "description": "Confirm dialog text."
+  },
+  "deleteRepeatingTitle": "Delete repeating expense?",
+  "@deleteRepeatingTitle": {
+    "description": "Confirm dialog title."
+  },
+  "deleteRepeatingMessage": "This removes it for everyone in the group. You can restore it from Activity, but a series that stopped repeating can't be restarted. Repeats already added stay.",
+  "@deleteRepeatingMessage": {
+    "description": "Confirm dialog text."
+  },
+  "deleteThisOne": "Delete this one",
+  "@deleteThisOne": {
+    "description": "Button."
+  },
+  "deleteAndStop": "Delete and stop repeating",
+  "@deleteAndStop": {
+    "description": "Button."
+  },
+  "deletedAndStopped": "Deleted “{name}” and stopped repeating",
+  "@deletedAndStopped": {
+    "description": "Snackbar.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deletedName": "Deleted “{name}”",
+  "@deletedName": {
+    "description": "Snackbar with Undo.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "movedToOtherGroup": "Moved to another group",
+  "@movedToOtherGroup": {
+    "description": "Banner on a moved expense."
+  },
+  "movedNote": "It counts there now. Its comments and history stay here.",
+  "@movedNote": {
+    "description": "Banner text."
+  },
+  "expenseWasDeleted": "This expense was deleted",
+  "@expenseWasDeleted": {
+    "description": "Banner on a deleted expense."
+  },
+  "restoreToCount": "Restore it to count it in balances again.",
+  "@restoreToCount": {
+    "description": "Banner text."
+  },
+  "tax": "Tax",
+  "@tax": {
+    "description": "Itemized bill row."
+  },
+  "tipService": "Tip or service",
+  "@tipService": {
+    "description": "Itemized bill row."
+  },
+  "discount": "Discount",
+  "@discount": {
+    "description": "Itemized bill row."
+  },
+  "youPaidOwe": "You paid {paid} and owe {owe}",
+  "@youPaidOwe": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "owe": {
+        "type": "String"
+      }
+    }
+  },
+  "youPaid": "You paid {amount}",
+  "@youPaid": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youOwe": "You owe {amount}",
+  "@youOwe": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "namePaidOwes": "{name} paid {paid} and owes {owe}",
+  "@namePaidOwes": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "paid": {
+        "type": "String"
+      },
+      "owe": {
+        "type": "String"
+      }
+    }
+  },
+  "namePaid": "{name} paid {amount}",
+  "@namePaid": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "nameOwes": "{name} owes {amount}",
+  "@nameOwes": {
+    "description": "Expense person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youReceivedGetBack": "You received {received} and get back {back}",
+  "@youReceivedGetBack": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "received": {
+        "type": "String"
+      },
+      "back": {
+        "type": "String"
+      }
+    }
+  },
+  "youReceived": "You received {amount}",
+  "@youReceived": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "youGetBackLine": "You get back {amount}",
+  "@youGetBackLine": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "nameReceivedGetsBack": "{name} received {received} and gets back {back}",
+  "@nameReceivedGetsBack": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "received": {
+        "type": "String"
+      },
+      "back": {
+        "type": "String"
+      }
+    }
+  },
+  "nameReceived": "{name} received {amount}",
+  "@nameReceived": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "nameGetsBack": "{name} gets back {amount}",
+  "@nameGetsBack": {
+    "description": "Refund person line.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noHistoryYet": "No history yet.",
+  "@noHistoryYet": {
+    "description": "Expense history empty."
+  },
+  "historyOffline": "History shows up here once you are online.",
+  "@historyOffline": {
+    "description": "Expense history while offline."
+  },
+  "showingSavedHistory": "Showing saved history.",
+  "@showingSavedHistory": {
+    "description": "Note when history comes from this device's cache."
+  },
+  "showMore": "Show more",
+  "@showMore": {
+    "description": "Button."
+  },
+  "deleteCommentTitle": "Delete comment?",
+  "@deleteCommentTitle": {
+    "description": "Confirm dialog title."
+  },
+  "comments": "Comments",
+  "@comments": {
+    "description": "Section heading."
+  },
+  "noCommentsYet": "No comments yet.",
+  "@noCommentsYet": {
+    "description": "Empty comments."
+  },
+  "deleteComment": "Delete comment",
+  "@deleteComment": {
+    "description": "Tooltip."
+  },
+  "addComment": "Add a comment",
+  "@addComment": {
+    "description": "Comment field hint."
+  },
+  "send": "Send",
+  "@send": {
+    "description": "Tooltip of the send button."
+  },
+  "filterByCategory": "Filter by category",
+  "@filterByCategory": {
+    "description": "Category picker title in search."
+  },
+  "category": "Category",
+  "@category": {
+    "description": "Category picker title and form button."
+  },
+  "categoryAll": "All",
+  "@categoryAll": {
+    "description": "Category picker chip: the whole parent category."
+  },
+  "month": "Month",
+  "@month": {
+    "description": "Search filter chip and dialog title."
+  },
+  "searchUnavailable": "Search isn't available",
+  "@searchUnavailable": {
+    "description": "Search error state."
+  },
+  "searchExpenses": "Search expenses",
+  "@searchExpenses": {
+    "description": "Search empty state title."
+  },
+  "searchHelp": "Descriptions, notes, comments, categories and amounts: \"taxi\", \"airport\", \"12,50\".",
+  "@searchHelp": {
+    "description": "Search empty state text; adapt the example words."
+  },
+  "noMatches": "No matches",
+  "@noMatches": {
+    "description": "Search with no results."
+  },
+  "noMatchesHelp": "Try another word, or remove a filter.",
+  "@noMatchesHelp": {
+    "description": "Search with no results."
+  },
+  "expenseCount": "{count, plural, =1{1 expense} other{{count} expenses}}",
+  "@expenseCount": {
+    "description": "Number of results.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchAllGroups": "Search all groups",
+  "@searchAllGroups": {
+    "description": "Search field hint; also the tooltip that removes the group filter."
+  },
+  "searchGroup": "Search {name}",
+  "@searchGroup": {
+    "description": "Search field hint within one group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "searchThisGroup": "Search this group",
+  "@searchThisGroup": {
+    "description": "Search field hint within one group whose name isn't loaded yet."
+  },
+  "clear": "Clear",
+  "@clear": {
+    "description": "Tooltip of the clear button."
+  },
+  "thisGroup": "This group",
+  "@thisGroup": {
+    "description": "Filter chip of the current group when its name isn't loaded yet."
+  },
+  "insightsError": "Insights can't be shown: {reason}",
+  "@insightsError": {
+    "description": "Insights error state; {reason} is an error sentence.",
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "nothingToShow": "Nothing to show yet",
+  "@nothingToShow": {
+    "description": "Insights empty state."
+  },
+  "insightsEmptyHelp": "Totals and charts appear once the group has expenses.",
+  "@insightsEmptyHelp": {
+    "description": "Insights empty state text."
+  },
+  "allTime": "All time",
+  "@allTime": {
+    "description": "Insights period chip."
+  },
+  "shareSummary": "Share summary",
+  "@shareSummary": {
+    "description": "Tooltip."
+  },
+  "printSummary": "Print summary",
+  "@printSummary": {
+    "description": "Tooltip, web only: opens the summary on its own tab with the browser's print dialog."
+  },
+  "previousMonth": "Previous month",
+  "@previousMonth": {
+    "description": "Tooltip."
+  },
+  "nextMonth": "Next month",
+  "@nextMonth": {
+    "description": "Tooltip."
+  },
+  "byMonth": "By month",
+  "@byMonth": {
+    "description": "Insights section heading."
+  },
+  "groupSegment": "Group",
+  "@groupSegment": {
+    "description": "Insights toggle: the whole group's spending."
+  },
+  "mineSegment": "Mine",
+  "@mineSegment": {
+    "description": "Insights toggle: the user's share."
+  },
+  "byCategory": "By category",
+  "@byCategory": {
+    "description": "Insights section heading."
+  },
+  "noExpensesPeriod": "No expenses in this period.",
+  "@noExpensesPeriod": {
+    "description": "Insights empty section."
+  },
+  "byPerson": "By person",
+  "@byPerson": {
+    "description": "Insights section heading."
+  },
+  "nobodyPaidPeriod": "Nobody paid or owed anything in this period.",
+  "@nobodyPaidPeriod": {
+    "description": "Insights empty section."
+  },
+  "keptUntilConverted": "Kept in {currency} until it is converted to {group}.",
+  "@keptUntilConverted": {
+    "description": "Insights note for a currency not converted.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      },
+      "group": {
+        "type": "String"
+      }
+    }
+  },
+  "totalSpent": "Total spent",
+  "@totalSpent": {
+    "description": "Insights totals row."
+  },
+  "yourShare": "Your share",
+  "@yourShare": {
+    "description": "Insights totals row."
+  },
+  "paymentsMade": "Payments made",
+  "@paymentsMade": {
+    "description": "Insights totals row."
+  },
+  "paymentsReceived": "Payments received",
+  "@paymentsReceived": {
+    "description": "Insights totals row."
+  },
+  "youPaidRow": "You paid",
+  "@youPaidRow": {
+    "description": "Insights totals row."
+  },
+  "balanceChange": "Change in your balance",
+  "@balanceChange": {
+    "description": "Insights totals row."
+  },
+  "paidLegend": "Paid",
+  "@paidLegend": {
+    "description": "Chart legend."
+  },
+  "shareLegend": "Share",
+  "@shareLegend": {
+    "description": "Chart legend."
+  },
+  "paidShareLine": "paid {paid} · share {share}",
+  "@paidShareLine": {
+    "description": "Insights person row.",
+    "placeholders": {
+      "paid": {
+        "type": "String"
+      },
+      "share": {
+        "type": "String"
+      }
+    }
+  },
+  "itemsGiveEveryone": "Give every item a person",
+  "@itemsGiveEveryone": {
+    "description": "Itemized split error."
+  },
+  "itemsAddPrices": "Add the item prices before tax or tip",
+  "@itemsAddPrices": {
+    "description": "Itemized split error."
+  },
+  "itemsDiscountTooBig": "The discount is more than the bill",
+  "@itemsDiscountTooBig": {
+    "description": "Itemized split error."
+  },
+  "itemsDontAddUp": "The items don't add up",
+  "@itemsDontAddUp": {
+    "description": "Itemized split error."
+  },
+  "adjustmentsDontFit": "Adjustments don't fit the total",
+  "@adjustmentsDontFit": {
+    "description": "Split error (adjustment mode)."
+  },
+  "giveSomeoneShare": "Give someone a share",
+  "@giveSomeoneShare": {
+    "description": "Split error."
+  },
+  "checkNumbers": "Check the numbers",
+  "@checkNumbers": {
+    "description": "Split error."
+  },
+  "splitDoesntAddUp": "The split doesn't add up",
+  "@splitDoesntAddUp": {
+    "description": "Split error."
+  },
+  "addTheItems": "Add the items",
+  "@addTheItems": {
+    "description": "Split status in Items mode with no items."
+  },
+  "pickOnePerson": "Pick at least one person",
+  "@pickOnePerson": {
+    "description": "Split error (equal mode)."
+  },
+  "splitEquallyBetween": "{count, plural, =1{Split equally between 1 person} other{Split equally between {count} people}}",
+  "@splitEquallyBetween": {
+    "description": "Split status before an amount is typed.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allForOnePerson": "All of it for 1 person",
+  "@allForOnePerson": {
+    "description": "Split status."
+  },
+  "splitEquallyEach": "Split equally between {count} people · {amount} each",
+  "@splitEquallyEach": {
+    "description": "Split status.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "checkAmounts": "Check the amounts",
+  "@checkAmounts": {
+    "description": "Split error."
+  },
+  "enterTotalFirst": "Enter the total first",
+  "@enterTotalFirst": {
+    "description": "Split status."
+  },
+  "remaining": "remaining: {amount}",
+  "@remaining": {
+    "description": "Split status: still to assign; {amount} is money or a percentage.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "overBy": "over by: {amount}",
+  "@overBy": {
+    "description": "Split status: assigned too much.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "addsUp": "Adds up",
+  "@addsUp": {
+    "description": "Split status."
+  },
+  "sharesInTotal": "{count} shares in total",
+  "@sharesInTotal": {
+    "description": "Split status (shares mode); {count} may have decimals, e.g. 2,5.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "oneShareInTotal": "1 share in total",
+  "@oneShareInTotal": {
+    "description": "Split status (shares mode)."
+  },
+  "restSplitEqually": "The rest is split equally",
+  "@restSplitEqually": {
+    "description": "Split status (adjustment mode)."
+  },
+  "byPercent": "By percent",
+  "@byPercent": {
+    "description": "Tooltip of the % mode chip."
+  },
+  "byShares": "By shares",
+  "@byShares": {
+    "description": "Tooltip of the Shares mode chip."
+  },
+  "byAdjustment": "Adjust: extra or less for someone, the rest equally",
+  "@byAdjustment": {
+    "description": "Tooltip of the ± mode chip."
+  },
+  "modeEqual": "Equal",
+  "@modeEqual": {
+    "description": "Split mode chip."
+  },
+  "modeExact": "Exact",
+  "@modeExact": {
+    "description": "Split mode chip: exact amounts."
+  },
+  "modeShares": "Shares",
+  "@modeShares": {
+    "description": "Split mode chip."
+  },
+  "byItem": "By item, from a receipt",
+  "@byItem": {
+    "description": "Tooltip of the Items mode chip."
+  },
+  "adjustmentHelp": "Add or take off an amount for someone; the rest is split equally.",
+  "@adjustmentHelp": {
+    "description": "Adjustment mode explanation."
+  },
+  "noMembers": "No members",
+  "@noMembers": {
+    "description": "Split editor with no members."
+  },
+  "itemCount": "{count, plural, =1{1 item} other{{count} items}}",
+  "@itemCount": {
+    "description": "Number of items on a bill.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addAnItem": "Add an item",
+  "@addAnItem": {
+    "description": "Itemize error with no lines."
+  },
+  "atMostItems": "At most {max} items",
+  "@atMostItems": {
+    "description": "Itemize error.",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "giveItemName": "Give every item a name",
+  "@giveItemName": {
+    "description": "Itemize error."
+  },
+  "itemNameTooLong": "An item name is too long",
+  "@itemNameTooLong": {
+    "description": "Itemize error."
+  },
+  "addItem": "Add item",
+  "@addItem": {
+    "description": "Button."
+  },
+  "giveRestToEveryone": "Give the rest to everyone",
+  "@giveRestToEveryone": {
+    "description": "Button: puts everyone on items without a person."
+  },
+  "subtotal": "Subtotal",
+  "@subtotal": {
+    "description": "Itemize row."
+  },
+  "total": "Total",
+  "@total": {
+    "description": "Itemize row."
+  },
+  "receiptSays": "Receipt says {printed} · items differ by {difference}",
+  "@receiptSays": {
+    "description": "Itemize warning when the items don't match the scanned total.",
+    "placeholders": {
+      "printed": {
+        "type": "String"
+      },
+      "difference": {
+        "type": "String"
+      }
+    }
+  },
+  "eachPerson": "Each person",
+  "@eachPerson": {
+    "description": "Itemize section heading."
+  },
+  "itemsWithoutPerson": "{count, plural, =1{1 item without a person} other{{count} items without a person}}",
+  "@itemsWithoutPerson": {
+    "description": "Itemize error.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "itemHint": "Item",
+  "@itemHint": {
+    "description": "Item name field hint."
+  },
+  "memberLeft": "{name} (left)",
+  "@memberLeft": {
+    "description": "A member who left, on an item.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "whoHadThis": "Who had this?",
+  "@whoHadThis": {
+    "description": "Under an item without a person."
+  },
+  "defaultSplitStartsEqual": "The group's default split no longer adds up, so this starts equal",
+  "@defaultSplitStartsEqual": {
+    "description": "Expense form note."
+  },
+  "leftToAssign": "{amount} left to assign",
+  "@leftToAssign": {
+    "description": "Several payers status.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "itemsTotal": "The total of the items",
+  "@itemsTotal": {
+    "description": "Helper under the amount in Items mode."
+  },
+  "newExpense": "New expense",
+  "@newExpense": {
+    "description": "Expense form title."
+  },
+  "editExpense": "Edit expense",
+  "@editExpense": {
+    "description": "Expense form title."
+  },
+  "scanReceipt": "Scan receipt",
+  "@scanReceipt": {
+    "description": "Button and tooltip: read a receipt photo into items."
+  },
+  "rateAboveZeroOrEmpty": "Enter a rate above 0, or leave it empty",
+  "@rateAboveZeroOrEmpty": {
+    "description": "Rate field error."
+  },
+  "useAutoRate": "Use automatic rate: {rate} ({source})",
+  "@useAutoRate": {
+    "description": "Button; {rate} is a number, {source} like \"rate of 11 Oct\".",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "description": "Description",
+  "@description": {
+    "description": "Expense field label."
+  },
+  "receivedBy": "Received by",
+  "@receivedBy": {
+    "description": "Expense form section heading for a refund."
+  },
+  "paidBy": "Paid by",
+  "@paidBy": {
+    "description": "Expense form section heading."
+  },
+  "severalPeople": "Several people",
+  "@severalPeople": {
+    "description": "Chip: more than one person paid."
+  },
+  "when": "When",
+  "@when": {
+    "description": "Expense form section heading: the date and repeat."
+  },
+  "refundTooltip": "Money that came back, e.g. the hotel returned a deposit",
+  "@refundTooltip": {
+    "description": "Tooltip of the Refund chip."
+  },
+  "splitBackTo": "Split back to",
+  "@splitBackTo": {
+    "description": "Expense form section heading for a refund."
+  },
+  "split": "Split",
+  "@split": {
+    "description": "Expense form section heading."
+  },
+  "theyOweFull": "{name} owes the full amount",
+  "@theyOweFull": {
+    "description": "Chip in a two-person group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "iOweFull": "I owe {name} the full amount",
+  "@iOweFull": {
+    "description": "Chip in a two-person group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "repeat": "Repeat",
+  "@repeat": {
+    "description": "Tooltip of the Repeat button."
+  },
+  "editLatestRepeat": "To change future repeats, edit the latest one ({date})",
+  "@editLatestRepeat": {
+    "description": "Note on an older repeat; {date} like \"1 Nov\".",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "stopsRepeating": "Stops repeating. Repeats already added stay.",
+  "@stopsRepeating": {
+    "description": "Note when Repeat is set to Never on a series."
+  },
+  "nextRepeat": "Next: {date}",
+  "@nextRepeat": {
+    "description": "When the next repeat comes; {date} like \"Sun, 1 Nov 2026\".",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "alsoChangeFuture": "Also change future repeats",
+  "@alsoChangeFuture": {
+    "description": "Checkbox on the latest repeat."
+  },
+  "futureFields": "Amount, split, payers, description, category and notes",
+  "@futureFields": {
+    "description": "What carries forward."
+  },
+  "onlyThisOne": "Only this one changes",
+  "@onlyThisOne": {
+    "description": "When \"Also change future repeats\" is off."
+  },
+  "addPhoto": "Add photo",
+  "@addPhoto": {
+    "description": "Button."
+  },
+  "maxReceiptsNote": "{max} receipts is the most for one expense",
+  "@maxReceiptsNote": {
+    "description": "Note when the receipt limit is reached.",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "scanAReceipt": "Scan a receipt",
+  "@scanAReceipt": {
+    "description": "Title of the photo source sheet when scanning."
+  },
+  "receiptLooksLike": "This receipt looks like {currency}",
+  "@receiptLooksLike": {
+    "description": "Confirm dialog title after a scan.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "switchToCurrencyQuestion": "Switch the expense to {currency} to read its items?",
+  "@switchToCurrencyQuestion": {
+    "description": "Confirm dialog text.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "switchTo": "Switch to {currency}",
+  "@switchTo": {
+    "description": "Button.",
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "couldntReadItems": "Couldn't read the items. Type them in.",
+  "@couldntReadItems": {
+    "description": "Snackbar after a scan found nothing."
+  },
+  "withName": "With {name}",
+  "@withName": {
+    "description": "Expense form: the group or friend the expense is in.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "movesTo": "Moves to {name} on Save",
+  "@movesTo": {
+    "description": "Expense form after picking another group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "fromName": "From {name}",
+  "@fromName": {
+    "description": "Expense form: where it moves from.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dontMove": "Don't move",
+  "@dontMove": {
+    "description": "Tooltip."
+  },
+  "onlyLinkedMove": "Only people on Evensies who are in both can be moved",
+  "@onlyLinkedMove": {
+    "description": "Error when moving an expense."
+  },
+  "auto": "auto",
+  "@auto": {
+    "description": "Tag on a guessed category."
+  },
+  "noAutoRateForm": "No automatic rate. Enter one, or leave it empty to keep this under Not converted.",
+  "@noAutoRateForm": {
+    "description": "Rate field helper."
+  },
+  "emptyNotConverted": "Empty: this stays under Not converted",
+  "@emptyNotConverted": {
+    "description": "Rate field helper."
+  },
+  "rateExplain": "1 {from} = {rate} {to} (1 {to} = {inverse} {from}) · {source}",
+  "@rateExplain": {
+    "description": "Rate field helper; {source} is like \"rate of 11 Oct\" or \"your rate\".",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "inverse": {
+        "type": "String"
+      },
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "yourRate": "your rate",
+  "@yourRate": {
+    "description": "{source} in rateExplain when the rate was typed."
+  }
+}

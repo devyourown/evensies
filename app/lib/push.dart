@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/env.dart';
 import 'core/ids.dart';
+import 'core/l10n.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -168,14 +169,14 @@ void _showBanner(String title, String body, VoidCallback? onOpen) {
       if (body.isNotEmpty) Text(body, maxLines: 3, overflow: TextOverflow.ellipsis),
     ]),
     actions: [
-      TextButton(onPressed: messenger.hideCurrentMaterialBanner, child: const Text('Dismiss')),
+      TextButton(onPressed: messenger.hideCurrentMaterialBanner, child: Text(messenger.context.l.bannerDismiss)),
       if (onOpen != null)
         TextButton(
           onPressed: () {
             messenger.hideCurrentMaterialBanner();
             onOpen();
           },
-          child: const Text('View'),
+          child: Text(messenger.context.l.bannerView),
         ),
     ],
   ));

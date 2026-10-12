@@ -1,6 +1,7 @@
 package dev.nariinfo.evensies.auth
 
 import dev.nariinfo.evensies.common.ApiException
+import dev.nariinfo.evensies.config.AppProperties
 import dev.nariinfo.evensies.config.userId
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
@@ -19,11 +20,13 @@ import tools.jackson.databind.JsonNode
 data class IdTokenRequest(val idToken: String, val displayName: String? = null)
 data class RefreshRequest(val refreshToken: String)
 data class DeviceRequest(val deviceId: String, val fcmToken: String)
+data class ServerInfo(val appleServicesId: String?, val googleWebClientId: String?, val devLogin: Boolean)
 
 @RestController
 class AuthController(
     private val auth: AuthService,
     private val devices: DeviceRepository,
+    private val props: AppProperties,
     @Qualifier("appleVerifier") private val apple: IdTokenVerifier,
     @Qualifier("googleVerifier") private val google: IdTokenVerifier,
 ) {
@@ -41,15 +44,22 @@ class AuthController(
     @GetMapping("/me")
     fun me(authentication: Authentication): UserDto = auth.me(authentication.userId)
 
-    /** `{"displayName"?, "homeCurrency"?}`: a null key counts as absent; anything else but a JSON string is VALIDATION. */
+    /**
+     * `{"displayName"?, "homeCurrency"?, "language"?}`: a null name or currency counts as absent, a null language clears
+     * it (a missing one keeps it); anything else but a JSON string is VALIDATION.
+     */
     @PatchMapping("/me")
     fun updateMe(authentication: Authentication, @RequestBody body: JsonNode): UserDto {
         fun text(key: String): String? = body.get(key)?.takeUnless { it.isNull }?.let {
             if (!it.isString) throw ApiException.badRequest("VALIDATION", "$key must be a string")
             it.asString()
         }
-        return auth.updateMe(authentication.userId, text("displayName"), text("homeCurrency"))
+        return auth.updateMe(authentication.userId, text("displayName"), text("homeCurrency"), body.has("language"), text("language"))
     }
+
+    /** Public (docs/API.md "인증"): which sign-in buttons a prebuilt web app shows on this server. */
+    @GetMapping("/info")
+    fun info() = ServerInfo(props.auth.appleServicesId.trim().ifEmpty { null }, props.auth.googleWebClientId.trim().ifEmpty { null }, props.auth.devLogin)
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)

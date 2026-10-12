@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/currency_picker.dart';
 import 'package:evensies/core/money.dart';
@@ -18,7 +19,7 @@ import 'fakes.dart';
 void main() {
   late AppDatabase db;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -291,9 +292,9 @@ void main() {
         Member(id: 'm3', name: 'Cara', removed: true),
       ],
     );
-    expect(describeSplit(null, state), 'Equal · everyone');
+    expect(describeSplit(AppLocalizationsEn(), null, state), 'Equal · everyone');
     expect(
-      describeSplit(
+      describeSplit(AppLocalizationsEn(), 
         SplitSpec.fromJson({
           'mode': 'shares',
           'input': {'m3': 1, 'm2': 1.5, 'gone': 3, 'm1': 2},

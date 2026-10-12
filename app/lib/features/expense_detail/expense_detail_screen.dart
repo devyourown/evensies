@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
 import '../../core/ids.dart';
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
@@ -39,6 +40,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
     final e = state.expense(expenseId);
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (e == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -48,9 +50,9 @@ class ExpenseDetailScreen extends ConsumerWidget {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.receipt_long_outlined, size: 64, color: cs.primary),
               const SizedBox(height: 16),
-              Text("This expense isn't on this device", style: text.titleMedium, textAlign: TextAlign.center),
+              Text(l.expenseNotHere, style: text.titleMedium, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text("It hasn't synced yet, or its group was left.",
+              Text(l.notSyncedOrLeft,
                   style: TextStyle(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
             ]),
           ),
@@ -63,15 +65,21 @@ class ExpenseDetailScreen extends ConsumerWidget {
     final rate = e.fxRateToDefault ?? 0;
     final date = DateTime.tryParse(e.date);
     final series = state.isActive(e.recurrenceId) ? state.recurrence(e.recurrenceId!) : null;
-    // The latest repeat says when the next one comes, with its amount when future repeats were changed apart from it.
-    String? next;
-    if (series != null && state.latestRepeat(series.id)?.id == e.id) {
-      final n = firstOccurrenceOnOrAfter(series.frequency, series.startDate, todayIso(),
-          minN: state.lastPosted(series.id) + 1);
-      final day = DateFormat('EEE, d MMM yyyy').format(DateTime.parse(n.date));
-      final amount = (series.template['amount'] as num?)?.toInt() ?? e.amount;
-      final currency = series.template['currency'] as String? ?? e.currency;
-      next = amount == e.amount && currency == e.currency ? 'next $day' : 'next ${formatMoney(amount, currency)} on $day';
+    // Its own line, in the form's words (docs/API.md 반복 지출 9단계). The latest repeat says when the next one comes
+    // (always within a year, so no year), with its amount when future repeats were changed apart from it.
+    String? repeats;
+    if (series != null) {
+      repeats = l.seriesRepeats(series.frequency);
+      if (state.latestRepeat(series.id)?.id == e.id) {
+        final n = firstOccurrenceOnOrAfter(series.frequency, series.startDate, todayIso(),
+            minN: state.lastPosted(series.id) + 1);
+        final day = DateFormat.MMMEd().format(DateTime.parse(n.date));
+        final amount = (series.template['amount'] as num?)?.toInt() ?? e.amount;
+        final currency = series.template['currency'] as String? ?? e.currency;
+        repeats = amount == e.amount && currency == e.currency
+            ? l.seriesRepeatsNext(series.frequency, day)
+            : l.seriesRepeatsNextAmount(series.frequency, formatMoney(amount, currency), day);
+      }
     }
 
     Widget section(String s) => Padding(
@@ -81,16 +89,16 @@ class ExpenseDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(e.deleted ? 'Deleted expense' : 'Expense'),
+        title: Text(e.deleted ? l.deletedExpense : l.expense),
         actions: [
           if (!e.deleted) ...[
             IconButton(
-              tooltip: 'Edit',
+              tooltip: l.edit,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => context.push('/groups/$groupId/expenses/${e.id}/edit'),
             ),
             IconButton(
-                tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: () => _delete(context, ref, e, series)),
+                tooltip: l.delete, icon: const Icon(Icons.delete_outline), onPressed: () => _delete(context, ref, e, series)),
           ],
         ],
       ),
@@ -119,7 +127,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Row(children: [
                         if (e.refund) ...[
-                          Icon(Icons.undo, size: 20, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
+                          Icon(Icons.undo, size: 20, color: cs.onSurfaceVariant, semanticLabel: l.refund),
                           const SizedBox(width: 4),
                         ],
                         Flexible(
@@ -131,26 +139,38 @@ class ExpenseDetailScreen extends ConsumerWidget {
                       Text(
                         [
                           Categories.labelOf(e.category),
-                          date == null ? e.date : DateFormat('EEE, d MMM yyyy').format(date),
-                          if (e.refund) 'Refund',
-                          if (series != null) 'Repeats ${frequencyWord(series.frequency)}',
-                          ?next,
+                          date == null ? e.date : DateFormat.yMMMEd().format(date),
+                          if (e.refund) l.refund,
                         ].join(' · '),
                         style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                       ),
+                      if (repeats != null)
+                        Padding(
+                          key: const Key('series-line'),
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(children: [
+                            Icon(Icons.repeat, size: 16, color: cs.onSurfaceVariant),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(repeats, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                            ),
+                          ]),
+                        ),
                       if (e.currency != d)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
-                            rate > 0 ? 'Rate: 1 ${e.currency} = ${e.fxRateToDefault} $d' : 'Not converted to $d',
+                            rate > 0
+                                ? l.rateLine(e.currency, numberText(rate, decimals: 10), d)
+                                : l.notConvertedTo(d),
                             style: text.bodySmall?.copyWith(color: rate > 0 ? cs.onSurfaceVariant : cs.error),
                           ),
                         ),
                     ]),
                   ),
                 ]),
-                section(e.refund ? 'Received and split back' : 'Who paid and who owes'),
-                for (final row in _people(e, names, me))
+                section(e.refund ? l.receivedSplitBack : l.whoPaidOwes),
+                for (final row in _people(l, e, names, me))
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(children: [
@@ -166,15 +186,15 @@ class ExpenseDetailScreen extends ConsumerWidget {
                     ]),
                   ),
                 if (e.split?.bill case final bill?) ...[
-                  section('Items'),
+                  section(l.items),
                   _ItemsList(bill: bill, names: names, me: me, currency: e.currency),
                 ],
                 if (e.notes != null) ...[
-                  section('Notes'),
+                  section(l.notes),
                   Text(e.notes!, key: const Key('detail-notes')),
                 ],
                 if (!e.deleted || state.receiptsOf(e.id).isNotEmpty) ...[
-                  section('Receipts'),
+                  section(l.receipts),
                   ReceiptStrip(
                     groupId: groupId,
                     expenseId: e.id,
@@ -182,7 +202,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
                     editable: !e.deleted,
                   ),
                 ],
-                section('History'),
+                section(l.history),
                 ExpenseHistory(groupId: groupId, expenseId: e.id),
                 const SizedBox(height: 24),
                 const Divider(height: 1),
@@ -200,10 +220,9 @@ class ExpenseDetailScreen extends ConsumerWidget {
   /// that choice has no Undo.
   Future<void> _delete(BuildContext context, WidgetRef ref, Expense e, Recurrence? series) async {
     final bool stop;
+    final l = context.l;
     if (series == null) {
-      if (!await confirm(context,
-          title: 'Delete expense?',
-          message: 'This removes it for everyone in the group. You can restore it from Activity.')) {
+      if (!await confirm(context, title: l.deleteExpenseTitle, message: l.deleteExpenseMessage)) {
         return;
       }
       stop = false;
@@ -212,18 +231,17 @@ class ExpenseDetailScreen extends ConsumerWidget {
       final choice = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Delete repeating expense?'),
-          content: const Text('This removes it for everyone in the group. You can restore it from Activity, but a '
-              "series that stopped repeating can't be restarted. Repeats already added stay."),
+          title: Text(l.deleteRepeatingTitle),
+          content: Text(l.deleteRepeatingMessage),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
             TextButton(
-                key: const Key('delete-one'), onPressed: () => Navigator.pop(ctx, false), child: const Text('Delete this one')),
+                key: const Key('delete-one'), onPressed: () => Navigator.pop(ctx, false), child: Text(l.deleteThisOne)),
             FilledButton(
               key: const Key('delete-stop'),
               style: FilledButton.styleFrom(backgroundColor: cs.error, foregroundColor: cs.onError),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete and stop repeating'),
+              child: Text(l.deleteAndStop),
             ),
           ],
         ),
@@ -238,9 +256,9 @@ class ExpenseDetailScreen extends ConsumerWidget {
     if (!context.mounted) return;
     context.pop();
     if (stop) {
-      messenger.showSnackBar(SnackBar(content: Text('Deleted “${e.description}” and stopped repeating')));
+      messenger.showSnackBar(SnackBar(content: Text(l.deletedAndStopped(e.description))));
     } else {
-      showUndo(messenger, 'Deleted “${e.description}”', () => writes.restoreExpense(groupId, e.id));
+      showUndo(messenger, l.deletedName(e.description), () => writes.restoreExpense(groupId, e.id));
     }
   }
 }
@@ -266,8 +284,8 @@ class DeletedExpenseCard extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 12),
         child: ListTile(
           leading: Icon(Icons.drive_file_move_outline, color: cs.onSecondaryContainer),
-          title: Text('Moved to another group', style: TextStyle(color: cs.onSecondaryContainer)),
-          subtitle: Text('It counts there now. Its comments and history stay here.',
+          title: Text(context.l.movedToOtherGroup, style: TextStyle(color: cs.onSecondaryContainer)),
+          subtitle: Text(context.l.movedNote,
               style: TextStyle(color: cs.onSecondaryContainer)),
         ),
       );
@@ -277,10 +295,10 @@ class DeletedExpenseCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
-        title: Text('This expense was deleted', style: TextStyle(color: cs.onErrorContainer)),
-        subtitle: Text('Restore it to count it in balances again.', style: TextStyle(color: cs.onErrorContainer)),
+        title: Text(context.l.expenseWasDeleted, style: TextStyle(color: cs.onErrorContainer)),
+        subtitle: Text(context.l.restoreToCount, style: TextStyle(color: cs.onErrorContainer)),
         // Not offered until it is known not to be a move.
-        trailing: moved == null ? null : FilledButton(onPressed: onRestore, child: const Text('Restore')),
+        trailing: moved == null ? null : FilledButton(onPressed: onRestore, child: Text(context.l.restore)),
       ),
     );
   }
@@ -298,7 +316,8 @@ class _ItemsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    String who(String id) => id == me ? 'You' : names[id] ?? 'Someone';
+    final l = context.l;
+    String who(String id) => id == me ? l.you : names[id] ?? l.someone;
     Widget row(String label, int amount, {String? sub, bool minus = false}) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -313,17 +332,18 @@ class _ItemsList extends StatelessWidget {
           ]),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      for (final l in bill.lines) row(l.name, l.amount, sub: l.memberIds.map(who).join(', ')),
-      if (bill.tax != 0) row('Tax', bill.tax),
-      if (bill.tip != 0) row('Tip or service', bill.tip),
-      if (bill.discount != 0) row('Discount', bill.discount, minus: true),
+      for (final x in bill.lines) row(x.name, x.amount, sub: x.memberIds.map(who).join(l.listJoiner)),
+      if (bill.tax != 0) row(l.tax, bill.tax),
+      if (bill.tip != 0) row(l.tipService, bill.tip),
+      if (bill.discount != 0) row(l.discount, bill.discount, minus: true),
     ]);
   }
 }
 
 /// "Anna paid €30.00 and owes €10.00", one line per person in the expense: payers first, in the order sent.
 /// For a refund: who received it and who gets a part back.
-List<({String name, bool isMe, String text})> _people(Expense e, Map<String, String> names, String? me) {
+List<({String name, bool isMe, String text})> _people(
+    AppLocalizations l, Expense e, Map<String, String> names, String? me) {
   final paid = paidAmounts(e);
   final owes = <String, int>{};
   for (final s in e.shares) {
@@ -335,16 +355,24 @@ List<({String name, bool isMe, String text})> _people(Expense e, Map<String, Str
       if ((paid[id] ?? 0) != 0 || (owes[id] ?? 0) != 0)
         () {
           final isMe = id == me;
-          final name = isMe ? 'You' : names[id] ?? 'Someone';
+          // My own name too: the avatar shows its initial ("You"/"Tu" would read as someone else's), the sentences
+          // for me don't use it.
+          final name = names[id] ?? l.someone;
           final p = paid[id] ?? 0, o = owes[id] ?? 0;
-          final (did, owe) = e.refund
-              ? ('received', isMe ? 'get back' : 'gets back')
-              : ('paid', isMe ? 'owe' : 'owes');
-          final text = p != 0 && o != 0
-              ? '$name $did ${m(p)} and $owe ${m(o)}'
-              : p != 0
-                  ? '$name $did ${m(p)}'
-                  : '$name $owe ${m(o)}';
+          final text = switch ((e.refund, isMe, p != 0, o != 0)) {
+            (false, true, true, true) => l.youPaidOwe(m(p), m(o)),
+            (false, true, true, false) => l.youPaid(m(p)),
+            (false, true, false, _) => l.youOwe(m(o)),
+            (false, false, true, true) => l.namePaidOwes(name, m(p), m(o)),
+            (false, false, true, false) => l.namePaid(name, m(p)),
+            (false, false, false, _) => l.nameOwes(name, m(o)),
+            (true, true, true, true) => l.youReceivedGetBack(m(p), m(o)),
+            (true, true, true, false) => l.youReceived(m(p)),
+            (true, true, false, _) => l.youGetBackLine(m(o)),
+            (true, false, true, true) => l.nameReceivedGetsBack(name, m(p), m(o)),
+            (true, false, true, false) => l.nameReceived(name, m(p)),
+            (true, false, false, _) => l.nameGetsBack(name, m(o)),
+          };
           return (name: name, isMe: isMe, text: text);
         }(),
   ];
@@ -438,6 +466,7 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
     });
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (_items.isEmpty && (_loading || _nextBefore == null)) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -446,14 +475,14 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
                 alignment: Alignment.centerLeft,
                 child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               )
-            : Text(_live ? 'No history yet.' : 'History shows up here once you are online.',
+            : Text(_live ? l.noHistoryYet : l.historyOffline,
                 style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
       );
     }
     final rows = <Widget>[];
     String? lastDay;
     for (final (item: i, :count) in foldReceipts(_items)) {
-      final day = dayLabel(i.createdAt);
+      final day = dayLabel(i.createdAt, l: l);
       if (day != lastDay) {
         lastDay = day;
         rows.add(Padding(
@@ -466,7 +495,7 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
     // An older server ignores the filter: a page can hold none of this expense's items yet more may follow.
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (!_live && !_loading)
-        Text('Showing saved history.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        Text(l.showingSavedHistory, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
       ...rows,
       if (_nextBefore != null)
         Align(
@@ -475,7 +504,7 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
             onPressed: _loadingMore ? null : _more,
             child: _loadingMore
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Show more'),
+                : Text(l.showMore),
           ),
         ),
     ]);

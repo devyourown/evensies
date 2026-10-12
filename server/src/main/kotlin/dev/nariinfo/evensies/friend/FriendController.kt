@@ -3,9 +3,10 @@ package dev.nariinfo.evensies.friend
 import dev.nariinfo.evensies.config.userId
 import dev.nariinfo.evensies.group.CodeLookupLimiter
 import dev.nariinfo.evensies.group.GroupDto
-import dev.nariinfo.evensies.group.landingPage
+import dev.nariinfo.evensies.group.InviteCodes
+import dev.nariinfo.evensies.group.LandingPage
 import jakarta.servlet.http.HttpServletRequest
-import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,14 +31,11 @@ class FriendController(private val friends: FriendService, private val limiter: 
     }
 
     /** Friend link landing page for people without the app. */
-    @GetMapping("/f/{code}", produces = [MediaType.TEXT_HTML_VALUE])
-    fun landing(@PathVariable code: String, request: HttpServletRequest): String {
+    @GetMapping("/f/{code}")
+    fun landing(@PathVariable code: String, request: HttpServletRequest): ResponseEntity<String> {
         limiter.throttle(request)
-        val name = friends.preview(code).displayName.ifBlank { "Someone" }
-        return landingPage(
-            title = "$name on Evensies", heading = name, text = "$name wants to split expenses with you.",
-            code = code, appLink = "evensies://f/$code",
-        )
+        val name = friends.preview(code).displayName
+        return LandingPage(request, code, "evensies://f/$code", "/app/#/friends/add?code=${InviteCodes.normalize(code)}").person(name, "friendCode")
     }
 
     @PostMapping("/friends")

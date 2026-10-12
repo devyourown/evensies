@@ -1,10 +1,10 @@
-/// Activity feed items (docs/API.md 활동·알림) and their English sentences.
+/// Activity feed items (docs/API.md 활동·알림) and their sentences in each language (shared/strings.json).
 /// The server renders the same sentences for push (shared/activity-cases.json checks both).
 library;
 
 import '../core/money.dart';
+import '../core/strings.dart';
 import 'categories.dart';
-import 'recurrence.dart' show frequencyWord;
 
 class ActivityChange {
   final String field;
@@ -62,134 +62,137 @@ class ActivityItem {
         ];
 }
 
-/// "you owe €15.00" / "you lent €15.00" ("you get back" for a refund) for an added (or repeated) expense I am part
-/// of, else null.
-String? myDeltaText(ActivityItem item) {
+/// The delta phrase for an added (or repeated) expense I am part of, else null: "you owe €15.00" / "you lent
+/// €15.00" ("you get back" for a refund), in [lang] (default [Money.lang]).
+String? myDeltaText(ActivityItem item, {String? lang}) {
+  final l = lang ?? Money.lang;
   final d = item.kind == 'expense_added' || item.kind == 'expense_repeated' ? item.myDelta ?? 0 : 0;
   if (d == 0) return null;
-  return '${d < 0 ? 'you owe' : item.refund ? 'you get back' : 'you lent'} ${formatMoney(d.abs(), item.currency ?? '')}';
+  final key = d < 0 ? 'owe' : (item.refund ? 'getBack' : 'lent');
+  return Strings.fill(Strings.text(l, ['suffix', key]), {'amount': formatMoney(d.abs(), item.currency ?? '', lang: l)});
+}
+
+/// Template key per kind (docs/API.md 문장 만들기 1): refunds, payment comments and several receipts have their own.
+String _templateKey(ActivityItem item, int count) {
+  final k = switch (item.kind) {
+    'expense_added' || 'expense_repeated' when item.refund => '${item.kind}_refund',
+    'comment_added' when item.paymentId != null => 'comment_added_payment',
+    'receipt_added' || 'receipt_removed' when count >= 2 => item.kind.replaceFirst('receipt_', 'receipts_'),
+    _ => item.kind,
+  };
+  return Strings.lookup('en', ['activity', k, 'other']) == null ? 'unknown' : k;
+}
+
+/// The sentence for [item] as seen by member [me] in [lang] (docs/API.md 문장 만들기), from shared/strings.json.
+/// [names] maps memberId → name. [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own
+/// colored line). [count]: the receipts one feed row stands for (app only: "added 3 receipts to …").
+String activityText(ActivityItem item, Map<String, String> names, String? me,
+    {bool withDelta = true, int count = 1, String? lang}) {
+  final l = lang ?? Money.lang;
+  final you = Strings.text(l, const ['words', 'you']), someone = Strings.text(l, const ['words', 'someone']);
+  final cap = <String>{};
+
+  /// A member as the sentence names them, noting [slot] as capitalizable when the value is a word, not a name.
+  String who(String? id, [String? slot]) {
+    final n = id == null ? null : (id == me ? you : names[id] ?? someone);
+    if (slot != null && (n == null || id == me || !names.containsKey(id))) cap.add(slot);
+    return n ?? someone;
+  }
+
+  String money(Object? minor, String? currency) => formatMoney((minor as num).toInt(), currency ?? '', lang: l);
+  String change(String key, [Map<String, String> v = const {}]) => Strings.fill(Strings.text(l, ['changes', key]), v);
+
+  /// `{changes}`: the labels in order joined with `changes.joiner`; `changes.other` once for unknown fields, and for
+  /// an empty list.
+  String changes() {
+    final fields = {for (final c in item.changes) c.field: c};
+    final fromCurrency = (fields['currency']?.from as String?) ?? item.currency;
+    var other = false;
+    final parts = <String>[];
+    for (final c in item.changes) {
+      final f = '${c.from}', t = '${c.to}';
+      final label = switch ((item.kind, c.field)) {
+        ('group_updated', 'name') => change('name', {'from': f, 'to': t}),
+        ('group_updated', 'defaultCurrency') => change('currency', {'from': f, 'to': t}),
+        ('group_updated', 'simplifyDebts') => change(c.to == true ? 'simplifyDebtsOn' : 'simplifyDebtsOff'),
+        ('group_updated', 'defaultSplit') => change('defaultSplit'),
+        ('group_updated', _) => '',
+        (_, 'description') => change('description', {'from': f, 'to': t}),
+        (_, 'amount') => change('amount', {'from': money(c.from, fromCurrency), 'to': money(c.to, item.currency)}),
+        (_, 'currency') => change('currency', {'from': f, 'to': t}),
+        (_, 'fxRateToDefault') => change('fxRateToDefault'),
+        (_, 'paidBy') => change('paidBy', {'from': who(c.from as String?), 'to': who(c.to as String?)}),
+        // The server already leaves out what rule 10 moved along (docs/API.md changes).
+        (_, 'payers') => change('payers'),
+        (_, 'refund') => change(c.to == true ? 'refundOn' : 'refundOff'),
+        (_, 'date') => change('date', {'from': f, 'to': t}),
+        (_, 'category') => _category(c.from, c.to, l, change),
+        // A new amount always means a new split, so "split" alone would be noise.
+        (_, 'shares') => fields.containsKey('amount') ? null : change('split'),
+        (_, 'split') => fields.containsKey('shares') || fields.containsKey('amount') ? null : change('split'),
+        (_, 'notes') => change('notes'),
+        _ => '',
+      };
+      if (label == '') {
+        other = true;
+      } else if (label != null) {
+        parts.add(label);
+      }
+    }
+    if (other || parts.isEmpty) parts.add(change('other'));
+    return parts.join(Strings.text(l, const ['changes', 'joiner']));
+  }
+
+  final key = _templateKey(item, count);
+  final subject = switch (item.kind) {
+    'member_joined' || 'member_left' => item.memberId,
+    'payment_added' => item.fromMember,
+    _ => item.actorMemberId,
+  };
+  final object = switch (item.kind) {
+    'member_added' || 'member_removed' || 'friend_added' => item.memberId,
+    'payment_added' => item.toMember,
+    'payment_confirmed' => item.fromMember,
+    _ => null,
+  };
+  bool has(String variant) => Strings.lookup('en', ['activity', key, variant]) != null;
+  final variant = me != null && subject == me && has('self')
+      ? 'self'
+      : me != null && object == me && has('you')
+          ? 'you'
+          : 'other';
+  final template = Strings.text(l, ['activity', key, variant]);
+  final usesChanges = template.contains('{changes}');
+  var text = Strings.fill(
+    template,
+    {
+      'A': who(item.actorMemberId, 'A'),
+      'member': who(item.memberId, 'member'),
+      'from': who(item.fromMember, 'from'),
+      'to': who(item.toMember, 'to'),
+      'name': item.name ?? '',
+      'description': item.description ?? '',
+      'text': item.text ?? '',
+      'amount': item.amount == null ? '' : money(item.amount, item.currency),
+      'frequency': Strings.lookup(l, ['words', 'frequency', item.frequency ?? '']) as String? ?? item.frequency ?? '',
+      if (usesChanges) 'changes': changes(),
+      'n': '$count',
+    },
+    capitalize: cap,
+  );
+  final dot = Strings.text(l, const ['words', 'dot']);
+  final mine = withDelta ? myDeltaText(item, lang: l) : null;
+  if (mine != null) text = '$text$dot$mine';
+  if (item.kind == 'payment_added' && item.status == 'sent') {
+    final w = Strings.text(l, ['suffix', 'waiting', me != null && item.toMember == me ? 'you' : 'other']);
+    text = '$text$dot${Strings.fill(w, {'to': who(item.toMember)})}';
+  }
+  return text;
 }
 
 /// `category Dining out → General`, each side as [Categories.labelOf] shows a stored value; bare `category` when both
 /// show the same (null → `uncategorized.general`).
-String _category(Object? from, Object? to) {
-  final f = Categories.labelOf(from?.toString()), t = Categories.labelOf(to?.toString());
-  return f == t ? 'category' : 'category $f → $t';
-}
-
-/// The sentence for [item] as seen by member [me] (docs/API.md "문장"). [names] maps memberId → name.
-/// [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own colored line). [count]: the
-/// receipts one feed row stands for (app only: "added 3 receipts to …").
-String activityText(ActivityItem item, Map<String, String> names, String? me, {bool withDelta = true, int count = 1}) {
-  String who(String? id, {bool start = false}) {
-    if (id != null && id == me) return start ? 'You' : 'you';
-    return (id == null ? null : names[id]) ?? (start ? 'Someone' : 'someone');
-  }
-
-  String money(Object? minor, String? currency) => formatMoney((minor as num).toInt(), currency ?? '');
-  final a = who(item.actorMemberId, start: true);
-  final desc = '“${item.description ?? ''}”';
-  final amount = item.amount == null ? '' : money(item.amount, item.currency);
-  final receipts = count == 1 ? 'a receipt' : '$count receipts';
-  final repeats = frequencyWord(item.frequency);
-
-  /// `expense_updated`'s list of changes (also a series' future, `recurrence_updated`), joined with ", ".
-  String changes() {
-    final fields = {for (final c in item.changes) c.field: c};
-    final fromCurrency = (fields['currency']?.from as String?) ?? item.currency;
-    return [
-      for (final c in item.changes)
-        ?switch (c.field) {
-          'description' => 'description “${c.from}” → “${c.to}”',
-          'amount' => '${money(c.from, fromCurrency)} → ${money(c.to, item.currency)}',
-          'currency' => 'currency ${c.from} → ${c.to}',
-          'fxRateToDefault' => 'exchange rate',
-          'paidBy' => 'paid by ${who(c.from as String?)} → ${who(c.to as String?)}',
-          // The server already leaves out what rule 10 moved along (docs/API.md changes).
-          'payers' => 'payers',
-          'refund' => c.to == true ? 'refund on' : 'refund off',
-          'date' => 'date ${c.from} → ${c.to}',
-          'category' => _category(c.from, c.to),
-          // A new amount always means a new split, so "split" alone would be noise.
-          'shares' => fields.containsKey('amount') ? null : 'split',
-          'split' => fields.containsKey('shares') || fields.containsKey('amount') ? null : 'split',
-          'notes' => 'notes',
-          _ => null,
-        },
-    ].join(', ');
-  }
-
-  switch (item.kind) {
-    case 'group_created':
-      return '$a created the group “${item.name ?? ''}”';
-    case 'group_updated':
-      final parts = [
-        for (final c in item.changes)
-          ?switch (c.field) {
-            'name' => 'name “${c.from}” → “${c.to}”',
-            'defaultCurrency' => 'currency ${c.from} → ${c.to}',
-            'simplifyDebts' => c.to == true ? 'simplify debts on' : 'simplify debts off',
-            'defaultSplit' => 'default split',
-            _ => null,
-          },
-      ];
-      return '$a changed the group: ${parts.join(', ')}';
-    case 'member_added':
-      return '$a added ${who(item.memberId)}';
-    case 'member_joined':
-      return '${who(item.memberId, start: true)} joined';
-    case 'member_removed':
-      return '$a removed ${who(item.memberId)}';
-    case 'member_left':
-      return '${who(item.memberId, start: true)} left the group';
-    case 'friend_added':
-      return '$a added ${who(item.memberId)} as a friend';
-    case 'expense_added':
-      final mine = withDelta ? myDeltaText(item) : null;
-      return '$a added ${item.refund ? 'a refund ' : ''}$desc · $amount${mine == null ? '' : ' · $mine'}';
-    case 'expense_updated':
-      final parts = changes();
-      return parts.isEmpty ? '$a changed $desc' : '$a changed $desc: $parts';
-    case 'expense_repeated':
-      // Added by the server on its date: no actor (docs/API.md 반복 지출).
-      final mine = withDelta ? myDeltaText(item) : null;
-      return '${item.refund ? 'A refund $desc' : desc} · $amount was added (repeats $repeats)'
-          '${mine == null ? '' : ' · $mine'}';
-    case 'recurrence_created':
-      return '$a set $desc to repeat $repeats';
-    case 'recurrence_updated':
-      final parts = changes();
-      return parts.isEmpty ? '$a changed future $desc' : '$a changed future $desc: $parts';
-    case 'recurrence_deleted':
-      return '$a stopped $desc repeating';
-    case 'expense_deleted':
-      return '$a deleted $desc';
-    case 'expense_restored':
-      return '$a restored $desc';
-    case 'expense_moved':
-      return '$a moved $desc to another group';
-    case 'comment_added':
-      if (item.paymentId != null) {
-        return '$a commented on a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}: '
-            '${item.text ?? ''}';
-      }
-      return '$a commented on $desc: ${item.text ?? ''}';
-    case 'payment_added':
-      final waiting = item.status == 'sent' ? ' · waiting for ${who(item.toMember)} to confirm' : '';
-      return '${who(item.fromMember, start: true)} paid ${who(item.toMember)} $amount$waiting';
-    case 'payment_confirmed':
-      return '$a confirmed receiving $amount from ${who(item.fromMember)}';
-    case 'payment_deleted':
-      return '$a deleted a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
-    case 'payment_edited':
-      return '$a edited a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
-    case 'payment_restored':
-      return '$a restored a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
-    case 'receipt_added':
-      return '$a added $receipts to $desc';
-    case 'receipt_removed':
-      return '$a removed $receipts from $desc';
-    default:
-      return '$a made a change';
-  }
+String _category(Object? from, Object? to, String lang, String Function(String, [Map<String, String>]) change) {
+  final f = Categories.labelOf(from?.toString(), lang: lang), t = Categories.labelOf(to?.toString(), lang: lang);
+  return f == t ? change('categorySame') : change('category', {'from': f, 'to': t});
 }

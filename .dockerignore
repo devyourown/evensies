@@ -1,0 +1,19 @@
+# Build context is the repo root (deploy/docker-compose.yml). Keep build output, secrets and user data out of it.
+app/build
+app/ios/Pods
+app/.dart_tool
+server/build
+server/bin
+server/.gradle
+server/data
+server/src/main/resources/static/app
+**/*.jks
+**/key.properties
+**/*.p8
+**/GoogleService-Info.plist
+**/google-services.json
+**/fcm*.json
+deploy/.env
+deploy/secrets
+deploy/backups
+deploy/data

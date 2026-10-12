@@ -9,7 +9,7 @@ import java.util.UUID
 @Repository
 class UserRepository(private val jdbc: JdbcClient) {
     private val mapper = { rs: ResultSet, _: Int ->
-        User(rs.getObject("id", UUID::class.java), rs.getString("display_name"), rs.getObject("deleted_at") != null, rs.getString("home_currency"))
+        User(rs.getObject("id", UUID::class.java), rs.getString("display_name"), rs.getObject("deleted_at") != null, rs.getString("home_currency"), rs.getString("language"))
     }
 
     fun find(id: UUID): User? =
@@ -26,13 +26,15 @@ class UserRepository(private val jdbc: JdbcClient) {
     ).param("id", UUID.randomUUID()).param("provider", provider).param("subject", subject).param("name", displayName)
         .query(mapper).single()
 
-    /** A null argument keeps that column. */
-    fun update(id: UUID, name: String?, homeCurrency: String?): User = jdbc.sql(
+    /** A null [name] or [homeCurrency] keeps that column; [language] is written (null clears it) only when [setLanguage]. */
+    fun update(id: UUID, name: String?, homeCurrency: String?, setLanguage: Boolean = false, language: String? = null): User = jdbc.sql(
         """
-        UPDATE users SET display_name = COALESCE(:name, display_name), home_currency = COALESCE(:currency, home_currency)
+        UPDATE users SET display_name = COALESCE(:name, display_name), home_currency = COALESCE(:currency, home_currency),
+            language = CASE WHEN :setLanguage THEN CAST(:language AS text) ELSE language END
         WHERE id = :id RETURNING *
         """
-    ).param("name", name).param("currency", homeCurrency).param("id", id).query(mapper).single()
+    ).param("name", name).param("currency", homeCurrency).param("setLanguage", setLanguage).param("language", language)
+        .param("id", id).query(mapper).single()
 
     /** Phase 6 friend codes (`users.friend_code`, one namespace with group invite codes). */
     fun friendCode(id: UUID): String? =

@@ -6,6 +6,7 @@ import dev.nariinfo.evensies.activity.ActivityItem
 import dev.nariinfo.evensies.activity.ActivityText
 import dev.nariinfo.evensies.activity.UnreadActivity
 import dev.nariinfo.evensies.auth.DeviceRepository
+import dev.nariinfo.evensies.auth.UserRepository
 import dev.nariinfo.evensies.config.AppProperties
 import dev.nariinfo.evensies.group.Group
 import dev.nariinfo.evensies.group.GroupRepository
@@ -23,8 +24,9 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Push fan-out after a committed push (docs/API.md "푸시"): every linked, active member except the actor gets either a
- * visible notification (title = group name, or in a friend group the other member's name; body = [ActivityText.body];
- * badge = the recipient's unread total) or a data-only sync message. Visible items are filtered by the recipient's
+ * visible notification (title = group name, or in a friend group the other member's name; body = [ActivityText.body] in
+ * the recipient's `users.language`, read when the message goes out; badge = the recipient's unread total) or a data-only
+ * sync message. Visible items are filtered by the recipient's
  * [NotificationPrefs] and batched per recipient and group: after a visible push, items within
  * `evensies.push.batch-seconds` are queued and sent together when the window ends. Reminders ([remind]) go out here too.
  *
@@ -38,6 +40,7 @@ class PushNotifier(
     private val groups: GroupRepository,
     private val members: MemberRepository,
     private val devices: DeviceRepository,
+    private val users: UserRepository,
     private val prefs: NotificationPrefsRepository,
     private val stateStore: GroupStateStore,
     private val unread: UnreadActivity,
@@ -75,12 +78,13 @@ class PushNotifier(
         for ((v, tokens) in byMessage) send(tokens, v?.title, v?.body, data(group), v?.badge)
     }
 
-    /** The badge differs per recipient, so tokens are grouped by the whole visible message. */
+    /** The badge and language differ per recipient, so tokens are grouped by the whole visible message. */
     private data class Visible(val title: String, val body: String, val badge: Int)
 
     private fun visible(group: Group, all: List<Member>, me: Member, items: List<ActivityItem>, names: Map<String, String>): Visible {
         val title = if (group.kind == "friend") all.firstOrNull { it.id != me.id }?.name ?: group.name else group.name
-        return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString()), unread.of(me.userId!!).total)
+        val lang = users.find(me.userId!!)?.language ?: "en"
+        return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString(), lang), unread.of(me.userId).total)
     }
 
     /** A reminder (docs/API.md "리마인더") to every device of [toUser]; no badge, data `{type: remind, fromUserId}`. */

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
+import '../../router.dart' show safeNext;
 
 const maxDisplayNameLength = 30;
 
@@ -39,7 +41,7 @@ class _NameScreenState extends ConsumerState<NameScreen> {
       final user = await ref.read(apiProvider).updateMe(displayName: _value);
       await ref.read(dbProvider).updateProfile(user.id, displayName: user.displayName);
       if (!mounted) return;
-      context.canPop() ? context.pop() : context.go('/');
+      context.canPop() ? context.pop() : context.go(safeNext(GoRouterState.of(context).uri.queryParameters['next']) ?? '/');
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -50,18 +52,19 @@ class _NameScreenState extends ConsumerState<NameScreen> {
   @override
   Widget build(BuildContext context) {
     final first = !context.canPop();
+    final l = context.l;
     return Scaffold(
-      appBar: AppBar(title: Text(first ? 'Welcome' : 'Your name')),
+      appBar: AppBar(title: Text(first ? l.welcomeTitle : l.yourNameTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            first ? 'What should your friends call you?' : 'This is the name other members see.',
+            first ? l.nameQuestion : l.nameExplain,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
-            'It is shown to people in your groups. You can change it later in Settings.',
+            l.nameHelp,
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
@@ -71,7 +74,7 @@ class _NameScreenState extends ConsumerState<NameScreen> {
             maxLength: maxDisplayNameLength,
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+            decoration: InputDecoration(labelText: l.nameLabel, border: const OutlineInputBorder()),
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _valid && !_busy ? _save() : null,
           ),
@@ -80,7 +83,7 @@ class _NameScreenState extends ConsumerState<NameScreen> {
             onPressed: _valid && !_busy ? _save : null,
             child: _busy
                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save'),
+                : Text(l.save),
           ),
         ],
       ),

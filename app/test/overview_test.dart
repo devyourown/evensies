@@ -5,6 +5,7 @@ import 'package:evensies/domain/balances.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/domain/overview.dart';
 import 'package:evensies/domain/settlement.dart';
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'shared_json.dart';
@@ -105,9 +106,9 @@ void main() {
 
   group('row text', () {
     test('one currency', () {
-      expect(personBalanceText({'EUR': 1200}, null), 'owes you €12.00');
-      expect(personBalanceText({'USD': -500}, null), 'you owe \$5.00');
-      expect(personBalanceText({}, null), 'settled up');
+      expect(personBalanceText(AppLocalizationsEn(), {'EUR': 1200}, null), 'owes you €12.00');
+      expect(personBalanceText(AppLocalizationsEn(), {'USD': -500}, null), 'you owe \$5.00');
+      expect(personBalanceText(AppLocalizationsEn(), {}, null), 'settled up');
     });
     test('several currencies: the largest at the latest rates, unknown rates last, ties by code', () {
       const rates = {'EUR': 1.0, 'USD': 1.25, 'JPY': 160.0};
@@ -116,7 +117,7 @@ void main() {
       expect(largestCurrency({'EUR': 1000, 'USD': 1250}, rates), 'EUR'); // equal: by code
       expect(largestCurrency({'KRW': 999999, 'EUR': 1}, rates), 'EUR'); // no KRW rate: last
       expect(largestCurrency({'USD': 1, 'EUR': 1}, null), 'EUR');
-      expect(personBalanceText({'EUR': 1000, 'JPY': -320000}, rates), 'you owe ¥320,000*');
+      expect(personBalanceText(AppLocalizationsEn(), {'EUR': 1000, 'JPY': -320000}, rates), 'you owe ¥320,000*');
     });
   });
 

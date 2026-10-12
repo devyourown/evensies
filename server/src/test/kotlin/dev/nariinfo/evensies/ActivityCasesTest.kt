@@ -18,7 +18,10 @@ import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Instant
 import kotlin.test.assertEquals
 
-/** shared/activity-cases.json: feed items + English sentences per event log, push batch sentences, money display. */
+/**
+ * shared/activity-cases.json: feed items + English sentences per event log, push batch sentences, money display (M(x)
+ * per language) and the localized sentences, batches and reminders (Phase 9).
+ */
 class ActivityCasesTest {
     private val fixture = SharedJson.load("activity-cases.json")
     private val kotlinMapper = jacksonObjectMapper()
@@ -68,8 +71,29 @@ class ActivityCasesTest {
 
     @TestFactory
     fun money(): List<DynamicTest> = fixture["money"].values().map { m ->
-        dynamicTest(m["text"].asString()) {
-            assertEquals(m["text"].asString(), Money.display(m["minor"].asLong(), m["currency"].asString()))
+        val lang = m["lang"]?.asString() ?: "en"
+        dynamicTest("$lang ${m["text"].asString()}") {
+            assertEquals(m["text"].asString(), Money.display(m["minor"].asLong(), m["currency"].asString(), lang))
+        }
+    }
+
+    /** One item: its sentence; more: the push batch sentence; `remind`: the reminder push title and body. */
+    @TestFactory
+    fun localized(): List<DynamicTest> = fixture["localized"].values().map { case ->
+        dynamicTest(case["name"].asString()) {
+            val lang = case["lang"].asString()
+            val remind = case["remind"]
+            if (remind != null) {
+                val amounts = remind["amounts"].values().map { it["currency"].asString() to it["amount"].asLong() }
+                val (title, body) = ActivityText.reminder(remind["from"].asString(), amounts, lang)
+                assertEquals(case["title"].asString(), title)
+                assertEquals(case["text"].asString(), body)
+                return@dynamicTest
+            }
+            val items = case["items"].values().map { kotlinMapper.treeToValue(it, ActivityItem::class.java) }
+            val me = case["me"].asString()
+            val text = if (items.size == 1) ActivityText.sentence(items[0], names(case), me, lang) else ActivityText.body(items, names(case), me, lang)
+            assertEquals(case["text"].asString(), text)
         }
     }
 

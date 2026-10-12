@@ -58,16 +58,23 @@ class AuthService(
         return user.dto()
     }
 
-    /** PATCH /me: null = leave as is; at least one is required. Everything is checked before anything is written. */
-    fun updateMe(userId: UUID, displayName: String?, homeCurrency: String?): UserDto {
-        if (displayName == null && homeCurrency == null) throw ApiException.badRequest("VALIDATION", "Send displayName or homeCurrency")
+    /**
+     * PATCH /me: a null [displayName] or [homeCurrency] = leave as is; [language] is set (null clears it) only when
+     * [setLanguage]. At least one is required. Everything is checked before anything is written.
+     */
+    fun updateMe(userId: UUID, displayName: String?, homeCurrency: String?, setLanguage: Boolean = false, language: String? = null): UserDto {
+        if (displayName == null && homeCurrency == null && !setLanguage) {
+            throw ApiException.badRequest("VALIDATION", "Send displayName, homeCurrency or language")
+        }
         val name = displayName?.trim()
         if (name != null && (name.isEmpty() || name.codePointCount(0, name.length) > MAX_NAME)) {
             throw ApiException.badRequest("VALIDATION", "Name must be 1 to $MAX_NAME characters")
         }
         if (homeCurrency != null && !Money.isKnown(homeCurrency)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Unknown currency $homeCurrency")
+        // A language strings.json lacks ("xx") is stored and rendered as English.
+        if (language != null && !LANGUAGE.matches(language)) throw ApiException.badRequest("VALIDATION", "language must be 2 or 3 lowercase letters")
         me(userId) // 401 for deleted accounts
-        return users.update(userId, name, homeCurrency).dto()
+        return users.update(userId, name, homeCurrency, setLanguage, language).dto()
     }
 
     /**
@@ -98,6 +105,7 @@ class AuthService(
 
     companion object {
         const val MAX_NAME = 30
+        private val LANGUAGE = Regex("[a-z]{2,3}") // the users.language CHECK
         val REFRESH_TTL: Duration = Duration.ofDays(30)
     }
 }

@@ -1,11 +1,11 @@
 # Evensies
 
-Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**, funded by optional tips. Native iOS/Android app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
+Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**, funded by optional tips. iOS, Android and web app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
 
 > Status: pre-release. The product name is Evensies.
 
 ## Why
-Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Open-source alternatives are mostly web apps. Evensies is a native app with offline-first sync.
+Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Most alternatives are web apps. Evensies is a native app with offline-first sync, and the same app runs in the browser.
 
 ## Promises (sustainability rules)
 These are commitments, written down so they can't quietly change later:
@@ -25,9 +25,9 @@ These are commitments, written down so they can't quietly change later:
 
 ## Repository layout
 ```
-app/      Flutter app (iOS, Android)
+app/      Flutter app (iOS, Android, web)
 server/   Spring Boot (Kotlin) API + sync server
-shared/   JSON test cases both implementations must pass (split, settlement, sync)
+shared/   JSON test cases both implementations must pass (split, settlement, sync), shared strings
 deploy/   Docker Compose, Caddy, .env.example
 docs/     API contract (docs/API.md), design spec, plans
 ```
@@ -39,7 +39,33 @@ git clone https://github.com/devyourown/evensies && cd evensies/deploy
 cp .env.example .env     # set EVENSIES_DOMAIN, EVENSIES_JWT_SECRET, DB password, Apple/Google client ids
 docker compose up -d
 ```
-Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. See [docs/API.md](docs/API.md) for environment variables.
+Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. The server image also serves the web app at `https://EVENSIES_DOMAIN/app/`; set `EVENSIES_GOOGLE_WEB_CLIENT_ID` and `EVENSIES_APPLE_SERVICES_ID` to show Google and Apple sign-in there. See [server/README.md](server/README.md) and [docs/API.md](docs/API.md) for environment variables.
+
+## Languages
+The app, the activity feed, notifications and invite pages follow each person's language. English is the source and the fallback.
+
+| Language | Code | Status |
+|---|---|---|
+| English | `en` | source |
+| Korean | `ko` | machine-translated, maintainer review pending |
+| Dutch | `nl` | machine-translated — reviews welcome |
+| French | `fr` | machine-translated — reviews welcome |
+| German | `de` | machine-translated — reviews welcome |
+| Indonesian | `id` | machine-translated — reviews welcome |
+| Italian | `it` | machine-translated — reviews welcome |
+| Japanese | `ja` | machine-translated — reviews welcome |
+| Polish | `pl` | machine-translated — reviews welcome |
+| Portuguese (Brazil) | `pt` | machine-translated — reviews welcome |
+| Spanish | `es` | machine-translated — reviews welcome |
+| Swedish | `sv` | machine-translated — reviews welcome |
+| Thai | `th` | machine-translated — reviews welcome |
+
+## Translating
+Corrections are welcome as pull requests. Text lives in two places:
+- **App screens:** `app/lib/l10n/app_<code>.arb`. `app_en.arb` is the source; each key's `@description` says where it appears. Run `flutter gen-l10n` in `app/` and commit the generated `app_localizations*.dart`.
+- **Sentences the server also writes** (activity feed, push notifications, reminders, invite and friend pages, category names, repeat wording, money format): `shared/strings.json`, keyed by language. Copy it byte for byte to `app/assets/strings.json` and `server/src/main/resources/strings.json`.
+
+Rules: whole sentences with every `{placeholder}` kept; plurals only in ARB (ICU `one`/`other`, plus `few`/`many` for Polish); gender-neutral wording around names; informal register for de, es, it, nl, pl, pt, sv and formal for fr (vous), ja (です/ます) and ko (해요체). Names, descriptions, brand names and currency codes and names stay as they are. `cd app && flutter test test/l10n_test.dart` and `cd server && ./gradlew test --tests '*StringsTest'` check that every language has every key and placeholder.
 
 ## Develop
 ```bash
@@ -49,6 +75,8 @@ docker compose -f deploy/docker-compose.dev.yml up -d
 cd server && ./gradlew bootRun --args='--spring.profiles.active=dev'
 # app (iOS simulator)
 cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
+# web app (Chrome) against the same server
+cd app && flutter run -d chrome --web-port 7357 --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
 Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 

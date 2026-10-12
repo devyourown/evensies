@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
+import '../../core/l10n.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
@@ -46,7 +47,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
   }
 
   Future<void> _delete(CommentRow c) async {
-    if (!await confirm(context, title: 'Delete comment?')) return;
+    if (!await confirm(context, title: context.l.deleteCommentTitle)) return;
     await ref.read(localWritesProvider).deleteComment(widget.groupId, c.id);
   }
 
@@ -54,6 +55,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final me = ref.watch(groupProvider(widget.groupId)).value?.myMemberId;
     final members = ref.watch(membersProvider(widget.groupId)).value ?? const <MemberRow>[];
     final names = {for (final m in members) m.id: m.name};
@@ -68,12 +70,12 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
     final canSend = me != null && !_sending && draft.isNotEmpty && draft.length <= _maxLength;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Comments', style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+      Text(l.comments, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
       const SizedBox(height: 8),
       if (comments.isEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text('No comments yet.', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          child: Text(l.noCommentsYet, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
         ),
       for (final c in comments)
         Padding(
@@ -85,7 +87,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text.rich(TextSpan(children: [
                   TextSpan(
-                    text: c.authorMemberId == me ? 'You' : names[c.authorMemberId] ?? 'Someone',
+                    text: c.authorMemberId == me ? l.you : names[c.authorMemberId] ?? l.someone,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   TextSpan(
@@ -99,7 +101,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
             ),
             if (c.authorMemberId == me)
               IconButton(
-                tooltip: 'Delete comment',
+                tooltip: l.deleteComment,
                 visualDensity: VisualDensity.compact,
                 icon: Icon(Icons.close, size: 18, color: cs.onSurfaceVariant),
                 onPressed: () => _delete(c),
@@ -116,18 +118,18 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
             // No maxLength: Flutter counts characters as seen (an emoji is 1), the limit counts UTF-16 units.
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
-              hintText: 'Add a comment',
+              hintText: l.addComment,
               isDense: true,
               border: const OutlineInputBorder(),
               counterText: draft.length > _maxLength - 100 ? '${draft.length}/$_maxLength' : null,
-              errorText: draft.length > _maxLength ? 'Too long' : null,
+              errorText: draft.length > _maxLength ? l.tooLong : null,
             ),
             onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(width: 8),
         IconButton.filled(
-          tooltip: 'Send',
+          tooltip: l.send,
           onPressed: canSend ? _send : null,
           icon: _sending
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))

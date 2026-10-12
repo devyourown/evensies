@@ -6,6 +6,7 @@ import 'package:evensies/domain/categories.dart';
 import 'package:evensies/domain/insights.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/domain/settlement.dart';
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'shared_json.dart';
@@ -150,6 +151,7 @@ void main() {
     ], const [], me: 'a').allTime;
     expect(
       insightsSummary(
+        AppLocalizationsEn(),
         group: 'Rome',
         period: 'All time',
         currency: 'EUR',

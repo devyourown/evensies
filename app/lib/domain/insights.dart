@@ -2,6 +2,7 @@
 library;
 
 import '../core/money.dart';
+import '../l10n/app_localizations.dart';
 import 'balances.dart' show convertToDefault;
 import 'categories.dart';
 import 'models.dart';
@@ -224,8 +225,9 @@ List<String> _fields(SearchDoc d) {
     ?d.notes,
     ...d.comments,
     ?d.category,
-    ?c?.label,
-    ?(c == null ? null : Categories.parent(c.parent)?.label),
+    // The names as the UI shows them (docs/API.md 카테고리: search reads the UI language's).
+    ?(c == null ? null : Categories.nameOf(c.key)),
+    ?(c == null ? null : Categories.nameOf(c.parent)),
   ].map(fold).toList();
 }
 
@@ -271,7 +273,8 @@ String? searchExcerpt(SearchDoc d, String query) {
 
 /// The share-sheet summary of one period (docs Phase 5 "Share summary"): totals per currency bucket, the top
 /// categories of the group currency, and today's balances. [balances] = memberId → balance in [currency].
-String insightsSummary({
+String insightsSummary(
+  AppLocalizations l, {
   required String group,
   required String period,
   required String currency,
@@ -284,25 +287,26 @@ String insightsSummary({
     if (cur != currency && t.isEmpty) continue;
     String m(int v) => formatMoney(v, cur);
     b.writeln();
-    if (cur != currency) b.writeln('Not converted · $cur');
-    b.writeln('Total spent: ${m(t.spent)}');
-    b.writeln('You paid: ${m(t.youPaid)} · Your share: ${m(t.yourShare)}');
+    if (cur != currency) b.writeln(l.summaryNotConverted(cur));
+    b.writeln(l.summaryTotalSpent(m(t.spent)));
+    b.writeln(l.summaryPaidShare(m(t.youPaid), m(t.yourShare)));
     if (t.paymentsMade != 0 || t.paymentsReceived != 0) {
-      b.writeln('Payments made: ${m(t.paymentsMade)} · received: ${m(t.paymentsReceived)}');
+      b.writeln(l.summaryPayments(m(t.paymentsMade), m(t.paymentsReceived)));
     }
     if (cur == currency && t.byCategory.isNotEmpty) {
       final top = (t.byCategory.entries.toList()..sort((x, y) => y.value.compareTo(x.value))).take(3);
-      b.writeln('Top categories: ${top.map((e) => '${Categories.labelOf(e.key)} ${m(e.value)}').join(', ')}');
+      b.writeln(l.summaryTopCategories(top.map((e) => '${Categories.labelOf(e.key)} ${m(e.value)}').join(l.listJoiner)));
     }
   }
   final owing = balances.entries.where((e) => e.value != 0).toList()..sort((x, y) => y.value.compareTo(x.value));
   if (owing.isNotEmpty) {
     b.writeln();
-    b.writeln('Balances today'); // not the period's: a month summary would read them as that month's
+    b.writeln(l.summaryBalancesToday); // not the period's: a month summary would read them as that month's
     for (final e in owing) {
-      b.writeln('${names[e.key] ?? '?'} ${e.value > 0 ? 'gets back' : 'owes'} ${formatMoney(e.value.abs(), currency)}');
+      final name = names[e.key] ?? '?', amount = formatMoney(e.value.abs(), currency);
+      b.writeln(e.value > 0 ? l.summaryGetsBack(name, amount) : l.summaryOwes(name, amount));
     }
   }
-  b.write('\nShared from Evensies');
+  b.write('\n${l.summaryFooter}');
   return b.toString();
 }

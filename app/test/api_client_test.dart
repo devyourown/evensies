@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -60,7 +61,11 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     server = _Server();
-    api = ApiClient(db: db, baseUrl: () => 'http://fake.test', dio: Dio()..httpClientAdapter = server);
+    api = ApiClient(
+        db: db,
+        baseUrl: () => 'http://fake.test',
+        dio: Dio()..httpClientAdapter = server,
+        otherTabGrace: const Duration(milliseconds: 200));
     await db.saveSession(
         const SessionRow(id: 1, accessToken: 'a1', refreshToken: 'r1', userId: 'u1', displayName: 'Anna'));
   });
@@ -92,16 +97,45 @@ void main() {
     expect((s?.displayName, s?.accessToken, s?.refreshToken), ('Anna B', 'a2', 'r2'));
   });
 
-  test('byte answers (a receipt, the ZIP) keep the server error code; the ZIP streams into a file', () async {
-    final dir = Directory.systemTemp.createTempSync('zip');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    await api.exportZip('g1', '${dir.path}/g1.zip'); // after a refresh: the retried download is written too
-    expect(File('${dir.path}/g1.zip').readAsBytesSync(), [80, 75, 3, 4]);
+  test('byte answers (a receipt, the ZIP) keep the server error code; the ZIP comes back as bytes or a file', () async {
+    expect(await api.exportZip('g1'), [80, 75, 3, 4]); // after a refresh: the retried download too
     Matcher error(int status, String code) =>
         throwsA(isA<ApiException>().having((e) => (e.status, e.code), 'status, code', (status, code)));
     await expectLater(api.attachment('g1', 'a1'), error(404, 'NOT_FOUND'));
-    await expectLater(api.exportZip('g2', '${dir.path}/g2.zip'), error(403, 'FORBIDDEN'));
-    expect(File('${dir.path}/g2.zip').existsSync(), isFalse);
+    await expectLater(api.exportZip('g2'), error(403, 'FORBIDDEN'));
+
+    final dir = Directory.systemTemp.createTempSync('export');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await api.exportZipTo('g1', '${dir.path}/Rome.zip'); // phones: streamed into a file
+    expect(File('${dir.path}/Rome.zip').readAsBytesSync(), [80, 75, 3, 4]);
+    await expectLater(api.exportZipTo('g2', '${dir.path}/x.zip'), error(403, 'FORBIDDEN'));
+  });
+
+  test('a refused refresh whose token another tab already replaced retries with the stored token (no sign-out)',
+      () async {
+    server.refreshStatus = 401;
+    var calls = 0;
+    server.meanwhile = () async {
+      // call 2 = /auth/refresh: the other tab rotated r1 first and saved its tokens in the shared database
+      if (++calls == 2) await db.saveTokens('u1', 'a2', 'r2');
+    };
+    expect(await api.listGroups(), isEmpty);
+    final s = await db.getSession();
+    expect((s?.accessToken, s?.refreshToken), ('a2', 'r2'));
+  });
+
+  test("a refused refresh waits for the other tab's tokens that land just after the refusal (no sign-out)", () async {
+    server.refreshStatus = 401;
+    var calls = 0;
+    server.meanwhile = () async {
+      // call 2 = /auth/refresh: the other tab won with the same token; its save lands 50 ms after our refusal
+      if (++calls == 2) {
+        unawaited(Future<void>.delayed(const Duration(milliseconds: 50), () => db.saveTokens('u1', 'a2', 'r2')));
+      }
+    };
+    expect(await api.listGroups(), isEmpty);
+    final s = await db.getSession();
+    expect((s?.accessToken, s?.refreshToken), ('a2', 'r2'));
   });
 
   test('a refused refresh token signs out; an offline refresh does not', () async {

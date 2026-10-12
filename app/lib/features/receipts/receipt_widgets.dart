@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' show ImageSource;
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
+import '../../core/l10n.dart';
 import '../../core/snack.dart';
 import '../../data/images.dart';
 import '../../data/receipts.dart';
@@ -12,24 +14,26 @@ import '../../providers.dart';
 /// At most this many receipts on one expense (docs/API.md 영수증, an abuse cap on the server).
 const maxReceipts = 10;
 
-/// Camera or library; null when dismissed.
-Future<ImageSource?> pickImageSource(BuildContext context, {String title = 'Add a receipt'}) =>
-    showModalBottomSheet<ImageSource>(
+/// Camera or library; null when dismissed. The browser has one choice, a file (a phone's browser offers its camera
+/// there too), so it skips the sheet.
+Future<ImageSource?> pickImageSource(BuildContext context, {String? title}) async => kIsWeb
+    ? ImageSource.gallery
+    : showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(title: Text(title, style: Theme.of(ctx).textTheme.titleMedium)),
+            ListTile(title: Text(title ?? ctx.l.receiptAdd, style: Theme.of(ctx).textTheme.titleMedium)),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
+              title: Text(ctx.l.photoTake),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from library'),
+              title: Text(ctx.l.photoChoose),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
           ],
@@ -51,18 +55,13 @@ class ReceiptThumb extends ConsumerWidget {
     final key = (groupId: groupId, id: attachmentId, thumb: true);
     final f = ref.watch(receiptFileProvider(key));
     final Widget child = switch (f) {
-      AsyncData(value: final file?) => Image.file(
-        file,
+      AsyncData(value: final bytes?) => Image.memory(
+        bytes,
         fit: BoxFit.cover,
         width: size,
         height: size,
-        errorBuilder: (_, _, _) {
-          // Uploaded meanwhile: the pending file moved to the cache, so look again.
-          if (!file.existsSync()) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => ref.invalidate(receiptFileProvider(key)));
-          }
-          return Icon(Icons.broken_image_outlined, color: cs.onSurfaceVariant);
-        },
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: cs.onSurfaceVariant),
       ),
       // Scaled down to the tile at any text size.
       AsyncData() => Padding(
@@ -75,7 +74,7 @@ class ReceiptThumb extends ConsumerWidget {
               children: [
                 Icon(Icons.cloud_off_outlined, size: 20, color: cs.onSurfaceVariant),
                 Text(
-                  'Available when online',
+                  context.l.availableWhenOnline,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
@@ -87,7 +86,7 @@ class ReceiptThumb extends ConsumerWidget {
       _ => const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
     };
     return Semantics(
-      label: 'Receipt photo',
+      label: context.l.receiptPhoto,
       button: onTap != null,
       child: Material(
         color: cs.surfaceContainerHighest,
@@ -136,7 +135,7 @@ class _ReceiptStripState extends ConsumerState<ReceiptStrip> {
       if (photo == null) return;
       await ref.read(localWritesProvider).attachReceipt(widget.groupId, widget.expenseId, photo.id);
     } catch (e) {
-      if (mounted) showError(context, photoErrorText(e, source));
+      if (mounted) showError(context, photoErrorText(context.l, e, source));
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -185,7 +184,7 @@ class _ReceiptStripState extends ConsumerState<ReceiptStrip> {
                         children: [
                           Icon(Icons.add_a_photo_outlined, color: cs.primary),
                           const SizedBox(height: 2),
-                          Text('Add', style: Theme.of(context).textTheme.labelSmall),
+                          Text(context.l.add, style: Theme.of(context).textTheme.labelSmall),
                         ],
                       ),
               ),
@@ -234,19 +233,21 @@ class _ReceiptViewerState extends ConsumerState<ReceiptViewer> {
 
   Future<void> _share() async {
     try {
-      final f = await ref.read(receiptFilesProvider).file(widget.groupId, _id);
-      await SharePlus.instance.share(ShareParams(files: [XFile(f.path, mimeType: 'image/jpeg')]));
+      final bytes = await ref.read(receiptFilesProvider).file(widget.groupId, _id);
+      await SharePlus.instance.share(ShareParams(
+          files: [XFile.fromData(bytes, mimeType: 'image/jpeg', name: 'receipt-$_id.jpg')],
+          fileNameOverrides: ['receipt-$_id.jpg']));
     } catch (_) {
-      if (mounted) showError(context, 'The photo is available when online');
+      if (mounted) showError(context, context.l.receiptAvailableOnline);
     }
   }
 
   Future<void> _remove() async {
     final ok = await confirm(
       context,
-      title: 'Remove receipt?',
-      message: 'It is removed for everyone in the group.',
-      confirmLabel: 'Remove',
+      title: context.l.receiptRemoveTitle,
+      message: context.l.receiptRemoveMessage,
+      confirmLabel: context.l.remove,
     );
     if (!ok || !mounted) return;
     await ref.read(localWritesProvider).removeReceipt(widget.groupId, _id);
@@ -257,15 +258,16 @@ class _ReceiptViewerState extends ConsumerState<ReceiptViewer> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final n = widget.ids.length;
+    final l = context.l;
     return Scaffold(
       appBar: AppBar(
-        title: Text(n == 1 ? 'Receipt' : 'Receipt ${_index + 1} of $n'),
+        title: Text(n == 1 ? l.receiptTitle : l.receiptTitleOf(_index + 1, n)),
         actions: [
-          IconButton(tooltip: 'Share or save', icon: const Icon(Icons.ios_share), onPressed: _share),
+          IconButton(tooltip: l.shareOrSave, icon: const Icon(Icons.ios_share), onPressed: _share),
           if (widget.editable)
             IconButton(
               key: const Key('receipt-remove'),
-              tooltip: 'Remove',
+              tooltip: l.remove,
               icon: const Icon(Icons.delete_outline),
               onPressed: _remove,
             ),
@@ -279,20 +281,15 @@ class _ReceiptViewerState extends ConsumerState<ReceiptViewer> {
           final key = (groupId: widget.groupId, id: widget.ids[i], thumb: false);
           final f = ref.watch(receiptFileProvider(key));
           return switch (f) {
-            AsyncData(value: final file?) => InteractiveViewer(
+            AsyncData(value: final bytes?) => InteractiveViewer(
               maxScale: 6,
               child: Center(
-                child: Image.file(
-                  file,
+                child: Image.memory(
+                  bytes,
                   fit: BoxFit.contain,
-                  semanticLabel: 'Receipt photo',
-                  errorBuilder: (_, _, _) {
-                    // Uploaded meanwhile: the pending file moved to the cache, so look again.
-                    if (!file.existsSync()) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) => ref.invalidate(receiptFileProvider(key)));
-                    }
-                    return Icon(Icons.broken_image_outlined, size: 48, color: cs.onSurfaceVariant);
-                  },
+                  semanticLabel: l.receiptPhoto,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, size: 48, color: cs.onSurfaceVariant),
                 ),
               ),
             ),
@@ -302,7 +299,7 @@ class _ReceiptViewerState extends ConsumerState<ReceiptViewer> {
                 children: [
                   Icon(Icons.cloud_off_outlined, size: 48, color: cs.onSurfaceVariant),
                   const SizedBox(height: 8),
-                  Text('Available when online', style: TextStyle(color: cs.onSurfaceVariant)),
+                  Text(l.availableWhenOnline, style: TextStyle(color: cs.onSurfaceVariant)),
                 ],
               ),
             ),

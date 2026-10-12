@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/l10n.dart';
 import '../../domain/categories.dart';
 
 /// Material icons by the names in categories.json (Flutter can't look an icon up by name at runtime).
@@ -85,7 +86,7 @@ class CategoryAvatar extends StatelessWidget {
       child: Icon(icon ?? Icons.receipt_outlined,
           size: size * 0.55,
           color: fg,
-          semanticLabel: parent ? Categories.parent(category!)?.label : Categories.labelOf(category)),
+          semanticLabel: parent ? Categories.nameOf(category!) : Categories.labelOf(category)),
     );
   }
 }
@@ -116,19 +117,19 @@ Future<String?> showCategoryPicker(BuildContext context, {String? current, bool 
             controller: scroll,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              Text(parents ? 'Filter by category' : 'Category', style: text.titleLarge),
+              Text(parents ? context.l.filterByCategory : context.l.category, style: text.titleLarge),
               for (final p in Categories.parents) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 20, bottom: 8),
                   child: Row(children: [
                     Icon(categoryIcons[p.icon], size: 18, color: cs.onSurfaceVariant),
                     const SizedBox(width: 8),
-                    Text(p.label, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+                    Text(Categories.nameOf(p.key), style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
                   ]),
                 ),
                 Wrap(spacing: 8, runSpacing: 4, children: [
-                  if (parents) chip(p.key, 'All', Icons.select_all),
-                  for (final c in Categories.under(p.key)) chip(c.key, c.label, categoryIcons[c.icon]!),
+                  if (parents) chip(p.key, context.l.categoryAll, Icons.select_all),
+                  for (final c in Categories.under(p.key)) chip(c.key, Categories.nameOf(c.key), categoryIcons[c.icon]!),
                 ]),
               ],
             ],

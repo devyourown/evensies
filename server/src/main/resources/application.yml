@@ -9,6 +9,12 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # The web app at /app/ (static/app/, built into the image): browsers revalidate, so a new image shows at once.
+          no-cache: true
 
 server:
   # Behind Caddy: trust X-Forwarded-For from private networks so request.remoteAddr is the client IP.
@@ -27,10 +33,14 @@ evensies:
   jwt-secret: ${EVENSIES_JWT_SECRET:}
   public-url: ${EVENSIES_PUBLIC_URL:http://localhost:8080}
   invite-rate-per-minute: ${EVENSIES_INVITE_RATE_PER_MINUTE:10}
+  # Development only (flutter run -d chrome): exact origins, comma-separated. Production serves /app/ same-origin.
+  cors-origins: ${EVENSIES_CORS_ORIGINS:}
   auth:
     dev-login: ${EVENSIES_AUTH_DEV_LOGIN:false}
     apple-client-id: ${EVENSIES_APPLE_CLIENT_ID:}
+    apple-services-id: ${EVENSIES_APPLE_SERVICES_ID:}
     google-client-ids: ${EVENSIES_GOOGLE_CLIENT_IDS:}
+    google-web-client-id: ${EVENSIES_GOOGLE_WEB_CLIENT_ID:}
   fcm:
     credentials-file: ${EVENSIES_FCM_CREDENTIALS_FILE:}
   push:

@@ -4,6 +4,7 @@ import '../../data/db/database.dart';
 import '../../domain/balances.dart';
 import '../../domain/models.dart';
 import '../../domain/overview.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart' show groupStateProvider;
 
@@ -41,12 +42,12 @@ class HomeData {
 
   /// "Rome", or "Non-group · Ben" for a friend group (exports, search, the overall feed), with the name the Friends tab
   /// shows (a claimed placeholder friend's group may still hold the placeholder's name).
-  String label(String groupId) {
+  String label(String groupId, AppLocalizations l) {
     final g = group(groupId);
     if (g == null) return '';
     if (!g.state.isFriend) return g.row.name;
     final other = g.state.members.where((m) => m.userId != myUserId).firstOrNull;
-    return 'Non-group · ${friendName(groupId) ?? other?.name ?? g.row.name}';
+    return l.nonGroupWith(friendName(groupId) ?? other?.name ?? g.row.name);
   }
 
   /// The person's name of a friend group's other member, as on the Friends tab; null if unknown.

@@ -21,7 +21,8 @@ data class VerifiedIdentity(val subject: String, val displayName: String)
 class IdTokenVerifier(
     private val jwks: JwkProvider,
     private val issuers: Set<String>,
-    private val audiences: List<String>,
+    /** Accepted `aud` values; empty = the provider isn't configured. */
+    val audiences: List<String>,
     private val nameClaims: List<String>,
 ) {
     fun verify(idToken: String): VerifiedIdentity {
@@ -49,19 +50,23 @@ class IdTokenVerifierConfig {
     private fun provider(url: String): JwkProvider =
         JwkProviderBuilder(URI(url).toURL()).cached(10, 24, TimeUnit.HOURS).build()
 
+    /** The iOS bundle id and the web Services ID (docs/API.md "받는 `aud`"). */
     @Bean
     fun appleVerifier(props: AppProperties) = IdTokenVerifier(
         provider("https://appleid.apple.com/auth/keys"),
         setOf("https://appleid.apple.com"),
-        listOfNotNull(props.auth.appleClientId.ifBlank { null }),
+        audiences(listOf(props.auth.appleClientId, props.auth.appleServicesId)),
         listOf("name"),
     )
 
+    /** The phone client ids plus the web client id. */
     @Bean
     fun googleVerifier(props: AppProperties) = IdTokenVerifier(
         provider("https://www.googleapis.com/oauth2/v3/certs"),
         setOf("https://accounts.google.com", "accounts.google.com"),
-        props.auth.googleClientIds.map(String::trim).filter(String::isNotEmpty),
+        audiences(props.auth.googleClientIds + props.auth.googleWebClientId),
         listOf("name"),
     )
+
+    private fun audiences(ids: List<String>) = ids.map(String::trim).filter(String::isNotEmpty).distinct()
 }

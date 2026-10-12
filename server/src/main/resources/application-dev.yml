@@ -5,5 +5,7 @@ spring:
 
 evensies:
   jwt-secret: dev-only-secret-do-not-use-in-production-0123456789
+  # flutter run -d chrome --web-port 7357
+  cors-origins: ${EVENSIES_CORS_ORIGINS:http://localhost:7357}
   auth:
     dev-login: true

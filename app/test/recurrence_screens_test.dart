@@ -178,7 +178,11 @@ void main() {
       ];
 
   String next(String frequency, String start, {int minN = 1}) =>
-      'Next: ${DateFormat('EEE, d MMM yyyy').format(DateTime.parse(firstOccurrenceOnOrAfter(frequency, start, todayIso(), minN: minN).date))}';
+      'Next: ${DateFormat.yMMMEd().format(DateTime.parse(firstOccurrenceOnOrAfter(frequency, start, todayIso(), minN: minN).date))}';
+
+  /// The detail screen's next date: no year (always within one).
+  String nextDay(String frequency, String start, {int minN = 1}) =>
+      DateFormat.MMMEd().format(DateTime.parse(firstOccurrenceOnOrAfter(frequency, start, todayIso(), minN: minN).date));
 
   bool enabled(WidgetTester t, Key k) => t.widget<ButtonStyleButton>(find.byKey(k)).enabled;
   String repeatShown(WidgetTester t) =>
@@ -226,7 +230,7 @@ void main() {
       await settle(t);
       expect(repeatShown(t), 'Every month');
       expect(enabled(t, const Key('repeat')), isFalse);
-      expect(find.text('To change future repeats, edit the latest one (1 Oct)'), findsOneWidget);
+      expect(find.text('To change future repeats, edit the latest one (Oct 1)'), findsOneWidget);
       expect(find.byKey(const Key('repeat-future')), findsNothing);
       await t.enterText(find.byKey(const Key('description')), 'September rent');
       await save(t);
@@ -321,8 +325,7 @@ void main() {
       tall(t);
       await t.pumpWidget(app('/groups/g1/expenses/x1'));
       await settle(t);
-      expect(find.textContaining('Repeats monthly · ${next('monthly', '2026-09-01', minN: 2).replaceFirst('Next: ', 'next ')}'),
-          findsOneWidget);
+      expect(find.text('Repeats every month · next on ${nextDay('monthly', '2026-09-01', minN: 2)}'), findsOneWidget);
       await t.tap(find.byTooltip('Delete'));
       await t.pumpAndSettle();
       expect(find.text('Delete repeating expense?'), findsOneWidget);
@@ -345,12 +348,12 @@ void main() {
           templateJson: Value(jsonEncode({...templateOf(rent('x0')), 'amount': 130000})))));
       await t.pumpWidget(app('/groups/g1/expenses/x1'));
       await settle(t);
-      final day = next('monthly', '2026-09-01', minN: 2).replaceFirst('Next: ', '');
-      expect(find.textContaining('Repeats monthly · next €1,300.00 on $day'), findsOneWidget);
+      final day = nextDay('monthly', '2026-09-01', minN: 2);
+      expect(find.text('Repeats every month · next €1,300.00 on $day'), findsOneWidget);
       await unmount(t);
       await t.pumpWidget(app('/groups/g1/expenses/x0'));
       await settle(t);
-      expect(find.textContaining('Repeats monthly'), findsOneWidget);
+      expect(find.text('Repeats every month'), findsOneWidget);
       expect(find.textContaining('next '), findsNothing);
       await unmount(t);
     });
@@ -393,11 +396,11 @@ void main() {
         findsNothing);
     expect(find.text('Anna changed future “Rent”: €1,200.00 → €1,300.00'), findsOneWidget);
     expect(find.text('“Rent” · €1,200.00 was added (repeats monthly)'), findsOneWidget);
-    expect(find.textContaining('you owe €600.00 · for Thu, 1 Oct'), findsOneWidget);
+    expect(find.textContaining('you owe €600.00 · for Thu, Oct 1'), findsOneWidget);
     await t.tap(find.byKey(const Key('feed-series')));
     await settle(t);
     expect(find.text('Rent'), findsOneWidget); // x1's detail
-    expect(find.textContaining('1 Oct 2026'), findsOneWidget);
+    expect(find.textContaining('Oct 1, 2026'), findsOneWidget);
     await unmount(t);
   });
 

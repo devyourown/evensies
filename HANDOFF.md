@@ -1,24 +1,25 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (9번 추가, 2026-10-12. 새 몫이 생기면 이 표에 추가)
-규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart`
-5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원), 8단계(반복 지출·서버 스케줄러·미첨부 영수증 정리)는 효준님 몫이 없습니다. 8단계 반복분은 템플릿에 저장된 멤버별 최종 금액을 그대로 복사하므로 서버가 분할을 다시 계산하지 않고, 외화 반복분은 환율만 그날 값(`FxService.crossRate`, 서버 `recurrence/RecurrenceScheduler.kt`)으로 바꿉니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 쓰고 효준님이 3·4단계에 쓴 부분은 부르지 않습니다. `grep -rn "TODO(효준)" app server` 결과는 0줄입니다. 7단계에서 stub 시절의 안전장치(`core_guard.dart`의 `tryCore`, `fxReady`, `notImplementedLabel`, fixture의 `"pending": "hyojun"` 건너뛰기)도 전부 지웠습니다.
+## 효준님 차례 — Splitwise parity (HEAD 기준, 2026-10-12. 새 몫이 생기면 이 표에 추가)
+규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart test/split_form_test.dart test/group_settings_test.dart`
+5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원), 8단계(반복 지출·서버 스케줄러·미첨부 영수증 정리), 9단계(웹 앱·13개 언어·지역별 금액/날짜 표기·홈 화면 위젯·화면 모드·앱 잠금)는 효준님 몫이 없습니다. 8단계 반복분은 템플릿에 저장된 멤버별 최종 금액을 그대로 복사하므로 서버가 분할을 다시 계산하지 않고, 외화 반복분은 환율만 그날 값(`FxService.crossRate`, 서버 `recurrence/RecurrenceScheduler.kt`)으로 바꿉니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 씁니다. 9단계 위젯은 `computeOverview` 결과를 그대로 쓰고(`app/lib/features/home_widget/widget_summary.dart`), 금액 표기 `formatMoney`/`parseMoney`(`app/lib/core/money.dart`)는 Claude 몫입니다.
+`grep -rn "TODO(효준)" app server` 결과는 3줄이고 전부 아래 10번의 테스트 건너뛰기 표시입니다: `app/test/hyojun/split_test.dart:12-13`, `server/src/test/kotlin/dev/nariinfo/evensies/SplitTest.kt:20`.
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
 | 1 | `app/lib/domain/split.dart:28` | `computeSplit` (percent 나머지) | ✅ 완료 (커밋됨) | 통과 |
-| 2 | `app/lib/domain/split.dart:28` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (`shared/split-cases.json` 25케이스, Kotlin `money/Split.kt`) |
+| 2 | `app/lib/domain/split.dart:28` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (`shared/split-cases.json` shares 케이스, Kotlin `money/Split.kt`) |
 | 3 | `app/lib/domain/split.dart:28` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
-| 4 | `app/lib/domain/settlement.dart:46` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 (`shared/settlement-cases.json` 13케이스, `shared/totals-cases.json` 4케이스, Kotlin `money/Settlement.kt`). 6단계 `Balances.ofGroup`(서버 알림)·`computeOverview`(친구 탭·전체 카드)도 이 함수로 돌아갑니다 |
+| 4 | `app/lib/domain/settlement.dart:46` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 (`shared/settlement-cases.json` 13케이스, `shared/totals-cases.json` 4케이스, Kotlin `money/Settlement.kt`). 6단계 `Balances.ofGroup`(서버 알림)·`computeOverview`(친구 탭·전체 카드·9단계 위젯)도 이 함수로 돌아갑니다 |
 | 5 | `app/test/hyojun/settlement_test.dart:34` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
 | 6 | `app/lib/domain/fx.dart:25` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
 | 7 | `app/lib/domain/fx.dart:44` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
 | 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
-| 9 | `app/lib/domain/split.dart:48-53` | `computeSplit` (percent 분기) | 토론에서 찾은 버그: 퍼센트 합이 허용 오차 안에서 100을 넘으면(예: 50.0009 + 50) 내림 합이 금액을 넘습니다. 51줄의 `/ 100`을 버리고 shares처럼 **정수 가중치 ÷ 가중치 합**으로 나누세요. shares와 공통 함수로 묶어도 됩니다. 50줄 합계 검사는 그대로 둡니다(입력 검사). 주의: `amount × 가중치`가 int 범위를 넘지 않게 가중치 배율을 고르세요 | `shared/split-cases.json` 28줄 "percent within tolerance but over 100 still adds up" (`"pending"`은 고친 뒤 지우기) |
-| 9 | — | 6·7·8단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만) 통과 |
+| 9 | — | 6·7·8·9단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`, 위젯 요약 `widget_summary.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만), `widget_summary_test.dart` 통과 |
+| 10 | `app/lib/domain/split.dart:48-57` (작업 트리 16:34 버전, 아직 커밋 안 됨: 49–53줄 가중치, **54줄 합계 검사**, 55줄 몫, 18–20줄 doc comment. HEAD는 48–53줄) | `computeSplit` (percent 분기) | 토론에서 찾은 버그: 퍼센트 합이 허용 오차(±0.001) 안에서 100을 넘으면(예: 50.0009 + 50) HEAD의 `/ 100` 내림 합이 금액을 넘습니다. 16:34 버전은 가중치 `(pct × 10⁶).round()`(BigInt)와 `÷ 가중치 합`까지 맞습니다. **남은 것은 54줄 하나**: 조건이 거꾸로라 합 = 100인 정상 입력에서 throw하고 60 + 50 같은 틀린 입력은 통과시킵니다. `<= BigInt.from(1000)`을 `>= BigInt.from(1000)`으로 바꾸세요(HEAD의 `>= 0.001`, Kotlin `money/Split.kt:56`과 같은 ±0.001 = 가중치 1000). 그리고 18–20줄 doc comment의 "각 몫 = (amount * pct / 100).floor()"를 새 규칙(정수 가중치 ÷ 가중치 합, 나머지는 지금처럼 percent > 0 멤버에게 memberId 오름차순 +1)으로 고치세요. 이미 지킨 주의: 가중치는 버림이 아니라 `.round()`(버림은 2.01 × 10⁶ = 2009999.99…처럼 1이 모자람), 합계는 정확 비교(`!= 10⁸`)가 아니라 허용 오차 비교(33.33/33.33/33.34도 정상), `amount × 가중치`는 BigInt라 int 범위 걱정 없음. 확인: Claude가 별도 복사본에서 54줄만 바꾸고 `pending`을 지워 돌리면 `flutter test` 745개 통과(건너뜀 2개는 activity의 서버 전용 케이스) | `shared/split-cases.json:28` "percent within tolerance but over 100 still adds up" — 고친 뒤 그 줄 끝의 `, "pending": "hyojun"`을 지우면 Dart `test/hyojun/split_test.dart:13`과 Kotlin `SplitTest.kt:21`의 건너뛰기가 풀립니다. 지금 작업 트리에서 54줄 때문에 실패하는 8개(고치면 다시 통과): `test/hyojun/split_test.dart`의 `percent 50/30/20`·`percent with rounding remainder`·`percent must sum to 100`·`percent leftover skips 0% members`(fixture 11–13·29줄), `test/split_form_test.dart:247` "percent, with the live amount per row"·`:274` "editing reopens in the stored mode…"·`:315` "a percent default split pre-fills new expenses…", `test/group_settings_test.dart:308` "a default split that no longer adds up after someone left says so". Kotlin `money/Split.kt:54-59` PERCENT 이식은 Claude가 같은 push에 넣습니다 |
 
-`"pending": "hyojun"`인 fixture 케이스는 하나도 없고(그 건너뛰기 코드와 `_doc` 설명도 7단계에서 삭제), 서버 테스트도 skip 0개입니다.
+`"pending": "hyojun"`인 fixture 케이스는 10번의 1개뿐입니다. 3단계 규칙대로 Dart는 `skip: 'TODO(효준): pending fixture case'`, Kotlin은 `assumeTrue(case["pending"] == null)`로 **건너뜀**으로 보고되고(실패 아님), 서버 테스트 skip은 이 1개입니다.
 
 ## 지금 상태 (전부 확인됨)
 - **서버**(Spring Boot 4.1.1 + Kotlin): 인증(dev/Apple/Google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·Splitwise 가져오기, FCM(자격 증명 없으면 no-op). `./gradlew test` **28개 통과**.

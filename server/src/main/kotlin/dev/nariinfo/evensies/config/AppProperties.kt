@@ -14,11 +14,18 @@ data class AppProperties(
     val fx: Fx = Fx(),
     /** Uploaded files (avatars; Phase 7 receipts, Phase 10 covers): `EVENSIES_STORAGE_DIR`, `/data` in Docker. */
     val storageDir: String = "./data",
+    /** Exact origins allowed to call the API cross-origin (`EVENSIES_CORS_ORIGINS`, development only); empty = no CORS. */
+    val corsOrigins: List<String> = emptyList(),
 ) {
     data class Auth(
         val devLogin: Boolean = false,
+        /** iOS bundle id: the `aud` of the app's Apple id tokens. */
         val appleClientId: String = "",
+        /** Phase 9: the Services ID web sign-in uses, also accepted as `aud` and shown by GET /info. */
+        val appleServicesId: String = "",
         val googleClientIds: List<String> = emptyList(),
+        /** Phase 9: the Google web OAuth client id, also accepted as `aud` and shown by GET /info. */
+        val googleWebClientId: String = "",
     )
 
     data class Fcm(val credentialsFile: String = "")

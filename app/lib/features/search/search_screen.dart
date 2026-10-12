@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n.dart';
+import '../../core/snack.dart' show errorText;
 import '../../data/db/database.dart';
 import '../../domain/categories.dart';
 import '../../domain/insights.dart';
@@ -65,7 +67,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final m = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Month'),
+        title: Text(context.l.month),
         children: [
           for (final m in months)
             SimpleDialogOption(
@@ -82,6 +84,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final indexAsync = ref.watch(searchIndexProvider);
     final index = indexAsync.valueOrNull;
     final groups = [for (final g in index ?? const <({GroupRow group, GroupState state})>[]) if (_group == null || g.group.id == _group) g];
@@ -107,14 +110,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final Widget results;
     if (index == null && indexAsync.hasError) {
-      results = message(Icons.error_outline, "Search isn't available", '${indexAsync.error}');
+      results = message(Icons.error_outline, l.searchUnavailable, errorText(l, indexAsync.error!));
     } else if (index == null) {
       results = const Center(child: CircularProgressIndicator());
     } else if (searchTerms(_query).isEmpty && _category == null && _month == null) {
-      results = message(Icons.search, 'Search expenses',
-          'Descriptions, notes, comments, categories and amounts: "taxi", "airport", "12,50".');
+      results = message(Icons.search, l.searchExpenses, l.searchHelp);
     } else if (ids.isEmpty) {
-      results = message(Icons.search_off, 'No matches', 'Try another word, or remove a filter.');
+      results = message(Icons.search_off, l.noMatches, l.noMatchesHelp);
     } else {
       final all = {for (final g in groups) g.group.id: g};
       results = ListView.builder(
@@ -124,7 +126,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           if (n == 0) {
             return Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text('${ids.length} expense${ids.length == 1 ? '' : 's'}',
+              child: Text(l.expenseCount(ids.length),
                   style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
             );
           }
@@ -132,7 +134,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           final g = all[doc.groupId]!;
           final extra = [
             // A friend group reads "Non-group · Ben".
-            if (_group == null) ref.watch(homeDataProvider).value?.label(g.group.id) ?? g.group.name,
+            if (_group == null) ref.watch(homeDataProvider).value?.label(g.group.id, l) ?? g.group.name,
             if (searchExcerpt(doc, _query) case final x?) '“$x”',
           ].join(' · ');
           return ExpenseTile(
@@ -153,7 +155,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           autofocus: widget.category == null && widget.month == null,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: _group == null ? 'Search all groups' : 'Search ${groupName ?? 'this group'}',
+            hintText: _group == null
+                ? l.searchAllGroups
+                : groupName == null
+                    ? l.searchThisGroup
+                    : l.searchGroup(groupName),
             border: InputBorder.none,
           ),
           onChanged: _typed,
@@ -161,7 +167,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         actions: [
           if (_ctl.text.isNotEmpty)
             IconButton(
-              tooltip: 'Clear',
+              tooltip: l.clear,
               icon: const Icon(Icons.close),
               onPressed: () {
                 _ctl.clear();
@@ -179,9 +185,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               InputChip(
                 key: const Key('filter-group'),
                 avatar: const Icon(Icons.group_outlined, size: 18),
-                label: Text(groupName ?? 'This group'),
+                label: Text(groupName ?? l.thisGroup),
                 onDeleted: () => setState(() => _group = null),
-                deleteButtonTooltipMessage: 'Search all groups',
+                deleteButtonTooltipMessage: l.searchAllGroups,
               ),
               const SizedBox(width: 8),
             ],
@@ -189,8 +195,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               key: const Key('filter-category'),
               avatar: Icon(Icons.category_outlined, size: 18),
               label: Text(_category == null
-                  ? 'Category'
-                  : Categories.parent(_category!)?.label ?? Categories.labelOf(_category)),
+                  ? l.category
+                  : Categories.parent(_category!) != null
+                      ? Categories.nameOf(_category!)
+                      : Categories.labelOf(_category)),
               selected: _category != null,
               showCheckmark: false,
               onPressed: _pickCategory,
@@ -200,7 +208,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             InputChip(
               key: const Key('filter-month'),
               avatar: const Icon(Icons.calendar_month_outlined, size: 18),
-              label: Text(_month == null ? 'Month' : monthLabel(_month!)),
+              label: Text(_month == null ? l.month : monthLabel(_month!)),
               selected: _month != null,
               showCheckmark: false,
               onPressed: months.isEmpty ? null : () => _pickMonth(months),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/ids.dart';
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
@@ -58,13 +58,14 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
       final net = lines.where((l) => l.currency == currency).fold(0, (a, l) => a + l.signed);
       final sent = payments.any((x) => x.payment.pending);
       if (mounted) {
+        final l = context.l;
         showInfo(
             context,
             sent
-                ? 'Marked as sent. ${p.name} will confirm.'
+                ? l.markedAsSent(p.name)
                 : net == 0
-                    ? 'Recorded in ${payments.length} groups'
-                    : 'Payment of ${formatMoney(net.abs(), currency)} recorded');
+                    ? l.recordedInGroups(payments.length)
+                    : l.paymentRecorded(formatMoney(net.abs(), currency)));
       }
     } catch (e) {
       if (mounted) showError(context, e);
@@ -76,13 +77,14 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
   Future<void> _requestShare(Person p, int amount, String currency) async {
     final s = _source;
     final msg = requestText(
+      context.l,
       formattedAmount: formatMoney(amount, currency),
-      group: 'our shared expenses',
+      group: context.l.requestNoGroup,
       methods: s == null ? const [] : _methods?[s.mine] ?? const [],
       amountMinor: amount,
       currency: currency,
     );
-    await SharePlus.instance.share(ShareParams(text: msg));
+    await shareText(context, msg);
   }
 
   @override
@@ -90,9 +92,10 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
     final data = ref.watch(homeDataProvider).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final p = data?.person(widget.personKey);
     if (data == null || p == null) {
-      return Scaffold(appBar: AppBar(title: const Text('Settle up')), body: const Center(child: CircularProgressIndicator()));
+      return Scaffold(appBar: AppBar(title: Text(l.settleUp)), body: const Center(child: CircularProgressIndicator()));
     }
     _loadMethods(data, p);
     final lines = friendLines(data.ledgers.values, p.key);
@@ -116,14 +119,14 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
         action = FilledButton(
           key: Key('settle-$c'),
           onPressed: () => _record(data, p, lines, c),
-          child: Text(theirMethods.isNotEmpty && p.userId != null ? "I've sent it" : 'Mark as paid'),
+          child: Text(theirMethods.isNotEmpty && p.userId != null ? l.iveSentIt : l.markAsPaid),
         );
       } else if (v > 0) {
         action = FilledButton(
-            key: Key('settle-$c'), onPressed: () => _record(data, p, lines, c), child: const Text('Mark as received'));
+            key: Key('settle-$c'), onPressed: () => _record(data, p, lines, c), child: Text(l.markAsReceived));
       } else {
         action = FilledButton.tonal(
-            key: Key('settle-$c'), onPressed: () => _record(data, p, lines, c), child: const Text('Clear both sides'));
+            key: Key('settle-$c'), onPressed: () => _record(data, p, lines, c), child: Text(l.clearBothSides));
       }
       return Card(
         key: Key('friend-settle-$c'),
@@ -137,7 +140,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                Text(v == 0 ? 'Even in $c' : friendAmountText(p.name, v, c),
+                Text(v == 0 ? l.evenIn(c) : friendAmountText(l, p.name, v, c),
                     style: text.titleMedium?.copyWith(
                         color: v == 0 ? cs.onSurfaceVariant : (v > 0 ? cs.primary : cs.error),
                         fontWeight: FontWeight.w600)),
@@ -146,23 +149,27 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
                     TextButton.icon(
                       onPressed: () => _requestShare(p, v, c),
                       icon: const Icon(Icons.ios_share, size: 18),
-                      label: const Text('Request'),
+                      label: Text(l.request),
                     ),
                   action,
                 ]),
               ],
             ),
             const SizedBox(height: 4),
-            for (final l in mine)
+            for (final x in mine)
               Text(
-                '${data.group(l.groupId)?.state.isFriend == true ? 'Non-group' : data.label(l.groupId)}: '
-                '${l.iPay ? 'you pay ${p.name}' : '${p.name} pays you'} ${formatMoney(l.transfer.amount, c)}',
+                switch ((
+                  data.group(x.groupId)?.state.isFriend == true ? l.nonGroup : data.label(x.groupId, l),
+                  formatMoney(x.transfer.amount, c),
+                )) {
+                  (final g, final m) => x.iPay ? l.linePayThem(g, p.name, m) : l.lineTheyPay(g, p.name, m),
+                },
                 style: muted,
               ),
             if (v == 0)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text('No money moves: this records both sides as settled.', style: muted),
+                child: Text(l.noMoneyMoves, style: muted),
               ),
             if (v < 0 && p.userId != null) ...[
               const SizedBox(height: 8),
@@ -179,7 +186,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
                   child: TextButton.icon(
                     onPressed: () => showConvertSheet(context, groupId: gid, currencies: [c]),
                     icon: const Icon(Icons.currency_exchange, size: 18),
-                    label: Text('Convert in ${data.label(gid)}'),
+                    label: Text(l.convertIn(data.label(gid, l))),
                   ),
                 ),
           ]),
@@ -188,13 +195,13 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Settle up with ${p.name}')),
+      appBar: AppBar(title: Text(l.settleUpWith(p.name))),
       body: lines.isEmpty
           ? Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.check_circle_outline, size: 64, color: cs.primary),
                 const SizedBox(height: 16),
-                Text('Nothing to settle with ${p.name}', style: text.titleMedium),
+                Text(l.nothingToSettleWith(p.name), style: text.titleMedium),
               ]),
             )
           : ListView(
@@ -204,7 +211,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
                   PersonAvatar(userId: p.userId, name: p.name),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('Everything between you and ${p.name}, per currency. Recording adds a payment in each group.',
+                    child: Text(l.settleWithIntro(p.name),
                         style: muted),
                   ),
                 ]),

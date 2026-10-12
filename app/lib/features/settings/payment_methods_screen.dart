@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/confirm.dart';
+import '../../core/l10n.dart';
 import '../../core/snack.dart';
 import '../../data/api/dto.dart';
 import '../../domain/payment_methods.dart';
@@ -48,7 +49,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       if (mounted) setState(() => _methods = ms);
       return true;
     } catch (e) {
-      if (mounted) showError(context, e is ApiException && e.code == 'NETWORK' ? 'You are offline. Try again later.' : e);
+      if (mounted) showError(context, e);
       return false;
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -66,8 +67,8 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
           for (final t in PaymentTypes.all)
             ListTile(
               leading: Icon(methodIcon(t)),
-              title: Text(methodLabel(t)),
-              subtitle: Text(_typeBlurb(t)),
+              title: Text(methodLabel(t, ctx.l)),
+              subtitle: Text(_typeBlurb(ctx.l, t)),
               enabled: ms.length < maxMethods && ms.where((m) => m.type == t).length < maxPerType(t),
               onTap: () => Navigator.pop(ctx, t),
             ),
@@ -90,13 +91,16 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
 
   Future<void> _delete(int i) async {
     final ms = _methods!;
-    final ok = await confirm(context, title: 'Remove ${methodLabel(ms[i].type)}?', message: methodSummary(ms[i]), confirmLabel: 'Remove');
+    final l = context.l;
+    final ok = await confirm(context,
+        title: l.methodRemoveTitle(methodLabel(ms[i].type, l)), message: methodSummary(ms[i]), confirmLabel: l.remove);
     if (ok) await _save([...ms]..removeAt(i));
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l = context.l;
     final ms = _methods;
     Widget body;
     if (ms == null && _error != null) {
@@ -107,10 +111,9 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(offline ? Icons.cloud_off_outlined : Icons.error_outline, size: 48, color: cs.onSurfaceVariant),
             const SizedBox(height: 12),
-            Text(offline ? 'Connect to the internet to edit your ways to get paid.' : _error.toString(),
-                textAlign: TextAlign.center),
+            Text(offline ? l.methodsOffline : l.methodsLoadFailed, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
+            OutlinedButton(onPressed: _load, child: Text(l.retry)),
           ]),
         ),
       );
@@ -120,25 +123,21 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
       body = ListView(padding: const EdgeInsets.only(bottom: 88), children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            'Group members see these when they owe you money, so they can pay you in one tap. '
-            'Evensies never moves money itself.',
-            style: TextStyle(color: cs.onSurfaceVariant),
-          ),
+          child: Text(l.methodsIntro, style: TextStyle(color: cs.onSurfaceVariant)),
         ),
         if (ms.isEmpty)
           Padding(
             padding: const EdgeInsets.all(32),
-            child: Text('No ways to get paid yet.', textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
+            child: Text(l.methodsEmpty, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
           ),
         for (var i = 0; i < ms.length; i++)
           ListTile(
             leading: Icon(methodIcon(ms[i].type)),
-            title: Text(methodLabel(ms[i].type)),
+            title: Text(methodLabel(ms[i].type, l)),
             subtitle: Text(methodSummary(ms[i]), maxLines: 1, overflow: TextOverflow.ellipsis),
             onTap: _saving ? null : () => _edit(i),
             trailing: IconButton(
-              tooltip: 'Remove',
+              tooltip: l.remove,
               icon: const Icon(Icons.delete_outline),
               onPressed: _saving ? null : () => _delete(i),
             ),
@@ -147,25 +146,25 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ways to get paid'),
+        title: Text(l.waysToGetPaid),
         bottom: _saving ? const PreferredSize(preferredSize: Size.fromHeight(2), child: LinearProgressIndicator()) : null,
       ),
       body: body,
       floatingActionButton: ms == null || ms.length >= maxMethods || _saving
           ? null
-          : FloatingActionButton.extended(onPressed: _add, icon: const Icon(Icons.add), label: const Text('Add')),
+          : FloatingActionButton.extended(onPressed: _add, icon: const Icon(Icons.add), label: Text(l.add)),
     );
   }
 }
 
-String _typeBlurb(String t) => switch (t) {
-      PaymentTypes.paypal => 'PayPal.me link, amount filled in',
-      PaymentTypes.wise => 'Wise Quick Pay link, amount filled in',
-      PaymentTypes.venmo => 'Venmo username (US)',
-      PaymentTypes.revolut => 'Revolut.me username',
-      PaymentTypes.kakaopay => 'KakaoPay 송금코드 link',
-      PaymentTypes.iban => 'Bank transfer (SEPA QR for EUR)',
-      PaymentTypes.krBank => 'Korean bank account (Toss, bank apps)',
+String _typeBlurb(AppLocalizations l, String t) => switch (t) {
+      PaymentTypes.paypal => l.blurbPaypal,
+      PaymentTypes.wise => l.blurbWise,
+      PaymentTypes.venmo => l.blurbVenmo,
+      PaymentTypes.revolut => l.blurbRevolut,
+      PaymentTypes.kakaopay => l.blurbKakaopay,
+      PaymentTypes.iban => l.blurbIban,
+      PaymentTypes.krBank => l.blurbKrBank,
       _ => '',
     };
 
@@ -177,33 +176,31 @@ class _Field {
   const _Field(this.key, this.label, {this.hint, this.prefix, this.keyboard = TextInputType.text, this.optional = false});
 }
 
-List<_Field> _fieldsFor(String t) => switch (t) {
-      PaymentTypes.paypal => const [
-          _Field('value', 'PayPal.me username', hint: 'Your PayPal.me username, e.g. anna', prefix: 'paypal.me/', keyboard: TextInputType.url),
+List<_Field> _fieldsFor(AppLocalizations l, String t) => switch (t) {
+      PaymentTypes.paypal => [
+          _Field('value', l.fieldPaypal, hint: l.fieldPaypalHint, prefix: 'paypal.me/', keyboard: TextInputType.url),
         ],
-      PaymentTypes.revolut => const [
-          _Field('value', 'Revolut.me username', hint: 'Your Revolut.me username, e.g. anna', prefix: 'revolut.me/', keyboard: TextInputType.url),
+      PaymentTypes.revolut => [
+          _Field('value', l.fieldRevolut, hint: l.fieldRevolutHint, prefix: 'revolut.me/', keyboard: TextInputType.url),
         ],
-      PaymentTypes.venmo => const [
-          _Field('value', 'Venmo username', hint: 'Without the @, e.g. anna-rossi', prefix: '@', keyboard: TextInputType.url),
+      PaymentTypes.venmo => [
+          _Field('value', l.fieldVenmo, hint: l.fieldVenmoHint, prefix: '@', keyboard: TextInputType.url),
         ],
-      PaymentTypes.wise => const [
-          _Field('value', 'Wise Quick Pay link',
-              hint: 'In Wise: Payments → Quick Pay → copy link (https://wise.com/pay/…)', keyboard: TextInputType.url),
+      PaymentTypes.wise => [
+          _Field('value', l.fieldWise, hint: l.fieldWiseHint, keyboard: TextInputType.url),
         ],
-      PaymentTypes.kakaopay => const [
-          _Field('value', 'KakaoPay 송금코드 link',
-              hint: 'In KakaoPay: 송금 → 송금코드 → copy link (https://qr.kakaopay.com/…)', keyboard: TextInputType.url),
+      PaymentTypes.kakaopay => [
+          _Field('value', l.fieldKakaopay, hint: l.fieldKakaopayHint, keyboard: TextInputType.url),
         ],
-      PaymentTypes.iban => const [
-          _Field('holder', 'Account holder', hint: 'Name exactly as on the account'),
-          _Field('value', 'IBAN', hint: 'e.g. DE89 3704 0044 0532 0130 00', keyboard: TextInputType.url),
-          _Field('bic', 'BIC (optional)', hint: '8 or 11 characters', keyboard: TextInputType.url, optional: true),
+      PaymentTypes.iban => [
+          _Field('holder', l.fieldHolder, hint: l.fieldHolderHint),
+          _Field('value', l.fieldIban, hint: l.fieldIbanHint, keyboard: TextInputType.url),
+          _Field('bic', l.fieldBic, hint: l.fieldBicHint, keyboard: TextInputType.url, optional: true),
         ],
-      PaymentTypes.krBank => const [
-          _Field('bank', 'Bank', hint: 'e.g. 신한은행, Toss Bank'),
-          _Field('value', 'Account number', hint: 'Digits, hyphens optional', keyboard: TextInputType.number),
-          _Field('holder', 'Account holder'),
+      PaymentTypes.krBank => [
+          _Field('bank', l.fieldBank, hint: l.fieldBankHint),
+          _Field('value', l.fieldAccountNumber, hint: l.fieldAccountNumberHint, keyboard: TextInputType.number),
+          _Field('holder', l.fieldHolder),
         ],
       _ => const [],
     };
@@ -218,11 +215,11 @@ class PaymentMethodForm extends StatefulWidget {
 
 class _PaymentMethodFormState extends State<PaymentMethodForm> {
   final _form = GlobalKey<FormState>();
-  late final _fields = _fieldsFor(widget.type);
+  static const _keys = {'value', 'holder', 'bank', 'bic'};
   late final _ctl = {
-    for (final f in _fields)
-      f.key: TextEditingController(
-        text: switch (f.key) {
+    for (final f in _keys)
+      f: TextEditingController(
+        text: switch (f) {
           'holder' => widget.initial?.holder,
           'bank' => widget.initial?.bank,
           'bic' => widget.initial?.bic,
@@ -261,15 +258,16 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l;
     return Scaffold(
       appBar: AppBar(
-        title: Text(methodLabel(widget.type)),
-        actions: [TextButton(onPressed: _done, child: const Text('Done'))],
+        title: Text(methodLabel(widget.type, l)),
+        actions: [TextButton(onPressed: _done, child: Text(l.done))],
       ),
       body: Form(
         key: _form,
         child: ListView(padding: const EdgeInsets.all(16), children: [
-          for (final f in _fields)
+          for (final f in _fieldsFor(l, widget.type))
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: TextFormField(
@@ -281,7 +279,10 @@ class _PaymentMethodFormState extends State<PaymentMethodForm> {
                     ? TextCapitalization.characters
                     : TextCapitalization.none,
                 decoration: InputDecoration(labelText: f.label, helperText: f.hint, helperMaxLines: 2, prefixText: f.prefix),
-                validator: (v) => methodFieldError(widget.type, f.key, v),
+                validator: (v) => switch (methodFieldError(widget.type, f.key, v)) {
+                  final code? => methodErrorText(l, widget.type, code),
+                  null => null,
+                },
               ),
             ),
         ]),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/money.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/confirm.dart';
 import '../../core/currency_picker.dart';
+import '../../core/l10n.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
@@ -37,6 +40,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final res = ref.watch(balancesProvider(_id));
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     Widget header(String s) => Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
       child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
@@ -55,17 +59,15 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           ListTile(
             key: const Key('rename'),
             leading: const Icon(Icons.edit_outlined),
-            title: const Text('Name'),
+            title: Text(l.nameField),
             subtitle: Text(group.name),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _rename(group),
           ),
           ListTile(
             leading: const Icon(Icons.currency_exchange),
-            title: const Text('Default currency'),
-            subtitle: locked
-                ? const Text("Can't change after the first expense or payment")
-                : const Text('Balances and payments use it'),
+            title: Text(l.defaultCurrency),
+            subtitle: Text(locked ? l.cantChangeCurrency : l.currencyUsedFor),
             enabled: !locked,
             trailing: CurrencyPicker(
               key: const Key('currency'),
@@ -77,15 +79,12 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
               onChanged: locked ? null : (v) => ref.read(localWritesProvider).updateGroup(_id, defaultCurrency: v),
             ),
           ),
-          header('Splitting'),
+          header(l.splitting),
           SwitchListTile(
             key: const Key('simplify'),
             secondary: const Icon(Icons.auto_fix_high_outlined),
-            title: const Text('Simplify debts'),
-            subtitle: const Text(
-              "Combines debts so the group needs fewer payments. Nobody's total changes, only who "
-              'pays whom.',
-            ),
+            title: Text(l.simplifyDebts),
+            subtitle: Text(l.simplifyDebtsHelp),
             isThreeLine: true,
             value: group.simplifyDebts,
             onChanged: (v) => ref.read(localWritesProvider).updateGroup(_id, simplifyDebts: v),
@@ -93,23 +92,23 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
           ListTile(
             key: const Key('default-split'),
             leading: const Icon(Icons.pie_chart_outline),
-            title: const Text('Default split'),
+            title: Text(l.defaultSplit),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(describeSplit(split, state)),
+                Text(describeSplit(l, split, state)),
                 if (split != null && splitFits(split, [for (final m in state.members) if (!m.removed) m.id]) == false)
-                  Text('No longer adds up · tap to fix', key: const Key('split-stale'), style: TextStyle(color: cs.error)),
+                  Text(l.splitStale, key: const Key('split-stale'), style: TextStyle(color: cs.error)),
               ],
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editDefaultSplit(group, state, split),
           ),
-          header('Membership'),
+          header(l.membership),
           ListTile(
             key: const Key('leave'),
             leading: Icon(Icons.logout, color: canLeave ? cs.error : null),
-            title: Text('Leave group', style: TextStyle(color: canLeave ? cs.error : null)),
+            title: Text(l.leaveGroup, style: TextStyle(color: canLeave ? cs.error : null)),
             subtitle: leaveNote == null ? null : Text(leaveNote),
             enabled: canLeave && !_leaving,
             trailing: _leaving
@@ -121,7 +120,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Group settings')),
+      appBar: AppBar(title: Text(l.groupSettings)),
       body: Column(
         children: [
           const OfflineBanner(),
@@ -136,8 +135,9 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult> res, GroupState state) {
     final value = res.value;
     if (value == null) return (false, null);
-    final why = leaveBlocker(value, group.myMemberId) ?? state.seriesBlocker(group.myMemberId);
-    return (why == null, why ?? 'Your balance is settled');
+    final l = context.l;
+    final why = leaveBlocker(l, value, group.myMemberId) ?? state.seriesBlocker(l, group.myMemberId);
+    return (why == null, why ?? l.balanceSettledNote);
   }
 
   Future<void> _rename(GroupRow group) async {
@@ -148,24 +148,24 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
         builder: (ctx, setDialog) {
           final ok = fitsLimit(ctl.text, maxGroupName); // the server refuses longer names (docs/API.md 글자 수)
           return AlertDialog(
-            title: const Text('Rename group'),
+            title: Text(ctx.l.renameGroup),
             content: TextField(
               key: const Key('name'),
               controller: ctl,
               autofocus: true,
               textCapitalization: TextCapitalization.sentences,
-              decoration: limitedDecoration(const InputDecoration(labelText: 'Group name'), ctl.text, maxGroupName),
+              decoration: limitedDecoration(ctx, InputDecoration(labelText: ctx.l.groupName), ctl.text, maxGroupName),
               onChanged: (_) => setDialog(() {}),
               onSubmitted: (v) {
                 if (ok) Navigator.pop(ctx, v.trim());
               },
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l.cancel)),
               FilledButton(
                 key: const Key('save-name'),
                 onPressed: ok ? () => Navigator.pop(ctx, ctl.text.trim()) : null,
-                child: const Text('Save'),
+                child: Text(ctx.l.save),
               ),
             ],
           );
@@ -194,14 +194,8 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   }
 
   Future<void> _leave(GroupRow group) async {
-    final ok = await confirm(
-      context,
-      title: 'Leave “${group.name}”?',
-      message:
-          "You won't see this group any more. Your past expenses stay with the other members. "
-          'To come back, ask for the invite code.',
-      confirmLabel: 'Leave',
-    );
+    final l = context.l;
+    final ok = await confirm(context, title: l.leaveTitle(group.name), message: l.leaveMessage, confirmLabel: l.leave);
     if (!ok || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
@@ -209,7 +203,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     try {
       await ref.read(localWritesProvider).leaveGroup(_id);
       router.go('/');
-      messenger.showSnackBar(SnackBar(content: Text('You left “${group.name}”')));
+      messenger.showSnackBar(SnackBar(content: Text(l.youLeft(group.name))));
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -220,15 +214,16 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
 /// "Equal", "Percent · Anna 60%, Ben 40%", "Shares · Anna 2, Ben 1": members in group order, people with 0 and
 /// people who left are not named.
-String describeSplit(SplitSpec? s, GroupState state) {
-  if (s == null || s.mode == SplitMode.equal) return 'Equal · everyone';
+String describeSplit(AppLocalizations l, SplitSpec? s, GroupState state) {
+  if (s == null || s.mode == SplitMode.equal) return l.splitEqualEveryone;
   final input = s.input ?? const <String, double>{};
+  final percent = s.mode == SplitMode.percent;
   final parts = [
     for (final m in state.members)
       if (!m.removed && (input[m.id] ?? 0) != 0)
-        '${m.name} ${trimNum(input[m.id]!)}${s.mode == SplitMode.percent ? '%' : ''}',
-  ];
-  return '${s.mode == SplitMode.percent ? 'Percent' : 'Shares'} · ${parts.join(', ')}';
+        '${m.name} ${percent ? l.percentValue(numberText(input[m.id]!)) : numberText(input[m.id]!)}',
+  ].join(l.listJoiner);
+  return percent ? l.splitPercentList(parts) : l.splitSharesList(parts);
 }
 
 /// Pops a SplitSpec: percent or shares to save, or `SplitSpec(equal)` for "Use equal".
@@ -271,10 +266,10 @@ class _DefaultSplitSheetState extends State<_DefaultSplitSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Default split', style: text.titleLarge),
+              Text(context.l.defaultSplit, style: text.titleLarge),
               const SizedBox(height: 4),
               Text(
-                'New expenses start with this split. You can still change it on each expense.',
+                context.l.defaultSplitHelp,
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 16),
@@ -291,13 +286,13 @@ class _DefaultSplitSheetState extends State<_DefaultSplitSheet> {
                   TextButton(
                     key: const Key('use-equal'),
                     onPressed: () => Navigator.pop(context, const SplitSpec(SplitMode.equal)),
-                    child: const Text('Use equal'),
+                    child: Text(context.l.useEqual),
                   ),
                   const Spacer(),
                   FilledButton(
                     key: const Key('save-split'),
                     onPressed: ok ? () => Navigator.pop(context, _ctl.spec(ids, widget.currency)) : null,
-                    child: const Text('Save'),
+                    child: Text(context.l.save),
                   ),
                 ],
               ),

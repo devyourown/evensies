@@ -21,13 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { channel: stable, cache: true }
+        with: { channel: stable, flutter-version: 3.41.4, cache: true } # same as deploy/Dockerfile's web stage
       - working-directory: app
         run: |
           flutter pub get
           dart run build_runner build --delete-conflicting-outputs
           flutter analyze
           flutter test
+          flutter build web --release --base-href /app/ --no-web-resources-cdn --csp
 
   shared-json:
     runs-on: ubuntu-latest

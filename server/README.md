@@ -36,26 +36,37 @@ curl -s localhost:8080/groups/<groupId>/snapshot -H "Authorization: Bearer $TOKE
 | `EVENSIES_JWT_SECRET` | (required, >= 32 chars; the dev profile has one) | HS256 secret for access tokens |
 | `EVENSIES_AUTH_DEV_LOGIN` | `false` | `true` enables `POST /auth/dev` |
 | `EVENSIES_APPLE_CLIENT_ID` | | audience for Apple id tokens (`/auth/apple` answers `AUTH_NOT_CONFIGURED` when empty) |
+| `EVENSIES_APPLE_SERVICES_ID` | | web sign-in Services ID: also an accepted Apple audience, shown by `GET /info` |
 | `EVENSIES_GOOGLE_CLIENT_IDS` | | comma separated audiences for Google id tokens |
+| `EVENSIES_GOOGLE_WEB_CLIENT_ID` | | Google web client id: also an accepted audience, shown by `GET /info` |
+| `EVENSIES_CORS_ORIGINS` | (empty; `dev` profile `http://localhost:7357`) | development only: exact origins for `flutter run -d chrome` |
 | `EVENSIES_FCM_CREDENTIALS_FILE` | | Firebase service-account JSON; empty = push disabled (logged at startup) |
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | used in the `/j/{code}` invite page |
 | `EVENSIES_FX_URL` | `https://api.frankfurter.dev/v2` | exchange-rate source for `GET /fx` (Frankfurter v2 shape, no key); empty = automatic rates off |
 
-`/actuator/health` is public.
+`/actuator/health`, `GET /info` and the web app are public.
+
+## Web app
+
+`deploy/Dockerfile` builds the Flutter web app and puts it in `src/main/resources/static/app/` (gitignored), so the
+image serves it at `/app/` (`/` and `/app` redirect there). Locally, `bootRun` with the dev profile plus
+`flutter run -d chrome --web-port 7357 --dart-define=EVENSIES_SERVER_URL=http://localhost:8080` in `app/` works through
+CORS. Every response carries the CSP in `SecurityConfig.CSP`.
 
 ## Layout
 
 ```
-config/   AppProperties, JwtService, SecurityConfig (stateless bearer filter)
+config/   AppProperties, JwtService, SecurityConfig (stateless bearer filter, CSP, dev CORS), WebConfig (/app/)
 auth/     dev/apple/google/refresh login, /me, /devices, IdTokenVerifier (JWKS, RS256)
-group/    groups, members, invites (/invites/{code}, /j/{code} HTML page)
+group/    groups, members, invites (/invites/{code}, /j/{code} HTML page in the Accept-Language language)
 sync/     events push/pull/snapshot, EventApplier (pure, mirrors the Dart one), EventValidator, GroupStateStore
 money/    Money (currency decimals), Split, Settlement, Fx (conversion, Hyojun's port pending)
 fx/       GET /fx: daily EUR rates from EVENSIES_FX_URL, cached per day in fx_days
 payment/  "ways to get paid": GET/PUT /me/payment-methods, GET /groups/{id}/payment-methods (validation incl. IBAN mod-97)
 export/   JSON/CSV export, Splitwise CSV import (goes through the normal push path)
 push/     FcmNotifier (no-op without credentials)
-common/   ApiException → {"code","message"}, RateLimiter (120 events/min/user)
+common/   ApiException → {"code","message"}, RateLimiter (120 events/min/user), Strings (resources/strings.json: per-language
+          text for push, reminders and landing pages; a copy of shared/strings.json)
 ```
 
 Splitwise import: each name column is that person's net for the row; the largest net is the payer, everyone else

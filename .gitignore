@@ -12,6 +12,8 @@ deploy/backups/*
 # Uploaded files (EVENSIES_STORAGE_DIR): user data, never committed
 deploy/data/
 server/data/
+# The web app build the Docker image copies in (deploy/Dockerfile)
+server/src/main/resources/static/app/
 
 # Firebase / Google
 **/GoogleService-Info.plist

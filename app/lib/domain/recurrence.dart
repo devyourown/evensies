@@ -2,22 +2,27 @@
 /// shared/recurrence-cases.json checks the dates against the server's Schedule.kt.
 library;
 
+import '../core/money.dart';
+import '../core/strings.dart';
+import '../l10n/app_localizations.dart';
 import 'models.dart';
 
 /// The four schedules, in the order the Repeat menu shows them.
 const frequencies = ['weekly', 'biweekly', 'monthly', 'yearly'];
 
 /// "Every month" for the Repeat menu; null (no series) is "Never".
-String repeatLabel(String? frequency) => switch (frequency) {
-      'weekly' => 'Every week',
-      'biweekly' => 'Every 2 weeks',
-      'monthly' => 'Every month',
-      'yearly' => 'Every year',
-      _ => 'Never',
+String repeatLabel(AppLocalizations l, String? frequency) => switch (frequency) {
+      'weekly' => l.repeatWeekly,
+      'biweekly' => l.repeatBiweekly,
+      'monthly' => l.repeatMonthly,
+      'yearly' => l.repeatYearly,
+      _ => l.repeatNever,
     };
 
-/// "every 2 weeks" in sentences ("repeats every 2 weeks", docs/API.md 문장); an unknown value as it is.
-String frequencyWord(String? frequency) => frequency == 'biweekly' ? 'every 2 weeks' : frequency ?? '';
+/// "every 2 weeks" in sentences ("repeats every 2 weeks", shared/strings.json `words.frequency`); an unknown value as
+/// it is.
+String frequencyWord(String? frequency, {String? lang}) =>
+    Strings.lookup(lang ?? Money.lang, ['words', 'frequency', frequency ?? '']) as String? ?? frequency ?? '';
 
 /// The date of occurrence [n] (0 = [startDate]), always counted from [startDate] so a clamped month end never sticks:
 /// monthly from Jan 31 gives Feb 28, then Mar 31. A day the month doesn't have is its last day. UTC dates only: local
@@ -79,16 +84,15 @@ extension Series on GroupState {
 
   /// Why I can't leave yet (docs/API.md 그룹 나가기), next to `leaveBlocker`: a live series still charging or paying
   /// [me] would keep adding my share after I'm gone, a debt nobody can settle with me.
-  String? seriesBlocker(String? me) {
+  String? seriesBlocker(AppLocalizations l, String? me) {
     final s = me == null ? const <Recurrence>[] : seriesWith(me);
     if (s.isEmpty) return null;
-    return "You're still in ${s.length} repeating ${s.length == 1 ? 'expense' : 'expenses'} (${seriesNames(s)}) · "
-        'edit the latest one or stop ${s.length == 1 ? 'it' : 'them'} first';
+    return l.leaveSeries(s.length, seriesNames(l, s));
   }
 }
 
 /// "Rent, Netflix, Gym and 2 more": at most three names, in [series]' (creation) order.
-String seriesNames(List<Recurrence> series) {
-  final names = [for (final r in series.take(3)) r.description ?? 'an expense'].join(', ');
-  return series.length > 3 ? '$names and ${series.length - 3} more' : names;
+String seriesNames(AppLocalizations l, List<Recurrence> series) {
+  final names = [for (final r in series.take(3)) r.description ?? l.seriesUnnamed].join(l.listJoiner);
+  return series.length > 3 ? l.seriesNamesMore(names, series.length - 3) : names;
 }

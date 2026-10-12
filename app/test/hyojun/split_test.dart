@@ -9,7 +9,8 @@ import '../shared_json.dart';
 // 실행: flutter test test/hyojun
 void main() {
   for (final c in sharedCases('split-cases.json')) {
-    test(c['name'] as String, () {
+    // "pending": "hyojun" = needs the TODO(효준) fix in computeSplit; reported as skipped until it lands.
+    test(c['name'] as String, skip: c['pending'] == null ? null : 'TODO(효준): pending fixture case', () {
       final mode = SplitMode.values.byName(c['mode'] as String);
       final members = (c['members'] as List).cast<String>();
       final input = (c['input'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toDouble()));

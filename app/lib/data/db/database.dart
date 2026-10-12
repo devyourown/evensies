@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../sync/event_types.dart';
@@ -225,7 +226,18 @@ class FxDays extends Table {
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
-  AppDatabase.open() : super(driftDatabase(name: 'evensies'));
+  AppDatabase.open()
+      : super(driftDatabase(
+          name: 'evensies',
+          // The browser (docs/API.md 웹 앱 데이터): both files are in app/web/, their versions match pubspec.lock
+          // (web_assets_test.dart). No COOP/COEP, so IndexedDB in a shared worker: every tab shares one database.
+          // ponytail: OPFS needs cross-origin isolation, which breaks the sign-in popups.
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'),
+            driftWorker: Uri.parse('drift_worker-2.34.4.js'),
+            onResult: (r) => debugPrint('drift on the web: ${r.chosenImplementation}, missing ${r.missingFeatures}'),
+          ),
+        ));
 
   @override
   int get schemaVersion => 9;
@@ -319,8 +331,11 @@ class AppDatabase extends _$AppDatabase {
   /// Writes the whole row: an upsert of a data class would skip null columns, so a cleared default split would stay.
   Future<void> upsertGroup(GroupRow g) => into(groups).insert(g, mode: InsertMode.insertOrReplace);
 
-  Stream<List<MemberRow>> watchMembers(String groupId) =>
-      (select(members)..where((m) => m.groupId.equals(groupId))).watch();
+  /// By name (ASCII case folded), so every member and balance list reads alphabetically.
+  Stream<List<MemberRow>> watchMembers(String groupId) => (select(members)
+        ..where((m) => m.groupId.equals(groupId))
+        ..orderBy([(m) => OrderingTerm.asc(m.name.collate(Collate.noCase)), (m) => OrderingTerm.asc(m.id)]))
+      .watch();
   Stream<List<ExpenseRow>> watchExpenses(String groupId) => (select(expenses)
         ..where((e) => e.groupId.equals(groupId) & e.deleted.equals(false))
         ..orderBy([(e) => OrderingTerm.desc(e.date)]))

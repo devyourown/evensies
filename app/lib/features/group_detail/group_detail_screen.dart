@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
@@ -49,6 +50,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     // A friend group is a person (docs/API.md 친구): links and pushes to it land on the friend's page.
     if (group.kind == 'friend') return _FriendGroup(groupId: groupId);
+    final l = context.l;
     return DefaultTabController(
       key: ValueKey(tab), // a new ?tab= on the same page re-selects the tab
       length: 3,
@@ -58,37 +60,37 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           title: Text(group.name),
           actions: [
             IconButton(
-              tooltip: 'Search',
+              tooltip: l.search,
               onPressed: () => context.push('/search?group=$groupId'),
               icon: const Icon(Icons.search),
             ),
             IconButton(
-              tooltip: 'Insights',
+              tooltip: l.insights,
               onPressed: () => context.push('/groups/$groupId/insights'),
               icon: const Icon(Icons.insights),
             ),
             IconButton(
-              tooltip: 'Members & invite',
+              tooltip: l.membersInvite,
               onPressed: () => context.push('/groups/$groupId/members'),
               icon: const Icon(Icons.people_outline),
             ),
             IconButton(
-              tooltip: 'Group settings',
+              tooltip: l.groupSettings,
               onPressed: () => context.push('/groups/$groupId/settings'),
               icon: const Icon(Icons.settings_outlined),
             ),
           ],
           // The largest text sizes: tabs that scroll, not labels clipped to "Expe".
           bottom: TabBar(isScrollable: MediaQuery.textScalerOf(context).scale(1) > 2, tabs: [
-            const Tab(text: 'Expenses'),
-            const Tab(text: 'Balances'),
+            Tab(text: l.expenses),
+            Tab(text: l.balances),
             Tab(
               child: Badge(
                 key: const Key('group-activity-badge'),
                 isLabelVisible: (ref.watch(unreadProvider)?.groups[groupId] ?? 0) > 0,
                 label: Text(badgeLabel(ref.watch(unreadProvider)?.groups[groupId] ?? 0)),
                 offset: const Offset(14, -6),
-                child: const Text('Activity'),
+                child: Text(l.activity),
               ),
             ),
           ]),
@@ -106,7 +108,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/groups/$groupId/expenses/new'),
           icon: const Icon(Icons.add),
-          label: const Text('Expense'),
+          label: Text(l.expenseFab),
         ),
       ),
     );
@@ -140,15 +142,15 @@ class _Gone extends StatelessWidget {
             children: [
               Icon(Icons.group_off_outlined, size: 64, color: cs.primary),
               const SizedBox(height: 16),
-              Text("This group isn't on this device", style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l.groupNotHere, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
-                "You left it, someone removed you, or it hasn't synced yet.",
+                context.l.groupNotHereNote,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 24),
-              FilledButton(onPressed: () => context.go('/'), child: const Text('Back to groups')),
+              FilledButton(onPressed: () => context.go('/'), child: Text(context.l.backToGroups)),
             ],
           ),
         ),
@@ -167,7 +169,7 @@ class DateHeader extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(d == null ? date : DateFormat('EEE, d MMM').format(d),
+      child: Text(d == null ? date : DateFormat.MMMEd().format(d),
           style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
     );
   }
@@ -198,9 +200,9 @@ class _ExpensesTab extends ConsumerWidget {
             child: Column(children: [
               Icon(Icons.receipt_long_outlined, size: 64, color: cs.primary),
               const SizedBox(height: 16),
-              Text('No expenses yet', style: Theme.of(context).textTheme.titleMedium),
+              Text(context.l.noExpensesYet, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
-              Text('Tap "Expense" to add the first one.', style: TextStyle(color: cs.onSurfaceVariant)),
+              Text(context.l.tapExpenseToAdd, style: TextStyle(color: cs.onSurfaceVariant)),
             ]),
           ),
         ]),
@@ -249,6 +251,7 @@ class ExpenseTile extends ConsumerWidget {
     final repeats = e.recurrenceId != null && ref.watch(activeSeriesProvider(group.id)).contains(e.recurrenceId);
     final myMemberId = group.myMemberId;
     final cs = Theme.of(context).colorScheme;
+    final l = context.l;
     final d = group.defaultCurrency;
     final foreign = e.currency != d;
     final rate = e.fxRateToDefault ?? 0;
@@ -264,22 +267,31 @@ class ExpenseTile extends ConsumerWidget {
     final myPaid = mineIn(e.payers);
     final n = e.payers.length;
     // Splitwise's "you paid €12.80"; "2 people paid €300.00" rather than one name with "+1" (#107).
-    final payer = n > 1 ? '$n people' : e.paidBy == myMemberId ? 'you' : names[e.paidBy] ?? '?';
-    final who = e.refund ? 'refund to $payer' : '$payer paid ${formatMoney(e.amount, e.currency)}';
+    final total = formatMoney(e.amount, e.currency), payer = names[e.paidBy] ?? '?';
+    final who = switch ((e.refund, n > 1, e.paidBy == myMemberId)) {
+      (true, true, _) => l.tileRefundPeople(n),
+      (true, false, true) => l.tileRefundYou,
+      (true, false, false) => l.tileRefundName(payer),
+      (false, true, _) => l.tilePaidPeople(n, total),
+      (false, false, true) => l.tilePaidYou(total),
+      (false, false, false) => l.tilePaidName(payer, total),
+    };
     // sign × (what I paid − my share); a refund reverses it (docs/API.md 잔액).
     final delta = (e.refund ? -1 : 1) * (myPaid - myShare);
     final involved = (myMemberId != null && e.payers.any((p) => p.memberId == myMemberId)) || myShare != 0;
     String mine;
     Color mineColor = cs.onSurfaceVariant;
     if (!involved) {
-      mine = 'not involved';
+      mine = l.notInvolved;
     } else if (delta == 0) {
-      mine = e.refund ? 'all yours' : 'you paid for yourself';
+      mine = e.refund ? l.allYours : l.paidForYourself;
     } else if (delta > 0) {
-      mine = '${e.refund ? 'you get back' : 'you lent'} ${formatMoney(delta, e.currency)}';
+      final m = formatMoney(delta, e.currency);
+      mine = e.refund ? l.youGetBack(m) : l.youLent(m);
       mineColor = cs.primary;
     } else {
-      mine = '${e.refund ? 'you owe' : 'you borrowed'} ${formatMoney(-delta, e.currency)}';
+      final m = formatMoney(-delta, e.currency);
+      mine = e.refund ? l.youOweAmountLine(m) : l.youBorrowed(m);
       mineColor = cs.error;
     }
 
@@ -300,7 +312,7 @@ class ExpenseTile extends ConsumerWidget {
         Row(mainAxisSize: MainAxisSize.min, children: [
           if (repeats) ...[
             Icon(Icons.repeat,
-                key: const Key('repeat-mark'), size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Repeats'),
+                key: const Key('repeat-mark'), size: 16, color: cs.onSurfaceVariant, semanticLabel: l.repeatsLabel),
             const SizedBox(width: 4),
           ],
           if (receipts > 0) ...[
@@ -308,11 +320,11 @@ class ExpenseTile extends ConsumerWidget {
                 key: const Key('receipt-mark'),
                 size: 16,
                 color: cs.onSurfaceVariant,
-                semanticLabel: receipts == 1 ? 'Has a receipt' : 'Has $receipts receipts'),
+                semanticLabel: l.hasReceipt(receipts)),
             const SizedBox(width: 4),
           ],
           if (e.refund) ...[
-            Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
+            Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: l.refund),
             const SizedBox(width: 4),
           ],
           Text(formatMoney(e.amount, e.currency), style: Theme.of(context).textTheme.titleMedium),
@@ -320,10 +332,10 @@ class ExpenseTile extends ConsumerWidget {
         if (foreign)
           Row(mainAxisSize: MainAxisSize.min, children: [
             if (fxMissing) ...[
-              Icon(Icons.warning_amber_rounded, size: 14, color: cs.error, semanticLabel: 'Not converted'),
+              Icon(Icons.warning_amber_rounded, size: 14, color: cs.error, semanticLabel: l.notConverted),
               const SizedBox(width: 2),
             ],
-            Text(approx == null ? e.currency : '≈ ${formatMoney(approx, d)}',
+            Text(approx == null ? e.currency : l.approx(formatMoney(approx, d)),
                 style: Theme.of(context)
                     .textTheme
                     .labelSmall
@@ -367,7 +379,8 @@ class PaymentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    String who(String id, {bool start = false}) => id == myMemberId ? (start ? 'You' : 'you') : names[id] ?? '?';
+    final l = context.l;
+    String name(String id) => names[id] ?? '?';
     final large = MediaQuery.textScalerOf(context).scale(1) > 2; // like ExpenseTile: the names wrap
     final pending = payment.pending
         ? Align(
@@ -376,7 +389,7 @@ class PaymentTile extends StatelessWidget {
               margin: const EdgeInsets.only(top: 2),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(4)),
-              child: Text('pending', style: text.labelSmall?.copyWith(color: cs.onTertiaryContainer)),
+              child: Text(l.pending, style: text.labelSmall?.copyWith(color: cs.onTertiaryContainer)),
             ),
           )
         : null;
@@ -392,7 +405,12 @@ class PaymentTile extends StatelessWidget {
         decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
         child: Icon(Icons.payments_outlined, size: 22, color: cs.onSurfaceVariant),
       ),
-      title: Text('${who(payment.fromMember, start: true)} paid ${who(payment.toMember)}',
+      title: Text(
+          payment.fromMember == myMemberId
+              ? l.youPaidName(name(payment.toMember))
+              : payment.toMember == myMemberId
+                  ? l.namePaidYou(name(payment.fromMember))
+                  : l.namePaidName(name(payment.fromMember), name(payment.toMember)),
           maxLines: large ? 3 : 1, overflow: TextOverflow.ellipsis),
       subtitle: lines.isEmpty
           ? null
@@ -415,6 +433,7 @@ class _BalancesTab extends ConsumerWidget {
     final members = ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[];
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     // Short content: AlwaysScrollable, or there is nothing to pull.
     Widget list(List<Widget> children) => RefreshIndicator(
           onRefresh: () => ref.read(syncProvider).sync(group.id).catchError((_) {}),
@@ -446,9 +465,12 @@ class _BalancesTab extends ConsumerWidget {
           color: cs.secondaryContainer,
           child: ListTile(
             leading: Icon(Icons.currency_exchange, color: cs.onSecondaryContainer),
-            title: Text('${approx < 0 ? 'You owe' : 'You are owed'} ≈ ${formatMoney(approx.abs(), home)} in total',
+            title: Text(
+                approx < 0
+                    ? l.approxTotalOwe(formatMoney(approx.abs(), home))
+                    : l.approxTotalOwed(formatMoney(approx.abs(), home)),
                 style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600)),
-            subtitle: Text('In your home currency, at the latest rates',
+            subtitle: Text(l.approxTotalNote,
                 style: TextStyle(color: cs.onSecondaryContainer)),
           ),
         ),
@@ -459,8 +481,8 @@ class _BalancesTab extends ConsumerWidget {
             Icon(others.isNotEmpty ? Icons.currency_exchange : Icons.check_circle_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
             // Never "All settled" next to the sections below.
-            Text(others.isNotEmpty ? 'Nothing owed in $d' : 'All settled', style: text.titleMedium),
-            Text(others.isNotEmpty ? 'Expenses in other currencies are below.' : 'Nobody owes anything.',
+            Text(others.isNotEmpty ? l.nothingOwedIn(d) : l.allSettled, style: text.titleMedium),
+            Text(others.isNotEmpty ? l.otherCurrenciesBelow : l.nobodyOwes,
                 style: TextStyle(color: cs.onSurfaceVariant)),
           ]),
         ),
@@ -474,22 +496,21 @@ class _BalancesTab extends ConsumerWidget {
             Expanded(
               child: Text(
                 next == me
-                    ? 'You should pay next (you owe ${formatMoney(-b[next]!, d)}, the most)'
-                    : '${members.firstWhere((m) => m.id == next).name} should pay next '
-                        '(owes ${formatMoney(-b[next]!, d)}, the most)',
+                    ? l.youPayNext(formatMoney(-b[next]!, d))
+                    : l.namePaysNext(members.firstWhere((m) => m.id == next).name, formatMoney(-b[next]!, d)),
                 style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
             ),
           ]),
         ),
       for (final m in rows)
-        _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: d),
+        _BalanceRow(name: _name(l, m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: d),
       if (unsettled || myPending > 0) ...[
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: () => context.push('/groups/${group.id}/settle'),
           icon: const Icon(Icons.handshake_outlined),
-          label: Text(myPending > 0 ? 'Settle up · $myPending waiting' : 'Settle up'),
+          label: Text(myPending > 0 ? l.settleUpWaiting(myPending) : l.settleUp),
         ),
       ],
       for (final x in others) _NotConverted(group: group, res: res, currency: x, members: members),
@@ -498,11 +519,11 @@ class _BalancesTab extends ConsumerWidget {
 }
 
 /// Members to list for a bucket: everyone still in the group, plus people who left with a balance; largest first.
+/// In [members]' order (by name).
 List<MemberRow> _rows(List<MemberRow> members, Map<String, int> b) =>
-    members.where((m) => !m.removed || (b[m.id] ?? 0) != 0).toList()
-      ..sort((x, y) => (b[y.id] ?? 0).compareTo(b[x.id] ?? 0));
+    members.where((m) => !m.removed || (b[m.id] ?? 0) != 0).toList();
 
-String _name(MemberRow m) => m.name + (m.removed ? ' (removed)' : '');
+String _name(AppLocalizations l, MemberRow m) => m.removed ? l.memberRemoved(m.name) : m.name;
 
 /// "Not converted · JPY": one bucket outside the group currency (docs/API.md 통화별 잔액), with Convert.
 class _NotConverted extends StatelessWidget {
@@ -516,6 +537,7 @@ class _NotConverted extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final d = group.defaultCurrency;
     final b = res.byCurrency[currency] ?? const <String, int>{};
     final rows = _rows(members, b).where((m) => (b[m.id] ?? 0) != 0).toList();
@@ -523,7 +545,6 @@ class _NotConverted extends StatelessWidget {
     final n = res.unconverted[currency] ?? 0;
     final unrated = res.unrated[currency] ?? 0; // what Convert fills in
     final rated = n - unrated; // has a rate that can't be used (convertExpense refused it)
-    String count(int k) => '$k expense${k == 1 ? '' : 's'}';
     return Padding(
       key: Key('not-converted-$currency'),
       padding: const EdgeInsets.only(top: 32),
@@ -531,26 +552,26 @@ class _NotConverted extends StatelessWidget {
         Row(children: [
           Icon(Icons.currency_exchange, size: 20, color: cs.onSurfaceVariant),
           const SizedBox(width: 8),
-          Expanded(child: Text('Not converted · $currency', style: text.titleSmall)),
+          Expanded(child: Text(l.summaryNotConverted(currency), style: text.titleSmall)),
         ]),
         const SizedBox(height: 2),
         Text(
           [
-            if (unrated > 0) '${count(unrated)} without a rate to $d',
-            if (rated > 0) "${count(rated)} with a rate that can't be converted",
-            if (n == 0) 'Payments in $currency',
-            if (rows.isEmpty) 'everyone is even in $currency',
+            if (unrated > 0) l.expensesWithoutRate(unrated, d),
+            if (rated > 0) l.expensesBadRate(rated),
+            if (n == 0) l.paymentsIn(currency),
+            if (rows.isEmpty) l.everyoneEvenIn(currency),
           ].join(' · '),
           style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
         ),
-        for (final m in rows) _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: currency),
+        for (final m in rows) _BalanceRow(name: _name(l, m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: currency),
         const SizedBox(height: 8),
         if (unrated > 0)
           OutlinedButton.icon(
             key: Key('convert-$currency'),
             onPressed: () => showConvertSheet(context, groupId: group.id, currencies: [currency]),
             icon: const Icon(Icons.currency_exchange),
-            label: Text('Convert to $d'),
+            label: Text(l.convertTo(d)),
           ),
       ]),
     );
@@ -569,7 +590,7 @@ class _BalanceRow extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final color = amount == 0 ? cs.onSurfaceVariant : (amount > 0 ? cs.primary : cs.error);
     final frac = maxAbs == 0 ? 0.0 : amount.abs() / maxAbs;
-    final label = amount == 0 ? 'settled' : (amount > 0 ? 'gets back' : 'owes');
+    final label = amount == 0 ? context.l.balanceSettled : (amount > 0 ? context.l.balanceGetsBack : context.l.balanceOwes);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

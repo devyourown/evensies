@@ -145,7 +145,7 @@ class FriendService(
             throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "One reminder a day", friends.secondsUntilNextReminder(me, them))
         }
         if (prefs.get(them).reminders) {
-            val (title, body) = ActivityText.reminder(sender.displayName, owed.toList())
+            val (title, body) = ActivityText.reminder(sender.displayName, owed.toList(), users.find(them)?.language ?: "en")
             notifier.remind(them, me, title, body)
         }
         return RemindResult(owed.map { (c, v) -> AmountDto(c, v) })

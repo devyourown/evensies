@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/env.dart';
 import '../../core/ids.dart';
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/person_avatar.dart';
@@ -19,10 +19,10 @@ import '../settings/settings_screen.dart' show exportGroup;
 import 'add_friend_screen.dart' show shareFriendLink;
 import 'home_data.dart';
 
-/// "Ben owes you €4.00" / "You owe Ben €3.00".
-String friendAmountText(String name, int v, String currency, {bool capital = true}) {
+/// "Ben owes you €4.00" / "You owe Ben €3.00" ([capital] false: a line under a group name).
+String friendAmountText(AppLocalizations l, String name, int v, String currency, {bool capital = true}) {
   final m = formatMoney(v.abs(), currency);
-  return v > 0 ? '$name owes you $m' : '${capital ? 'You' : 'you'} owe $name $m';
+  return v > 0 ? l.friendOwesYou(name, m) : (capital ? l.friendYouOwe(name, m) : l.friendYouOweLine(name, m));
 }
 
 /// The group a new expense with [p] goes to: their friend group (the smallest id), a placeholder's own group, or a new
@@ -47,8 +47,6 @@ bool canAddExpenseWith(HomeData data, Person p) {
   return data.groups.any((g) => !g.state.isFriend && active(g.state, data.myUserId) && active(g.state, p.userId));
 }
 
-String noSharedGroupText(String name) =>
-    'You no longer share a group with $name. Send them your friend link to add expenses.';
 
 /// The same line as a dialog (the With picker, or a stale device that got a 403): Share friend link or Cancel.
 Future<void> showNoSharedGroup(BuildContext context, WidgetRef ref, Person p) async {
@@ -56,13 +54,13 @@ Future<void> showNoSharedGroup(BuildContext context, WidgetRef ref, Person p) as
     context: context,
     builder: (ctx) => AlertDialog(
       key: const Key('no-shared-group'),
-      content: Text(noSharedGroupText(p.name)),
+      content: Text(ctx.l.noSharedGroup(p.name)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l.cancel)),
         FilledButton.icon(
           onPressed: () => Navigator.pop(ctx, true),
           icon: const Icon(Icons.share, size: 18),
-          label: const Text('Share friend link'),
+          label: Text(ctx.l.shareFriendLink),
         ),
       ],
     ),
@@ -80,7 +78,7 @@ Future<void> addExpenseWith(BuildContext context, WidgetRef ref, Person p, {bool
     if (!context.mounted) return;
     // This device still thought we share a group: the same message as when it knows (docs/API.md 개요).
     if (e.status == 403 && e.code != 'NETWORK') return showNoSharedGroup(context, ref, p);
-    showError(context, e.code == 'NETWORK' ? 'The first expense with ${p.name} needs a connection.' : e.message);
+    showError(context, e.code == 'NETWORK' ? context.l.firstExpenseNeedsConnection(p.name) : e);
   }
 }
 
@@ -113,16 +111,16 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     setState(() => _reminding = true);
     try {
       await ref.read(apiProvider).remind(p.userId!);
-      if (mounted) showInfo(context, 'Reminder sent to ${p.name}');
+      if (mounted) showInfo(context, context.l.reminderSent(p.name));
     } on ApiException catch (e) {
       if (!mounted) return;
       showError(
         context,
         switch (e) {
-          ApiException(status: 429) => 'You can remind ${p.name} again tomorrow',
-          ApiException(status: 409) => "${p.name} doesn't owe you anything",
-          ApiException(code: 'NETWORK') => 'Sending a reminder needs a connection.',
-          _ => e.message,
+          ApiException(status: 429) => context.l.remindTomorrow(p.name),
+          ApiException(status: 409) => context.l.remindNothingOwed(p.name),
+          ApiException(code: 'NETWORK') => context.l.remindNeedsConnection,
+          _ => e,
         },
       );
     } finally {
@@ -138,14 +136,18 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     try {
       methods = await ref.read(apiProvider).getMyPaymentMethods();
     } catch (_) {}
+    if (!mounted) return;
+    final l = context.l;
+    final amounts = ([...owed.keys]..sort()).map((x) => formatMoney(owed[x]!, x)).toList();
     final msg = requestText(
-      formattedAmount: ([...owed.keys]..sort()).map((x) => formatMoney(owed[x]!, x)).join(' and '),
-      group: p.groupId == null ? 'our shared expenses' : data.label(p.groupId!),
+      l,
+      formattedAmount: amounts.reduce((a, b) => l.amountsAnd(a, b)),
+      group: p.groupId == null ? l.requestNoGroup : data.label(p.groupId!, l),
       methods: methods,
       amountMinor: owed[c]!,
       currency: c,
     );
-    await SharePlus.instance.share(ShareParams(text: msg));
+    await shareText(context, msg);
   }
 
   /// A placeholder friend claims their member through the friend group's invite link.
@@ -153,8 +155,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     final code = data.group(p.friendGroups.first)?.row.inviteCode;
     if (code == null) return;
     final link = '${ref.read(serverUrlProvider)}/j/$code';
-    await SharePlus.instance
-        .share(ShareParams(text: 'I added you on Evensies so we can split expenses. Join me: $link'));
+    await shareText(context, context.l.inviteFriendText(link));
   }
 
   @override
@@ -163,6 +164,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     final data = async.value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (data == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final p = data.person(widget.personKey);
     if (p == null) {
@@ -176,9 +178,9 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
               child: Column(children: [
                 Icon(Icons.person_search_outlined, size: 64, color: cs.primary),
                 const SizedBox(height: 16),
-                Text("This person isn't on this device", style: text.titleMedium, textAlign: TextAlign.center),
+                Text(l.personNotHere, style: text.titleMedium, textAlign: TextAlign.center),
                 const SizedBox(height: 4),
-                Text("It hasn't synced yet, or you no longer share a group.",
+                Text(l.personNotHereNote,
                     style: TextStyle(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
               ]),
             ),
@@ -228,7 +230,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
       ..sort((a, b) {
         if (a.isEmpty || b.isEmpty) return a.isEmpty ? -1 : 1;
         final d = sections[b]!.first.date.compareTo(sections[a]!.first.date);
-        return d != 0 ? d : data.label(a).toLowerCase().compareTo(data.label(b).toLowerCase());
+        return d != 0 ? d : data.label(a, l).toLowerCase().compareTo(data.label(b, l).toLowerCase());
       });
     final canAdd = canAddExpenseWith(data, p);
     // Two friend groups of one person (a claimed placeholder friend, docs/API.md 친구) are one Non-group line.
@@ -256,12 +258,12 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
         actions: [
           if (p.friendGroups.isNotEmpty)
             PopupMenuButton<String>(
-              tooltip: 'More',
-              onSelected: (f) => exportGroup(context, ref, p.friendGroups.first, 'Non-group · ${p.name}', f),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'csv', child: Text('Export non-group expenses (CSV)')),
-                PopupMenuItem(value: 'json', child: Text('Export non-group expenses (JSON)')),
-                PopupMenuItem(value: 'zip', child: Text('Export non-group expenses (ZIP with receipts)')),
+              tooltip: l.more,
+              onSelected: (f) => exportGroup(context, ref, p.friendGroups.first, l.nonGroupWith(p.name), f),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'csv', child: Text(l.exportNonGroupCsv)),
+                PopupMenuItem(value: 'json', child: Text(l.exportNonGroupJson)),
+                PopupMenuItem(value: 'zip', child: Text(l.exportNonGroupZip)),
               ],
             ),
         ],
@@ -279,16 +281,16 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                 const SizedBox(height: 12),
                 Text(p.name, textAlign: TextAlign.center, style: text.headlineSmall),
                 if (p.userId == null)
-                  Text('Not on Evensies yet',
+                  Text(l.notOnEvensies,
                       textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
                 const SizedBox(height: 8),
                 if (currencies.isEmpty)
-                  Text('All settled up',
+                  Text(l.allSettledUp,
                       key: const Key('friend-settled'),
                       textAlign: TextAlign.center,
                       style: text.titleMedium?.copyWith(color: cs.onSurfaceVariant)),
                 for (final c in currencies)
-                  Text(friendAmountText(p.name, p.net[c]!, c),
+                  Text(friendAmountText(l, p.name, p.net[c]!, c),
                       textAlign: TextAlign.center,
                       style: text.titleMedium
                           ?.copyWith(color: p.net[c]! > 0 ? cs.primary : cs.error, fontWeight: FontWeight.w600)),
@@ -301,7 +303,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                         key: const Key('friend-settle'),
                         onPressed: () => context.push('/friends/${p.key}/settle'),
                         icon: const Icon(Icons.handshake_outlined),
-                        label: const Text('Settle up'),
+                        label: Text(l.settleUp),
                       ),
                     if (p.userId != null && owesMe)
                       FilledButton.tonalIcon(
@@ -310,33 +312,33 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                         icon: _reminding
                             ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.notifications_active_outlined),
-                        label: const Text('Remind'),
+                        label: Text(l.remind),
                       ),
                     if (p.userId == null && owesMe)
                       FilledButton.tonalIcon(
                         key: const Key('friend-request'),
                         onPressed: () => _request(data, p),
                         icon: const Icon(Icons.ios_share),
-                        label: const Text('Request'),
+                        label: Text(l.request),
                       ),
                     if (p.userId == null && p.friendGroups.isNotEmpty)
                       OutlinedButton.icon(
                         key: const Key('friend-invite'),
                         onPressed: () => _invite(data, p),
                         icon: const Icon(Icons.person_add_alt),
-                        label: const Text('Invite'),
+                        label: Text(l.invite),
                       ),
                   ]),
                 ),
                 if (nonGroup.isNotEmpty || groupLines.isNotEmpty) ...[
-                  section('Balances'),
+                  section(l.balances),
                   if (nonGroup.isNotEmpty)
                     _BreakdownRow(
-                        key: const Key('breakdown-non-group'), label: 'Non-group', name: p.name, amounts: nonGroup),
+                        key: const Key('breakdown-non-group'), label: l.nonGroup, name: p.name, amounts: nonGroup),
                   for (final MapEntry(key: gid, value: amounts) in groupLines.entries)
                     _BreakdownRow(
                       key: Key('breakdown-$gid'),
-                      label: data.label(gid),
+                      label: data.label(gid, l),
                       name: p.name,
                       amounts: amounts,
                       onTap: () => context.push('/groups/$gid'),
@@ -351,14 +353,14 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                          Text(noSharedGroupText(p.name)),
+                          Text(l.noSharedGroup(p.name)),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
                               key: const Key('share-friend-link'),
                               onPressed: () => shareFriendLink(context, ref),
                               icon: const Icon(Icons.share, size: 18),
-                              label: const Text('Share friend link'),
+                              label: Text(l.shareFriendLink),
                             ),
                           ),
                         ]),
@@ -366,17 +368,17 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                     ),
                   ),
                 if (sections.isEmpty && p.friendGroups.isNotEmpty) ...[
-                  section('Expenses and payments'),
+                  section(l.expensesAndPayments),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Nothing together yet. Add an expense below.',
+                    child: Text(l.nothingTogetherYet,
                         style: TextStyle(color: cs.onSurfaceVariant)),
                   ),
                 ],
                 for (final key in order) ...[
                   _SectionHeader(
                     key: Key('together-${key.isEmpty ? 'non-group' : key}'),
-                    label: key.isEmpty ? 'Non-group' : data.label(key),
+                    label: key.isEmpty ? l.nonGroup : data.label(key, l),
                     onTap: key.isEmpty ? null : () => context.push('/groups/$key'),
                   ),
                   for (final (i, r) in sections[key]!.indexed) ...[
@@ -396,7 +398,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
               key: const Key('friend-add-expense'),
               onPressed: () => addExpenseWith(context, ref, p),
               icon: const Icon(Icons.add),
-              label: const Text('Add expense'),
+              label: Text(l.addExpense),
             ),
     );
   }
@@ -445,7 +447,7 @@ class _BreakdownRow extends StatelessWidget {
       subtitle: Text.rich(TextSpan(children: [
         for (final (i, c) in cur.indexed)
           TextSpan(
-            text: '${i > 0 ? '\n' : ''}${friendAmountText(name, amounts[c]!, c, capital: false)}',
+            text: '${i > 0 ? '\n' : ''}${friendAmountText(context.l, name, amounts[c]!, c, capital: false)}',
             style: TextStyle(color: amounts[c]! > 0 ? cs.primary : cs.error),
           ),
       ])),

@@ -22,7 +22,7 @@ void main() {
   late AppDatabase db;
   late FakeApi api;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -368,8 +368,8 @@ void main() {
     final now = DateTime(2026, 3, 30, 10); // Europe: DST began on Sun 29 Mar
     expect(dayLabel(at(DateTime(2026, 3, 30, 0, 30)), now: now), 'Today');
     expect(dayLabel(at(DateTime(2026, 3, 29, 9)), now: now), 'Yesterday');
-    expect(dayLabel(at(DateTime(2026, 3, 28, 23)), now: now), 'Sat, 28 Mar');
-    expect(dayLabel(at(DateTime(2026, 3, 29, 9)), now: DateTime(2026, 3, 31, 0, 10)), 'Sun, 29 Mar');
+    expect(dayLabel(at(DateTime(2026, 3, 28, 23)), now: now), 'Sat, Mar 28');
+    expect(dayLabel(at(DateTime(2026, 3, 29, 9)), now: DateTime(2026, 3, 31, 0, 10)), 'Sun, Mar 29');
   });
 
   testWidgets('opening and pulling to refresh also sync the group, so new names and expenses resolve', (t) async {

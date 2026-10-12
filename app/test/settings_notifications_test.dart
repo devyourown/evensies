@@ -18,7 +18,7 @@ void main() {
   late AppDatabase db;
   late FakeApi api;
 
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());

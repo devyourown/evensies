@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/person_avatar.dart';
@@ -41,13 +42,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     final rows = ref.watch(groupsProvider).value ?? const <GroupRow>[];
     final unread = ref.watch(unreadProvider)?.total ?? 0;
     final friends = _tab == 1;
+    final l = context.l;
     return Scaffold(
       appBar: AppBar(
-        title: Text(friends ? 'Friends' : 'Groups'),
+        title: Text(friends ? l.friends : l.groups),
         actions: [
-          IconButton(tooltip: 'Search', onPressed: () => context.push('/search'), icon: const Icon(Icons.search)),
+          IconButton(tooltip: l.search, onPressed: () => context.push('/search'), icon: const Icon(Icons.search)),
           IconButton(
-            tooltip: 'Activity',
+            tooltip: l.activity,
             onPressed: () => context.push('/activity'),
             icon: Badge(
               key: const Key('activity-badge'),
@@ -58,21 +60,21 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           ),
           if (friends)
             IconButton(
-                tooltip: 'Add a friend',
+                tooltip: l.addAFriend,
                 onPressed: () => context.push('/friends/add'),
                 icon: const Icon(Icons.person_add_alt))
           else
             PopupMenuButton<String>(
-              tooltip: 'New group',
+              tooltip: l.newGroup,
               icon: const Icon(Icons.group_add_outlined),
               onSelected: (v) => v == 'new' ? showCreateGroupDialog(context) : context.push('/join-code'),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'new', child: Text('New group')),
-                PopupMenuItem(value: 'join', child: Text('Join with a code')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'new', child: Text(l.newGroup)),
+                PopupMenuItem(value: 'join', child: Text(l.joinWithCode)),
               ],
             ),
           IconButton(
-              tooltip: 'Settings',
+              tooltip: l.settingsTitle,
               onPressed: () => context.push('/settings'),
               icon: const Icon(Icons.settings_outlined)),
         ],
@@ -89,9 +91,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.group_outlined), selectedIcon: Icon(Icons.group), label: 'Groups'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Friends'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.group_outlined), selectedIcon: const Icon(Icons.group), label: l.groups),
+          NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: l.friends),
         ],
       ),
       floatingActionButton: rows.isEmpty
@@ -99,7 +101,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           : FloatingActionButton.extended(
               onPressed: () => context.push('/expenses/new'),
               icon: const Icon(Icons.add),
-              label: const Text('Add expense'),
+              label: Text(l.addExpense),
             ),
     );
   }
@@ -107,10 +109,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget _chips() => Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Wrap(spacing: 8, runSpacing: 4, children: [
-          for (final (f, label) in const [
-            (HomeFilter.all, 'All'),
-            (HomeFilter.owesMe, 'Owes me'),
-            (HomeFilter.iOwe, 'I owe'),
+          for (final (f, label) in [
+            (HomeFilter.all, context.l.filterAll),
+            (HomeFilter.owesMe, context.l.filterOwesMe),
+            (HomeFilter.iOwe, context.l.filterIOwe),
           ])
             ChoiceChip(
               key: Key('filter-${f.name}'),
@@ -138,7 +140,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             child: ExpansionTile(
               key: const Key('settled-section'),
               tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: Text('Settled up (${settled.length})',
+              title: Text(context.l.settledUpCount(settled.length),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               children: settled,
             ),
@@ -176,10 +178,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Text(
           _filter == HomeFilter.owesMe
-              ? 'Nobody owes you anything'
+              ? context.l.nobodyOwesYou
               : _filter == HomeFilter.iOwe
-                  ? "You don't owe anything"
-                  : 'Nothing here yet',
+                  ? context.l.youOweNothing
+                  : context.l.nothingHereYet,
           textAlign: TextAlign.center,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
@@ -195,12 +197,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Icon(Icons.person_add_alt, size: 72, color: cs.primary),
             const SizedBox(height: 16),
-            Text('No friends yet', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+            Text(context.l.noFriendsYet, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text('Add a friend to split expenses outside a group. People you share a group with show up here too.',
-                textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
+            Text(context.l.noFriendsHelp, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
             const SizedBox(height: 32),
-            FilledButton(onPressed: () => context.push('/friends/add'), child: const Text('Add a friend')),
+            FilledButton(onPressed: () => context.push('/friends/add'), child: Text(context.l.addAFriend)),
           ]),
         ),
       ]);
@@ -225,7 +226,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           child: TextButton.icon(
             onPressed: () => context.push('/friends/add'),
             icon: const Icon(Icons.person_add_alt),
-            label: const Text('Add a friend'),
+            label: Text(context.l.addAFriend),
           ),
         ),
       ],
@@ -233,7 +234,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 }
 
-/// "You are owed €42.10 · $15.00", "You owe €8.00", "≈ €61.20 overall" (home currency), on both tabs.
+/// "You are owed €42.10 · $15.00", "You owe €8.00", "You are owed ≈ €61.20 in total" (home currency, only when it
+/// adds something), on both tabs.
 class OverallCard extends ConsumerWidget {
   final HomeData data;
   const OverallCard({super.key, required this.data});
@@ -242,13 +244,16 @@ class OverallCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final o = data.overview;
     String list(Map<String, int> m) => ([...m.keys]..sort()).map((c) => formatMoney(m[c]!, c)).join(' · ');
     final net = {
       for (final c in {...o.owedToMe.keys, ...o.iOwe.keys}) c: (o.owedToMe[c] ?? 0) - (o.iOwe[c] ?? 0),
     };
     final home = ref.watch(homeCurrencyProvider);
-    final approx = net.isEmpty ? null : approxIn(home, net, ref.watch(latestFxProvider).value?.rates);
+    final approx = net.length > 1 || (net.length == 1 && !net.containsKey(home))
+        ? approxIn(home, net, ref.watch(latestFxProvider).value?.rates)
+        : null;
     return Card(
       key: const Key('overall-card'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -260,15 +265,15 @@ class OverallCard extends ConsumerWidget {
             Row(children: [
               Icon(Icons.check_circle_outline, color: cs.primary),
               const SizedBox(width: 8),
-              Expanded(child: Text('You are all settled up', style: text.titleMedium)),
+              Expanded(child: Text(l.allSettledUpYou, style: text.titleMedium)),
             ]),
           if (o.owedToMe.isNotEmpty)
-            Text('You are owed ${list(o.owedToMe)}',
+            Text(l.youAreOwedList(list(o.owedToMe)),
                 style: text.titleMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
           if (o.iOwe.isNotEmpty)
-            Text('You owe ${list(o.iOwe)}', style: text.titleMedium?.copyWith(color: cs.error, fontWeight: FontWeight.w600)),
-          if (approx != null)
-            Text('≈ ${approx < 0 ? '−' : ''}${formatMoney(approx.abs(), home)} overall',
+            Text(l.youOweList(list(o.iOwe)), style: text.titleMedium?.copyWith(color: cs.error, fontWeight: FontWeight.w600)),
+          if (approx != null && approx != 0)
+            Text(approx < 0 ? l.approxTotalOwe(formatMoney(-approx, home)) : l.approxTotalOwed(formatMoney(approx, home)),
                 key: const Key('overall-approx'), style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
         ]),
       ),
@@ -288,12 +293,13 @@ class PersonTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final p = person;
-    final balance = personBalanceText(p.net, rates);
+    final l = context.l;
+    final balance = personBalanceText(l, p.net, rates);
     final c = p.net.isEmpty ? null : largestCurrency(p.net, rates);
     final color = c == null ? cs.onSurfaceVariant : (p.net[c]! > 0 ? cs.primary : cs.error);
     final sub = [
-      if (p.groupId != null) data.label(p.groupId!),
-      if (p.userId == null && p.groupId == null) 'not on Evensies yet',
+      if (p.groupId != null) data.label(p.groupId!, l),
+      if (p.userId == null && p.groupId == null) l.notOnEvensiesLower,
     ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -327,14 +333,13 @@ class _Empty extends StatelessWidget {
         children: [
           Icon(Icons.group_outlined, size: 72, color: cs.primary),
           const SizedBox(height: 16),
-          Text('No groups yet', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+          Text(context.l.noGroupsYet, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text('Create one for a trip or a flat, or join a friend\'s group with their invite code.',
-              textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
+          Text(context.l.noGroupsHelp, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
           const SizedBox(height: 32),
-          FilledButton(onPressed: onCreate, child: const Text('Create group')),
+          FilledButton(onPressed: onCreate, child: Text(context.l.createGroup)),
           const SizedBox(height: 12),
-          OutlinedButton(onPressed: onJoin, child: const Text('Join with a code')),
+          OutlinedButton(onPressed: onJoin, child: Text(context.l.joinWithCode)),
         ],
       ),
     );
@@ -352,6 +357,7 @@ class _GroupCard extends ConsumerWidget {
     final memberCount =
         (ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[]).where((m) => !m.removed).length;
     final muted = TextStyle(color: cs.onSurfaceVariant);
+    final l = context.l;
     // One line per currency I have a balance in (group currency first), each in its own colour, then "≈" in my home
     // currency on its own line: nothing is cut off.
     final lines = <TextSpan>[];
@@ -359,17 +365,17 @@ class _GroupCard extends ConsumerWidget {
       lines.add(TextSpan(text: '…', style: muted));
     } else {
       final mine = res.mine(group.myMemberId);
-      if (mine.isEmpty) lines.add(TextSpan(text: 'Settled up', style: muted));
+      if (mine.isEmpty) lines.add(TextSpan(text: l.settledUp, style: muted));
       for (final MapEntry(key: cur, value: v) in mine.entries) {
         lines.add(TextSpan(
-            text: owedText(v, cur),
+            text: owedText(l, v, cur),
             style: TextStyle(color: v > 0 ? cs.primary : cs.error, fontWeight: FontWeight.w500)));
       }
       final home = ref.watch(homeCurrencyProvider);
       final approx = mine.isEmpty ? null : approxIn(home, mine, ref.watch(latestFxProvider).value?.rates);
       if (approx != null) {
         final a = formatMoney(approx.abs(), home);
-        lines.add(TextSpan(text: mine.length == 1 ? '≈ $a' : 'Net ≈ ${approx < 0 ? '−' : '+'}$a', style: muted));
+        lines.add(TextSpan(text: mine.length == 1 ? l.approx(a) : l.netApprox('${approx < 0 ? '−' : '+'}$a'), style: muted));
       }
     }
     return Card(
@@ -379,7 +385,7 @@ class _GroupCard extends ConsumerWidget {
         leading: CircleAvatar(child: Text(group.name.isEmpty ? '?' : group.name.characters.first.toUpperCase())),
         title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text.rich(TextSpan(children: [
-          TextSpan(text: '$memberCount ${memberCount == 1 ? 'member' : 'members'} · '),
+          TextSpan(text: '${l.memberCount(memberCount)} · '),
           for (final (i, l) in lines.indexed) ...[if (i > 0) const TextSpan(text: '\n'), l],
         ])),
         trailing: const Icon(Icons.chevron_right),

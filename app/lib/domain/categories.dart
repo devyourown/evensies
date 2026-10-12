@@ -1,8 +1,12 @@
 /// Expense categories (docs/API.md 카테고리): the taxonomy from shared/categories.json (copied to assets/),
-/// folding, resolving a stored value to a key, and guessing a key from a description. Pure Dart.
+/// folding, resolving a stored value to a key, and guessing a key from a description. Names per language come from
+/// shared/strings.json; matching stays on the English labels.
 library;
 
 import 'dart:convert';
+
+import '../core/money.dart';
+import '../core/strings.dart';
 
 /// What a null, a blank, a parent key and any legacy free text resolve to.
 const generalCategory = 'uncategorized.general';
@@ -58,7 +62,7 @@ abstract final class Categories {
         ),
     ];
     _byKey = {for (final c in all) c.key: c};
-    final labels = {for (final c in all) c.key: labelOf(c.key).toLowerCase()};
+    final labels = {for (final c in all) c.key: englishLabelOf(c.key).toLowerCase()};
     final counts = <String, int>{};
     for (final l in labels.values) {
       counts.update(l, (n) => n + 1, ifAbsent: () => 1);
@@ -76,9 +80,27 @@ abstract final class Categories {
   /// The category [raw] shows as (General for null and legacy values). Null only before loading.
   static Category? of(String? raw) => _byKey[resolveCategory(raw)];
 
-  /// What a stored value shows as: "Dining out"; the six "Other" as "Entertainment - Other" (the server's CSV label);
-  /// General for null and legacy text, a parent key included. A parent key's own label is [parent].
-  static String labelOf(String? raw) {
+  /// What a stored value shows as in [lang] (default [Money.lang]): "Dining out"; the six "Other" as
+  /// `words.categoryOther` ("Entertainment - Other"); General for null and legacy text, a parent key included. A
+  /// parent key's own name is [nameOf].
+  static String labelOf(String? raw, {String? lang}) {
+    final l = lang ?? Money.lang;
+    final c = of(raw);
+    if (c == null) return nameOf(generalCategory, l);
+    return c.key.endsWith('.other')
+        ? Strings.fill(Strings.text(l, const ['words', 'categoryOther']), {'parent': nameOf(c.parent, l)})
+        : nameOf(c.key, l);
+  }
+
+  /// A category or parent key's name in [lang] (shared/strings.json `categories`), else its English label.
+  static String nameOf(String key, [String? lang]) =>
+      Strings.lookup(lang ?? Money.lang, ['categories', key]) as String? ??
+      _byKey[key]?.label ??
+      _parents[key]?.label ??
+      (key == generalCategory ? 'General' : key);
+
+  /// The English label (CSV export, Splitwise import, legacy values): "Entertainment - Other" for the six "Other".
+  static String englishLabelOf(String? raw) {
     final c = of(raw);
     if (c == null) return 'General';
     return c.key.endsWith('.other') ? '${_parents[c.parent]?.label} - ${c.label}' : c.label;

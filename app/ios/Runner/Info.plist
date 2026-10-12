@@ -9,6 +9,22 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ko</string>
+		<string>nl</string>
+		<string>fr</string>
+		<string>de</string>
+		<string>id</string>
+		<string>it</string>
+		<string>ja</string>
+		<string>pl</string>
+		<string>pt</string>
+		<string>es</string>
+		<string>sv</string>
+		<string>th</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Evensies</string>
 	<key>CFBundleExecutable</key>
@@ -47,6 +63,8 @@
 	<string>735984614718-p2ga7bem68i1tbs6se9tmfrcrepfnggt.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Evensies uses Face ID to unlock the app when App lock is on.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Evensies uses the camera when you take a profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

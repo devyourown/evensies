@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:evensies/data/api/api_client.dart';
@@ -100,7 +99,7 @@ class FakeApi extends ApiClient {
   void Function(String groupId, String attachmentId)? onUpload;
 
   @override
-  Future<void> uploadAttachment(String groupId, String attachmentId, File image, File thumb) async {
+  Future<void> uploadAttachment(String groupId, String attachmentId, Uint8List image, Uint8List thumb) async {
     uploads.add((groupId, attachmentId));
     (onUpload ?? (throw offline))(groupId, attachmentId);
   }
@@ -126,13 +125,18 @@ class FakeApi extends ApiClient {
 
   /// PATCH /me bodies; [meOffline] makes it unreachable.
   final meUpdates = <({String? displayName, String? homeCurrency})>[];
+  final languageUpdates = <String>[];
   bool meOffline = false;
 
   @override
-  Future<UserDto> updateMe({String? displayName, String? homeCurrency}) async {
-    meUpdates.add((displayName: displayName, homeCurrency: homeCurrency));
+  Future<UserDto> updateMe({String? displayName, String? homeCurrency, String? language}) async {
+    if (language != null) {
+      languageUpdates.add(language);
+    } else {
+      meUpdates.add((displayName: displayName, homeCurrency: homeCurrency));
+    }
     if (meOffline) throw offline;
-    return UserDto(id: 'u1', displayName: displayName ?? 'Anna', homeCurrency: homeCurrency);
+    return UserDto(id: 'u1', displayName: displayName ?? 'Anna', homeCurrency: homeCurrency, language: language);
   }
 
   /// GET /groups ids; null = unreachable. [groupKinds]: id → kind (default `group`).
@@ -253,7 +257,7 @@ class FakeApi6 extends FakeApi {
   @override
   Future<Uint8List> avatar(String userId) async => avatars[userId] ?? (throw FakeApi.offline);
   @override
-  Future<void> putAvatar(File jpeg) async => avatarUploads.add(jpeg.path);
+  Future<void> putAvatar(Uint8List jpeg) async => avatarUploads.add(String.fromCharCodes(jpeg));
   @override
   Future<void> deleteAvatar() async => avatarDeletes++;
 }

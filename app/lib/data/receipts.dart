@@ -1,127 +1,105 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../core/ids.dart';
 import '../domain/receipt_parser.dart';
 import '../providers.dart';
 import 'api/api_client.dart';
+import 'blob_store.dart';
 import 'images.dart';
 
-/// Receipt photo files (docs/API.md 영수증): `{appSupport}/pending_attachments/{id}.jpg` (+ `_thumb`) until uploaded,
-/// then `{appCache}/attachments/`. Both are this device's copies; the server keeps the photo for the group.
+/// Receipt photos (docs/API.md 영수증): `pending` (prepared, not uploaded yet) and `cache` (uploaded or downloaded),
+/// as `{id}.jpg` and `{id}_thumb.jpg` in a [BlobStore] (files on phones, memory in the browser). Both are this device's
+/// copies; the server keeps the photo for the group.
 class ReceiptFiles {
   final ApiClient api;
-  final Future<String> Function() _support, _cache;
+  final BlobStore store;
   ReceiptFiles(this.api, {Future<String> Function()? supportDir, Future<String> Function()? cacheDir})
-      : _support = supportDir ?? (() async => (await getApplicationSupportDirectory()).path),
-        _cache = cacheDir ?? (() async => (await getApplicationCacheDirectory()).path);
+      : store = BlobStore(supportDir: supportDir, cacheDir: cacheDir);
 
   static String _name(String id, bool thumb) => '$id${thumb ? '_thumb' : ''}.jpg';
-  Future<File> pending(String id, {bool thumb = false}) async =>
-      File(p.join(await _support(), 'pending_attachments', _name(id, thumb)));
-  Future<File> cached(String id, {bool thumb = false}) async =>
-      File(p.join(await _cache(), 'attachments', _name(id, thumb)));
+
+  /// The prepared photo waiting to upload, or null.
+  Future<Uint8List?> pending(String id, {bool thumb = false}) => store.read(BlobArea.pending, _name(id, thumb));
+
+  /// This device's copy of an uploaded or downloaded photo, or null.
+  Future<Uint8List?> cached(String id, {bool thumb = false}) => store.read(BlobArea.cache, _name(id, thumb));
+
+  /// The pending photo's file, for the phone's text recognition.
+  Future<String> pendingPath(String id) => store.path(BlobArea.pending, _name(id, false));
 
   /// [picked] (the original from the camera or library) → the pending photo (long edge 2048, quality 80, about
-  /// 300–700 KB) and thumbnail (512, 70), EXIF dropped by [prepareJpeg]; the original temp file is deleted.
+  /// 300–700 KB) and thumbnail (512, 70), EXIF dropped by [prepareJpeg]; the picker's original is deleted (it can be
+  /// tens of MB and carry GPS EXIF, and Android only clears an app's cache when storage runs low).
   Future<void> prepare(XFile picked, String id) async {
     for (final thumb in [false, true]) {
-      final f = await prepareJpeg(picked, maxEdge: thumb ? 512 : 2048, quality: thumb ? 70 : 80);
-      await _move(f, await pending(id, thumb: thumb));
+      final bytes = await prepareJpeg(picked, maxEdge: thumb ? 512 : 2048, quality: thumb ? 70 : 80);
+      await store.write(BlobArea.pending, _name(id, thumb), bytes);
     }
-    try {
-      await File(picked.path).delete();
-    } catch (_) {} // the picker's own copy; the OS clears its temp folder anyway
+    await deleteFile(picked.path);
   }
 
-  /// The photo (or its thumbnail) to show: the cached file, else the pending one, else downloaded into the cache.
+  /// Whether [id]'s missing pending photo is in another open tab's memory (the web; never on phones), which uploads it.
+  Future<bool> inAnotherTab(String id) => store.claimed(_name(id, false));
+
+  /// The photo (or its thumbnail) to show: the cached copy, else the pending one, else downloaded into the cache.
   /// Throws (ApiException NETWORK) when it isn't here and the server can't be reached.
-  Future<File> file(String groupId, String id, {bool thumb = false}) async {
-    final c = await cached(id, thumb: thumb);
-    if (await c.exists()) return c;
-    final pend = await pending(id, thumb: thumb);
-    if (await pend.exists()) return pend;
+  Future<Uint8List> file(String groupId, String id, {bool thumb = false}) async {
+    final here = await cached(id, thumb: thumb) ?? await pending(id, thumb: thumb);
+    if (here != null) return here;
     final bytes = await api.attachment(groupId, id, thumb: thumb);
-    final tmp = File('${c.path}.${newId()}');
-    await tmp.parent.create(recursive: true);
-    await tmp.writeAsBytes(bytes, flush: true);
-    return tmp.rename(c.path);
+    await store.write(BlobArea.cache, _name(id, thumb), bytes);
+    return bytes;
   }
 
-  /// After the upload: both files move to the cache.
+  /// After the upload: both move to the cache.
   Future<void> uploaded(String id) async {
     for (final thumb in [false, true]) {
-      final f = await pending(id, thumb: thumb);
-      if (await f.exists()) await _move(f, await cached(id, thumb: thumb));
+      await store.move(_name(id, thumb), BlobArea.pending, BlobArea.cache);
     }
   }
 
   /// Copies of [from]'s photo and thumbnail ([file]: cached, pending or downloaded) in the cache as [to]'s (a receipt
   /// moved to another group under a new id). The copies are this device's own: a pending original may move to the
-  /// cache meanwhile (its upload finished), and is then copied from there.
-  Future<(File, File)> keepCopy(String groupId, String from, String to) async {
-    final out = <File>[];
+  /// cache meanwhile (its upload finished), and is then read from there.
+  Future<(Uint8List, Uint8List)> keepCopy(String groupId, String from, String to) async {
+    final out = <Uint8List>[];
     for (final thumb in [false, true]) {
-      final dest = await cached(to, thumb: thumb);
-      await dest.parent.create(recursive: true);
-      try {
-        out.add(await (await file(groupId, from, thumb: thumb)).copy(dest.path));
-      } on FileSystemException {
-        out.add(await (await file(groupId, from, thumb: thumb)).copy(dest.path));
-      }
+      final bytes = await file(groupId, from, thumb: thumb);
+      await store.write(BlobArea.cache, _name(to, thumb), bytes);
+      out.add(bytes);
     }
     return (out[0], out[1]);
   }
 
-  /// Whether both pending files are still there (an upload needs them).
+  /// Whether both pending photos are still there (an upload needs them).
   Future<bool> hasPending(String id) async =>
-      await (await pending(id)).exists() && await (await pending(id, thumb: true)).exists();
+      await store.exists(BlobArea.pending, _name(id, false)) && await store.exists(BlobArea.pending, _name(id, true));
 
   /// Deletes this device's copies of [ids] (pending and cached).
   Future<void> delete(Iterable<String> ids) async {
-    if (ids.isEmpty) return;
     for (final id in ids) {
       for (final thumb in [false, true]) {
-        for (final f in [await pending(id, thumb: thumb), await cached(id, thumb: thumb)]) {
-          try {
-            await f.delete();
-          } on FileSystemException catch (_) {} // not there
+        for (final a in BlobArea.values) {
+          await store.delete(a, _name(id, thumb));
         }
       }
     }
   }
 
-  /// Signed out: every receipt file on this device.
-  Future<void> deleteAll() async {
-    for (final d in [p.join(await _support(), 'pending_attachments'), p.join(await _cache(), 'attachments')]) {
-      try {
-        await Directory(d).delete(recursive: true);
-      } on FileSystemException catch (_) {}
-    }
-  }
-
-  static Future<void> _move(File f, File to) async {
-    await to.parent.create(recursive: true);
-    try {
-      await f.rename(to.path);
-    } on FileSystemException {
-      await f.copy(to.path); // another volume
-      await f.delete();
-    }
-  }
+  /// Signed out: every receipt photo on this device.
+  Future<void> deleteAll() => store.clear();
 }
 
 final receiptFilesProvider = Provider<ReceiptFiles>((ref) => ReceiptFiles(ref.watch(apiProvider)));
 
-/// A receipt's file to show, or null when it isn't on this device and the server can't be reached ("Available when
+/// A receipt's photo to show, or null when it isn't on this device and the server can't be reached ("Available when
 /// online"); asked again when the screen comes back.
-final receiptFileProvider = FutureProvider.autoDispose.family<File?, ({String groupId, String id, bool thumb})>(
+final receiptFileProvider = FutureProvider.autoDispose.family<Uint8List?, ({String groupId, String id, bool thumb})>(
   (ref, k) async {
     try {
       return await ref.watch(receiptFilesProvider).file(k.groupId, k.id, thumb: k.thumb);
@@ -150,7 +128,9 @@ bool get canScanReceipts => !kIsWeb;
 /// Camera or library → [ReceiptFiles.prepare] → (scan: text recognition on the prepared 2048 px photo, not the
 /// original, which can be 50 MP and more: too big to decode at once on Android); null when cancelled. Tests override it.
 final pickReceiptProvider = Provider<PickReceipt>((ref) => (source, {required scan}) async {
-      final x = await ImagePicker().pickImage(source: source);
+      // The browser resizes while picking (a canvas); phones keep the original for flutter_image_compress.
+      final x = await ImagePicker().pickImage(
+          source: source, maxWidth: kIsWeb ? 2048 : null, maxHeight: kIsWeb ? 2048 : null);
       if (x == null) return null;
       final id = newId();
       final files = ref.read(receiptFilesProvider);
@@ -158,7 +138,7 @@ final pickReceiptProvider = Provider<PickReceipt>((ref) => (source, {required sc
       List<OcrLine>? lines;
       if (scan) {
         try {
-          lines = await recognizeLines((await files.pending(id)).path);
+          lines = await recognizeLines(await files.pendingPath(id));
         } catch (_) {
           lines = const []; // unreadable: the items are typed by hand
         }

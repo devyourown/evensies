@@ -1,156 +1,190 @@
 package dev.nariinfo.evensies.activity
 
+import dev.nariinfo.evensies.common.Strings
 import dev.nariinfo.evensies.export.Categories
 import dev.nariinfo.evensies.money.Money
 
 /**
- * English feed sentences and push batch text (docs/API.md "문장"), the only place the server renders words, so Phase 9
- * can localize per recipient here. [names] maps member id → name; [me] is the viewer's member id.
+ * Feed sentences and push batch text (docs/API.md "문장", "문장 만들기"), rendered per language from strings.json, the
+ * only place the server renders activity words. [names] maps member id → name; [me] is the viewer's member id; [lang]
+ * a language code (one strings.json lacks renders English).
  */
 object ActivityText {
     const val MAX_TITLE = 100
     const val MAX_BODY = 200
-    private const val DOT = " · "
-    private const val ARROW = " → "
 
-    private fun quote(s: Any?) = "“${s ?: ""}”"
+    /** One render: who is who and in which language. */
+    private class Render(lang: String, val names: Map<String, String>, val me: String?) {
+        val lang = Strings.lang(lang)
 
-    private fun onOff(v: Any?) = if (v == true) "on" else "off"
+        fun s(vararg path: String): String = Strings.get(lang, *path) ?: ""
+
+        /** The viewer (`words.you`) or an unknown member (`words.someone`) rather than a name. */
+        fun isWord(id: String?) = id == null || id == me || id !in names
+
+        fun who(id: String?): String = when {
+            id != null && id == me -> s("words", "you")
+            id == null || id !in names -> s("words", "someone")
+            else -> names.getValue(id)
+        }
+
+        fun money(minor: Any?, currency: String?) = Money.display((minor as Number?)?.toLong() ?: 0, currency ?: "", lang)
+    }
+
+    /** The member a kind is about (`self` variant) and the one it is done to (`you` variant), docs/API.md "문장 만들기" 2. */
+    private fun subject(i: ActivityItem) = when (i.kind) {
+        "member_joined", "member_left" -> i.memberId
+        "payment_added" -> i.fromMember
+        else -> i.actorMemberId
+    }
+
+    private fun target(i: ActivityItem) = when (i.kind) {
+        "member_added", "member_removed", "friend_added" -> i.memberId
+        "payment_added" -> i.toMember
+        "payment_confirmed" -> i.fromMember
+        else -> null
+    }
+
+    /** The template key: refunds, payment comments and kinds `en` lacks (`unknown`) have their own. */
+    private fun key(i: ActivityItem): String {
+        val k = when {
+            i.refund == true && (i.kind == "expense_added" || i.kind == "expense_repeated") -> i.kind + "_refund"
+            i.kind == "comment_added" && i.paymentId != null -> "comment_added_payment"
+            else -> i.kind
+        }
+        return if (Strings.get("en", "activity", k, "other") != null) k else "unknown"
+    }
+
+    fun sentence(item: ActivityItem, names: Map<String, String>, me: String?, lang: String = "en"): String =
+        sentence(item, Render(lang, names, me))
+
+    private fun sentence(item: ActivityItem, r: Render): String {
+        val key = key(item)
+        fun viewer(id: String?) = id != null && id == r.me
+        val variant = when {
+            viewer(subject(item)) && Strings.get("en", "activity", key, "self") != null -> "self"
+            viewer(target(item)) && Strings.get("en", "activity", key, "you") != null -> "you"
+            else -> "other"
+        }
+        val members = mapOf("A" to item.actorMemberId, "member" to item.memberId, "from" to item.fromMember, "to" to item.toMember)
+        val values = members.mapValues { r.who(it.value) } + mapOf(
+            "name" to (item.name ?: ""), "description" to (item.description ?: ""), "text" to (item.text ?: ""),
+            "amount" to r.money(item.amount, item.currency),
+            "frequency" to (item.frequency?.let { Strings.get(r.lang, "words", "frequency", it) ?: it } ?: ""),
+            "changes" to changes(item, r),
+        )
+        val main = Strings.fill(r.s("activity", key, variant), values, members.filterValues(r::isWord).keys)
+        val delta = item.myDelta ?: 0
+        val tails = listOfNotNull(
+            when {
+                item.kind != "expense_added" && item.kind != "expense_repeated" || delta == 0L -> null
+                delta < 0 -> Strings.fill(r.s("suffix", "owe"), mapOf("amount" to r.money(-delta, item.currency)))
+                else -> Strings.fill(r.s("suffix", if (item.refund == true) "getBack" else "lent"), mapOf("amount" to r.money(delta, item.currency)))
+            },
+            if (item.kind == "payment_added" && item.status == "sent") {
+                Strings.fill(r.s("suffix", "waiting", if (viewer(item.toMember)) "you" else "other"), mapOf("to" to r.who(item.toMember)))
+            } else null,
+        )
+        return (listOf(main) + tails).joinToString(r.s("words", "dot"))
+    }
+
+    /** `{changes}`: one label per change in order, joined; an unknown field adds `changes.other` once, and so does none. */
+    private fun changes(item: ActivityItem, r: Render): String {
+        fun changed(field: String) = item.changes.any { it.field == field }
+        fun label(key: String, from: Any?, to: Any?) = Strings.fill(r.s("changes", key), mapOf("from" to (from?.toString() ?: ""), "to" to (to?.toString() ?: "")))
+        val amountChanged = changed("amount")
+        val fromCurrency = item.changes.firstOrNull { it.field == "currency" }?.from as String? ?: item.currency
+        val other = r.s("changes", "other")
+        var unknown = false
+        val labels = item.changes.mapNotNull { c ->
+            when (c.field) {
+                "name" -> label("name", c.from, c.to) // group_updated
+                "defaultCurrency" -> label("currency", c.from, c.to) // group_updated
+                "simplifyDebts" -> r.s("changes", if (c.to == true) "simplifyDebtsOn" else "simplifyDebtsOff") // group_updated
+                "defaultSplit" -> r.s("changes", "defaultSplit") // group_updated
+                "description" -> label("description", c.from, c.to)
+                "amount" -> label("amount", r.money(c.from, fromCurrency), r.money(c.to, item.currency))
+                "currency" -> label("currency", c.from, c.to)
+                "fxRateToDefault" -> r.s("changes", "fxRateToDefault")
+                "paidBy" -> label("paidBy", r.who(c.from as String?), r.who(c.to as String?)) // names, never upper-cased
+                "payers" -> r.s("changes", "payers") // listed only when several people paid before or after (Activity.expenseChanges)
+                "refund" -> r.s("changes", if (c.to == true) "refundOn" else "refundOff")
+                "date" -> label("date", c.from, c.to)
+                "category" -> category(c.from, c.to, r)
+                "shares" -> if (amountChanged) null else r.s("changes", "split") // a new amount always changes the split
+                "split" -> if (amountChanged || changed("shares")) null else r.s("changes", "split") // the split mode alone
+                "notes" -> r.s("changes", "notes")
+                else -> if (unknown) null else other.also { unknown = true }
+            }
+        }
+        return labels.ifEmpty { listOf(other) }.joinToString(r.s("changes", "joiner"))
+    }
 
     /**
-     * `category Dining out → General`, each side as the app shows a stored value (`labelOf`: the label, `Entertainment -
-     * Other`, else `General`); bare `category` when both show the same (null → `uncategorized.general`).
+     * `category Dining out → General`, each side as the app shows a stored value (`labelOf` in the viewer's language:
+     * `categories[key]`, `*.other` as `words.categoryOther`, anything else General); `categorySame` when both read the
+     * same (null → `uncategorized.general`).
      */
-    private fun category(from: Any?, to: Any?): String {
-        fun label(raw: Any?) = Categories.label(Categories.keyForLabel(raw as String?)) ?: "General"
-        return if (label(from) == label(to)) "category" else "category ${label(from)}$ARROW${label(to)}"
+    private fun category(from: Any?, to: Any?, r: Render): String {
+        fun label(raw: Any?): String {
+            val key = Categories.keyForLabel(raw as String?) ?: "uncategorized.general"
+            return if (key.endsWith(".other")) Strings.fill(r.s("words", "categoryOther"), mapOf("parent" to r.s("categories", key.substringBefore('.'))))
+            else r.s("categories", key)
+        }
+        val (a, b) = label(from) to label(to)
+        return if (a == b) r.s("changes", "categorySame") else Strings.fill(r.s("changes", "category"), mapOf("from" to a, "to" to b))
     }
 
-    /** Phase 8 frequency words (Phase 9 translates them). */
-    private fun repeats(frequency: String?) = if (frequency == "biweekly") "every 2 weeks" else frequency ?: ""
-
-    private fun who(id: String?, names: Map<String, String>, me: String?, start: Boolean = false): String = when {
-        id != null && id == me -> if (start) "You" else "you"
-        id == null || id !in names -> if (start) "Someone" else "someone"
-        else -> names.getValue(id)
-    }
-
-    fun sentence(item: ActivityItem, names: Map<String, String>, me: String?): String {
-        fun who(id: String?, start: Boolean = false) = who(id, names, me, start)
-        fun money(minor: Any?, currency: String? = item.currency) = Money.display((minor as Number?)?.toLong() ?: 0, currency ?: "")
-        val a = who(item.actorMemberId, start = true)
-        val delta = item.myDelta ?: 0
-        val owes = when {
-            delta < 0 -> "${DOT}you owe ${money(-delta)}"
-            delta > 0 -> "${DOT}${if (item.refund == true) "you get back" else "you lent"} ${money(delta)}"
-            else -> ""
-        }
-        fun changes(): String {
-            fun changed(field: String) = item.changes.any { it.field == field }
-            val amountChanged = changed("amount")
-            val fromCurrency = item.changes.firstOrNull { it.field == "currency" }?.from as String? ?: item.currency
-            return item.changes.mapNotNull { c ->
-                when (c.field) {
-                    "description" -> "description ${quote(c.from)}$ARROW${quote(c.to)}"
-                    "amount" -> "${money(c.from, fromCurrency)}$ARROW${money(c.to)}"
-                    "currency" -> "currency ${c.from}$ARROW${c.to}"
-                    "fxRateToDefault" -> "exchange rate"
-                    "paidBy" -> "paid by ${who(c.from as String?)}$ARROW${who(c.to as String?)}"
-                    "payers" -> "payers" // listed only when several people paid before or after (Activity.expenseChanges)
-                    "refund" -> "refund " + onOff(c.to)
-                    "date" -> "date ${c.from}$ARROW${c.to}"
-                    "category" -> category(c.from, c.to)
-                    "shares" -> if (amountChanged) null else "split" // a new amount always changes the split
-                    "split" -> if (amountChanged || changed("shares")) null else "split" // the split mode alone
-                    else -> c.field // notes
-                }
-            }.joinToString(", ")
-        }
-        return when (item.kind) {
-            "group_created" -> "$a created the group ${quote(item.name)}"
-            "group_updated" -> "$a changed the group: " + item.changes.joinToString(", ") {
-                when (it.field) {
-                    "name" -> "name ${quote(it.from)}$ARROW${quote(it.to)}"
-                    "simplifyDebts" -> "simplify debts " + onOff(it.to)
-                    "defaultSplit" -> "default split"
-                    else -> "currency ${it.from}$ARROW${it.to}"
-                }
-            }
-            "member_added" -> "$a added ${who(item.memberId)}"
-            "member_joined" -> "${who(item.memberId, start = true)} joined"
-            "member_removed" -> "$a removed ${who(item.memberId)}"
-            "member_left" -> "${who(item.memberId, start = true)} left the group"
-            "friend_added" -> "$a added ${who(item.memberId)} as a friend"
-            "expense_added" -> "$a added ${if (item.refund == true) "a refund " else ""}${quote(item.description)}$DOT${money(item.amount)}$owes"
-            "expense_repeated" -> // Phase 8: added by Evensies, so no actor
-                "${if (item.refund == true) "A refund " else ""}${quote(item.description)}$DOT${money(item.amount)} was added (repeats ${repeats(item.frequency)})$owes"
-            "expense_updated" -> "$a changed ${quote(item.description)}: ${changes()}"
-            "expense_deleted" -> "$a deleted ${quote(item.description)}"
-            "expense_restored" -> "$a restored ${quote(item.description)}"
-            "expense_moved" -> "$a moved ${quote(item.description)} to another group" // the target may be a group the viewer isn't in
-            "comment_added" -> if (item.paymentId != null) {
-                "$a commented on a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}: ${item.text}"
-            } else {
-                "$a commented on ${quote(item.description)}: ${item.text}"
-            }
-            "payment_added" -> "${who(item.fromMember, start = true)} paid ${who(item.toMember)} ${money(item.amount)}" +
-                if (item.status == "sent") "${DOT}waiting for ${who(item.toMember)} to confirm" else ""
-            "payment_confirmed" -> "$a confirmed receiving ${money(item.amount)} from ${who(item.fromMember)}"
-            "payment_deleted" -> "$a deleted a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
-            "payment_edited" -> "$a edited a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
-            "payment_restored" -> "$a restored a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
-            "receipt_added" -> "$a added a receipt to ${quote(item.description)}"
-            "receipt_removed" -> "$a removed a receipt from ${quote(item.description)}"
-            "recurrence_created" -> "$a set ${quote(item.description)} to repeat ${repeats(item.frequency)}"
-            "recurrence_updated" -> "$a changed future ${quote(item.description)}: ${changes()}"
-            "recurrence_deleted" -> "$a stopped ${quote(item.description)} repeating"
-            else -> "$a made a change"
-        }
-    }
-
-    /** Reminder push (docs/API.md "리마인더"): [amounts] currency → minor units, sorted by currency; [from] the sender's name. */
-    fun reminder(from: String, amounts: List<Pair<String, Long>>): Pair<String, String> {
-        val a = from.ifBlank { "Someone" }
-        val m = amounts.map { (c, v) -> Money.display(v, c) }
+    /**
+     * Reminder push (docs/API.md "리마인더") in the recipient's [lang]: [amounts] currency → minor units, sorted by
+     * currency; [from] the sender's name (blank: `words.someone`, upper-cased only at the start).
+     */
+    fun reminder(from: String, amounts: List<Pair<String, Long>>, lang: String = "en"): Pair<String, String> {
+        val r = Render(lang, emptyMap(), null)
+        val a = from.ifBlank { r.s("words", "someone") }
+        val words = if (from.isBlank()) setOf("A") else emptySet()
+        val m = amounts.map { (c, v) -> Money.display(v, c, r.lang) }
         val owed = when (m.size) {
             1 -> m[0]
-            2 -> "${m[0]} and ${m[1]}"
-            else -> "${m[0]}, ${m[1]} and more"
+            2 -> Strings.fill(r.s("remind", "two"), mapOf("a" to m[0], "b" to m[1]))
+            else -> Strings.fill(r.s("remind", "more"), mapOf("a" to m[0], "b" to m[1]))
         }
-        return "$a sent a reminder".clip(MAX_TITLE) to "You owe $a $owed.".clip(MAX_BODY)
+        return Strings.fill(r.s("remind", "title"), mapOf("A" to a), words).clip(MAX_TITLE) to
+            Strings.fill(r.s("remind", "body"), mapOf("A" to a, "amounts" to owed), words).clip(MAX_BODY)
     }
 
     /** Visible push title: the group name (a friend group: the other member's name), clipped like [body]. */
     fun title(groupName: String): String = groupName.clip(MAX_TITLE)
 
     /**
-     * Visible push body: the sentence for one item, a batch sentence for more, clipped to [MAX_BODY] chars so a long
-     * comment or description never pushes the message past FCM/APNs' 4096-byte limit (which would drop the sync data too).
-     * A `receipt_added` on an expense added in the same batch is left out first (Phase 7: saving a scanned expense is
-     * one sentence), and so is a `recurrence_*` item whose series has an `expense_*` item by the same actor in the batch
-     * (Phase 8: starting, editing ahead or deleting-and-stopping a series is one save, the expense's sentence; another
-     * member's stop or a repeat by Evensies next to it stays); the feed keeps both.
+     * Visible push body in the recipient's [lang]: the sentence for one item, a batch sentence for more, clipped to
+     * [MAX_BODY] chars so a long comment or description never pushes the message past FCM/APNs' 4096-byte limit (which
+     * would drop the sync data too). A `receipt_added` on an expense added in the same batch is left out first (Phase 7:
+     * saving a scanned expense is one sentence), and so is a `recurrence_*` item whose series has an `expense_*` item by
+     * the same actor in the batch (Phase 8: starting, editing ahead or deleting-and-stopping a series is one save, the
+     * expense's sentence; another member's stop or a repeat by Evensies next to it stays); the feed keeps both.
      */
-    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?): String {
+    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?, lang: String = "en"): String {
         val added = items.filter { it.kind == "expense_added" }.mapTo(HashSet()) { it.expenseId }
         val series = items.filter { it.kind.startsWith("expense_") }.mapNotNullTo(HashSet()) { i -> i.recurrenceId?.let { it to i.actorMemberId } }
         val shown = items.filterNot {
             (it.kind == "receipt_added" && it.expenseId in added) || (it.kind.startsWith("recurrence_") && (it.recurrenceId to it.actorMemberId) in series)
         }
-        return batch(shown, names, me).clip(MAX_BODY)
+        return batch(shown, Render(lang, names, me)).clip(MAX_BODY)
     }
 
-    private fun batch(items: List<ActivityItem>, names: Map<String, String>, me: String?): String {
-        if (items.size == 1) return sentence(items[0], names, me)
+    private fun batch(items: List<ActivityItem>, r: Render): String {
+        if (items.size == 1) return sentence(items[0], r)
+        val n = mapOf("n" to items.size.toString())
         val actors = items.map { it.actorMemberId }.distinct() // [null] = one unknown actor ("Someone")
-        if (actors.size > 1) return "${items.size} new changes"
-        val a = who(actors[0], names, me, start = true)
-        return when (items.map { it.kind }.distinct().singleOrNull()) {
-            "expense_added" -> "$a added ${items.size} expenses"
-            "comment_added" -> "$a added ${items.size} comments"
-            "expense_repeated" -> "${items.size} repeating expenses were added" // no actor (Evensies), never "Someone"
-            else -> "$a made ${items.size} changes"
+        if (actors.size > 1) return Strings.fill(r.s("batch", "mixed"), n)
+        val key = when (items.map { it.kind }.distinct().singleOrNull()) {
+            "expense_added" -> "expenses"
+            "comment_added" -> "comments"
+            "expense_repeated" -> "repeats" // no actor (Evensies), never "Someone"
+            else -> "changes"
         }
+        return Strings.fill(r.s("batch", key), n + ("A" to r.who(actors[0])), if (r.isWord(actors[0])) setOf("A") else emptySet())
     }
 }
 

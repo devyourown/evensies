@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/l10n.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../domain/activity.dart';
 import '../../domain/models.dart';
 import '../../domain/recurrence.dart';
+import '../../l10n/app_localizations_en.dart';
 import '../../providers.dart';
 import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
@@ -21,7 +23,7 @@ class ActivityScreen extends StatelessWidget {
   const ActivityScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Activity')),
+        appBar: AppBar(title: Text(context.l.activity)),
         body: const Column(children: [OfflineBanner(), Expanded(child: ActivityList())]),
       );
 }
@@ -146,6 +148,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
 
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     Widget message(IconData icon, String title, String body, {Widget? action}) => ListView(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(32, 96, 32, 32),
@@ -164,26 +167,25 @@ class _ActivityListState extends ConsumerState<ActivityList> {
     if (_items.isEmpty && _loading) {
       return const Center(child: CircularProgressIndicator());
     } else if (_items.isEmpty && _failed) {
-      child = message(Icons.cloud_off_outlined, 'Activity needs a connection',
-          'Recent changes show up here once you are back online.',
-          action: OutlinedButton(onPressed: _refresh, child: const Text('Retry')));
+      child = message(Icons.cloud_off_outlined, l.activityNeedsConnection, l.activityOfflineNote,
+          action: OutlinedButton(onPressed: _refresh, child: Text(l.retry)));
     } else if (_items.isEmpty && _nextBefore == null) {
       // Only a null nextBefore is the end: an empty page can be all hidden events.
-      child = message(Icons.history, 'No activity yet',
-          widget.groupId == null ? 'Changes in your groups show up here.' : 'Changes in this group show up here.');
+      child = message(
+          Icons.history, l.noActivityYet, widget.groupId == null ? l.activityAllGroups : l.activityThisGroup);
     } else {
       final rows = <Widget>[
         if (_failed)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text('Showing saved activity. Pull to refresh.',
+            child: Text(l.showingSaved,
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ),
       ];
       String? lastDay;
       final restoreOffered = <String>{}; // expense and payment ids: only the newest delete row offers Restore
       for (final (item: i, :count) in foldReceipts(_items)) {
-        final day = dayLabel(i.createdAt);
+        final day = dayLabel(i.createdAt, l: l);
         if (day != lastDay) {
           lastDay = day;
           rows.add(Padding(
@@ -209,7 +211,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
       final wantMore = _nextBefore != null && !_moreFailed;
       if (_nextBefore != null) {
         rows.add(_moreFailed
-            ? Center(child: TextButton(onPressed: _more, child: const Text('Load more')))
+            ? Center(child: TextButton(onPressed: _more, child: Text(l.loadMore)))
             : const Padding(
                 padding: EdgeInsets.all(16),
                 child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
@@ -257,7 +259,7 @@ List<({ActivityItem item, int count})> foldReceipts(List<ActivityItem> items) {
         last.actorMemberId == i.actorMemberId &&
         last.expenseId == i.expenseId &&
         last.groupId == i.groupId &&
-        dayLabel(last.createdAt) == dayLabel(i.createdAt);
+        _day(last.createdAt) == _day(i.createdAt);
     if (same && i.kind.startsWith('receipt_') && last.kind == i.kind) {
       rows.last = (item: last, count: rows.last.count + 1);
     } else if (same && i.kind == 'expense_added' && last.kind == 'receipt_added') {
@@ -271,16 +273,20 @@ List<({ActivityItem item, int count})> foldReceipts(List<ActivityItem> items) {
 
 DateTime? _local(String? iso) => iso == null ? null : DateTime.tryParse(iso)?.toLocal();
 
-/// "Today", "Yesterday", "Mon, 5 Oct" or "5 Oct 2025" for a feed timestamp.
-String dayLabel(String? iso, {DateTime? now}) {
+/// The local calendar day of a feed timestamp (folding rows), or null.
+String? _day(String? iso) => _local(iso)?.toIso8601String().substring(0, 10);
+
+/// "Today", "Yesterday", "Mon, 5 Oct" or "5 Oct 2025" for a feed timestamp, in [l]'s language (English by default).
+String dayLabel(String? iso, {DateTime? now, AppLocalizations? l}) {
+  final words = l ?? AppLocalizationsEn();
   final d = _local(iso);
-  if (d == null) return 'Earlier';
+  if (d == null) return words.earlier;
   final today = now ?? DateTime.now();
   // Calendar days in UTC: local midnights are 23 or 25 hours apart around a DST change.
   final diff = DateTime.utc(today.year, today.month, today.day).difference(DateTime.utc(d.year, d.month, d.day)).inDays;
-  if (diff == 0) return 'Today';
-  if (diff == 1) return 'Yesterday';
-  return DateFormat(d.year == today.year ? 'EEE, d MMM' : 'd MMM yyyy').format(d);
+  if (diff == 0) return words.today;
+  if (diff == 1) return words.yesterday;
+  return (d.year == today.year ? DateFormat.MMMEd() : DateFormat.yMMMd()).format(d);
 }
 
 /// One feed row; names and "me" come from the local group, so renames show up without a refetch.
@@ -310,6 +316,7 @@ class ActivityTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final l = context.l;
     final group = ref.watch(groupProvider(groupId)).value;
     final state = ref.watch(groupStateProvider(groupId)).value;
     final home = ref.watch(homeDataProvider).value;
@@ -365,8 +372,8 @@ class ActivityTile extends ConsumerWidget {
     final due = item.kind == 'expense_repeated' ? DateTime.tryParse(expense?.date ?? '') : null;
     final meta = [
       // A friend group reads "Non-group · Ben".
-      if (showGroup) home?.label(groupId) ?? group?.name ?? '',
-      if (due != null && (time == null || !DateUtils.isSameDay(due, time))) 'for ${DateFormat('EEE, d MMM').format(due)}',
+      if (showGroup) home?.label(groupId, l) ?? group?.name ?? '',
+      if (due != null && (time == null || !DateUtils.isSameDay(due, time))) l.forDate(DateFormat.MMMEd().format(due)),
       if (time != null) DateFormat.jm().format(time),
     ].where((s) => s.isNotEmpty).join(' · ');
 
@@ -400,9 +407,13 @@ class ActivityTile extends ConsumerWidget {
       // Comments can be long (the expense shows them in full); change lists are short enough to show whole.
       // An expense's History only marks when someone commented: the text is in Comments right below.
       title: Text(
-          embedded && kind == 'comment_added'
-              ? '${actor != null && actor == group?.myMemberId ? 'You' : names[actor] ?? 'Someone'} commented'
-              : activityText(item, names, group?.myMemberId, withDelta: false, count: count),
+          keepAll(
+              embedded && kind == 'comment_added'
+                  ? (actor != null && actor == group?.myMemberId
+                      ? l.youCommented
+                      : l.nameCommented(names[actor] ?? l.someone))
+                  : activityText(item, names, group?.myMemberId, withDelta: false, count: count),
+              l.localeName),
           maxLines: kind == 'comment_added' ? 3 : null,
           overflow: kind == 'comment_added' ? TextOverflow.ellipsis : null),
       subtitle: delta == null && meta.isEmpty
@@ -420,18 +431,18 @@ class ActivityTile extends ConsumerWidget {
           ? TextButton(
               onPressed: () async {
                 await ref.read(localWritesProvider).restoreExpense(groupId, expense.id);
-                if (context.mounted) showInfo(context, 'Restored “${expense.description}”');
+                if (context.mounted) showInfo(context, context.l.restoredName(expense.description));
               },
-              child: const Text('Restore'),
+              child: Text(l.restore),
             )
           : restorablePayment
               ? TextButton(
                   key: const Key('restore-payment'),
                   onPressed: () async {
                     await ref.read(localWritesProvider).restorePayment(groupId, payment.id);
-                    if (context.mounted) showInfo(context, 'Payment restored');
+                    if (context.mounted) showInfo(context, context.l.paymentRestored);
                   },
-                  child: const Text('Restore'),
+                  child: Text(l.restore),
                 )
               : null,
       onTap: target == null || embedded ? null : () => context.push(target!),

@@ -27,7 +27,19 @@ void main() {
 
   test('shared/activity-cases.json: money', () {
     for (final m in (golden['money'] as List).cast<Map<String, dynamic>>()) {
-      expect(formatMoney(m['minor'] as int, m['currency'] as String), m['text']);
+      expect(formatMoney(m['minor'] as int, m['currency'] as String, lang: m['lang'] as String? ?? 'en'), m['text'],
+          reason: '$m');
+    }
+  });
+
+  group('shared/activity-cases.json: localized sentences (one item; batches and reminders are the server\'s)', () {
+    for (final c in (golden['localized'] as List).cast<Map<String, dynamic>>()) {
+      final items = (c['items'] as List?)?.cast<Map<String, dynamic>>();
+      test(c['name'] as String, () {
+        final names = (c['names'] as Map).cast<String, String>();
+        expect(activityText(ActivityItem.fromJson(items!.single), names, c['me'] as String, lang: c['lang'] as String),
+            c['text']);
+      }, skip: items?.length == 1 ? null : 'server only');
     }
   });
 
@@ -37,7 +49,8 @@ void main() {
     for (final e in symbols.entries) {
       final f = formatMoney(123456, e.key);
       expect(f.startsWith(e.value), isTrue, reason: '${e.key}: $f');
-      expect(RegExp(r'\d').hasMatch(f.substring(e.value.length, e.value.length + 1)), isTrue, reason: '${e.key}: $f');
+      // A symbol ending in a Latin letter is followed by a no-break space (docs/API.md 금액 표기).
+      expect(RegExp('^\u00a0?\\d').hasMatch(f.substring(e.value.length)), isTrue, reason: '${e.key}: $f');
     }
   });
 

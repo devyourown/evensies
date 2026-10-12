@@ -1,5 +1,5 @@
 {
-  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'. 6단계: 친구 그룹(seq 1 group.created의 kind가 \"friend\")에서는 seq 1·2를 숨기고 그 밖의 member.added는 friend_added(\"{A} added {member} as a friend\"). movedTo가 있는 expense.deleted는 expense_moved(expense_deleted와 같은 필드, \"{A} moved “{description}” to another group\"). paymentId가 있는 comment_added는 댓글 시점의 송금 필드(paymentId, fromMember, toMember, amount, currency)와 commentId·text를 채우고 expenseId·description은 null(\"{A} commented on a payment of {M(amount)} from {from} to {to}: {text}\"). 송금 편집(payment_deleted + payment_added)은 묶음에서 \"{A} made 2 changes\". 7단계: attachment.added는 receipt_added, attachment.deleted는 receipt_removed(expenseId·description = 그 영수증이 붙은 지출의 직후 값, \"{A} added a receipt to “{description}”\" / \"{A} removed a receipt from “{description}”\"). 이미 있는 id의 attachment.added와 이미 삭제된 영수증의 attachment.deleted는 숨김 1. payment.restored는 payment_restored(payment_added와 같은 필드, \"{A} restored a payment of {M(amount)} from {from} to {to}\"); 살아 있거나 편집으로 바뀐(replaced) 송금의 restored는 숨김 1. replacedBy가 문자열인 payment.deleted(송금 편집)는 payment_deleted가 아니라 payment_edited(같은 필드, 이전 송금의 값, \"{A} edited a payment of {M(amount)} from {from} to {to}\"). 송금 편집(payment_edited + payment_added)은 묶음에서 그대로 \"{A} made 2 changes\". batches: 표시 알림으로 보낼 항목에서 같은 묶음에 같은 expenseId의 expense_added가 있는 receipt_added를 먼저 뺀다(남은 것이 하나면 그 문장). 8단계(반복 지출): recurrence.created → recurrence_created, recurrence.updated → recurrence_updated, recurrence.deleted → recurrence_deleted. 셋 다 recurrenceId, frequency와 직후 template의 description·amount·currency를 채운다(myDelta 없음). recurrence_updated의 changes는 직전·직후 template을 지출로 읽어(expense.created처럼 적용) expense_updated와 같은 규칙·순서로 만든다(template에는 date가 없다). 이미 있는 id의 recurrence.created, 없거나 멈춘 시리즈의 recurrence.updated·recurrence.deleted는 숨김 1. actorUserId가 null이고 recurrenceId가 있는 expense.created(서버 스케줄러가 만든 반복)는 expense_repeated: expense_added와 같은 필드 + frequency, actorMemberId 없음. expense_* 항목은 직후 지출에 시리즈가 있으면 recurrenceId를 채운다. changes가 빈 expense_updated·recurrence_updated(시리즈 표시 recurrenceId·occurrence만 바뀐 수정 등)는 숨긴다(숨김 7). 문장: \"{A} set “{description}” to repeat {frequency}\", \"{A} changed future “{description}”: {변경들}\", \"{A} stopped “{description}” repeating\", \"“{description}” · {M(amount)} was added (repeats {frequency})\" + expense_added와 같은 꼬리(환불이면 \"A refund “…” · … was added (repeats …)\"와 you get back). frequency 말: weekly / every 2 weeks / monthly / yearly. batches: 같은 묶음에 같은 recurrenceId를 가진 expense_* 항목이 있는 recurrence_* 항목은 먼저 뺀다(반복 지출 만들기·미래까지 고치기·지우고 멈추기는 지출의 문장 하나). 모두 expense_repeated면 \"{n} repeating expenses were added\"(actor가 없어도 Someone을 쓰지 않는다).",
+  "_doc": "활동 피드 골든 케이스 (docs/API.md '활동 피드'). cases: events(그룹 로그 전체, seq 1은 group.created)를 순서대로 적용하며 이벤트마다 직전·직후 상태로 ActivityItem을 만들면, 숨김 규칙을 거친 결과를 최신순으로 나열한 것이 expected, 보는 사람 me 기준 영어 문장이 texts(같은 순서)다. expected는 null인 키와 빈 changes를 생략한다(비교할 때 없는 것과 같다). groupId·feedId는 DB 값이라 여기에 없다. actorMemberId는 직후 상태에서 actorUserId에 연결된 멤버, 없으면 로그 전체를 적용한 상태에서 찾는다. 서버는 items와 texts를, 앱은 expected→texts(포매터)를 검증한다. batches: 서버 푸시 묶음 문장(앱은 쓰지 않음). money: 금액 표기 (shared/currencies.json symbols). 3단계: 결제자가 직전·직후 모두 한 명이면 changes에 payers를 넣지 않고(적용 규칙 10으로 amount·paidBy를 따라 바뀐 것), 어느 한쪽이라도 여럿이면 paidBy를 넣지 않는다(payers에서 정해진 값이라 동점·작은 수정으로 뒤집힌다). 환불인 expense_added는 refund: true. 4단계: symbols에 없는 통화(새 통화)는 ISO 코드가 접두어다(ZAR1,234.56, OMR1,234.567, XOF1,500). 5단계: category 변경은 앱이 그 값을 보여 주는 이름(labelOf: label, *.other는 'Entertainment - Other', null·legacy는 General)으로 'category General → Dining out', 두 쪽이 같으면 그냥 'category'. 6단계: 친구 그룹(seq 1 group.created의 kind가 \"friend\")에서는 seq 1·2를 숨기고 그 밖의 member.added는 friend_added(\"{A} added {member} as a friend\"). movedTo가 있는 expense.deleted는 expense_moved(expense_deleted와 같은 필드, \"{A} moved “{description}” to another group\"). paymentId가 있는 comment_added는 댓글 시점의 송금 필드(paymentId, fromMember, toMember, amount, currency)와 commentId·text를 채우고 expenseId·description은 null(\"{A} commented on a payment of {M(amount)} from {from} to {to}: {text}\"). 송금 편집(payment_deleted + payment_added)은 묶음에서 \"{A} made 2 changes\". 7단계: attachment.added는 receipt_added, attachment.deleted는 receipt_removed(expenseId·description = 그 영수증이 붙은 지출의 직후 값, \"{A} added a receipt to “{description}”\" / \"{A} removed a receipt from “{description}”\"). 이미 있는 id의 attachment.added와 이미 삭제된 영수증의 attachment.deleted는 숨김 1. payment.restored는 payment_restored(payment_added와 같은 필드, \"{A} restored a payment of {M(amount)} from {from} to {to}\"); 살아 있거나 편집으로 바뀐(replaced) 송금의 restored는 숨김 1. replacedBy가 문자열인 payment.deleted(송금 편집)는 payment_deleted가 아니라 payment_edited(같은 필드, 이전 송금의 값, \"{A} edited a payment of {M(amount)} from {from} to {to}\"). 송금 편집(payment_edited + payment_added)은 묶음에서 그대로 \"{A} made 2 changes\". batches: 표시 알림으로 보낼 항목에서 같은 묶음에 같은 expenseId의 expense_added가 있는 receipt_added를 먼저 뺀다(남은 것이 하나면 그 문장). 8단계(반복 지출): recurrence.created → recurrence_created, recurrence.updated → recurrence_updated, recurrence.deleted → recurrence_deleted. 셋 다 recurrenceId, frequency와 직후 template의 description·amount·currency를 채운다(myDelta 없음). recurrence_updated의 changes는 직전·직후 template을 지출로 읽어(expense.created처럼 적용) expense_updated와 같은 규칙·순서로 만든다(template에는 date가 없다). 이미 있는 id의 recurrence.created, 없거나 멈춘 시리즈의 recurrence.updated·recurrence.deleted는 숨김 1. actorUserId가 null이고 recurrenceId가 있는 expense.created(서버 스케줄러가 만든 반복)는 expense_repeated: expense_added와 같은 필드 + frequency, actorMemberId 없음. expense_* 항목은 직후 지출에 시리즈가 있으면 recurrenceId를 채운다. changes가 빈 expense_updated·recurrence_updated(시리즈 표시 recurrenceId·occurrence만 바뀐 수정 등)는 숨긴다(숨김 7). 문장: \"{A} set “{description}” to repeat {frequency}\", \"{A} changed future “{description}”: {변경들}\", \"{A} stopped “{description}” repeating\", \"“{description}” · {M(amount)} was added (repeats {frequency})\" + expense_added와 같은 꼬리(환불이면 \"A refund “…” · … was added (repeats …)\"와 you get back). frequency 말: weekly / every 2 weeks / monthly / yearly. batches: 같은 묶음에 같은 recurrenceId를 가진 expense_* 항목이 있는 recurrence_* 항목은 먼저 뺀다(반복 지출 만들기·미래까지 고치기·지우고 멈추기는 지출의 문장 하나). 모두 expense_repeated면 \"{n} repeating expenses were added\"(actor가 없어도 Someone을 쓰지 않는다). 9단계(언어, docs/API.md '언어·웹'): 문장은 shared/strings.json의 언어 블록으로 만든다. cases·batches·lang 없는 money는 en이고 영어 문장은 9단계 전과 바이트 단위로 같다. money[]의 lang(없으면 en)은 strings.json의 언어이고 표기는 M(x)(docs/API.md '금액 표기'). 9단계에 영어 골든 6개가 바뀌었다: 기호가 라틴 문자로 끝나고 패턴이 {s}{n}이면 사이에 U+00A0(CHF는 그대로, SEK·KWD는 기호 표에서 빠져 ISO 코드, ZAR·OMR·XOF는 원래 ISO 코드). localized: 언어별 골든(번역 검토의 일부). 모양은 batches와 같고 lang이 더해진다: items가 하나면 그 문장(앱·서버), 둘 이상이면 푸시 묶음 문장(서버만, batches와 같은 규칙), remind가 있으면 items 대신 {from: 보낸 사람 이름, amounts: [{currency, amount}]}이고 title·text는 리마인더 푸시(서버만). lang이 strings.json에 없으면 en으로 만든다.",
   "money": [
     {
       "minor": 3000,
@@ -34,32 +34,147 @@
     {
       "minor": 1250,
       "currency": "CHF",
-      "text": "CHF12.50"
+      "text": "CHF\u00a012.50"
     },
     {
       "minor": 1234567,
       "currency": "KWD",
-      "text": "din1,234.567"
+      "text": "KWD\u00a01,234.567"
     },
     {
       "minor": 99900,
       "currency": "SEK",
-      "text": "kr999.00"
+      "text": "SEK\u00a0999.00"
     },
     {
       "minor": 123456,
       "currency": "ZAR",
-      "text": "ZAR1,234.56"
+      "text": "ZAR\u00a01,234.56"
     },
     {
       "minor": 1234567,
       "currency": "OMR",
-      "text": "OMR1,234.567"
+      "text": "OMR\u00a01,234.567"
     },
     {
       "minor": 1500,
       "currency": "XOF",
-      "text": "XOF1,500"
+      "text": "XOF\u00a01,500"
+    },
+    {
+      "minor": 1234,
+      "currency": "CAD",
+      "text": "CA$12.34"
+    },
+    {
+      "minor": 1250,
+      "currency": "CNY",
+      "text": "CN¥12.50"
+    },
+    {
+      "minor": 1250,
+      "currency": "TWD",
+      "text": "NT$12.50"
+    },
+    {
+      "minor": 1250,
+      "currency": "MYR",
+      "text": "RM\u00a012.50"
+    },
+    {
+      "minor": 1234,
+      "currency": "PYG",
+      "text": "PYG\u00a01,234"
+    },
+    {
+      "minor": 123456,
+      "currency": "EUR",
+      "lang": "de",
+      "text": "1.234,56\u00a0€"
+    },
+    {
+      "minor": 1250,
+      "currency": "CHF",
+      "lang": "de",
+      "text": "12,50\u00a0CHF"
+    },
+    {
+      "minor": 123456,
+      "currency": "EUR",
+      "lang": "fr",
+      "text": "1\u202f234,56\u00a0€"
+    },
+    {
+      "minor": 99900,
+      "currency": "SEK",
+      "lang": "sv",
+      "text": "999,00\u00a0kr"
+    },
+    {
+      "minor": 1250,
+      "currency": "NOK",
+      "lang": "sv",
+      "text": "12,50\u00a0NOK"
+    },
+    {
+      "minor": 123456789,
+      "currency": "PLN",
+      "lang": "pl",
+      "text": "1\u00a0234\u00a0567,89\u00a0zł"
+    },
+    {
+      "minor": 123456,
+      "currency": "EUR",
+      "lang": "nl",
+      "text": "€\u00a01.234,56"
+    },
+    {
+      "minor": 123456,
+      "currency": "BRL",
+      "lang": "pt",
+      "text": "R$\u00a01.234,56"
+    },
+    {
+      "minor": 5,
+      "currency": "EUR",
+      "lang": "it",
+      "text": "0,05\u00a0€"
+    },
+    {
+      "minor": 123456,
+      "currency": "USD",
+      "lang": "es",
+      "text": "1.234,56\u00a0$"
+    },
+    {
+      "minor": 123456,
+      "currency": "IDR",
+      "lang": "id",
+      "text": "Rp\u00a0123.456"
+    },
+    {
+      "minor": 15000,
+      "currency": "KRW",
+      "lang": "ko",
+      "text": "₩15,000"
+    },
+    {
+      "minor": 1234567,
+      "currency": "JPY",
+      "lang": "ja",
+      "text": "¥1,234,567"
+    },
+    {
+      "minor": 123456,
+      "currency": "THB",
+      "lang": "th",
+      "text": "฿1,234.56"
+    },
+    {
+      "minor": 3000,
+      "currency": "EUR",
+      "lang": "xx",
+      "text": "€30.00"
     }
   ],
   "cases": [
@@ -4302,6 +4417,195 @@
         }
       ],
       "text": "“Cleaner” · €80.00 was added (repeats weekly)"
+    }
+  ],
+  "localized": [
+    {
+      "name": "de: other actor, symbol after the number, owe suffix",
+      "lang": "de",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 5,
+          "kind": "expense_added",
+          "createdAt": "2026-10-11T08:05:00Z",
+          "actorMemberId": "m1",
+          "expenseId": "x1",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": -1500
+        }
+      ],
+      "text": "Anna hat „Dinner“ hinzugefügt · 30,00\u00a0€ · du schuldest 15,00\u00a0€"
+    },
+    {
+      "name": "ko: viewer is the receiver of a sent payment (you variants)",
+      "lang": "ko",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 9,
+          "kind": "payment_added",
+          "createdAt": "2026-10-11T08:09:00Z",
+          "actorMemberId": "m1",
+          "paymentId": "p1",
+          "fromMember": "m1",
+          "toMember": "m2",
+          "amount": 1200,
+          "currency": "EUR",
+          "status": "sent"
+        }
+      ],
+      "text": "Anna님이 나에게 송금했어요 · €12.00 · 내 확인을 기다리는 중"
+    },
+    {
+      "name": "it: viewer added as a friend (you variant)",
+      "lang": "it",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 3,
+          "kind": "friend_added",
+          "createdAt": "2026-10-11T08:03:00Z",
+          "actorMemberId": "m1",
+          "memberId": "m2"
+        }
+      ],
+      "text": "Anna ti ha aggiunto agli amici"
+    },
+    {
+      "name": "ja: a monthly repeat by Evensies with the viewer's share",
+      "lang": "ja",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 12,
+          "kind": "expense_repeated",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "expenseId": "x2",
+          "description": "家賃",
+          "amount": 80000,
+          "currency": "JPY",
+          "myDelta": -40000,
+          "recurrenceId": "r1",
+          "frequency": "monthly"
+        }
+      ],
+      "text": "「家賃」 · ¥80,000 が追加されました（繰り返し: 毎月） · あなたの負担 ¥40,000"
+    },
+    {
+      "name": "de: an unknown actor is words.someone, upper-cased at the start",
+      "lang": "de",
+      "me": "m2",
+      "names": {
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 7,
+          "kind": "expense_deleted",
+          "createdAt": "2026-10-11T08:07:00Z",
+          "actorMemberId": "m9",
+          "expenseId": "x3",
+          "description": "Taxi",
+          "amount": 1800,
+          "currency": "EUR"
+        }
+      ],
+      "text": "Jemand hat „Taxi“ gelöscht"
+    },
+    {
+      "name": "a language without strings renders English",
+      "lang": "xx",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 5,
+          "kind": "expense_added",
+          "createdAt": "2026-10-11T08:05:00Z",
+          "actorMemberId": "m1",
+          "expenseId": "x1",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": -1500
+        }
+      ],
+      "text": "Anna added “Dinner” · €30.00 · you owe €15.00"
+    },
+    {
+      "name": "de: push batch, same actor, all expenses added (server only)",
+      "lang": "de",
+      "me": "m2",
+      "names": {
+        "m1": "Anna",
+        "m2": "Ben"
+      },
+      "items": [
+        {
+          "seq": 5,
+          "kind": "expense_added",
+          "createdAt": "2026-10-11T08:05:00Z",
+          "actorMemberId": "m1",
+          "expenseId": "x1",
+          "description": "Dinner",
+          "amount": 3000,
+          "currency": "EUR",
+          "myDelta": -1500
+        },
+        {
+          "seq": 6,
+          "kind": "expense_added",
+          "createdAt": "2026-10-11T08:06:00Z",
+          "actorMemberId": "m1",
+          "expenseId": "x2",
+          "description": "Taxi",
+          "amount": 1800,
+          "currency": "EUR",
+          "myDelta": -900
+        }
+      ],
+      "text": "Anna hat 2 Ausgaben hinzugefügt"
+    },
+    {
+      "name": "de: reminder push with two currencies (server only)",
+      "lang": "de",
+      "remind": {
+        "from": "Anna",
+        "amounts": [
+          {
+            "currency": "EUR",
+            "amount": 1500
+          },
+          {
+            "currency": "USD",
+            "amount": 500
+          }
+        ]
+      },
+      "title": "Anna hat dich erinnert",
+      "text": "Du schuldest Anna 15,00\u00a0€ und 5,00\u00a0$."
     }
   ]
 }

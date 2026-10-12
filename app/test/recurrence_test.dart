@@ -1,3 +1,4 @@
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/ids.dart';
 import 'package:evensies/data/fx_rates.dart';
@@ -57,7 +58,7 @@ void main() {
   });
 
   test('labels and frequency words', () {
-    expect([for (final f in [null, ...frequencies]) repeatLabel(f)],
+    expect([for (final f in [null, ...frequencies]) repeatLabel(AppLocalizationsEn(), f)],
         ['Never', 'Every week', 'Every 2 weeks', 'Every month', 'Every year']);
     expect([for (final f in frequencies) frequencyWord(f)], ['weekly', 'every 2 weeks', 'monthly', 'yearly']);
   });
@@ -118,12 +119,12 @@ void main() {
     test('seriesNames names at most three, in order; seriesBlocker names mine', () {
       Recurrence r(String name) =>
           Recurrence(id: name, frequency: 'weekly', startDate: '2026-09-01', timeZone: 'Z', template: {'description': name});
-      expect(seriesNames([r('Rent')]), 'Rent');
-      expect(seriesNames([for (final n in ['Rent', 'Netflix', 'Gym']) r(n)]), 'Rent, Netflix, Gym');
-      expect(seriesNames([for (final n in ['Rent', 'Netflix', 'Gym', 'Water', 'Power']) r(n)]),
+      expect(seriesNames(AppLocalizationsEn(), [r('Rent')]), 'Rent');
+      expect(seriesNames(AppLocalizationsEn(), [for (final n in ['Rent', 'Netflix', 'Gym']) r(n)]), 'Rent, Netflix, Gym');
+      expect(seriesNames(AppLocalizationsEn(), [for (final n in ['Rent', 'Netflix', 'Gym', 'Water', 'Power']) r(n)]),
           'Rent, Netflix, Gym and 2 more');
-      expect(s.seriesBlocker('m2'), "You're still in 1 repeating expense (Rent) · edit the latest one or stop it first");
-      expect([s.seriesBlocker('m3'), s.seriesBlocker(null)], [null, null]);
+      expect(s.seriesBlocker(AppLocalizationsEn(), 'm2'), "You're still in 1 repeating expense (Rent) · edit the latest one or stop it first");
+      expect([s.seriesBlocker(AppLocalizationsEn(), 'm3'), s.seriesBlocker(AppLocalizationsEn(), null)], [null, null]);
     });
   });
 

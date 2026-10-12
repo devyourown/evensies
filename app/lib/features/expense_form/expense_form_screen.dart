@@ -10,6 +10,7 @@ import '../../core/confirm.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../data/api/dto.dart';
@@ -179,9 +180,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _lastPosted = series == null ? 0 : state.lastPosted(series.id);
       _repeat = series?.frequency; // a stopped series starts at Never: picking one starts a new series
       _future = true;
-      _amount.text = minorToText(e.amount, e.currency);
+      _amount.text = inputAmount(e.amount, e.currency);
       _description.text = e.description;
-      _fx.text = rated ? e.fxRateToDefault.toString() : '';
+      _fx.text = rated ? numberText(e.fxRateToDefault!, decimals: 10) : '';
       _fxTyped = rated;
       _cat = e.category;
       _catAuto = false;
@@ -193,7 +194,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _several = e.payers.length > 1;
       _paidBy = e.paidBy;
       for (final p in e.payers) {
-        _payer(p.memberId).text = minorToText(p.amount, e.currency);
+        _payer(p.memberId).text = inputAmount(p.amount, e.currency);
       }
       _openSplit(e, [for (final m in state.members) m.id]);
     });
@@ -214,7 +215,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _fxLoading = false;
       _fxTable = table;
       final auto = d == null || _currency == null ? null : _autoRate(_currency!, d);
-      if (apply && !_fxTyped) _fx.text = auto?.toString() ?? '';
+      if (apply && !_fxTyped) _fx.text = auto == null ? '' : numberText(auto, decimals: 10);
     });
   }
 
@@ -230,7 +231,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _fxTable = null;
       _fxLoading = false;
       _fx.clear();
-      if (_split.items && _split.bill != null) _amount.text = minorToText(itemizedTotal(_split.bill!), c);
+      if (_split.items && _split.bill != null) _amount.text = inputAmount(itemizedTotal(_split.bill!), c);
     });
     if (c != d) _lookupRate(apply: true);
   }
@@ -286,7 +287,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     ];
     if (!mounted) return;
     if (!splitFits(spec, ids)) {
-      return setState(() => _defaultNote = "The group's default split no longer adds up, so this starts equal");
+      return setState(() => _defaultNote = context.l.defaultSplitStartsEqual);
     }
     _split.load(SplitSpec(mode, {for (final id in ids) id: spec.input?[id] ?? 0.0}), ''); // joined later: 0
   }
@@ -299,7 +300,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   /// Several payers: per person amounts (empty or zero dropped) that must add up to [amount].
   ({List<Share>? payers, String status, bool ok}) _payers(
-      int? amount, List<MemberRow> members, String currency, String? single) {
+      AppLocalizations l, int? amount, List<MemberRow> members, String currency, String? single) {
     if (!_several) {
       return single == null || amount == null
           ? (payers: null, status: '', ok: false)
@@ -310,16 +311,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final t = _payer(m.id).text.trim();
       if (t.isEmpty) continue;
       final v = parseMoney(t, currency);
-      if (v == null || v < 0) return (payers: null, status: 'Check the amounts', ok: false);
+      if (v == null || v < 0) return (payers: null, status: l.checkAmounts, ok: false);
       if (v > 0) list.add(Share(memberId: m.id, amount: v));
     }
-    if (amount == null) return (payers: null, status: 'Enter the total first', ok: false);
+    if (amount == null) return (payers: null, status: l.enterTotalFirst, ok: false);
     final left = amount - list.fold<int>(0, (a, p) => a + p.amount);
-    if (left > 0) return (payers: null, status: '${formatMoney(left, currency)} left to assign', ok: false);
-    if (left < 0) return (payers: null, status: 'over by: ${formatMoney(-left, currency)}', ok: false);
+    if (left > 0) return (payers: null, status: l.leftToAssign(formatMoney(left, currency)), ok: false);
+    if (left < 0) return (payers: null, status: l.overBy(formatMoney(-left, currency)), ok: false);
     // A zero total still needs a payer.
     if (list.isEmpty && single != null) list.add(Share(memberId: single, amount: 0));
-    return (payers: list, status: 'Adds up', ok: list.isNotEmpty);
+    return (payers: list, status: l.addsUp, ok: list.isNotEmpty);
   }
 
   Future<void> _pickDate() async {
@@ -360,13 +361,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     final large = MediaQuery.textScalerOf(context).scale(1) > 2;
     final ids = [for (final m in members) m.id];
     final currency = _currency ?? group.defaultCurrency;
     final d = group.defaultCurrency;
     final foreign = currency != d;
     final fxText = _fx.text.trim();
-    final fxValue = fxText.isEmpty ? null : double.tryParse(fxText.replaceAll(',', '.'));
+    final fxValue = fxText.isEmpty ? null : parseDecimal(fxText);
     // Empty is fine (the expense stays under Not converted); 0 is refused: it would mean the same, but silently.
     final fxBad = foreign && fxText.isNotEmpty && (fxValue == null || !fxValue.isFinite || fxValue <= 0);
     final autoRate = foreign ? _autoRate(currency, d) : null;
@@ -378,8 +380,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final notesLength = _notes.text.trim().length;
     final descriptionLength = _description.text.trim().length;
     final descriptionTooLong = descriptionLength > _maxDescription && _description.text.trim() != _editing?.description;
-    final split = _split.evaluate(amount: amount, ids: ids, currency: currency);
-    final payers = _payers(amount, members, currency, paidBy);
+    final split = _split.evaluate(amount: amount, ids: ids, currency: currency, l: l);
+    final payers = _payers(l, amount, members, currency, paidBy);
     final canSave = !_busy &&
         !deleted &&
         notesLength <= _maxNotes &&
@@ -392,7 +394,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         payers.ok &&
         split.ok &&
         split.shares != null;
-    final dateLabel = DateFormat('EEE, d MMM yyyy').format(DateTime.tryParse(_date) ?? DateTime.now());
+    final dateLabel = DateFormat.yMMMEd().format(DateTime.tryParse(_date) ?? DateTime.now());
     final active = all.where((m) => !m.removed).toList();
     final me = group.myMemberId;
     final other = active.length == 2 && active.any((m) => m.id == me) ? active.firstWhere((m) => m.id != me) : null;
@@ -405,10 +407,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
-        hintText: minorToText(0, currency),
+        hintText: inputAmount(0, currency),
         border: InputBorder.none,
         isDense: true,
-        helperText: items != null ? 'The total of the items' : null,
+        helperText: items != null ? l.itemsTotal : null,
       ),
       onTap: items != null ? _openItems : null,
       onChanged: (_) => setState(() {}),
@@ -451,12 +453,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final receiptRoom = stored.length + _newReceipts.length < maxReceipts;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_editing == null ? 'New expense' : (deleted ? 'Deleted expense' : 'Edit expense')),
+        title: Text(_editing == null ? l.newExpense : (deleted ? l.deletedExpense : l.editExpense)),
         actions: [
           if (canScanReceipts && !deleted && receiptRoom)
             IconButton(
               key: const Key('scan-receipt'),
-              tooltip: 'Scan receipt',
+              tooltip: l.scanReceipt,
               onPressed: _scanning ? null : _scan,
               icon: _scanning
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -486,7 +488,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   if (_approx(amount, currency, d, fxBad ? null : fxValue) case final approx?)
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Text('≈ ${formatMoney(approx, d)}',
+                      child: Text(l.approx(formatMoney(approx, d)),
                           key: const Key('fx-approx'), style: text.titleSmall?.copyWith(color: cs.onSurfaceVariant)),
                     ),
                   Padding(
@@ -496,11 +498,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       controller: _fx,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: 'Rate: 1 $currency in $d',
+                        labelText: l.rateLabel(currency, d),
                         prefixIcon: const Icon(Icons.currency_exchange),
-                        helperText: _fxLoading ? 'Looking up the rate…' : _fxSource(currency, d, fxValue, autoRate),
+                        helperText: _fxLoading ? l.lookingUpRate : _fxSource(l, currency, d, fxValue, autoRate),
                         helperMaxLines: 3,
-                        errorText: fxBad ? 'Enter a rate above 0, or leave it empty' : null,
+                        errorText: fxBad ? l.rateAboveZeroOrEmpty : null,
                         suffixIcon: _fxLoading
                             ? const Padding(
                                 padding: EdgeInsets.all(14),
@@ -517,11 +519,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       child: TextButton.icon(
                         key: const Key('fx-auto'),
                         onPressed: () => setState(() {
-                          _fx.text = autoRate.toString();
+                          _fx.text = numberText(autoRate, decimals: 10);
                           _fxTyped = false;
                         }),
                         icon: const Icon(Icons.restart_alt, size: 18),
-                        label: Text('Use automatic rate: $autoRate (${_fxDay()})'),
+                        label: Text(l.useAutoRate(numberText(autoRate, decimals: 10), _fxDay(l))),
                       ),
                     ),
                 ],
@@ -531,17 +533,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   controller: _description,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: 'Description',
+                    labelText: l.description,
                     prefixIcon: const Icon(Icons.notes),
                     counterText: descriptionLength > _maxDescription - 20 ? '$descriptionLength/$_maxDescription' : null,
-                    errorText: descriptionTooLong ? 'Too long' : null,
+                    errorText: descriptionTooLong ? l.tooLong : null,
                   ),
                   onChanged: (_) {
                     setState(() {});
                     _scheduleGuess();
                   },
                 ),
-                sectionLabel(_refund ? 'Received by' : 'Paid by'),
+                sectionLabel(_refund ? l.receivedBy : l.paidBy),
                 Wrap(
                   spacing: 8,
                   runSpacing: 4,
@@ -558,7 +560,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     ChoiceChip(
                       key: const Key('several-payers'),
                       avatar: const Icon(Icons.group_outlined, size: 18),
-                      label: const Text('Several people'),
+                      label: Text(l.severalPeople),
                       selected: _several,
                       onSelected: (_) => setState(() {
                         // Start from what the single payer paid.
@@ -579,13 +581,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         controller: _payer(m.id),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
-                            labelText: m.name, isDense: true, suffixText: currency, hintText: minorToText(0, currency)),
+                            labelText: m.name, isDense: true, suffixText: currency, hintText: inputAmount(0, currency)),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
                   statusLine(payers.status, payers.ok, key: const Key('payers-status')),
                 ],
-                sectionLabel('When'),
+                sectionLabel(l.when),
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   OutlinedButton.icon(
                     onPressed: _pickDate,
@@ -608,26 +610,26 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       key: const Key('refund'),
                       avatar: Icon(Icons.undo, size: 18, color: _refund ? cs.onSecondaryContainer : cs.onSurfaceVariant),
                       showCheckmark: false,
-                      label: const Text('Refund'),
-                      tooltip: 'Money that came back, e.g. the hotel returned a deposit',
+                      label: Text(l.refund),
+                      tooltip: l.refundTooltip,
                       selected: _refund,
                       onSelected: (v) => setState(() => _refund = v),
                     ),
                   ],
                 ),
-                sectionLabel(_refund ? 'Split back to' : 'Split'),
+                sectionLabel(_refund ? l.splitBackTo : l.split),
                 // A refund reverses who owes whom, so the labels would be backwards (Splitwise hides them too).
                 if (other != null && me != null && !_refund) ...[
                   Wrap(spacing: 8, runSpacing: 4, children: [
                     ChoiceChip(
                       key: const Key('full-they-owe'),
-                      label: Text('${other.name} owes the full amount'),
+                      label: Text(l.theyOweFull(other.name)),
                       selected: _isFull(paidBy, me, other.id, ids),
                       onSelected: (_) => _setFull(me, other.id, ids),
                     ),
                     ChoiceChip(
                       key: const Key('full-i-owe'),
-                      label: Text('I owe ${other.name} the full amount'),
+                      label: Text(l.iOweFull(other.name)),
                       selected: _isFull(paidBy, other.id, me, ids),
                       onSelected: (_) => _setFull(other.id, me, ids),
                     ),
@@ -641,7 +643,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ),
                 SplitEditor(
                     controller: _split, members: members, amount: amount, currency: currency, onItems: _openItems),
-                sectionLabel('Receipts'),
+                sectionLabel(l.receipts),
                 _receiptsSection(group.id, stored, receiptRoom),
                 const SizedBox(height: 16),
                 TextField(
@@ -652,10 +654,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   // No maxLength: Flutter counts characters as seen (an emoji is 1), the limit counts UTF-16 units.
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    labelText: 'Notes',
+                    labelText: l.notes,
                     prefixIcon: const Icon(Icons.sticky_note_2_outlined),
                     counterText: notesLength > _maxNotes - 50 ? '$notesLength/$_maxNotes' : null,
-                    errorText: notesLength > _maxNotes ? 'Too long' : null,
+                    errorText: notesLength > _maxNotes ? l.tooLong : null,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -667,7 +669,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             onPressed: canSave ? () => _save(group, ids, currency, amount, payers.payers!, split.shares!) : null,
             child: _busy
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save'),
+                : Text(l.save),
           ),
         ],
       ),
@@ -695,16 +697,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             key: Key('repeat-${f ?? 'never'}'),
             leadingIcon: f == _repeat ? const Icon(Icons.check, size: 18) : const SizedBox(width: 18),
             onPressed: () => setState(() => _repeat = f),
-            child: Text(repeatLabel(f)),
+            child: Text(repeatLabel(context.l, f)),
           ),
       ],
       builder: (context, menu, _) => Tooltip(
-        message: 'Repeat',
+        message: context.l.repeat,
         child: OutlinedButton.icon(
           key: const Key('repeat'),
           onPressed: locked ? null : () => menu.isOpen ? menu.close() : menu.open(),
           icon: const Icon(Icons.repeat, size: 18),
-          label: Text(repeatLabel(_repeat)),
+          label: Text(repeatLabel(context.l, _repeat)),
         ),
       ),
     );
@@ -714,6 +716,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// does to a series, and on the latest repeat whether the edit carries forward.
   List<Widget> _repeatNotes(ColorScheme cs, TextTheme text) {
     final series = _series;
+    final l = context.l;
     Widget note(Key key, IconData icon, String s) => Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Row(children: [
@@ -726,14 +729,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final d = DateTime.tryParse(_latest?.date ?? '');
       return [
         note(const Key('repeat-hint'), Icons.info_outline,
-            'To change future repeats, edit the latest one (${d == null ? _latest?.date : DateFormat('d MMM').format(d)})'),
+            l.editLatestRepeat(d == null ? _latest?.date ?? '' : DateFormat.MMMd().format(d))),
       ];
     }
     final f = _repeat;
     if (f == null) {
       return [
         if (series != null)
-          note(const Key('repeat-stop'), Icons.info_outline, 'Stops repeating. Repeats already added stay.'),
+          note(const Key('repeat-stop'), Icons.info_outline, l.stopsRepeating),
       ];
     }
     // No past dates are filled in: the first repeat is on or after today (docs/API.md 반복 지출).
@@ -743,7 +746,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final nextDay = DateTime.tryParse(next.date);
     return [
       note(const Key('repeat-next'), Icons.event_repeat,
-          'Next: ${nextDay == null ? next.date : DateFormat('EEE, d MMM yyyy').format(nextDay)}'),
+          l.nextRepeat(nextDay == null ? next.date : DateFormat.yMMMEd().format(nextDay))),
       if (series != null && f == series.frequency)
         CheckboxListTile(
           key: const Key('repeat-future'),
@@ -752,8 +755,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           controlAffinity: ListTileControlAffinity.leading,
           value: _future,
           onChanged: (v) => setState(() => _future = v ?? true),
-          title: const Text('Also change future repeats'),
-          subtitle: Text(_future ? 'Amount, split, payers, description, category and notes' : 'Only this one changes'),
+          title: Text(l.alsoChangeFuture),
+          subtitle: Text(_future ? l.futureFields : l.onlyThisOne),
         ),
     ];
   }
@@ -787,7 +790,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     right: -6,
                     child: IconButton.filledTonal(
                       key: Key('new-receipt-remove-$id'),
-                      tooltip: 'Remove photo',
+                      tooltip: context.l.photoRemove,
                       visualDensity: VisualDensity.compact,
                       iconSize: 16,
                       onPressed: () {
@@ -808,17 +811,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               key: const Key('scan-receipt-button'),
               onPressed: _scanning ? null : _scan,
               icon: const Icon(Icons.document_scanner_outlined),
-              label: const Text('Scan receipt'),
+              label: Text(context.l.scanReceipt),
             ),
           OutlinedButton.icon(
             key: const Key('add-receipt'),
             onPressed: _scanning ? null : _addPhoto,
             icon: const Icon(Icons.add_a_photo_outlined),
-            label: const Text('Add photo'),
+            label: Text(context.l.addPhoto),
           ),
         ])
       else
-        Text('$maxReceipts receipts is the most for one expense',
+        Text(context.l.maxReceiptsNote(maxReceipts),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
     ]);
   }
@@ -831,7 +834,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final photo = await ref.read(pickReceiptProvider)(source, scan: false);
       if (photo != null && mounted) setState(() => _newReceipts.add(photo.id));
     } catch (e) {
-      if (mounted) showError(context, photoErrorText(e, source));
+      if (mounted) showError(context, photoErrorText(context.l, e, source));
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -841,14 +844,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// fills an empty description, and on a Cancel the printed total an empty amount. Nothing read, and the receipt names
   /// another currency: offers to switch to it. The photo is attached on Save either way.
   Future<void> _scan() async {
-    final source = await pickImageSource(context, title: 'Scan a receipt');
+    final source = await pickImageSource(context, title: context.l.scanAReceipt);
     if (source == null || !mounted) return;
     setState(() => _scanning = true);
     ReceiptPhoto? photo;
     try {
       photo = await ref.read(pickReceiptProvider)(source, scan: true);
     } catch (e) {
-      if (mounted) showError(context, photoErrorText(e, source));
+      if (mounted) showError(context, photoErrorText(context.l, e, source));
     } finally {
       if (mounted) setState(() => _scanning = false);
     }
@@ -867,9 +870,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final again = parseReceipt(lines, decimals: Money.digits(other));
       if (again.lines.isNotEmpty &&
           await confirm(context,
-              title: 'This receipt looks like $other',
-              message: 'Switch the expense to $other to read its items?',
-              confirmLabel: 'Switch to $other',
+              title: context.l.receiptLooksLike(other),
+              message: context.l.switchToCurrencyQuestion(other),
+              confirmLabel: context.l.switchTo(other),
               destructive: false) &&
           mounted) {
         _setCurrency(other, d);
@@ -878,7 +881,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
     }
     if (!mounted) return;
-    if (draft.lines.isEmpty) showInfo(context, "Couldn't read the items. Type them in.");
+    if (draft.lines.isEmpty) showInfo(context, context.l.couldntReadItems);
     final bill = ItemizedBill(
       lines: [for (final l in draft.lines) ItemLine(name: l.name, amount: l.amount, memberIds: const [])],
       tax: draft.tax,
@@ -896,7 +899,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _scheduleGuess();
     }
     if (draft.total case final total? when !done && !_split.items && (parseMoney(_amount.text, currency) ?? 0) == 0) {
-      setState(() => _amount.text = minorToText(total, currency));
+      setState(() => _amount.text = inputAmount(total, currency));
     }
   }
 
@@ -907,8 +910,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final currency = _currency ?? group?.defaultCurrency ?? '';
     final all = ref.read(membersProvider(widget.groupId)).value ?? const <MemberRow>[];
     final scan = _scanId != null && _newReceipts.contains(_scanId) ? _scanId : null;
-    final image = scan == null ? null : await _files.pending(scan);
-    if (!mounted) return false;
+    final image = scan == null ? null : _files.pending(scan);
     final bill = await showItemize(context,
         members: all,
         currency: currency,
@@ -920,7 +922,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (bill == null || !mounted) return false;
     setState(() {
       _split.setItems(bill);
-      _amount.text = minorToText(itemizedTotal(bill), currency);
+      _amount.text = inputAmount(itemizedTotal(bill), currency);
     });
     return true;
   }
@@ -928,9 +930,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// *With*: the friend or group of this expense. While editing, picking another one moves the expense on Save.
   Widget _withTile(String groupName, ColorScheme cs, TextTheme text) {
     final home = ref.watch(homeDataProvider).value;
-    final current = home?.label(widget.groupId) ?? groupName;
+    final l = context.l;
+    final current = home?.label(widget.groupId, l) ?? groupName;
     final m = _moveTo;
-    final target = m == null ? null : (m.person != null ? 'Non-group · ${m.person!.name}' : home?.label(m.groupId!) ?? '');
+    final target = m == null ? null : (m.person != null ? l.nonGroupWith(m.person!.name) : home?.label(m.groupId!, l) ?? '');
     final canMove = _editing != null && !(_editing?.deleted ?? false);
     return ListTile(
       key: const Key('with'),
@@ -938,15 +941,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       dense: true,
       leading: Icon(target == null ? Icons.group_outlined : Icons.drive_file_move_outline,
           color: target == null ? cs.onSurfaceVariant : cs.primary),
-      title: Text(target == null ? 'With $current' : 'Moves to $target on Save',
+      title: Text(target == null ? l.withName(current) : l.movesTo(target),
           style: text.bodyLarge?.copyWith(color: target == null ? null : cs.primary)),
-      subtitle: target == null ? null : Text('From $current'),
+      subtitle: target == null ? null : Text(l.fromName(current)),
       trailing: !canMove
           ? null
           : target == null
               ? const Icon(Icons.chevron_right)
               : IconButton(
-                  tooltip: "Don't move",
+                  tooltip: l.dontMove,
                   icon: const Icon(Icons.close),
                   onPressed: () => setState(() {
                     _moveTo = null;
@@ -979,6 +982,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Future<void> _move(GroupRow group, Expense old, Expense e) async {
     final m = _moveTo!;
     final db = ref.read(dbProvider);
+    final l = context.l;
     try {
       final target = m.person != null ? await groupForExpenseWith(ref, m.person!) : m.groupId!;
       final store = GroupStateStore(db);
@@ -993,7 +997,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       );
       var moved = remapForMove(e, source.members, dest.members,
           id: ids.expenseId, sameCurrency: source.defaultCurrency == dest.defaultCurrency);
-      if (moved == null) throw const MoveException('Only people on Evensies who are in both can be moved');
+      if (moved == null) throw MoveException(l.onlyLinkedMove);
       // Another default currency there: the day's automatic rate, as a new expense in that currency gets it.
       final to = dest.defaultCurrency;
       if (to != null && moved.currency != to && moved.fxRateToDefault == null) {
@@ -1007,7 +1011,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       if (mounted) context.go('/groups/$target');
     } on ApiException catch (x) {
       if (mounted) {
-        showError(context, x.code == 'NETWORK' ? "Couldn't move it. Try again when you're online" : x.message);
+        showError(context, x.code == 'NETWORK' ? context.l.moveOffline : context.l.moveFailed(errorForCode(context.l, x.code)));
       }
     }
   }
@@ -1056,7 +1060,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             CategoryAvatar(_cat, size: 36),
             const SizedBox(width: 10),
             Flexible(
-              child: Text(_cat == null ? 'Category' : Categories.labelOf(_cat),
+              child: Text(_cat == null ? context.l.category : Categories.labelOf(_cat),
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: text.bodyLarge),
             ),
             if (_catAuto) ...[
@@ -1065,7 +1069,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 key: const Key('category-auto'),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(color: cs.secondaryContainer, borderRadius: BorderRadius.circular(4)),
-                child: Text('auto', style: text.labelSmall?.copyWith(color: cs.onSecondaryContainer)),
+                child: Text(context.l.auto, style: text.labelSmall?.copyWith(color: cs.onSecondaryContainer)),
               ),
             ],
             Icon(Icons.arrow_drop_down, color: cs.onSurfaceVariant),
@@ -1080,25 +1084,18 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           amount: amount, fromDecimals: Money.digits(currency), toDecimals: Money.digits(d), rate: rate));
 
   /// The line under the rate field (docs Phase 4): where the rate comes from.
-  String _fxSource(String currency, String d, double? value, double? auto) {
-    final day = _fxDay();
-    if (value == null || value <= 0 || !value.isFinite) {
-      return auto == null
-          ? 'No automatic rate. Enter one, or leave it empty to keep this under Not converted.'
-          : 'Empty: this stays under Not converted';
-    }
-    final inverse = NumberFormat('#,##0.######').format(double.parse((1 / value).toStringAsPrecision(6)));
-    return '1 $currency = $value $d (1 $d = $inverse $currency) · ${value == auto ? day : 'your rate'}';
+  String _fxSource(AppLocalizations l, String currency, String d, double? value, double? auto) {
+    if (value == null || value <= 0 || !value.isFinite) return auto == null ? l.noAutoRateForm : l.emptyNotConverted;
+    final inverse = numberText(double.parse((1 / value).toStringAsPrecision(6)), decimals: 10);
+    return l.rateExplain(currency, numberText(value, decimals: 10), d, inverse, value == auto ? _fxDay(l) : l.yourRate);
   }
 
-  String _fxDay() {
+  String _fxDay(AppLocalizations l) {
     final t = _fxTable;
-    return t == null ? '' : '${t.offline ? 'offline · ' : ''}rate of ${_day(t.date)}';
-  }
-
-  static String _day(String iso) {
-    final x = DateTime.tryParse(iso);
-    return x == null ? iso : DateFormat('d MMM').format(x);
+    if (t == null) return '';
+    final x = DateTime.tryParse(t.date);
+    final day = x == null ? t.date : DateFormat.MMMd().format(x);
+    return t.offline ? l.rateOfOffline(day) : l.rateOf(day);
   }
 
   Future<void> _save(
@@ -1107,7 +1104,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final d = group.defaultCurrency;
     // A stray rate on an expense in the group currency stays as it was (it's ignored, docs/API.md 통화 환산).
     double? fx = currency != d
-        ? double.tryParse(_fx.text.trim().replaceAll(',', '.'))
+        ? parseDecimal(_fx.text)
         : (old?.currency == d ? old?.fxRateToDefault : null);
     // Same currency, and 0 vs null (both "not converted"): unchanged.
     if (old != null && currency == old.currency && (fx ?? 0) == (old.fxRateToDefault ?? 0)) fx = old.fxRateToDefault;

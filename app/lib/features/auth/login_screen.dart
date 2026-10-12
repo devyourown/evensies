@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../../core/env.dart';
+import '../../core/l10n.dart';
 import '../../core/snack.dart';
 import 'auth_service.dart';
+import 'sign_in_web_stub.dart' if (dart.library.js_interop) 'sign_in_web.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -31,6 +35,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final auth = ref.read(authServiceProvider);
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
+    // The web asks its server which sign-ins it has (GET /info); phones have both built in.
+    final info = ref.watch(serverInfoProvider);
+    final web = info.value;
+    if (kIsWeb && web?.googleWebClientId != null) {
+      auth.initGoogleWeb(web!.googleWebClientId!, (e) {
+        if (mounted) showError(context, e);
+      });
+    }
+    final apple = AuthService.appleAvailable && (!kIsWeb || web?.appleServicesId != null);
+    // Apple's script ahead of the tap (a popup must open right away); no-op on phones.
+    if (kIsWeb && apple) loadAppleSignIn().ignore();
+    final google = !kIsWeb || web?.googleWebClientId != null;
+    final dev = Env.devLogin || (web?.devLogin ?? false);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -48,23 +66,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: text.displayMedium?.copyWith(fontWeight: FontWeight.w700, color: cs.primary),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 8),
-                  Text('Split expenses with friends. No ads, no upsells.',
+                  Text(l.loginTagline,
                       style: text.bodyLarge?.copyWith(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
                   const SizedBox(height: 48),
-                  if (AuthService.appleAvailable) ...[
+                  if (kIsWeb && info.isLoading) const Center(child: CircularProgressIndicator()),
+                  if (apple) ...[
                     FilledButton.icon(
-                      onPressed: _busy ? null : () => _run(auth.apple),
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                                await loadAppleSignIn();
+                                await auth.apple(servicesId: web?.appleServicesId);
+                              }),
                       icon: const Icon(Icons.apple),
-                      label: const Text('Continue with Apple'),
+                      label: Text(l.loginApple),
                     ),
                     const SizedBox(height: 12),
                   ],
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _run(auth.google),
-                    icon: const Icon(Icons.g_mobiledata, size: 28),
-                    label: const Text('Continue with Google'),
-                  ),
-                  if (Env.devLogin) ...[
+                  if (google && kIsWeb)
+                    Center(child: googleWebButton(ref.watch(languageProvider)))
+                  else if (google)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _run(auth.google),
+                      icon: const Icon(Icons.g_mobiledata, size: 28),
+                      label: Text(l.loginGoogle),
+                    ),
+                  if (kIsWeb && !info.isLoading && !apple && !google && !dev)
+                    Text(l.loginWebUnavailable, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
+                  if (dev) ...[
                     const SizedBox(height: 32),
                     Row(children: [
                       const Expanded(child: Divider()),

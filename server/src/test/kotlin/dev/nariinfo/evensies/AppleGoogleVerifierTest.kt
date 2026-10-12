@@ -58,6 +58,16 @@ class AppleGoogleVerifierTest {
         assertEquals(401, assertFailsWith<ApiException> { verifier.verify("garbage") }.status.value())
     }
 
+    /** Phase 9: web sign-in tokens carry the Services ID / web client id; either `aud` is the same person (`sub`). */
+    @Test
+    fun webAudiencesAreAcceptedWithTheSameSubject() {
+        val apple = IdTokenVerifier(jwks, setOf("https://accounts.google.com"), listOf("dev.nariinfo.evensies", "dev.nariinfo.evensies.web"), listOf("name"))
+        assertEquals("sub-1", apple.verify(token(aud = "dev.nariinfo.evensies")).subject)
+        assertEquals("sub-1", apple.verify(token(aud = "dev.nariinfo.evensies.web")).subject)
+        assertEquals(401, assertFailsWith<ApiException> { apple.verify(token(aud = "dev.nariinfo.evensies.other")) }.status.value())
+        assertEquals(401, assertFailsWith<ApiException> { apple.verify(token(aud = "my-client")) }.status.value())
+    }
+
     @Test
     fun unconfiguredProviderIsRejected() {
         val unconfigured = IdTokenVerifier(jwks, setOf("https://appleid.apple.com"), emptyList(), listOf("email"))

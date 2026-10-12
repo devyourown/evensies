@@ -1,3 +1,4 @@
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/domain/fx.dart';
@@ -54,7 +55,7 @@ GroupState trip({List<Expense> expenses = const [], List<Payment> payments = con
     );
 
 void main() {
-  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0}}'));
+  setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2,"USD":2,"JPY":0},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}'));
 
   test('default currency only: one bucket, a stray rate on a EUR expense is ignored', () {
     final r = balancesOf(trip(expenses: [
@@ -160,15 +161,15 @@ void main() {
 
   test('leaving needs zero in every bucket; unconverted expenses alone don\'t block it', () {
     final even = balancesOf(trip(expenses: [x('self', payers: [s('a', 3000)], shares: [s('a', 3000)], cur: 'JPY')]));
-    expect(leaveBlocker(even, 'a'), isNull);
+    expect(leaveBlocker(AppLocalizationsEn(), even, 'a'), isNull);
     final owed = balancesOf(trip(expenses: [x('sushi', payers: [s('a', 3000)], shares: [s('b', 3000)], cur: 'JPY')]));
     // Phase 6: the JPY bucket settles in JPY, no conversion needed.
     const tail = 'settle up in JPY first';
-    expect(leaveBlocker(owed, 'a'), 'You are owed ¥3,000 · $tail');
-    expect(leaveBlocker(owed, 'b'), 'You owe ¥3,000 · $tail');
-    expect(leaveBlocker(owed, 'c'), isNull);
+    expect(leaveBlocker(AppLocalizationsEn(), owed, 'a'), 'You are owed ¥3,000 · $tail');
+    expect(leaveBlocker(AppLocalizationsEn(), owed, 'b'), 'You owe ¥3,000 · $tail');
+    expect(leaveBlocker(AppLocalizationsEn(), owed, 'c'), isNull);
     final eur = balancesOf(trip(expenses: [x('e1', payers: [s('a', 500)], shares: [s('b', 500)])]));
-    expect(leaveBlocker(eur, 'a'), 'You are owed €5.00 · settle up first');
+    expect(leaveBlocker(AppLocalizationsEn(), eur, 'a'), 'You are owed €5.00 · settle up first');
   });
 
   group('Phase 3 lines', () {

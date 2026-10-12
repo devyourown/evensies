@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
@@ -74,7 +75,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
       context.push('/groups/$id');
     } on ApiException catch (e) {
       if (!mounted) return;
-      showError(context, e.code == 'NETWORK' ? 'Creating a group needs a connection.' : e);
+      showError(context, e.code == 'NETWORK' ? context.l.createGroupNeedsConnection : e);
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -84,7 +85,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('New group'),
+        title: Text(context.l.newGroup),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -93,25 +94,26 @@ class _State extends ConsumerState<_CreateGroupDialog> {
                 controller: _name,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
-                decoration: limitedDecoration(const InputDecoration(labelText: 'Group name'), _name.text, maxGroupName)),
+                decoration: limitedDecoration(
+                    context, InputDecoration(labelText: context.l.groupName), _name.text, maxGroupName)),
             TextField(
                 key: const Key('my-name'),
                 controller: _me,
                 onChanged: (_) => setState(() {}),
                 decoration: limitedDecoration(
-                    const InputDecoration(labelText: 'Your name in this group'), _me.text, maxMemberName)),
+                    context, InputDecoration(labelText: context.l.yourNameInGroup), _me.text, maxMemberName)),
             const SizedBox(height: 16),
             CurrencyPicker(
               key: const Key('group-currency'),
               value: _currency,
-              label: 'Default currency',
+              label: context.l.defaultCurrency,
               pinned: [ref.read(homeCurrencyProvider)],
               onChanged: (v) => setState(() => _currency = v),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l.cancel)),
           FilledButton(
             onPressed: _busy ||
                     _name.text.trim().isEmpty ||
@@ -120,7 +122,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
                     !fitsLimit(_me.text, maxMemberName)
                 ? null
                 : _create,
-            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create'),
+            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(context.l.create),
           ),
         ],
       );

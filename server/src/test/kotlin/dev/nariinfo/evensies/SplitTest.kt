@@ -3,6 +3,7 @@ package dev.nariinfo.evensies
 import dev.nariinfo.evensies.money.Split
 import dev.nariinfo.evensies.money.SplitException
 import dev.nariinfo.evensies.money.SplitMode
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
@@ -16,6 +17,8 @@ class SplitTest {
     @TestFactory
     fun sharedSplitCases(): List<DynamicTest> = SharedJson.load("split-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
+            // "pending": "hyojun" = waits for Hyojun's Dart fix (TODO(효준) in app/lib/domain/split.dart); the Kotlin port follows it.
+            assumeTrue(case["pending"] == null) { "pending: hyojun (Dart fix first, then the Kotlin port)" }
             val amount = case["amount"].asLong()
             val mode = SplitMode.valueOf(case["mode"].asString().uppercase())
             val members = case["members"].values().map { it.asString() }

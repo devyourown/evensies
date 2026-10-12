@@ -27,7 +27,7 @@ void main() {
   late SharedPreferences prefs;
 
   setUpAll(() {
-    Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0,"JPY":0}}');
+    Money.loadFromJson('{"decimals":{"EUR":2,"KRW":0,"JPY":0},"symbols":{"EUR":"€","USD":"\$","GBP":"£","JPY":"¥","KRW":"₩"}}');
     Categories.loadFromJson(File('../shared/categories.json').readAsStringSync());
   });
 
@@ -344,7 +344,7 @@ void main() {
       await pick(t, 'JPY');
       expect(hint(), '0'); // the currency's decimals, not always 0.00
       expect(fx(t), '0.00563349');
-      expect(helper(t), '1 JPY = 0.00563349 EUR (1 EUR = 177.51 JPY) · rate of 10 Oct');
+      expect(helper(t), '1 JPY = 0.00563349 EUR (1 EUR = 177.51 JPY) · rate of Oct 10');
       expect(find.byKey(const Key('fx-auto')), findsNothing);
       expect(find.byKey(const Key('fx-approx')), findsNothing); // no amount yet
       expect(api.fxCalls, [todayIso()]);
@@ -361,7 +361,7 @@ void main() {
       await t.enterText(find.byKey(const Key('fx')), '');
       await t.pump();
       expect(helper(t), 'Empty: this stays under Not converted');
-      expect(find.text('Use automatic rate: 0.00563349 (rate of 10 Oct)'), findsOneWidget);
+      expect(find.text('Use automatic rate: 0.00563349 (rate of Oct 10)'), findsOneWidget);
       expect(saveEnabled(t), isTrue); // empty = Not converted
       await t.tap(find.byKey(const Key('fx-auto')));
       await t.pump();
@@ -391,14 +391,14 @@ void main() {
 
       await pickDay('2');
       expect(fx(t), '0.00625');
-      expect(helper(t), endsWith('rate of 2 Oct'));
+      expect(helper(t), endsWith('rate of Oct 2'));
       await t.enterText(find.byKey(const Key('fx')), '0.006');
       await t.pump();
       await pickDay('3');
       expect(api.fxCalls.length, 3);
       expect(fx(t), '0.006');
       expect(helper(t), '1 JPY = 0.006 EUR (1 EUR = 166.667 JPY) · your rate');
-      expect(find.text('Use automatic rate: 0.00625 (rate of 2 Oct)'), findsOneWidget);
+      expect(find.text('Use automatic rate: 0.00625 (rate of Oct 2)'), findsOneWidget);
       await unmount(t);
     });
 
@@ -417,7 +417,7 @@ void main() {
       await settle(t);
       await pick(t, 'JPY');
       expect(fx(t), '0.005');
-      expect(helper(t), endsWith('offline · rate of 9 Oct'));
+      expect(helper(t), endsWith('offline · rate of Oct 9'));
       await unmount(t);
     });
 
@@ -442,7 +442,7 @@ void main() {
       await t.pumpWidget(app(expenseId: 'x1'));
       await settle(t);
       expect(fx(t), ''); // stored 0 = not converted; opening changes nothing, the automatic rate is offered
-      expect(find.text('Use automatic rate: 0.00563349 (rate of 10 Oct)'), findsOneWidget);
+      expect(find.text('Use automatic rate: 0.00563349 (rate of Oct 10)'), findsOneWidget);
       await t.enterText(find.byKey(const Key('description')), 'Sushi bar');
       await t.pump();
       await t.tap(find.widgetWithText(FilledButton, 'Save'));

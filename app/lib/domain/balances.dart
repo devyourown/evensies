@@ -1,4 +1,5 @@
 import '../core/money.dart';
+import '../l10n/app_localizations.dart';
 import 'fx.dart';
 import 'models.dart';
 import 'settlement.dart';
@@ -166,12 +167,14 @@ Map<String, List<Transfer>> groupTransfers(GroupState s) => balancesOf(s).transf
 /// Why [me] can't leave yet, or null when my balance is zero in every bucket. Only the app checks it (docs/API.md
 /// 그룹 나가기): the settings screen before the tap, LocalWrites.leaveGroup after its sync. Unconverted expenses alone
 /// don't block leaving.
-String? leaveBlocker(BalanceResult res, String? me) {
+String? leaveBlocker(AppLocalizations l, BalanceResult res, String? me) {
   for (final MapEntry(key: cur, value: mine) in res.mine(me).entries) {
     final m = formatMoney(mine.abs(), cur);
     // Phase 6: every bucket can be settled in its own currency, so leaving never waits for a conversion.
-    final tail = cur == res.currency ? 'settle up first' : 'settle up in $cur first';
-    return mine < 0 ? 'You owe $m · $tail' : 'You are owed $m · $tail';
+    final here = cur == res.currency;
+    return mine < 0
+        ? (here ? l.leaveOwe(m) : l.leaveOweIn(m, cur))
+        : (here ? l.leaveOwed(m) : l.leaveOwedIn(m, cur));
   }
   return null;
 }

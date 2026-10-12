@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/snack.dart';
 import '../../data/api/dto.dart';
@@ -57,7 +58,7 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
       _table = table;
       for (final MapEntry(key: c, value: ctl) in _rates.entries) {
         final r = table == null || d == null ? null : crossRate(table.rates, c, d);
-        if (r != null && ctl.text.isEmpty) ctl.text = r.toString();
+        if (r != null && ctl.text.isEmpty) ctl.text = numberText(r, decimals: 10);
       }
     });
   }
@@ -71,7 +72,7 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
   }
 
   double? _rate(String c) {
-    final r = double.tryParse(_rates[c]!.text.trim().replaceAll(',', '.'));
+    final r = parseDecimal(_rates[c]!.text);
     return r != null && r.isFinite && r > 0 ? r : null;
   }
 
@@ -80,6 +81,7 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final writes = ref.read(localWritesProvider), groupId = widget.groupId; // Undo runs after this sheet is gone
+    final l = context.l;
     try {
       final before = <String, Map<String, double?>>{}; // currency → expenseId → previous rate
       for (final c in widget.currencies) {
@@ -89,11 +91,11 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
       final n = before.values.fold(0, (a, m) => a + m.length);
       navigator.pop();
       messenger.showSnackBar(SnackBar(
-        content: Text('Converted $n expense${n == 1 ? '' : 's'} to $d'),
+        content: Text(l.convertedCount(n, d)),
         action: n == 0
             ? null
             : SnackBarAction(
-                label: 'Undo',
+                label: l.undo,
                 onPressed: () {
                   for (final MapEntry(key: c, value: m) in before.entries) {
                     writes.setRates(groupId, c, m);
@@ -114,6 +116,7 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
     final state = ref.watch(groupStateProvider(widget.groupId)).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (group == null || state == null) {
       return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
     }
@@ -121,8 +124,8 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
     final counts = <String, int>{};
     final t = _table;
     final source = t == null
-        ? 'No automatic rate. Enter one.'
-        : '${t.offline ? 'offline · ' : ''}rate of ${DateFormat('d MMM').format(DateTime.parse(t.date))}';
+        ? l.noAutoRate
+        : (t.offline ? l.rateOfOffline : l.rateOf)(DateFormat.MMMd().format(DateTime.parse(t.date)));
     final rows = <Widget>[];
     for (final c in widget.currencies) {
       final xs = unconvertedIn(state, c);
@@ -137,17 +140,17 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(
-              child: Text('${formatMoney(total, c)} · ${xs.length} expense${xs.length == 1 ? '' : 's'}',
+              child: Text(l.amountCountExpenses(formatMoney(total, c), xs.length),
                   style: text.titleMedium),
             ),
             if (preview != null)
-              Text('≈ ${formatMoney(preview, d)}', style: text.titleMedium?.copyWith(color: cs.primary)),
+              Text(l.approx(formatMoney(preview, d)), style: text.titleMedium?.copyWith(color: cs.primary)),
           ]),
           // Convert never changes payments: after settling in JPY, the JPY payments stay in the JPY bucket.
           if (state.payments.any((p) => !p.deleted && p.currency == c))
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Payments in $c stay in $c',
+              child: Text(l.paymentsStayIn(c),
                   key: Key('payments-stay-$c'), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             ),
           const SizedBox(height: 8),
@@ -157,10 +160,10 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
             enabled: xs.isNotEmpty,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Rate: 1 $c in $d',
+              labelText: l.rateLabel(c, d),
               prefixIcon: const Icon(Icons.currency_exchange),
-              helperText: xs.isEmpty ? 'Nothing left to convert' : (_loading ? 'Looking up the rate…' : source),
-              errorText: _rates[c]!.text.trim().isNotEmpty && r == null ? 'Enter a rate above 0' : null,
+              helperText: xs.isEmpty ? l.nothingLeftToConvert : (_loading ? l.lookingUpRate : source),
+              errorText: _rates[c]!.text.trim().isNotEmpty && r == null ? l.enterRateAbove0 : null,
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -173,11 +176,10 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
         padding: EdgeInsets.fromLTRB(24, 0, 24, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Convert to $d', style: text.titleLarge),
+            Text(l.convertTo(d), style: text.titleLarge),
             const SizedBox(height: 4),
             Text(
-              'Fills in this rate on every expense that has none, so they count in $d balances. '
-              'You can still change the rate on each expense.',
+              l.convertExplain(d),
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             ...rows,
@@ -188,7 +190,7 @@ class _ConvertSheetState extends ConsumerState<ConvertSheet> {
               icon: _busy
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.currency_exchange),
-              label: Text('Convert to $d'),
+              label: Text(l.convertTo(d)),
             ),
           ]),
         ),

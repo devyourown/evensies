@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/l10n.dart';
+
 import '../../core/currency_picker.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
@@ -9,7 +11,6 @@ import '../../core/snack.dart';
 import '../../data/local_writes.dart' show recordedStatus;
 import '../../domain/models.dart';
 import '../../providers.dart';
-import '../expense_form/split_editor.dart' show minorToText;
 import '../group_detail/balances.dart';
 
 /// Record a payment, or edit [editing] (docs/API.md 송금 기록·편집): any two members, any amount, currency and date.
@@ -65,7 +66,7 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
     _to = e?.toMember ?? widget.to ?? active.where((m) => m.id != _from).firstOrNull?.id;
     _currency = e?.currency ?? widget.currency ?? s.defaultCurrency;
     final a = e?.amount ?? widget.amount;
-    if (a != null) _amount.text = minorToText(a, _currency!);
+    if (a != null) _amount.text = inputAmount(a, _currency!);
   }
 
   Future<void> _pickDate() async {
@@ -92,18 +93,20 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
     );
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l;
     try {
       final w = ref.read(localWritesProvider);
       final old = widget.editing;
       old == null ? await w.createPayment(widget.groupId, p) : await w.editPayment(widget.groupId, old.id, p);
       navigator.pop(p.id);
       final m = formatMoney(amount, p.currency);
+      final to = s.member(p.toMember)?.name;
       messenger.showSnackBar(SnackBar(
           content: Text(old != null
-              ? 'Payment updated'
+              ? l.paymentUpdated
               : p.pending
-                  ? 'Recorded $m. ${s.member(p.toMember)?.name ?? 'They'} will confirm.'
-                  : 'Payment of $m recorded')));
+                  ? (to == null ? l.paymentRecordedPendingUnnamed(m) : l.paymentRecordedPending(m, to))
+                  : l.paymentRecorded(m))));
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -117,16 +120,17 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
     final s = ref.watch(groupStateProvider(widget.groupId)).value;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final l = context.l;
     if (group == null || s == null) {
       return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
     }
     _fill(s, group.myMemberId);
     final e = widget.editing;
     final people = [
-      for (final m in s.members)
+      for (final m in [...s.members]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())))
         if (!m.removed || m.id == e?.fromMember || m.id == e?.toMember || m.id == _from || m.id == _to) m,
     ];
-    String label(Member m) => m.id == group.myMemberId ? '${m.name} (you)' : m.name;
+    String label(Member m) => m.id == group.myMemberId ? l.youSuffix(m.name) : m.name;
     final currency = _currency ?? group.defaultCurrency;
     final amount = parseMoney(_amount.text, currency);
     final same = _from != null && _from == _to;
@@ -140,7 +144,7 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
       controller: _amount,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-      decoration: InputDecoration(labelText: 'Amount', hintText: minorToText(0, currency)),
+      decoration: InputDecoration(labelText: l.amountLabel, hintText: inputAmount(0, currency)),
       onChanged: (_) => setState(() {}),
     );
     final picker = CurrencyPicker(
@@ -172,12 +176,12 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
         padding: EdgeInsets.fromLTRB(24, 0, 24, 16 + MediaQuery.viewInsetsOf(context).bottom),
         child: SingleChildScrollView(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(e == null ? 'Record a payment' : 'Edit payment', style: text.titleLarge),
+            Text(e == null ? l.recordPayment : l.editPayment, style: text.titleLarge),
             const SizedBox(height: 16),
-            person('From', _from, (v) => setState(() => _from = v), const Key('payment-from')),
+            person(l.fromLabel, _from, (v) => setState(() => _from = v), const Key('payment-from')),
             Align(
               child: IconButton(
-                tooltip: 'Swap',
+                tooltip: l.swap,
                 icon: const Icon(Icons.swap_vert),
                 onPressed: () => setState(() {
                   final f = _from;
@@ -186,11 +190,11 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
                 }),
               ),
             ),
-            person('To', _to, (v) => setState(() => _to = v), const Key('payment-to')),
+            person(l.toLabel, _to, (v) => setState(() => _to = v), const Key('payment-to')),
             if (same)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('Pick two different people', style: text.bodySmall?.copyWith(color: cs.error)),
+                child: Text(l.pickTwoPeople, style: text.bodySmall?.copyWith(color: cs.error)),
               ),
             const SizedBox(height: 16),
             // The largest text sizes: the currency under the amount, where its code fits (as in the expense form).
@@ -204,7 +208,7 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
               child: OutlinedButton.icon(
                 onPressed: _pickDate,
                 icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                label: Text(date == null ? _date : DateFormat('EEE, d MMM yyyy').format(date)),
+                label: Text(date == null ? _date : DateFormat.yMMMEd().format(date)),
               ),
             ),
             if (hasComments)
@@ -214,7 +218,7 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
                   Icon(Icons.chat_bubble_outline, size: 16, color: cs.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text('Comments stay with the old payment',
+                    child: Text(l.commentsStayOld,
                         key: const Key('comments-stay'), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   ),
                 ]),
@@ -225,7 +229,7 @@ class _PaymentSheetState extends ConsumerState<PaymentSheet> {
               onPressed: ok ? () => _save(s, amount) : null,
               child: _busy
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(e == null ? 'Record payment' : 'Save'),
+                  : Text(e == null ? l.recordPaymentButton : l.save),
             ),
           ]),
         ),

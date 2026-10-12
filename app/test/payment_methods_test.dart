@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:evensies/core/money.dart';
 import 'package:evensies/domain/payment_methods.dart';
+import 'package:evensies/l10n/app_localizations_en.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -113,6 +114,7 @@ void main() {
   test('request text', () {
     expect(
       requestText(
+        AppLocalizationsEn(),
         formattedAmount: '€15.00',
         group: 'Rome',
         amountMinor: 1500,

@@ -4,6 +4,7 @@ import '../../core/money.dart';
 import '../../data/sync/group_state_store.dart';
 import '../../domain/balances.dart';
 import '../../domain/models.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 
 export '../../domain/balances.dart';
@@ -24,9 +25,9 @@ final balancesProvider = FutureProvider.family<BalanceResult, String>(
     (ref, id) async => balancesOf(await ref.watch(groupStateProvider(id).future)));
 
 /// "You are owed €5.00" / "You owe €5.00"; [capital] false starts with "you".
-String owedText(int balance, String currency, {bool capital = true}) {
-  final you = capital ? 'You' : 'you';
+String owedText(AppLocalizations l, int balance, String currency, {bool capital = true}) {
+  final m = formatMoney(balance.abs(), currency);
   return balance < 0
-      ? '$you owe ${formatMoney(-balance, currency)}'
-      : '$you are owed ${formatMoney(balance, currency)}';
+      ? (capital ? l.youOweAmount(m) : l.youOweAmountLine(m))
+      : (capital ? l.youAreOwedAmount(m) : l.youAreOwedAmountLine(m));
 }
