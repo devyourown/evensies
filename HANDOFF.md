@@ -1,7 +1,7 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 5·6·7·8단계 몫 없음. 새 몫이 생기면 이 표에 추가)
+## 효준님 차례 — Splitwise parity (9번 추가, 2026-10-12. 새 몫이 생기면 이 표에 추가)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart`
 5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원), 8단계(반복 지출·서버 스케줄러·미첨부 영수증 정리)는 효준님 몫이 없습니다. 8단계 반복분은 템플릿에 저장된 멤버별 최종 금액을 그대로 복사하므로 서버가 분할을 다시 계산하지 않고, 외화 반복분은 환율만 그날 값(`FxService.crossRate`, 서버 `recurrence/RecurrenceScheduler.kt`)으로 바꿉니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 쓰고 효준님이 3·4단계에 쓴 부분은 부르지 않습니다. `grep -rn "TODO(효준)" app server` 결과는 0줄입니다. 7단계에서 stub 시절의 안전장치(`core_guard.dart`의 `tryCore`, `fxReady`, `notImplementedLabel`, fixture의 `"pending": "hyojun"` 건너뛰기)도 전부 지웠습니다.
 
@@ -15,6 +15,7 @@
 | 6 | `app/lib/domain/fx.dart:25` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
 | 7 | `app/lib/domain/fx.dart:44` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
 | 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
+| 9 | `app/lib/domain/split.dart:48-53` | `computeSplit` (percent 분기) | 토론에서 찾은 버그: 퍼센트 합이 허용 오차 안에서 100을 넘으면(예: 50.0009 + 50) 내림 합이 금액을 넘습니다. 51줄의 `/ 100`을 버리고 shares처럼 **정수 가중치 ÷ 가중치 합**으로 나누세요. shares와 공통 함수로 묶어도 됩니다. 50줄 합계 검사는 그대로 둡니다(입력 검사). 주의: `amount × 가중치`가 int 범위를 넘지 않게 가중치 배율을 고르세요 | `shared/split-cases.json` 28줄 "percent within tolerance but over 100 still adds up" (`"pending"`은 고친 뒤 지우기) |
 | 9 | — | 6·7·8단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만) 통과 |
 
 `"pending": "hyojun"`인 fixture 케이스는 하나도 없고(그 건너뛰기 코드와 `_doc` 설명도 7단계에서 삭제), 서버 테스트도 skip 0개입니다.
