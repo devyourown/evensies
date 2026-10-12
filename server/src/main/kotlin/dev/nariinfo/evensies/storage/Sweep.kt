@@ -4,6 +4,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.nio.file.Files
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -33,5 +36,28 @@ class Sweep(private val jdbc: JdbcClient, private val files: FileStore) {
             }
         }
         if (unattached.isNotEmpty()) log.info("Sweep: removed {} unattached receipt uploads", unattached.size)
+        sweepCovers()
+    }
+
+    /**
+     * Phase 10: every cover file that isn't its group's current one (a crash after commit, or an upload whose push failed).
+     * Files younger than an hour stay: an upload writes its file before its `group.updated` commits.
+     */
+    fun sweepCovers() {
+        val cutoff = Instant.now().minus(Duration.ofHours(1))
+        for (dir in files.children("covers")) {
+            val groupId = runCatching { UUID.fromString(dir) }.getOrNull() ?: continue
+            val current = jdbc.sql("SELECT cover_image_id FROM groups WHERE id = :g").param("g", groupId).query(UUID::class.java).optional().orElse(null)
+            for (name in files.children("covers/$groupId")) {
+                if (name == "$current.jpg") continue
+                val modified = files.path("covers/$groupId/$name")?.let { Files.getLastModifiedTime(it).toInstant() } ?: continue
+                if (modified > cutoff) continue
+                try {
+                    files.delete("covers/$groupId/$name")
+                } catch (e: Exception) {
+                    log.warn("Couldn't delete cover {}/{}: {}", groupId, name, e.toString())
+                }
+            }
+        }
     }
 }

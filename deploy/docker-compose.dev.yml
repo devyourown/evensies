@@ -1,5 +1,11 @@
-# 개발용: PostgreSQL만 띄운다. 서버는 IDE나 ./gradlew bootRun 으로 로컬에서 실행.
+# 개발용: PostgreSQL과 Mailpit(메일 받는 가짜 SMTP)을 띄운다. 서버는 IDE나 ./gradlew bootRun 으로 로컬에서 실행.
 services:
+  # dev 프로필의 기본 SMTP(localhost:1025, TLS 없음). 받은 메일은 http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
   postgres:
     image: postgres:16-alpine
     environment:

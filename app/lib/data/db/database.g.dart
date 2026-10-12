@@ -107,6 +107,42 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant('group'),
   );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('other'),
+  );
+  static const VerificationMeta _coverImageIdMeta = const VerificationMeta(
+    'coverImageId',
+  );
+  @override
+  late final GeneratedColumn<String> coverImageId = GeneratedColumn<String>(
+    'cover_image_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -118,6 +154,9 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
     simplifyDebts,
     defaultSplitJson,
     kind,
+    type,
+    coverImageId,
+    deleted,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -200,6 +239,27 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
       );
     }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    }
+    if (data.containsKey('cover_image_id')) {
+      context.handle(
+        _coverImageIdMeta,
+        coverImageId.isAcceptableOrUnknown(
+          data['cover_image_id']!,
+          _coverImageIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
     return context;
   }
 
@@ -245,6 +305,18 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, GroupRow> {
         DriftSqlType.string,
         data['${effectivePrefix}kind'],
       )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      coverImageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_image_id'],
+      ),
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
     );
   }
 
@@ -268,6 +340,11 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
 
   /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
   final String kind;
+
+  /// Phase 10 (docs/API.md 적용 규칙 17): the group type as sent, the cover photo id, and deleted for everyone.
+  final String type;
+  final String? coverImageId;
+  final bool deleted;
   const GroupRow({
     required this.id,
     required this.name,
@@ -278,6 +355,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     required this.simplifyDebts,
     this.defaultSplitJson,
     required this.kind,
+    required this.type,
+    this.coverImageId,
+    required this.deleted,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -297,6 +377,11 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       map['default_split_json'] = Variable<String>(defaultSplitJson);
     }
     map['kind'] = Variable<String>(kind);
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || coverImageId != null) {
+      map['cover_image_id'] = Variable<String>(coverImageId);
+    }
+    map['deleted'] = Variable<bool>(deleted);
     return map;
   }
 
@@ -317,6 +402,11 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           ? const Value.absent()
           : Value(defaultSplitJson),
       kind: Value(kind),
+      type: Value(type),
+      coverImageId: coverImageId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverImageId),
+      deleted: Value(deleted),
     );
   }
 
@@ -335,6 +425,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       simplifyDebts: serializer.fromJson<bool>(json['simplifyDebts']),
       defaultSplitJson: serializer.fromJson<String?>(json['defaultSplitJson']),
       kind: serializer.fromJson<String>(json['kind']),
+      type: serializer.fromJson<String>(json['type']),
+      coverImageId: serializer.fromJson<String?>(json['coverImageId']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
     );
   }
   @override
@@ -350,6 +443,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
       'simplifyDebts': serializer.toJson<bool>(simplifyDebts),
       'defaultSplitJson': serializer.toJson<String?>(defaultSplitJson),
       'kind': serializer.toJson<String>(kind),
+      'type': serializer.toJson<String>(type),
+      'coverImageId': serializer.toJson<String?>(coverImageId),
+      'deleted': serializer.toJson<bool>(deleted),
     };
   }
 
@@ -363,6 +459,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     bool? simplifyDebts,
     Value<String?> defaultSplitJson = const Value.absent(),
     String? kind,
+    String? type,
+    Value<String?> coverImageId = const Value.absent(),
+    bool? deleted,
   }) => GroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -375,6 +474,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
         ? defaultSplitJson.value
         : this.defaultSplitJson,
     kind: kind ?? this.kind,
+    type: type ?? this.type,
+    coverImageId: coverImageId.present ? coverImageId.value : this.coverImageId,
+    deleted: deleted ?? this.deleted,
   );
   GroupRow copyWithCompanion(GroupsCompanion data) {
     return GroupRow(
@@ -397,6 +499,11 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           ? data.defaultSplitJson.value
           : this.defaultSplitJson,
       kind: data.kind.present ? data.kind.value : this.kind,
+      type: data.type.present ? data.type.value : this.type,
+      coverImageId: data.coverImageId.present
+          ? data.coverImageId.value
+          : this.coverImageId,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
     );
   }
 
@@ -411,7 +518,10 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           ..write('myMemberId: $myMemberId, ')
           ..write('simplifyDebts: $simplifyDebts, ')
           ..write('defaultSplitJson: $defaultSplitJson, ')
-          ..write('kind: $kind')
+          ..write('kind: $kind, ')
+          ..write('type: $type, ')
+          ..write('coverImageId: $coverImageId, ')
+          ..write('deleted: $deleted')
           ..write(')'))
         .toString();
   }
@@ -427,6 +537,9 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
     simplifyDebts,
     defaultSplitJson,
     kind,
+    type,
+    coverImageId,
+    deleted,
   );
   @override
   bool operator ==(Object other) =>
@@ -440,7 +553,10 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
           other.myMemberId == this.myMemberId &&
           other.simplifyDebts == this.simplifyDebts &&
           other.defaultSplitJson == this.defaultSplitJson &&
-          other.kind == this.kind);
+          other.kind == this.kind &&
+          other.type == this.type &&
+          other.coverImageId == this.coverImageId &&
+          other.deleted == this.deleted);
 }
 
 class GroupsCompanion extends UpdateCompanion<GroupRow> {
@@ -453,6 +569,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
   final Value<bool> simplifyDebts;
   final Value<String?> defaultSplitJson;
   final Value<String> kind;
+  final Value<String> type;
+  final Value<String?> coverImageId;
+  final Value<bool> deleted;
   final Value<int> rowid;
   const GroupsCompanion({
     this.id = const Value.absent(),
@@ -464,6 +583,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.simplifyDebts = const Value.absent(),
     this.defaultSplitJson = const Value.absent(),
     this.kind = const Value.absent(),
+    this.type = const Value.absent(),
+    this.coverImageId = const Value.absent(),
+    this.deleted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GroupsCompanion.insert({
@@ -476,6 +598,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     this.simplifyDebts = const Value.absent(),
     this.defaultSplitJson = const Value.absent(),
     this.kind = const Value.absent(),
+    this.type = const Value.absent(),
+    this.coverImageId = const Value.absent(),
+    this.deleted = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -490,6 +615,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Expression<bool>? simplifyDebts,
     Expression<String>? defaultSplitJson,
     Expression<String>? kind,
+    Expression<String>? type,
+    Expression<String>? coverImageId,
+    Expression<bool>? deleted,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -502,6 +630,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       if (simplifyDebts != null) 'simplify_debts': simplifyDebts,
       if (defaultSplitJson != null) 'default_split_json': defaultSplitJson,
       if (kind != null) 'kind': kind,
+      if (type != null) 'type': type,
+      if (coverImageId != null) 'cover_image_id': coverImageId,
+      if (deleted != null) 'deleted': deleted,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -516,6 +647,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     Value<bool>? simplifyDebts,
     Value<String?>? defaultSplitJson,
     Value<String>? kind,
+    Value<String>? type,
+    Value<String?>? coverImageId,
+    Value<bool>? deleted,
     Value<int>? rowid,
   }) {
     return GroupsCompanion(
@@ -528,6 +662,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
       simplifyDebts: simplifyDebts ?? this.simplifyDebts,
       defaultSplitJson: defaultSplitJson ?? this.defaultSplitJson,
       kind: kind ?? this.kind,
+      type: type ?? this.type,
+      coverImageId: coverImageId ?? this.coverImageId,
+      deleted: deleted ?? this.deleted,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -562,6 +699,15 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
     if (kind.present) {
       map['kind'] = Variable<String>(kind.value);
     }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (coverImageId.present) {
+      map['cover_image_id'] = Variable<String>(coverImageId.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -580,6 +726,9 @@ class GroupsCompanion extends UpdateCompanion<GroupRow> {
           ..write('simplifyDebts: $simplifyDebts, ')
           ..write('defaultSplitJson: $defaultSplitJson, ')
           ..write('kind: $kind, ')
+          ..write('type: $type, ')
+          ..write('coverImageId: $coverImageId, ')
+          ..write('deleted: $deleted, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4188,6 +4337,17 @@ class $RecurrencesTable extends Recurrences
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _remindDaysBeforeMeta = const VerificationMeta(
+    'remindDaysBefore',
+  );
+  @override
+  late final GeneratedColumn<int> remindDaysBefore = GeneratedColumn<int>(
+    'remind_days_before',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4197,6 +4357,7 @@ class $RecurrencesTable extends Recurrences
     timeZone,
     templateJson,
     deleted,
+    remindDaysBefore,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4264,6 +4425,15 @@ class $RecurrencesTable extends Recurrences
         deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
       );
     }
+    if (data.containsKey('remind_days_before')) {
+      context.handle(
+        _remindDaysBeforeMeta,
+        remindDaysBefore.isAcceptableOrUnknown(
+          data['remind_days_before']!,
+          _remindDaysBeforeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4301,6 +4471,10 @@ class $RecurrencesTable extends Recurrences
         DriftSqlType.bool,
         data['${effectivePrefix}deleted'],
       )!,
+      remindDaysBefore: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remind_days_before'],
+      ),
     );
   }
 
@@ -4320,6 +4494,9 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
   /// The `expense.created` payload the server repeats, as JSON.
   final String templateJson;
   final bool deleted;
+
+  /// Days before each repeat the server emails a reminder (rule 18), null for none.
+  final int? remindDaysBefore;
   const RecurrenceRow({
     required this.id,
     required this.groupId,
@@ -4328,6 +4505,7 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
     required this.timeZone,
     required this.templateJson,
     required this.deleted,
+    this.remindDaysBefore,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4339,6 +4517,9 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
     map['time_zone'] = Variable<String>(timeZone);
     map['template_json'] = Variable<String>(templateJson);
     map['deleted'] = Variable<bool>(deleted);
+    if (!nullToAbsent || remindDaysBefore != null) {
+      map['remind_days_before'] = Variable<int>(remindDaysBefore);
+    }
     return map;
   }
 
@@ -4351,6 +4532,9 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
       timeZone: Value(timeZone),
       templateJson: Value(templateJson),
       deleted: Value(deleted),
+      remindDaysBefore: remindDaysBefore == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remindDaysBefore),
     );
   }
 
@@ -4367,6 +4551,7 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
       timeZone: serializer.fromJson<String>(json['timeZone']),
       templateJson: serializer.fromJson<String>(json['templateJson']),
       deleted: serializer.fromJson<bool>(json['deleted']),
+      remindDaysBefore: serializer.fromJson<int?>(json['remindDaysBefore']),
     );
   }
   @override
@@ -4380,6 +4565,7 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
       'timeZone': serializer.toJson<String>(timeZone),
       'templateJson': serializer.toJson<String>(templateJson),
       'deleted': serializer.toJson<bool>(deleted),
+      'remindDaysBefore': serializer.toJson<int?>(remindDaysBefore),
     };
   }
 
@@ -4391,6 +4577,7 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
     String? timeZone,
     String? templateJson,
     bool? deleted,
+    Value<int?> remindDaysBefore = const Value.absent(),
   }) => RecurrenceRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -4399,6 +4586,9 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
     timeZone: timeZone ?? this.timeZone,
     templateJson: templateJson ?? this.templateJson,
     deleted: deleted ?? this.deleted,
+    remindDaysBefore: remindDaysBefore.present
+        ? remindDaysBefore.value
+        : this.remindDaysBefore,
   );
   RecurrenceRow copyWithCompanion(RecurrencesCompanion data) {
     return RecurrenceRow(
@@ -4411,6 +4601,9 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
           ? data.templateJson.value
           : this.templateJson,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
+      remindDaysBefore: data.remindDaysBefore.present
+          ? data.remindDaysBefore.value
+          : this.remindDaysBefore,
     );
   }
 
@@ -4423,7 +4616,8 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
           ..write('startDate: $startDate, ')
           ..write('timeZone: $timeZone, ')
           ..write('templateJson: $templateJson, ')
-          ..write('deleted: $deleted')
+          ..write('deleted: $deleted, ')
+          ..write('remindDaysBefore: $remindDaysBefore')
           ..write(')'))
         .toString();
   }
@@ -4437,6 +4631,7 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
     timeZone,
     templateJson,
     deleted,
+    remindDaysBefore,
   );
   @override
   bool operator ==(Object other) =>
@@ -4448,7 +4643,8 @@ class RecurrenceRow extends DataClass implements Insertable<RecurrenceRow> {
           other.startDate == this.startDate &&
           other.timeZone == this.timeZone &&
           other.templateJson == this.templateJson &&
-          other.deleted == this.deleted);
+          other.deleted == this.deleted &&
+          other.remindDaysBefore == this.remindDaysBefore);
 }
 
 class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
@@ -4459,6 +4655,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
   final Value<String> timeZone;
   final Value<String> templateJson;
   final Value<bool> deleted;
+  final Value<int?> remindDaysBefore;
   final Value<int> rowid;
   const RecurrencesCompanion({
     this.id = const Value.absent(),
@@ -4468,6 +4665,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
     this.timeZone = const Value.absent(),
     this.templateJson = const Value.absent(),
     this.deleted = const Value.absent(),
+    this.remindDaysBefore = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RecurrencesCompanion.insert({
@@ -4478,6 +4676,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
     required String timeZone,
     required String templateJson,
     this.deleted = const Value.absent(),
+    this.remindDaysBefore = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -4493,6 +4692,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
     Expression<String>? timeZone,
     Expression<String>? templateJson,
     Expression<bool>? deleted,
+    Expression<int>? remindDaysBefore,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4503,6 +4703,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
       if (timeZone != null) 'time_zone': timeZone,
       if (templateJson != null) 'template_json': templateJson,
       if (deleted != null) 'deleted': deleted,
+      if (remindDaysBefore != null) 'remind_days_before': remindDaysBefore,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4515,6 +4716,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
     Value<String>? timeZone,
     Value<String>? templateJson,
     Value<bool>? deleted,
+    Value<int?>? remindDaysBefore,
     Value<int>? rowid,
   }) {
     return RecurrencesCompanion(
@@ -4525,6 +4727,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
       timeZone: timeZone ?? this.timeZone,
       templateJson: templateJson ?? this.templateJson,
       deleted: deleted ?? this.deleted,
+      remindDaysBefore: remindDaysBefore ?? this.remindDaysBefore,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4553,6 +4756,9 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
     if (deleted.present) {
       map['deleted'] = Variable<bool>(deleted.value);
     }
+    if (remindDaysBefore.present) {
+      map['remind_days_before'] = Variable<int>(remindDaysBefore.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4569,6 +4775,7 @@ class RecurrencesCompanion extends UpdateCompanion<RecurrenceRow> {
           ..write('timeZone: $timeZone, ')
           ..write('templateJson: $templateJson, ')
           ..write('deleted: $deleted, ')
+          ..write('remindDaysBefore: $remindDaysBefore, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5684,6 +5891,29 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emailBouncedMeta = const VerificationMeta(
+    'emailBounced',
+  );
+  @override
+  late final GeneratedColumn<bool> emailBounced = GeneratedColumn<bool>(
+    'email_bounced',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("email_bounced" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5692,6 +5922,8 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
     userId,
     displayName,
     homeCurrency,
+    email,
+    emailBounced,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5758,6 +5990,21 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
         ),
       );
     }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('email_bounced')) {
+      context.handle(
+        _emailBouncedMeta,
+        emailBounced.isAcceptableOrUnknown(
+          data['email_bounced']!,
+          _emailBouncedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5791,6 +6038,14 @@ class $SessionTable extends Session with TableInfo<$SessionTable, SessionRow> {
         DriftSqlType.string,
         data['${effectivePrefix}home_currency'],
       ),
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      emailBounced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}email_bounced'],
+      ),
     );
   }
 
@@ -5809,6 +6064,10 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
 
   /// UserDto.homeCurrency (docs/API.md); null until the user picks one (the app then uses the region's currency).
   final String? homeCurrency;
+
+  /// UserDto.email / emailBounced (Phase 10): the verified account address, shown only in Settings.
+  final String? email;
+  final bool? emailBounced;
   const SessionRow({
     required this.id,
     required this.accessToken,
@@ -5816,6 +6075,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     required this.userId,
     required this.displayName,
     this.homeCurrency,
+    this.email,
+    this.emailBounced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5827,6 +6088,12 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     map['display_name'] = Variable<String>(displayName);
     if (!nullToAbsent || homeCurrency != null) {
       map['home_currency'] = Variable<String>(homeCurrency);
+    }
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || emailBounced != null) {
+      map['email_bounced'] = Variable<bool>(emailBounced);
     }
     return map;
   }
@@ -5841,6 +6108,12 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       homeCurrency: homeCurrency == null && nullToAbsent
           ? const Value.absent()
           : Value(homeCurrency),
+      email: email == null && nullToAbsent
+          ? const Value.absent()
+          : Value(email),
+      emailBounced: emailBounced == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emailBounced),
     );
   }
 
@@ -5856,6 +6129,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       userId: serializer.fromJson<String>(json['userId']),
       displayName: serializer.fromJson<String>(json['displayName']),
       homeCurrency: serializer.fromJson<String?>(json['homeCurrency']),
+      email: serializer.fromJson<String?>(json['email']),
+      emailBounced: serializer.fromJson<bool?>(json['emailBounced']),
     );
   }
   @override
@@ -5868,6 +6143,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       'userId': serializer.toJson<String>(userId),
       'displayName': serializer.toJson<String>(displayName),
       'homeCurrency': serializer.toJson<String?>(homeCurrency),
+      'email': serializer.toJson<String?>(email),
+      'emailBounced': serializer.toJson<bool?>(emailBounced),
     };
   }
 
@@ -5878,6 +6155,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     String? userId,
     String? displayName,
     Value<String?> homeCurrency = const Value.absent(),
+    Value<String?> email = const Value.absent(),
+    Value<bool?> emailBounced = const Value.absent(),
   }) => SessionRow(
     id: id ?? this.id,
     accessToken: accessToken ?? this.accessToken,
@@ -5885,6 +6164,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     userId: userId ?? this.userId,
     displayName: displayName ?? this.displayName,
     homeCurrency: homeCurrency.present ? homeCurrency.value : this.homeCurrency,
+    email: email.present ? email.value : this.email,
+    emailBounced: emailBounced.present ? emailBounced.value : this.emailBounced,
   );
   SessionRow copyWithCompanion(SessionCompanion data) {
     return SessionRow(
@@ -5902,6 +6183,10 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       homeCurrency: data.homeCurrency.present
           ? data.homeCurrency.value
           : this.homeCurrency,
+      email: data.email.present ? data.email.value : this.email,
+      emailBounced: data.emailBounced.present
+          ? data.emailBounced.value
+          : this.emailBounced,
     );
   }
 
@@ -5913,7 +6198,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           ..write('refreshToken: $refreshToken, ')
           ..write('userId: $userId, ')
           ..write('displayName: $displayName, ')
-          ..write('homeCurrency: $homeCurrency')
+          ..write('homeCurrency: $homeCurrency, ')
+          ..write('email: $email, ')
+          ..write('emailBounced: $emailBounced')
           ..write(')'))
         .toString();
   }
@@ -5926,6 +6213,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     userId,
     displayName,
     homeCurrency,
+    email,
+    emailBounced,
   );
   @override
   bool operator ==(Object other) =>
@@ -5936,7 +6225,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           other.refreshToken == this.refreshToken &&
           other.userId == this.userId &&
           other.displayName == this.displayName &&
-          other.homeCurrency == this.homeCurrency);
+          other.homeCurrency == this.homeCurrency &&
+          other.email == this.email &&
+          other.emailBounced == this.emailBounced);
 }
 
 class SessionCompanion extends UpdateCompanion<SessionRow> {
@@ -5946,6 +6237,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
   final Value<String> userId;
   final Value<String> displayName;
   final Value<String?> homeCurrency;
+  final Value<String?> email;
+  final Value<bool?> emailBounced;
   const SessionCompanion({
     this.id = const Value.absent(),
     this.accessToken = const Value.absent(),
@@ -5953,6 +6246,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     this.userId = const Value.absent(),
     this.displayName = const Value.absent(),
     this.homeCurrency = const Value.absent(),
+    this.email = const Value.absent(),
+    this.emailBounced = const Value.absent(),
   });
   SessionCompanion.insert({
     this.id = const Value.absent(),
@@ -5961,6 +6256,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     required String userId,
     required String displayName,
     this.homeCurrency = const Value.absent(),
+    this.email = const Value.absent(),
+    this.emailBounced = const Value.absent(),
   }) : accessToken = Value(accessToken),
        refreshToken = Value(refreshToken),
        userId = Value(userId),
@@ -5972,6 +6269,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     Expression<String>? userId,
     Expression<String>? displayName,
     Expression<String>? homeCurrency,
+    Expression<String>? email,
+    Expression<bool>? emailBounced,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5980,6 +6279,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
       if (userId != null) 'user_id': userId,
       if (displayName != null) 'display_name': displayName,
       if (homeCurrency != null) 'home_currency': homeCurrency,
+      if (email != null) 'email': email,
+      if (emailBounced != null) 'email_bounced': emailBounced,
     });
   }
 
@@ -5990,6 +6291,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     Value<String>? userId,
     Value<String>? displayName,
     Value<String?>? homeCurrency,
+    Value<String?>? email,
+    Value<bool?>? emailBounced,
   }) {
     return SessionCompanion(
       id: id ?? this.id,
@@ -5998,6 +6301,8 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
       userId: userId ?? this.userId,
       displayName: displayName ?? this.displayName,
       homeCurrency: homeCurrency ?? this.homeCurrency,
+      email: email ?? this.email,
+      emailBounced: emailBounced ?? this.emailBounced,
     );
   }
 
@@ -6022,6 +6327,12 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
     if (homeCurrency.present) {
       map['home_currency'] = Variable<String>(homeCurrency.value);
     }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (emailBounced.present) {
+      map['email_bounced'] = Variable<bool>(emailBounced.value);
+    }
     return map;
   }
 
@@ -6033,7 +6344,9 @@ class SessionCompanion extends UpdateCompanion<SessionRow> {
           ..write('refreshToken: $refreshToken, ')
           ..write('userId: $userId, ')
           ..write('displayName: $displayName, ')
-          ..write('homeCurrency: $homeCurrency')
+          ..write('homeCurrency: $homeCurrency, ')
+          ..write('email: $email, ')
+          ..write('emailBounced: $emailBounced')
           ..write(')'))
         .toString();
   }
@@ -6354,6 +6667,9 @@ typedef $$GroupsTableCreateCompanionBuilder =
       Value<bool> simplifyDebts,
       Value<String?> defaultSplitJson,
       Value<String> kind,
+      Value<String> type,
+      Value<String?> coverImageId,
+      Value<bool> deleted,
       Value<int> rowid,
     });
 typedef $$GroupsTableUpdateCompanionBuilder =
@@ -6367,6 +6683,9 @@ typedef $$GroupsTableUpdateCompanionBuilder =
       Value<bool> simplifyDebts,
       Value<String?> defaultSplitJson,
       Value<String> kind,
+      Value<String> type,
+      Value<String?> coverImageId,
+      Value<bool> deleted,
       Value<int> rowid,
     });
 
@@ -6421,6 +6740,21 @@ class $$GroupsTableFilterComposer
 
   ColumnFilters<String> get kind => $composableBuilder(
     column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverImageId => $composableBuilder(
+    column: $table.coverImageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6478,6 +6812,21 @@ class $$GroupsTableOrderingComposer
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coverImageId => $composableBuilder(
+    column: $table.coverImageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GroupsTableAnnotationComposer
@@ -6525,6 +6874,17 @@ class $$GroupsTableAnnotationComposer
 
   GeneratedColumn<String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get coverImageId => $composableBuilder(
+    column: $table.coverImageId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
 }
 
 class $$GroupsTableTableManager
@@ -6564,6 +6924,9 @@ class $$GroupsTableTableManager
                 Value<bool> simplifyDebts = const Value.absent(),
                 Value<String?> defaultSplitJson = const Value.absent(),
                 Value<String> kind = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> coverImageId = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion(
                 id: id,
@@ -6575,6 +6938,9 @@ class $$GroupsTableTableManager
                 simplifyDebts: simplifyDebts,
                 defaultSplitJson: defaultSplitJson,
                 kind: kind,
+                type: type,
+                coverImageId: coverImageId,
+                deleted: deleted,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6588,6 +6954,9 @@ class $$GroupsTableTableManager
                 Value<bool> simplifyDebts = const Value.absent(),
                 Value<String?> defaultSplitJson = const Value.absent(),
                 Value<String> kind = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> coverImageId = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GroupsCompanion.insert(
                 id: id,
@@ -6599,6 +6968,9 @@ class $$GroupsTableTableManager
                 simplifyDebts: simplifyDebts,
                 defaultSplitJson: defaultSplitJson,
                 kind: kind,
+                type: type,
+                coverImageId: coverImageId,
+                deleted: deleted,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8465,6 +8837,7 @@ typedef $$RecurrencesTableCreateCompanionBuilder =
       required String timeZone,
       required String templateJson,
       Value<bool> deleted,
+      Value<int?> remindDaysBefore,
       Value<int> rowid,
     });
 typedef $$RecurrencesTableUpdateCompanionBuilder =
@@ -8476,6 +8849,7 @@ typedef $$RecurrencesTableUpdateCompanionBuilder =
       Value<String> timeZone,
       Value<String> templateJson,
       Value<bool> deleted,
+      Value<int?> remindDaysBefore,
       Value<int> rowid,
     });
 
@@ -8520,6 +8894,11 @@ class $$RecurrencesTableFilterComposer
 
   ColumnFilters<bool> get deleted => $composableBuilder(
     column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remindDaysBefore => $composableBuilder(
+    column: $table.remindDaysBefore,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8567,6 +8946,11 @@ class $$RecurrencesTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get remindDaysBefore => $composableBuilder(
+    column: $table.remindDaysBefore,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RecurrencesTableAnnotationComposer
@@ -8600,6 +8984,11 @@ class $$RecurrencesTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  GeneratedColumn<int> get remindDaysBefore => $composableBuilder(
+    column: $table.remindDaysBefore,
+    builder: (column) => column,
+  );
 }
 
 class $$RecurrencesTableTableManager
@@ -8640,6 +9029,7 @@ class $$RecurrencesTableTableManager
                 Value<String> timeZone = const Value.absent(),
                 Value<String> templateJson = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
+                Value<int?> remindDaysBefore = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecurrencesCompanion(
                 id: id,
@@ -8649,6 +9039,7 @@ class $$RecurrencesTableTableManager
                 timeZone: timeZone,
                 templateJson: templateJson,
                 deleted: deleted,
+                remindDaysBefore: remindDaysBefore,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8660,6 +9051,7 @@ class $$RecurrencesTableTableManager
                 required String timeZone,
                 required String templateJson,
                 Value<bool> deleted = const Value.absent(),
+                Value<int?> remindDaysBefore = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecurrencesCompanion.insert(
                 id: id,
@@ -8669,6 +9061,7 @@ class $$RecurrencesTableTableManager
                 timeZone: timeZone,
                 templateJson: templateJson,
                 deleted: deleted,
+                remindDaysBefore: remindDaysBefore,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9278,6 +9671,8 @@ typedef $$SessionTableCreateCompanionBuilder =
       required String userId,
       required String displayName,
       Value<String?> homeCurrency,
+      Value<String?> email,
+      Value<bool?> emailBounced,
     });
 typedef $$SessionTableUpdateCompanionBuilder =
     SessionCompanion Function({
@@ -9287,6 +9682,8 @@ typedef $$SessionTableUpdateCompanionBuilder =
       Value<String> userId,
       Value<String> displayName,
       Value<String?> homeCurrency,
+      Value<String?> email,
+      Value<bool?> emailBounced,
     });
 
 class $$SessionTableFilterComposer
@@ -9325,6 +9722,16 @@ class $$SessionTableFilterComposer
 
   ColumnFilters<String> get homeCurrency => $composableBuilder(
     column: $table.homeCurrency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get emailBounced => $composableBuilder(
+    column: $table.emailBounced,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9367,6 +9774,16 @@ class $$SessionTableOrderingComposer
     column: $table.homeCurrency,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get emailBounced => $composableBuilder(
+    column: $table.emailBounced,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SessionTableAnnotationComposer
@@ -9401,6 +9818,14 @@ class $$SessionTableAnnotationComposer
 
   GeneratedColumn<String> get homeCurrency => $composableBuilder(
     column: $table.homeCurrency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<bool> get emailBounced => $composableBuilder(
+    column: $table.emailBounced,
     builder: (column) => column,
   );
 }
@@ -9442,6 +9867,8 @@ class $$SessionTableTableManager
                 Value<String> userId = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
                 Value<String?> homeCurrency = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<bool?> emailBounced = const Value.absent(),
               }) => SessionCompanion(
                 id: id,
                 accessToken: accessToken,
@@ -9449,6 +9876,8 @@ class $$SessionTableTableManager
                 userId: userId,
                 displayName: displayName,
                 homeCurrency: homeCurrency,
+                email: email,
+                emailBounced: emailBounced,
               ),
           createCompanionCallback:
               ({
@@ -9458,6 +9887,8 @@ class $$SessionTableTableManager
                 required String userId,
                 required String displayName,
                 Value<String?> homeCurrency = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<bool?> emailBounced = const Value.absent(),
               }) => SessionCompanion.insert(
                 id: id,
                 accessToken: accessToken,
@@ -9465,6 +9896,8 @@ class $$SessionTableTableManager
                 userId: userId,
                 displayName: displayName,
                 homeCurrency: homeCurrency,
+                email: email,
+                emailBounced: emailBounced,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

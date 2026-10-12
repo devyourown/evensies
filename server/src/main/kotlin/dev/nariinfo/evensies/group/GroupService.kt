@@ -4,6 +4,7 @@ import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.friend.FriendRepository
 import dev.nariinfo.evensies.money.Money
 import dev.nariinfo.evensies.sync.EventService
+import dev.nariinfo.evensies.sync.EventValidator
 import dev.nariinfo.evensies.sync.IncomingEvent
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
@@ -37,11 +38,15 @@ class GroupService(
         groups.find(req.id)?.let { return get(req.id, userId) } // retried create is idempotent
         if (req.name.isBlank() || req.memberName.isBlank()) throw ApiException.badRequest("VALIDATION", "name and memberName are required")
         if (!Money.isKnown(req.defaultCurrency)) throw ApiException.badRequest("UNKNOWN_CURRENCY", "Unknown currency ${req.defaultCurrency}")
+        if (req.type != null && req.type !in EventValidator.GROUP_TYPES) {
+            throw ApiException.badRequest("VALIDATION", "type must be one of ${EventValidator.GROUP_TYPES.joinToString()}")
+        }
         requireGroupQuota(userId)
         groups.insert(Group(req.id, req.name, req.defaultCurrency, groups.newCode(), userId, Instant.now(), 0))
+        val created = mapOf("name" to req.name, "defaultCurrency" to req.defaultCurrency) + (req.type?.let { mapOf("type" to it) } ?: emptyMap())
         events.pushValidated(
             req.id, userId, listOf(
-                event("group.created", mapOf("name" to req.name, "defaultCurrency" to req.defaultCurrency)),
+                event("group.created", created),
                 event("member.added", mapOf("memberId" to req.memberId, "name" to req.memberName, "userId" to userId)),
             )
         )
@@ -55,8 +60,12 @@ class GroupService(
         return InviteCodeDto(code)
     }
 
+    /** A deleted group's invite is 404 (preview, landing and join), like an unknown code. */
+    private fun invited(code: String): Group =
+        groups.findByInviteCode(InviteCodes.normalize(code))?.takeUnless { it.deleted } ?: throw ApiException.notFound("Invite")
+
     fun preview(code: String): InvitePreviewDto {
-        val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
+        val group = invited(code)
         val active = members.listByGroup(group.id).filter { !it.removed }
         return InvitePreviewDto(group.id, group.name, group.kind, active.size, active.map { InviteMemberDto(it.id, it.name, it.userId != null) })
     }
@@ -66,7 +75,7 @@ class GroupService(
      * its placeholder records the pair in `friendships` unless the two already have a canonical friend group.
      */
     fun join(code: String, userId: UUID, req: JoinRequest): GroupDto {
-        val group = groups.findByInviteCode(InviteCodes.normalize(code)) ?: throw ApiException.notFound("Invite")
+        val group = invited(code)
         if (members.findByGroupAndUser(group.id, userId) == null) {
             if (group.kind == "group") requireGroupQuota(userId)
             events.pushValidated(group.id, userId, listOf(joinEvent(group, userId, req)))

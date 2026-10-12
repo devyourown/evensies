@@ -20,7 +20,9 @@ void main() {
       test(c['name'] as String, () {
         final names = (c['names'] as Map).cast<String, String>();
         final items = (c['expected'] as List).cast<Map<String, dynamic>>().map(ActivityItem.fromJson);
-        expect([for (final i in items) activityText(i, names, c['me'] as String)], c['texts']);
+        // A friend group (seq 1 group.created kind "friend") has its own delete/restore sentences.
+        final friend = (((c['events'] as List).first as Map)['payload'] as Map)['kind'] == 'friend';
+        expect([for (final i in items) activityText(i, names, c['me'] as String, friend: friend)], c['texts']);
       });
     }
   });
@@ -54,6 +56,15 @@ void main() {
     }
   });
 
+  test("a friend group's delete and restore don't name the internal group", () {
+    ActivityItem i(String kind, String actor) =>
+        ActivityItem.fromJson({'seq': 9, 'kind': kind, 'actorMemberId': actor, 'name': 'Anna & Ben'});
+    const names = {'m1': 'Anna', 'm2': 'Ben'};
+    expect(activityText(i('group_deleted', 'm1'), names, 'm2', friend: true), 'Anna deleted your non-group expenses');
+    expect(activityText(i('group_restored', 'm2'), names, 'm2', friend: true), 'You restored these non-group expenses');
+    expect(activityText(i('group_deleted', 'm1'), names, 'm2'), 'Anna deleted the group “Anna & Ben”');
+  });
+
   test('missing keys default to null and changes to []', () {
     final i = ActivityItem.fromJson(jsonDecode('{"seq":3,"kind":"member_joined","memberId":"m2"}') as Map<String, dynamic>);
     expect(i.actorMemberId, isNull);
@@ -64,5 +75,31 @@ void main() {
   test('unknown kind still renders', () {
     final i = ActivityItem.fromJson({'seq': 1, 'kind': 'future_thing', 'actorMemberId': 'm1'});
     expect(activityText(i, const {'m1': 'Anna'}, 'm2'), 'Anna made a change');
+  });
+
+  test('Phase 10: group deleted and restored, and the type and cover changes (unknown type reads Other)', () {
+    String text(Map<String, dynamic> j, {String me = 'm1', String lang = 'en'}) =>
+        activityText(ActivityItem.fromJson({'seq': 1, 'actorMemberId': 'm2', ...j}), const {'m2': 'Ben'}, me, lang: lang);
+    expect(text({'kind': 'group_deleted', 'name': 'Rome'}), 'Ben deleted the group “Rome”');
+    expect(text({'kind': 'group_restored', 'name': 'Rome'}), 'Ben restored the group “Rome”');
+    expect(text({'kind': 'group_deleted', 'name': 'Rome'}, me: 'm2'), 'You deleted the group “Rome”');
+    expect(
+        text({
+          'kind': 'group_updated',
+          'changes': [
+            {'field': 'type', 'from': 'other', 'to': 'trip'}
+          ]
+        }),
+        'Ben changed the group: type Trip');
+    expect(
+        text({
+          'kind': 'group_updated',
+          'changes': [
+            {'field': 'coverImageId', 'from': null, 'to': 'c1'},
+            {'field': 'type', 'from': 'trip', 'to': 'boat'},
+          ]
+        }),
+        'Ben changed the group: cover photo, type Other');
+    expect(text({'kind': 'group_restored', 'name': 'Roma'}, lang: 'ko'), 'Ben님이 ‘Roma’ 그룹을 복원했어요');
   });
 }

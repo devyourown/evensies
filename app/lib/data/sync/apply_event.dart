@@ -3,7 +3,7 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~16 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~18 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
@@ -44,10 +44,17 @@ import 'event_types.dart';
 ///    recurrence.deleted sets deleted. Series events never change expenses.
 /// 16. Expenses carry recurrenceId and occurrence (missing = null): expense.created reads them, expense.updated sets
 ///    each key it has (null clears). The applier never checks the series; delete, restore and move keep the tag.
+/// 17. Group type, cover, deleted: group.created sets type (missing or not a string: "other"), a string type in
+///    group.updated replaces it; a present coverImageId replaces the cover (null clears), a missing one keeps it.
+///    group.deleted sets deleted and group.restored clears it (the later in seq order wins); neither touches members,
+///    expenses or payments, and events after a delete apply as usual.
+/// 18. Repeating series carry remindDaysBefore (missing = null): recurrence.created reads it, a recurrence.updated with
+///    the key (a sibling of fields) sets it on a known, live series (null clears).
 ///
 /// 이벤트별 payload(docs/API.md):
-///   group.created {name, defaultCurrency, kind?} → state.name/defaultCurrency/kind
-///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?} → 있는 키만 (rules 11–12)
+///   group.created {name, defaultCurrency, kind?, type?} → state.name/defaultCurrency/kind/type
+///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?, type?, coverImageId?} → 있는 키만 (11, 12, 17)
+///   group.deleted {}   group.restored {}
 ///   member.added {memberId, name, userId|null} → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   member.linked {memberId, userId}
 ///   member.removed {memberId}
@@ -59,8 +66,8 @@ import 'event_types.dart';
 ///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}
 ///   payment.deleted {paymentId, replacedBy?}   payment.confirmed {paymentId}   payment.restored {paymentId}
 ///   attachment.added {attachmentId, expenseId}   attachment.deleted {attachmentId, expenseId?}
-///   recurrence.created {recurrenceId, frequency, startDate, timeZone, template}
-///   recurrence.updated {recurrenceId, fields}   recurrence.deleted {recurrenceId}
+///   recurrence.created {recurrenceId, frequency, startDate, timeZone, template, remindDaysBefore?}
+///   recurrence.updated {recurrenceId, fields, remindDaysBefore?}   recurrence.deleted {recurrenceId}
 ///   모르는 type → state 그대로.
 /// Created entities always start live: a `deleted` key in the payload is ignored (like Kotlin; the server does not
 /// validate it), and so are `moved` on an expense and `replaced` on a payment (only expense.deleted / payment.deleted
@@ -73,6 +80,7 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
         name: p['name'] as String?,
         defaultCurrency: p['defaultCurrency'] as String?,
         kind: p['kind'] is String ? p['kind'] as String : 'group',
+        type: p['type'] is String ? p['type'] as String : 'other',
       );
     case EventTypes.groupUpdated:
       final locked = s.expenses.isNotEmpty || s.payments.isNotEmpty;
@@ -82,7 +90,13 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
         simplifyDebts: p['simplifyDebts'] is bool ? p['simplifyDebts'] as bool : null,
         defaultSplit: SplitSpec.fromJson(p['defaultSplit']),
         clearDefaultSplit: p.containsKey('defaultSplit') && SplitSpec.fromJson(p['defaultSplit']) == null,
+        type: p['type'] is String ? p['type'] as String : null,
+        cover: p.containsKey('coverImageId') ? (p['coverImageId'] as String?,) : null,
       );
+    case EventTypes.groupDeleted:
+      return s.copyWith(deleted: true);
+    case EventTypes.groupRestored:
+      return s.copyWith(deleted: false);
     case EventTypes.memberAdded:
       final id = p['memberId'] as String;
       if (s.member(id) != null) return s;
@@ -182,13 +196,16 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
           startDate: p['startDate'] as String,
           timeZone: p['timeZone'] as String,
           template: (p['template'] as Map).cast<String, dynamic>(),
+          remindDaysBefore: (p['remindDaysBefore'] as num?)?.toInt(),
         ),
       ]);
     case EventTypes.recurrenceUpdated:
       final id = p['recurrenceId'] as String;
       final f = (p['fields'] as Map).cast<String, dynamic>();
+      final remind = p.containsKey('remindDaysBefore') ? ((p['remindDaysBefore'] as num?)?.toInt(),) : null;
       return s.copyWith(recurrences: [
-        for (final r in s.recurrences) r.id == id && !r.deleted ? r.copyWith(template: {...r.template, ...f}) : r,
+        for (final r in s.recurrences)
+          r.id == id && !r.deleted ? r.copyWith(template: {...r.template, ...f}, remind: remind) : r,
       ]);
     case EventTypes.recurrenceDeleted:
       final id = p['recurrenceId'] as String;

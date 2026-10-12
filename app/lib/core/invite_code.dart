@@ -26,3 +26,12 @@ const _codeChars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 /// `ABCDEF` → `ABC-DEF`; other lengths unchanged.
 String formatInviteCode(String code) => code.length == 6 ? '${code.substring(0, 3)}-${code.substring(3)}' : code;
+
+final _uuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+/// The app route for a group invite link: `/join/CODE`, plus `?m=` when an email invite named the placeholder
+/// (`…/j/CODE?m=<uuid>`, Phase 10); anything not UUID-shaped is dropped.
+String joinRoute(String code, String link) {
+  final m = Uri.tryParse(link)?.queryParameters['m'];
+  return m != null && _uuid.hasMatch(m) ? '/join/$code?m=$m' : '/join/$code';
+}

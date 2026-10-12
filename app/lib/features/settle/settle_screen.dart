@@ -256,6 +256,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                 methods: _methods == null ? null : receiverMethods,
                 failed: _methodsFailed,
                 toName: _name(s, t.to),
+                currency: cur,
                 onPay: (m) =>
                     payWith(context, m, toName: _name(s, t.to), amount: t.amount, currency: cur, note: 'Evensies: ${group.name}'),
               ),

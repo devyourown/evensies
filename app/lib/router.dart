@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/activity/activity_screen.dart';
+import 'features/auth/email_login_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/name_screen.dart';
 import 'features/expense_detail/expense_detail_screen.dart';
@@ -14,11 +15,15 @@ import 'features/friends/with_picker.dart';
 import 'features/group_detail/group_detail_screen.dart';
 import 'features/group_settings/group_settings_screen.dart';
 import 'features/groups/groups_screen.dart';
+import 'features/groups/wide_layout.dart';
 import 'features/groups/join_code_screen.dart';
 import 'features/groups/join_screen.dart';
 import 'features/insights/insights_screen.dart';
 import 'features/members/members_screen.dart';
 import 'features/search/search_screen.dart';
+import 'features/settings/account_email_screen.dart';
+import 'features/settings/blocked_screen.dart';
+import 'features/settings/deleted_groups_screen.dart';
 import 'features/settings/payment_methods_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settle/payment_detail_screen.dart';
@@ -34,10 +39,11 @@ String? safeNext(String? next) => next != null && next.startsWith('/') && !next.
 String? authRedirect(SessionRow? s, String loc, Uri uri) {
   Uri withNext(String path, String? next) =>
       Uri(path: path, queryParameters: next == null || next == '/' ? null : {'next': next});
-  final next = loc == '/login' || loc == '/name' ? safeNext(uri.queryParameters['next']) : uri.toString();
-  if (s == null) return loc == '/login' ? null : withNext('/login', next).toString();
+  final login = loc == '/login' || loc == '/login/email';
+  final next = login || loc == '/name' ? safeNext(uri.queryParameters['next']) : uri.toString();
+  if (s == null) return login ? null : withNext('/login', next).toString();
   if (needsDisplayName(s)) return loc == '/name' ? null : withNext('/name', next).toString();
-  return loc == '/login' ? next ?? '/' : null;
+  return login ? next ?? '/' : null;
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -51,15 +57,34 @@ final routerProvider = Provider<GoRouter>((ref) {
     return (await ref.read(dbProvider).getGroup(id))?.kind == 'friend' ? '/groups/$id' : null;
   }
 
+  final home = _home(friendPage);
   return GoRouter(
     refreshListenable: refresh,
     initialLocation: '/',
-    redirect: (_, state) => authRedirect(ref.read(sessionProvider).value, state.matchedLocation, state.uri),
+    redirect: (_, state) {
+      final s = ref.read(sessionProvider);
+      // The saved session is still loading (longer on the web): stay; this runs again once it is there.
+      if (s.isLoading && !s.hasValue) return null;
+      return authRedirect(s.value, state.matchedLocation, state.uri);
+    },
     routes: [
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-      GoRoute(path: '/name', builder: (_, _) => const NameScreen()),
-      // Children of '/': the groups list is always underneath, so every screen has a way back.
       GoRoute(
+        path: '/login',
+        builder: (_, _) => const WebColumn(child: LoginScreen()),
+        routes: [GoRoute(path: 'email', builder: (_, _) => const WebColumn(child: EmailLoginScreen()))],
+      ),
+      GoRoute(path: '/name', builder: (_, _) => const WebColumn(child: NameScreen())),
+      // The web: wide windows put groups, friends and balances beside every page (docs/API.md 화면 배치).
+      if (wideLayoutPlatform)
+        ShellRoute(builder: (_, state, child) => WideShell(location: state.uri, child: child), routes: [home])
+      else
+        home,
+    ],
+  );
+});
+
+/// '/' and its children: the groups list is always underneath, so every screen has a way back.
+GoRoute _home(Future<String?> Function(BuildContext, GoRouterState) friendPage) => GoRoute(
         path: '/',
         builder: (_, s) => GroupsScreen(key: ValueKey(s.uri.queryParameters['tab']), tab: s.uri.queryParameters['tab']),
         routes: [
@@ -78,7 +103,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'settings',
             builder: (_, _) => const SettingsScreen(),
-            routes: [GoRoute(path: 'payment-methods', builder: (_, _) => const PaymentMethodsScreen())],
+            routes: [
+              GoRoute(path: 'payment-methods', builder: (_, _) => const PaymentMethodsScreen()),
+              GoRoute(path: 'email', builder: (_, _) => const AccountEmailScreen()),
+              GoRoute(path: 'blocked', builder: (_, _) => const BlockedScreen()),
+              GoRoute(path: 'deleted', builder: (_, _) => const DeletedGroupsScreen()),
+            ],
           ),
           GoRoute(path: 'activity', builder: (_, _) => const ActivityScreen()),
           GoRoute(
@@ -87,10 +117,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               groupId: s.uri.queryParameters['group'],
               category: s.uri.queryParameters['category'],
               month: s.uri.queryParameters['month'],
+              all: s.uri.queryParameters['all'] == '1',
             ),
           ),
           GoRoute(path: 'join-code', builder: (_, _) => const JoinCodeScreen()),
-          GoRoute(path: 'join/:code', builder: (_, s) => JoinScreen(code: s.pathParameters['code']!)),
+          GoRoute(
+              path: 'join/:code',
+              builder: (_, s) => JoinScreen(code: s.pathParameters['code']!, memberId: s.uri.queryParameters['m'])),
           GoRoute(
             path: 'groups/:id',
             builder: (_, s) => GroupDetailScreen(groupId: s.pathParameters['id']!, tab: s.uri.queryParameters['tab']),
@@ -127,7 +160,4 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
-      ),
-    ],
-  );
-});
+      );

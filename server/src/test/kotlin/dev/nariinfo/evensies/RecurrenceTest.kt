@@ -140,7 +140,8 @@ class RecurrenceTest : IntegrationTestBase() {
 
         // snapshot: the series as sent, no scheduler columns; the expense carries its series and number
         val series = recurrences(s.ben, s.id).getValue(r)
-        assertEquals(setOf("id", "frequency", "startDate", "timeZone", "template", "deleted"), series.propertyNames().toSet())
+        assertEquals(setOf("id", "frequency", "startDate", "timeZone", "template", "deleted", "remindDaysBefore"), series.propertyNames().toSet())
+        assertTrue(series["remindDaysBefore"].isNull, "Phase 10: no reminder unless the series asks for one")
         assertEquals("monthly", series["frequency"].asString())
         assertEquals("2031-01-31", series["startDate"].asString())
         assertEquals("+02:00", series["timeZone"].asString())

@@ -4181,5 +4181,589 @@
   "yourRate": "your rate",
   "@yourRate": {
     "description": "{source} in rateExplain when the rate was typed."
+  },
+  "loginEmail": "Continue with email",
+  "@loginEmail": {
+    "description": "Login button that signs in with a code sent by email."
+  },
+  "emailLoginTitle": "Sign in with email",
+  "@emailLoginTitle": {
+    "description": "Title of the email sign-in screen."
+  },
+  "emailLoginIntro": "We'll email you a 6-digit code. No password needed.",
+  "@emailLoginIntro": {
+    "description": "Text above the email field on the sign-in screen."
+  },
+  "emailLabel": "Email",
+  "@emailLabel": {
+    "description": "Label of an email address field."
+  },
+  "emailInvalid": "Enter a valid email address",
+  "@emailInvalid": {
+    "description": "Error under an email field."
+  },
+  "sendCode": "Send code",
+  "@sendCode": {
+    "description": "Button that emails a 6-digit code."
+  },
+  "codeSentTo": "Enter the 6-digit code we sent to {email}. It expires in 10 minutes.",
+  "@codeSentTo": {
+    "description": "Text above the code field.",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "codeLabel": "6-digit code",
+  "@codeLabel": {
+    "description": "Label of the code field."
+  },
+  "verifyCode": "Continue",
+  "@verifyCode": {
+    "description": "Button that checks the typed code."
+  },
+  "resendCode": "Resend code",
+  "@resendCode": {
+    "description": "Button that emails a new code."
+  },
+  "resendCodeIn": "Resend code in {seconds} s",
+  "@resendCodeIn": {
+    "description": "Disabled resend button with the seconds left.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "codeResent": "We sent a new code.",
+  "@codeResent": {
+    "description": "Snackbar after Resend code."
+  },
+  "useDifferentEmail": "Use a different email",
+  "@useDifferentEmail": {
+    "description": "Button that goes back to the email field."
+  },
+  "codeCheckSpam": "Nothing arrived? Check your spam folder.",
+  "@codeCheckSpam": {
+    "description": "Hint under the code field."
+  },
+  "errorCodeInvalid": "That code is wrong or has expired. Ask for a new one.",
+  "@errorCodeInvalid": {
+    "description": "Error when the typed code is refused."
+  },
+  "errorEmailNotConfigured": "This server doesn't send email.",
+  "@errorEmailNotConfigured": {
+    "description": "Error when the server has email turned off."
+  },
+  "errorEmailRejected": "That address can't receive email. Check it for typos.",
+  "@errorEmailRejected": {
+    "description": "Error when the mail server refused the address."
+  },
+  "errorEmailTaken": "Another account already uses this address.",
+  "@errorEmailTaken": {
+    "description": "Error when a new account email belongs to someone else."
+  },
+  "errorEmailRequired": "Email is your only way to sign in, so it can't be removed.",
+  "@errorEmailRequired": {
+    "description": "Error when removing the only way to sign in."
+  },
+  "errorEmailUnavailable": "Email isn't working right now. Try again later.",
+  "@errorEmailUnavailable": {
+    "description": "Error when the server can't send email at the moment."
+  },
+  "emailSaved": "Email saved",
+  "@emailSaved": {
+    "description": "Snackbar after a new account email was verified."
+  },
+  "removeEmailTitle": "Remove {email}?",
+  "@removeEmailTitle": {
+    "description": "Confirm dialog title for removing the account email.",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "removeEmailMessage": "You'll get no email summaries or reminders, and you can't sign in with it any more.",
+  "@removeEmailMessage": {
+    "description": "Confirm dialog text for removing the account email."
+  },
+  "emailRemoved": "Email removed",
+  "@emailRemoved": {
+    "description": "Snackbar after the account email was removed."
+  },
+  "emailNeedsConnection": "Changing your email needs a connection.",
+  "@emailNeedsConnection": {
+    "description": "Error when changing the account email offline."
+  },
+  "emailBouncedNote": "Emails to this address bounce — change it or verify it again",
+  "@emailBouncedNote": {
+    "description": "Warning under an account email that bounces."
+  },
+  "emailVerifiedNote": "Verified · other members never see it",
+  "@emailVerifiedNote": {
+    "description": "Note under the verified account email."
+  },
+  "changeEmail": "Change email",
+  "@changeEmail": {
+    "description": "Heading above the form that changes the account email."
+  },
+  "emailAccountHelp": "For signing in and email summaries. We send a code to check it's yours. Other members never see it.",
+  "@emailAccountHelp": {
+    "description": "Help text on the account email screen."
+  },
+  "removeEmail": "Remove email",
+  "@removeEmail": {
+    "description": "Button that removes the account email."
+  },
+  "addEmail": "Add email",
+  "@addEmail": {
+    "description": "Settings row when the account has no email."
+  },
+  "addEmailHint": "Sign in with it and get email summaries",
+  "@addEmailHint": {
+    "description": "Subtitle of the Add email row."
+  },
+  "unblockedName": "Unblocked {name}",
+  "@unblockedName": {
+    "description": "Snackbar after unblocking someone.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blockNeedsConnection": "Blocking needs a connection.",
+  "@blockNeedsConnection": {
+    "description": "Error when blocking or unblocking offline."
+  },
+  "blockedEmpty": "You haven't blocked anyone.",
+  "@blockedEmpty": {
+    "description": "Empty state of Blocked people."
+  },
+  "blockedNeedsConnection": "Blocked people need a connection",
+  "@blockedNeedsConnection": {
+    "description": "Error state of Blocked people when offline."
+  },
+  "unblock": "Unblock",
+  "@unblock": {
+    "description": "Button that unblocks someone."
+  },
+  "blockedPeople": "Blocked people",
+  "@blockedPeople": {
+    "description": "Settings row and screen title listing blocked people."
+  },
+  "blockedHelp": "Blocked people can't add you as a friend or send you reminders, and their changes don't notify or email you. Shared groups and balances stay as they are.",
+  "@blockedHelp": {
+    "description": "Help text on Blocked people."
+  },
+  "deletedGroupsEmpty": "No deleted groups",
+  "@deletedGroupsEmpty": {
+    "description": "Empty state of Deleted groups."
+  },
+  "deletedGroupsHelp": "Restoring brings a group back for everyone, with everything in it.",
+  "@deletedGroupsHelp": {
+    "description": "Help text on Deleted groups."
+  },
+  "deletedGroups": "Deleted groups",
+  "@deletedGroups": {
+    "description": "Settings row and screen title listing deleted groups."
+  },
+  "deletedGroupsCount": "{count, plural, =1{1 group can be restored} other{{count} groups can be restored}}",
+  "@deletedGroupsCount": {
+    "description": "Subtitle of the Deleted groups row.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportNeedsConnection": "Exporting needs a connection.",
+  "@exportNeedsConnection": {
+    "description": "Error when exporting offline."
+  },
+  "exportEverything": "Export everything (JSON)",
+  "@exportEverything": {
+    "description": "Settings row that downloads the whole account."
+  },
+  "exportEverythingHint": "Your profile, ways to get paid, settings and every group, deleted ones too",
+  "@exportEverythingHint": {
+    "description": "Subtitle of Export everything."
+  },
+  "emailSummary": "Email summary",
+  "@emailSummary": {
+    "description": "Settings row choosing how often an email summary comes."
+  },
+  "digestChoice": "{choice, select, auto{Auto} daily{Daily} weekly{Weekly} monthly{Monthly} off{Off} other{Auto}}",
+  "@digestChoice": {
+    "description": "An email summary choice.",
+    "placeholders": {
+      "choice": {
+        "type": "String"
+      }
+    }
+  },
+  "digestAutoHelp": "Daily when your devices can't show notifications, otherwise monthly",
+  "@digestAutoHelp": {
+    "description": "Explains the Auto email summary choice."
+  },
+  "digestAutoDaily": "Auto — daily, because notifications are off",
+  "@digestAutoDaily": {
+    "description": "Current email summary when Auto means daily."
+  },
+  "digestAutoMonthly": "Auto — monthly, because your devices get notifications",
+  "@digestAutoMonthly": {
+    "description": "Current email summary when Auto means monthly."
+  },
+  "digestNoEmail": "Add an email under Account to get summaries",
+  "@digestNoEmail": {
+    "description": "Email summary row when the account has no email."
+  },
+  "helpReportProblem": "Report a problem or suggest a feature",
+  "@helpReportProblem": {
+    "description": "Help row that opens a new GitHub issue."
+  },
+  "helpReportProblemHint": "On GitHub, where everyone can see it",
+  "@helpReportProblemHint": {
+    "description": "Subtitle of the GitHub help row."
+  },
+  "helpContact": "Email support",
+  "@helpContact": {
+    "description": "Help row that writes to the server operator."
+  },
+  "privacyPolicy": "Privacy policy",
+  "@privacyPolicy": {
+    "description": "Help row that opens the privacy policy."
+  },
+  "helpFeedback": "Help & feedback",
+  "@helpFeedback": {
+    "description": "Settings section and row for help."
+  },
+  "signOutEverywhere": "Sign out on all devices",
+  "@signOutEverywhere": {
+    "description": "Settings row that signs out every phone and browser."
+  },
+  "signOutEverywhereTitle": "Sign out on all devices?",
+  "@signOutEverywhereTitle": {
+    "description": "Confirm dialog title."
+  },
+  "signOutEverywhereMessage": "Every phone and browser signed in to your account is signed out, this one too. Your groups stay on the server.",
+  "@signOutEverywhereMessage": {
+    "description": "Confirm dialog text."
+  },
+  "signOutEverywhereOffline": "Signing out on all devices needs a connection.",
+  "@signOutEverywhereOffline": {
+    "description": "Error when offline."
+  },
+  "deleteAccountExportTip": "Tip: Export everything first.",
+  "@deleteAccountExportTip": {
+    "description": "Line added to the delete-account confirmation."
+  },
+  "coverPhoto": "Cover photo",
+  "@coverPhoto": {
+    "description": "Group settings row that changes the group's cover photo."
+  },
+  "coverPhotoHint": "Shown on the group's header and in the list. Only members see it.",
+  "@coverPhotoHint": {
+    "description": "Subtitle of the cover photo row."
+  },
+  "removeCover": "Remove cover",
+  "@removeCover": {
+    "description": "Sheet item that removes the group's cover photo."
+  },
+  "coverNeedsConnection": "Changing the cover needs a connection.",
+  "@coverNeedsConnection": {
+    "description": "Error when uploading a cover offline."
+  },
+  "coverTooMany": "That's a lot of cover changes. Try again in an hour.",
+  "@coverTooMany": {
+    "description": "Error when too many covers were uploaded."
+  },
+  "deleteGroup": "Delete group",
+  "@deleteGroup": {
+    "description": "Group settings row that deletes the group for everyone."
+  },
+  "deleteGroupHint": "For everyone · any member can restore it",
+  "@deleteGroupHint": {
+    "description": "Subtitle of Delete group."
+  },
+  "deleteGroupTitle": "Delete “{name}”?",
+  "@deleteGroupTitle": {
+    "description": "Confirm dialog title for deleting a group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteGroupMessage": "Deleted for everyone. Any member can restore it from Settings → Deleted groups.",
+  "@deleteGroupMessage": {
+    "description": "Confirm dialog text for deleting a group."
+  },
+  "groupDeletedName": "Deleted “{name}”",
+  "@groupDeletedName": {
+    "description": "Snackbar with Undo after deleting a group.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "groupDeletedBanner": "This group is deleted",
+  "@groupDeletedBanner": {
+    "description": "Banner on a deleted group's page, next to Restore."
+  },
+  "groupRestored": "Group restored",
+  "@groupRestored": {
+    "description": "Snackbar after restoring a group."
+  },
+  "deleteFriend": "Delete friend",
+  "@deleteFriend": {
+    "description": "Friend page menu item."
+  },
+  "deleteFriendTitle": "Delete {name}?",
+  "@deleteFriendTitle": {
+    "description": "Confirm dialog title for deleting a friend.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteFriendMessage": "Your non-group expenses with {name} are deleted for both of you. Shared groups stay. You can restore them from Settings → Deleted groups, or by adding {name} again.",
+  "@deleteFriendMessage": {
+    "description": "Confirm dialog text for deleting a friend.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "friendDeleted": "Deleted {name}",
+  "@friendDeleted": {
+    "description": "Snackbar with Undo after deleting a friend.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "block": "Block",
+  "@block": {
+    "description": "Friend page menu item and confirm button."
+  },
+  "blockTitle": "Block {name}?",
+  "@blockTitle": {
+    "description": "Confirm dialog title for blocking someone.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blockMessage": "{name} won't be able to add you as a friend or send you reminders, and their changes won't notify or email you. Shared groups and balances stay.",
+  "@blockMessage": {
+    "description": "Confirm dialog text for blocking someone.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blockedName": "Blocked {name}",
+  "@blockedName": {
+    "description": "Snackbar after blocking someone.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "report": "Report…",
+  "@report": {
+    "description": "Friend page menu item that emails the server's support address."
+  },
+  "reportSubject": "Evensies report",
+  "@reportSubject": {
+    "description": "Subject of the report email."
+  },
+  "reportBody": "User id: {userId}\n\nWhat happened:\n",
+  "@reportBody": {
+    "description": "Body of the report email; the user id identifies the reported person.",
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteByEmail": "Invite by email…",
+  "@inviteByEmail": {
+    "description": "Menu item on a placeholder member."
+  },
+  "inviteEmailField": "Email (optional)",
+  "@inviteEmailField": {
+    "description": "Field in Add member."
+  },
+  "inviteEmailHelp": "We'll email them an invite link. Only used for this invite.",
+  "@inviteEmailHelp": {
+    "description": "Help under the invite email field."
+  },
+  "inviteByEmailTitle": "Invite {name} by email",
+  "@inviteByEmailTitle": {
+    "description": "Dialog title.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteEmailSent": "Invite sent to {email}",
+  "@inviteEmailSent": {
+    "description": "Snackbar after an email invite.",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "inviteEmailOfflineAdded": "Member added. Inviting by email needs a connection — try again from the member list.",
+  "@inviteEmailOfflineAdded": {
+    "description": "Snackbar when the new member was added offline."
+  },
+  "inviteEmailOffline": "Inviting by email needs a connection.",
+  "@inviteEmailOffline": {
+    "description": "Error when inviting by email offline."
+  },
+  "inviteEmailLimit": "Email limit reached for today — share the link instead.",
+  "@inviteEmailLimit": {
+    "description": "Error when too many invite emails were sent."
+  },
+  "emailReminder": "Email a reminder: {choice}",
+  "@emailReminder": {
+    "description": "Button under Repeat; choice is Never or N days before.",
+    "placeholders": {
+      "choice": {
+        "type": "String"
+      }
+    }
+  },
+  "remindNever": "Never",
+  "@remindNever": {
+    "description": "No email reminder before a repeating expense."
+  },
+  "remindDaysBefore": "{count, plural, =1{1 day before} other{{count} days before}}",
+  "@remindDaysBefore": {
+    "description": "Email reminder this many days before a repeat.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "blurbUpi": "India: Paytm, PhonePe, Google Pay and other UPI apps",
+  "@blurbUpi": {
+    "description": "What the UPI payment method is."
+  },
+  "fieldUpi": "UPI ID",
+  "@fieldUpi": {
+    "description": "Field for a UPI ID."
+  },
+  "fieldUpiHint": "Like name@okicici",
+  "@fieldUpiHint": {
+    "description": "Hint under the UPI ID field."
+  },
+  "fieldUpiName": "Name (optional)",
+  "@fieldUpiName": {
+    "description": "Field for the name shown to payers in UPI apps."
+  },
+  "fieldUpiNameHint": "Shown to the person paying you",
+  "@fieldUpiNameHint": {
+    "description": "Hint under the UPI name field."
+  },
+  "methodErrorUpi": "Enter a UPI ID like name@bank",
+  "@methodErrorUpi": {
+    "description": "Error under an invalid UPI ID."
+  },
+  "noUpiApp": "No UPI app found. Copy the UPI ID and amount instead.",
+  "@noUpiApp": {
+    "description": "Note in the pay sheet when no UPI app opened."
+  },
+  "upiIdLabel": "UPI ID",
+  "@upiIdLabel": {
+    "description": "Label in the pay sheet."
+  },
+  "copyUpiId": "Copy UPI ID",
+  "@copyUpiId": {
+    "description": "Button that copies a UPI ID."
+  },
+  "upiIdCopied": "UPI ID copied",
+  "@upiIdCopied": {
+    "description": "Snackbar after copying a UPI ID."
+  },
+  "dashboard": "Dashboard",
+  "@dashboard": {
+    "description": "The overview page in the web app's wide layout."
+  },
+  "allExpenses": "All expenses",
+  "@allExpenses": {
+    "description": "Sidebar entry in the web app's wide layout: every expense of every group, newest first (the search page without a query)."
+  },
+  "groupBalances": "Group balances",
+  "@groupBalances": {
+    "description": "Heading of the balances column next to a group."
+  },
+  "yourBalance": "Your balance",
+  "@yourBalance": {
+    "description": "Heading of the balance column next to a friend."
+  },
+  "dashboardOwesYou": "Owes you",
+  "@dashboardOwesYou": {
+    "description": "Dashboard column of people who owe me."
+  },
+  "dashboardYouOwe": "You owe",
+  "@dashboardYouOwe": {
+    "description": "Dashboard column of people I owe."
+  },
+  "historyAndComments": "History and comments",
+  "@historyAndComments": {
+    "description": "Heading of the expense's thread of changes and comments."
+  },
+  "showEarlier": "Show earlier",
+  "@showEarlier": {
+    "description": "Button that loads older history at the top of the thread."
+  },
+  "settleUpFirst": "Settle up first",
+  "@settleUpFirst": {
+    "description": "Title of the dialog shown instead of deleting a friend while a non-group balance is open."
+  },
+  "deleteFriendSettleFirst": "You can delete {name} as a friend once your non-group expenses are settled up.",
+  "@deleteFriendSettleFirst": {
+    "description": "Text under the non-group balance in that dialog.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noMailApp": "No email app found. Copy the details below and write from any email app.",
+  "@noMailApp": {
+    "description": "Sheet text when no email app opened (Report…, Email support)."
+  },
+  "copyAddress": "Copy address",
+  "@copyAddress": {
+    "description": "Button that copies an email address."
+  },
+  "copyMessage": "Copy message",
+  "@copyMessage": {
+    "description": "Button that copies the prepared email text."
+  },
+  "browserNoStorage": "This browser can't keep Evensies' data. Try another browser, or a window that isn't private.",
+  "@browserNoStorage": {
+    "description": "Whole-page message when the browser cannot open the app database."
+  },
+  "browserOtherTab": "Evensies is already open in another tab of this browser. Use that tab, or close it and reload this one.",
+  "@browserOtherTab": {
+    "description": "Whole-page message in a browser that keeps a database copy per tab, when another tab already has it."
   }
 }

@@ -35,10 +35,11 @@ class LocalWrites {
 
   /// [repeat] (a frequency) also starts a series with [e] as its first expense (docs/API.md 반복 지출): the series row
   /// and `recurrence.created` go before the expense and its `expense.created`, in one local transaction.
-  Future<void> createExpense(String groupId, Expense e, {String? repeat}) async {
+  /// [remindDaysBefore] (1–7, Phase 10) asks the server to email a reminder before each repeat.
+  Future<void> createExpense(String groupId, Expense e, {String? repeat, int? remindDaysBefore}) async {
     if (repeat != null) e = e.copyWith(recurrenceId: newId(), occurrence: 0);
     await db.transaction(() async {
-      if (repeat != null) await _startSeries(groupId, e, repeat);
+      if (repeat != null) await _startSeries(groupId, e, repeat, remindDaysBefore);
       await db.into(db.expenses).insertOnConflictUpdate(expenseRow(groupId, e));
       await _writeLists(e);
       await _outbox(groupId, EventTypes.expenseCreated, expenseCreatedPayload(e));
@@ -81,9 +82,14 @@ class LocalWrites {
 
   /// A new series [frequency] for [e] (its recurrenceId set, occurrence 0): starts on [e]'s date in this device's
   /// time zone, with [e] as template. The row and `recurrence.created`; the caller holds the transaction.
-  Future<void> _startSeries(String groupId, Expense e, String frequency) async {
+  Future<void> _startSeries(String groupId, Expense e, String frequency, int? remindDaysBefore) async {
     final r = Recurrence(
-        id: e.recurrenceId!, frequency: frequency, startDate: e.date, timeZone: deviceTimeZone(), template: templateOf(e));
+        id: e.recurrenceId!,
+        frequency: frequency,
+        startDate: e.date,
+        timeZone: deviceTimeZone(),
+        template: templateOf(e),
+        remindDaysBefore: remindDaysBefore);
     await db.into(db.recurrences).insert(recurrenceRow(groupId, r));
     await _outbox(groupId, EventTypes.recurrenceCreated, {
       'recurrenceId': r.id,
@@ -91,22 +97,30 @@ class LocalWrites {
       'startDate': r.startDate,
       'timeZone': r.timeZone,
       'template': r.template,
+      'remindDaysBefore': ?remindDaysBefore,
     });
   }
 
   /// Future repeats of series [recurrenceId] (docs/API.md `recurrence.updated`): [fields] as for [updateExpense] (the
-  /// changed template keys, never the date) are merged into the local template key by key and sent. Nothing when empty.
-  Future<void> updateRecurrence(String groupId, String recurrenceId, Map<String, dynamic> fields) async {
+  /// changed template keys, never the date) are merged into the local template key by key and sent. [remind] sets
+  /// remindDaysBefore (`(null,)` turns the reminder off; rule 18). Nothing when both are empty.
+  Future<void> updateRecurrence(String groupId, String recurrenceId, Map<String, dynamic> fields,
+      {(int?,)? remind}) async {
     final f = _json(fields);
-    if (f.isEmpty) return;
+    if (f.isEmpty && remind == null) return;
     await db.transaction(() async {
       final row = await (db.select(db.recurrences)..where((r) => r.id.equals(recurrenceId))).getSingleOrNull();
       if (row != null && !row.deleted) {
         final t = {...(jsonDecode(row.templateJson) as Map).cast<String, dynamic>(), ...f};
-        await (db.update(db.recurrences)..where((r) => r.id.equals(recurrenceId)))
-            .write(RecurrencesCompanion(templateJson: Value(jsonEncode(t))));
+        await (db.update(db.recurrences)..where((r) => r.id.equals(recurrenceId))).write(RecurrencesCompanion(
+            templateJson: Value(jsonEncode(t)),
+            remindDaysBefore: remind == null ? const Value.absent() : Value(remind.$1)));
       }
-      await _outbox(groupId, EventTypes.recurrenceUpdated, {'recurrenceId': recurrenceId, 'fields': f});
+      await _outbox(groupId, EventTypes.recurrenceUpdated, {
+        'recurrenceId': recurrenceId,
+        'fields': f,
+        if (remind != null) 'remindDaysBefore': remind.$1,
+      });
     });
     sync.syncLater(groupId);
   }
@@ -128,11 +142,11 @@ class LocalWrites {
   /// moves into it as occurrence 0 with its changed [fields] (as for [updateExpense]). One local transaction:
   /// `recurrence.deleted`, `recurrence.created`, then `expense.updated`.
   Future<void> repeatFrom(String groupId, Expense e, String frequency,
-      {String? stop, Map<String, dynamic> fields = const {}}) async {
+      {String? stop, Map<String, dynamic> fields = const {}, int? remindDaysBefore}) async {
     final next = e.copyWith(recurrenceId: newId(), occurrence: 0);
     await db.transaction(() async {
       if (stop != null) await _stop(groupId, stop);
-      await _startSeries(groupId, next, frequency);
+      await _startSeries(groupId, next, frequency, remindDaysBefore);
       await _update(groupId, next, {...fields, 'recurrenceId': next.recurrenceId, 'occurrence': 0});
     });
     sync.syncLater(groupId);
@@ -357,10 +371,12 @@ class LocalWrites {
     await sync.receipts.delete([attachmentId]);
   }
 
-  Future<void> addMember(String groupId, String name) async {
+  /// Returns the new member's id.
+  Future<String> addMember(String groupId, String name) async {
     final id = newId();
     await db.into(db.members).insert(MembersCompanion.insert(id: id, groupId: groupId, name: name));
     await _enqueue(groupId, EventTypes.memberAdded, {'memberId': id, 'name': name, 'userId': null});
+    return id;
   }
 
   Future<void> removeMember(String groupId, String memberId) async {
@@ -416,6 +432,8 @@ class LocalWrites {
   /// Group settings (docs/API.md `group.updated`): only the given keys are sent; [clearDefaultSplit] sends
   /// `"defaultSplit": null`. The currency is applied optimistically; when my event comes back in the pull the app
   /// takes the server's state, which has ignored it if an expense or payment got there first (rule 12).
+  /// Phase 10: [type] sets the group type; [removeCover] sends `"coverImageId": null` (a new cover is uploaded
+  /// instead, `PUT /groups/{id}/cover`, and the server sends its event).
   Future<void> updateGroup(
     String groupId, {
     String? name,
@@ -423,6 +441,8 @@ class LocalWrites {
     bool? simplifyDebts,
     SplitSpec? defaultSplit,
     bool clearDefaultSplit = false,
+    String? type,
+    bool removeCover = false,
   }) async {
     final g = await db.getGroup(groupId);
     if (g == null) return;
@@ -432,13 +452,27 @@ class LocalWrites {
       defaultCurrency: defaultCurrency ?? g.defaultCurrency,
       simplifyDebts: simplifyDebts ?? g.simplifyDebts,
       defaultSplitJson: splitKey ? Value(splitToJson(defaultSplit)) : const Value.absent(),
+      type: type ?? g.type,
+      coverImageId: removeCover ? const Value(null) : const Value.absent(),
     ));
     await _enqueue(groupId, EventTypes.groupUpdated, {
       'name': ?name,
       'defaultCurrency': ?defaultCurrency,
       'simplifyDebts': ?simplifyDebts,
       if (splitKey) 'defaultSplit': defaultSplit?.toJson(),
+      'type': ?type,
+      if (removeCover) 'coverImageId': null,
     });
+  }
+
+  /// Deletes the group for everyone (docs/API.md 그룹 삭제, rule 17), offline too: it leaves every list here at once,
+  /// and any member restores it with [restoreGroup]. Nothing in it changes, and edits made meanwhile still arrive.
+  Future<void> deleteGroup(String groupId) => _setDeleted(groupId, true);
+  Future<void> restoreGroup(String groupId) => _setDeleted(groupId, false);
+
+  Future<void> _setDeleted(String groupId, bool deleted) async {
+    await (db.update(db.groups)..where((g) => g.id.equals(groupId))).write(GroupsCompanion(deleted: Value(deleted)));
+    await _enqueue(groupId, deleted ? EventTypes.groupDeleted : EventTypes.groupRestored, const {});
   }
 
   /// Leave the group (docs/API.md 그룹 나가기): online only, not through the outbox. Throws when offline, when

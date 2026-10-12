@@ -41,4 +41,10 @@ void main() {
     expect(go(nameless, '/name?next=%2Fjoin%2FK7P4QX'), isNull);
     expect(go(nameless, '/'), '/name');
   });
+
+  test('email sign-in (Phase 10): the code page stays while signed out and keeps next; then next', () {
+    expect(go(null, '/login/email?next=%2Fjoin%2FK7P4QX%3Fm%3Dx'), isNull);
+    expect(go(_session('Anna'), '/login/email?next=%2Fjoin%2FK7P4QX%3Fm%3Dx'), '/join/K7P4QX?m=x');
+    expect(go(_session(''), '/login/email?next=%2Fjoin%2FK7P4QX'), '/name?next=%2Fjoin%2FK7P4QX');
+  });
 }

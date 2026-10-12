@@ -242,9 +242,10 @@ bool _filtered(SearchDoc d, String? category, String? month) {
 /// Ids of the docs where every term of [query] matches and the filters pass, date descending then id ascending.
 /// A blank query without a filter finds nothing. ponytail: a linear scan behind a 150 ms debounce; move to SQLite FTS5
 /// past about 20k expenses.
-List<String> searchDocs(List<SearchDoc> docs, String query, {String? category, String? month}) {
+/// [all]: nothing typed or picked lists every doc (the web sidebar's All expenses) instead of none.
+List<String> searchDocs(List<SearchDoc> docs, String query, {String? category, String? month, bool all = false}) {
   final terms = searchTerms(query);
-  if (terms.isEmpty && category == null && month == null) return const [];
+  if (terms.isEmpty && category == null && month == null && !all) return const [];
   final folded = terms.map(fold).toList();
   bool matches(SearchDoc d) {
     final f = _fields(d);

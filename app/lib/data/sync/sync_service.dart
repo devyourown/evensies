@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/cover.dart' show dropCover;
 import '../../domain/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_localizations_en.dart';
@@ -27,6 +28,11 @@ class SyncService {
 
   /// True after the last sync attempt failed (network or server). Shown as a chip in the UI.
   final offline = ValueNotifier<bool>(false);
+
+  /// True while the first [syncAll] for the signed-in user lists their groups on a device that has none yet (a fresh
+  /// sign-in): the lists show a spinner then, not "No groups yet".
+  final firstLoad = ValueNotifier<bool>(false);
+  String? _listedFor;
   final _inFlight = <String, Future<void>>{};
 
   /// "Couldn't save the new expense “Hotel”: …" for each event the server refused on its own (docs/API.md 거부된 이벤트).
@@ -44,6 +50,7 @@ class SyncService {
       });
 
   Future<void> _sync(String groupId) async {
+    final oldCover = (await db.getGroup(groupId))?.coverImageId;
     try {
       try {
         await _upload(groupId);
@@ -100,6 +107,7 @@ class SyncService {
           rethrow;
         }
       }
+      if ((await db.getGroup(groupId))?.coverImageId != oldCover) await dropCover(receipts.store, oldCover);
       offline.value = false;
     } on _Gone {
       // Left or removed (here or on another device): nothing to show or keep.
@@ -119,8 +127,9 @@ class SyncService {
         createdAt: o.createdAt,
       );
 
-  /// The group's local rows and its receipt files (left, removed, or gone from `GET /groups`).
+  /// The group's local rows, its receipt files and cover (left, removed, or gone from `GET /groups`).
   Future<void> dropGroup(String groupId) async {
+    await dropCover(receipts.store, (await db.getGroup(groupId))?.coverImageId);
     await receipts.delete(await db.receiptIds(groupId));
     await db.deleteGroupData(groupId);
   }
@@ -388,9 +397,14 @@ class SyncService {
   }
 
   Future<void> syncAll() async {
-    if (await db.getSession() == null) return;
+    final user = (await db.getSession())?.userId;
+    if (user == null) return;
     // Read before asking: a group created while the request runs is not in the answer but must stay.
     final local = (await db.select(db.groups).get()).map((g) => g.id).toSet();
+    if (_listedFor != user) {
+      _listedFor = user;
+      firstLoad.value = local.isEmpty;
+    }
     try {
       final listed = await api.listGroups();
       final remote = listed.map((g) => g.id).toSet();
@@ -412,6 +426,8 @@ class SyncService {
     } catch (e) {
       offline.value = true;
       return;
+    } finally {
+      firstLoad.value = false;
     }
     for (final g in await db.select(db.groups).get()) {
       await sync(g.id).catchError((_) {});
@@ -425,6 +441,8 @@ class SyncService {
   }
 
   Future<void> _adopt(GroupDto g, GroupState state, int latestSeq) async {
+    final old = (await db.getGroup(g.id))?.coverImageId;
+    if (old != g.coverImageId) await dropCover(receipts.store, old);
     await db.upsertGroup(GroupRow(
       id: g.id,
       name: g.name,
@@ -435,6 +453,9 @@ class SyncService {
       simplifyDebts: g.simplifyDebts,
       defaultSplitJson: splitToJson(g.defaultSplit),
       kind: g.kind,
+      type: g.type,
+      coverImageId: g.coverImageId,
+      deleted: g.deleted,
     ));
     await store.save(g.id, state, latestSeq);
     await _dropRemoved(state);

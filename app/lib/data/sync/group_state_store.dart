@@ -40,6 +40,9 @@ class GroupStateStore {
       kind: g?.kind ?? 'group',
       simplifyDebts: g?.simplifyDebts ?? true,
       defaultSplit: splitFromJson(g?.defaultSplitJson),
+      type: g?.type ?? 'other',
+      coverImageId: g?.coverImageId,
+      deleted: g?.deleted ?? false,
       members: [for (final m in ms) Member(id: m.id, name: m.name, userId: m.userId, removed: m.removed)],
       expenses: [
         for (final e in xs)
@@ -107,6 +110,9 @@ class GroupStateStore {
             kind: s.kind,
             simplifyDebts: s.simplifyDebts,
             defaultSplitJson: Value(splitToJson(s.defaultSplit)),
+            type: s.type,
+            coverImageId: Value(s.coverImageId),
+            deleted: s.deleted,
             latestSeq: latestSeq,
           ));
         }
@@ -204,6 +210,7 @@ RecurrencesCompanion recurrenceRow(String groupId, Recurrence r) => RecurrencesC
       timeZone: r.timeZone,
       templateJson: jsonEncode(r.template),
       deleted: Value(r.deleted),
+      remindDaysBefore: Value(r.remindDaysBefore),
     );
 Recurrence recurrenceFromRow(RecurrenceRow r) => Recurrence(
       id: r.id,
@@ -212,6 +219,7 @@ Recurrence recurrenceFromRow(RecurrenceRow r) => Recurrence(
       timeZone: r.timeZone,
       template: (jsonDecode(r.templateJson) as Map).cast<String, dynamic>(),
       deleted: r.deleted,
+      remindDaysBefore: r.remindDaysBefore,
     );
 
 SplitSpec? splitFromJson(String? json) => json == null ? null : SplitSpec.fromJson(jsonDecode(json));

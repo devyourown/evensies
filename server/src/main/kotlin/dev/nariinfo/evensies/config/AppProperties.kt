@@ -16,6 +16,9 @@ data class AppProperties(
     val storageDir: String = "./data",
     /** Exact origins allowed to call the API cross-origin (`EVENSIES_CORS_ORIGINS`, development only); empty = no CORS. */
     val corsOrigins: List<String> = emptyList(),
+    val email: Email = Email(),
+    /** Phase 10: the operator's contact address for Help & feedback and Report (`EVENSIES_SUPPORT_EMAIL`); empty = none. */
+    val supportEmail: String = "",
 ) {
     data class Auth(
         val devLogin: Boolean = false,
@@ -35,5 +38,22 @@ data class AppProperties(
 
     /** [url]: exchange-rate source in Frankfurter v2 shape (`{url}/rates?base=EUR&date=`); empty turns GET /fx off. */
     data class Fx(val url: String = "https://api.frankfurter.dev/v2")
+
+    /**
+     * Phase 10 (docs/API.md "이메일"): [smtpHost] empty turns every email feature off. [smtpTls] `starttls` (required),
+     * `ssl` (465) or `none` (Mailpit only). [dailyLimit]: rolling 24 h cap, 0 = none. [webhookSecret]: Resend's `whsec_…`,
+     * empty turns POST /webhooks/email off. [authRatePerMinute]: email sign-in requests (start, verify) per client IP.
+     */
+    data class Email(
+        val smtpHost: String = "",
+        val smtpPort: Int = 587,
+        val smtpUser: String = "",
+        val smtpPassword: String = "",
+        val smtpTls: String = "starttls",
+        val from: String = "Evensies <no-reply@localhost>",
+        val dailyLimit: Int = 0,
+        val webhookSecret: String = "",
+        val authRatePerMinute: Double = 10.0,
+    )
 
 }

@@ -14,6 +14,10 @@ class CapturingPushSender : PushSender {
     val sent = CopyOnWriteArrayList<Sent>()
     val dead: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    /** Phase 10: false plays a server without FCM credentials. */
+    @Volatile
+    override var enabled = true
+
     override fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>, badge: Int?): List<String> {
         check(tokens.size <= PushSender.MAX_TOKENS) { "FCM rejects multicasts of ${tokens.size} tokens" }
         sent += Sent(tokens, title, body, data, badge)

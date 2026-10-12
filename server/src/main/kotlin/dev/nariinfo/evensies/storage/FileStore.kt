@@ -34,4 +34,8 @@ class FileStore(props: AppProperties) {
     fun delete(key: String) {
         Files.deleteIfExists(root.resolve(key))
     }
+
+    /** Names of the entries directly in [dir] (empty when it doesn't exist); the daily sweep of covers. */
+    fun children(dir: String): List<String> =
+        root.resolve(dir).takeIf(Files::isDirectory)?.let { d -> Files.list(d).use { s -> s.map { it.fileName.toString() }.toList() } } ?: emptyList()
 }

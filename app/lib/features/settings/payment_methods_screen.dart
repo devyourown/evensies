@@ -11,6 +11,7 @@ import '../../providers.dart';
 IconData methodIcon(String type) => switch (type) {
       PaymentTypes.iban || PaymentTypes.krBank => Icons.account_balance_outlined,
       PaymentTypes.wise => Icons.public,
+      PaymentTypes.upi => Icons.currency_rupee,
       _ => Icons.account_balance_wallet_outlined,
     };
 
@@ -163,6 +164,7 @@ String _typeBlurb(AppLocalizations l, String t) => switch (t) {
       PaymentTypes.venmo => l.blurbVenmo,
       PaymentTypes.revolut => l.blurbRevolut,
       PaymentTypes.kakaopay => l.blurbKakaopay,
+      PaymentTypes.upi => l.blurbUpi,
       PaymentTypes.iban => l.blurbIban,
       PaymentTypes.krBank => l.blurbKrBank,
       _ => '',
@@ -191,6 +193,10 @@ List<_Field> _fieldsFor(AppLocalizations l, String t) => switch (t) {
         ],
       PaymentTypes.kakaopay => [
           _Field('value', l.fieldKakaopay, hint: l.fieldKakaopayHint, keyboard: TextInputType.url),
+        ],
+      PaymentTypes.upi => [
+          _Field('value', l.fieldUpi, hint: l.fieldUpiHint, keyboard: TextInputType.emailAddress),
+          _Field('holder', l.fieldUpiName, hint: l.fieldUpiNameHint, optional: true),
         ],
       PaymentTypes.iban => [
           _Field('holder', l.fieldHolder, hint: l.fieldHolderHint),

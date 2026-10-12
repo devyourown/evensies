@@ -20,6 +20,8 @@
   <title>Evensies</title>
   <link rel="manifest" href="manifest.json">
   <!-- Sign in with Apple's script is added by the app only when the server offers it (sign_in_web.dart). -->
+  <!-- Before the app: holds Google's sign-in script until the sign-in page offers Google. -->
+  <script src="gsi_lazy.js"></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

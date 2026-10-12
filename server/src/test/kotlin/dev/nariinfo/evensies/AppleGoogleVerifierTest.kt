@@ -36,9 +36,27 @@ class AppleGoogleVerifierTest {
     private fun token(
         iss: String = "https://accounts.google.com", aud: String = "my-client",
         exp: Instant = Instant.now().plusSeconds(600), key: RSAPrivateKey = priv, name: String? = "Anna",
+        verified: Any? = null, email: String = "a@x.io",
     ): String = JWT.create().withKeyId("k1").withIssuer(iss).withAudience(aud).withSubject("sub-1")
-        .withExpiresAt(exp).apply { name?.let { withClaim("name", it) } }.withClaim("email", "a@x.io")
+        .withExpiresAt(exp).apply { name?.let { withClaim("name", it) } }.withClaim("email", email)
+        .apply {
+            when (verified) {
+                is Boolean -> withClaim("email_verified", verified)
+                is String -> withClaim("email_verified", verified)
+            }
+        }
         .sign(Algorithm.RSA256(pub, key))
+
+    /** Phase 10: the address only when the token says it is verified (Apple may send the string "true"); stored lower-cased. */
+    @Test
+    fun emailOnlyWhenVerified() {
+        assertEquals(null, verifier.verify(token()).email, "no email_verified claim")
+        assertEquals(null, verifier.verify(token(verified = false)).email)
+        assertEquals(null, verifier.verify(token(verified = "false")).email)
+        assertEquals("a@x.io", verifier.verify(token(verified = true)).email)
+        assertEquals("anna@icloud.com", verifier.verify(token(verified = "true", email = " Anna@iCloud.com")).email)
+        assertEquals(null, verifier.verify(token(verified = true, email = "not-an-address")).email)
+    }
 
     @Test
     fun validTokenYieldsIdentity() {

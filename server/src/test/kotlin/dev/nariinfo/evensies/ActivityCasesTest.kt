@@ -57,8 +57,21 @@ class ActivityCasesTest {
                 )
             }.reversed()
             assertEquals(SharedJson.canon(case["expected"]), SharedJson.canon(items.map(::compact)))
-            assertEquals(case["texts"].values().map { it.asString() }, items.map { ActivityText.sentence(it, names(case), me) })
+            assertEquals(case["texts"].values().map { it.asString() }, items.map { ActivityText.sentence(it, names(case), me, friend = state.kind == "friend") })
         }
+    }
+
+    /** A friend group's name ("Anna & Ben") is internal: deleting a friend reads as their non-group expenses. */
+    @Test
+    fun friendGroupDeleteAndRestoreDontShowTheInternalName() {
+        val names = mapOf("m1" to "Anna", "m2" to "Ben")
+        val deleted = ActivityItem(seq = 4, kind = "group_deleted", createdAt = Instant.EPOCH, actorMemberId = "m1", name = "Anna & Ben")
+        val restored = deleted.copy(seq = 5, kind = "group_restored")
+        assertEquals("Anna deleted your non-group expenses", ActivityText.sentence(deleted, names, "m2", friend = true))
+        assertEquals("You deleted these non-group expenses", ActivityText.sentence(deleted, names, "m1", friend = true))
+        assertEquals("Anna restored your non-group expenses", ActivityText.body(listOf(restored), names, "m2", friend = true))
+        assertEquals("Anna님이 그룹 밖 지출을 삭제했어요", ActivityText.sentence(deleted, names, "m2", "ko", friend = true))
+        assertEquals("Anna deleted the group “Anna & Ben”", ActivityText.sentence(deleted, names, "m2"), "a real group keeps its name")
     }
 
     @TestFactory

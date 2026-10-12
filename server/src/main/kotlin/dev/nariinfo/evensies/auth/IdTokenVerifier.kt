@@ -6,13 +6,15 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.AppProperties
+import dev.nariinfo.evensies.email.EmailAddress
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.net.URI
 import java.security.interfaces.RSAPublicKey
 import java.util.concurrent.TimeUnit
 
-data class VerifiedIdentity(val subject: String, val displayName: String)
+/** [email] (Phase 10): the token's address, only when it says `email_verified` (Apple may send the string "true"). */
+data class VerifiedIdentity(val subject: String, val displayName: String, val email: String? = null)
 
 /**
  * Verifies an OpenID Connect id token (RS256) against a JWKS: signature, issuer, audience, expiry.
@@ -41,7 +43,8 @@ class IdTokenVerifier(
         }
         if (jwt.issuer !in issuers) throw ApiException.unauthorized("Invalid id token issuer")
         val name = nameClaims.firstNotNullOfOrNull { jwt.getClaim(it).asString()?.takeIf(String::isNotBlank) } ?: ""
-        return VerifiedIdentity(jwt.subject, name)
+        val verified = jwt.getClaim("email_verified").let { it.asBoolean() ?: (it.asString() == "true") }
+        return VerifiedIdentity(jwt.subject, name, if (verified) EmailAddress.normalize(jwt.getClaim("email").asString()) else null)
     }
 }
 

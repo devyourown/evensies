@@ -8,12 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart' show ImageSource;
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/appearance.dart';
 import '../../core/browser_stub.dart' if (dart.library.js_interop) '../../core/browser_web.dart' show downloadFile;
 import '../../core/confirm.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
+import '../../core/ids.dart' show todayIso;
 import '../../core/l10n.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
@@ -24,6 +26,7 @@ import '../../data/images.dart';
 import '../../providers.dart';
 import '../auth/auth_service.dart';
 import '../friends/home_data.dart';
+import '../groups/wide_layout.dart' show isWide;
 import '../lock/app_lock.dart';
 
 /// Exports a group (a friend group: its non-group expenses) through the share sheet as `[name].[format]` (the browser
@@ -34,26 +37,45 @@ Future<void> exportGroup(BuildContext context, WidgetRef ref, String groupId, St
     // A file name can't hold a slash.
     final fileName = '${name.replaceAll('/', '-')}.$format';
     final mime = switch (format) { 'zip' => 'application/zip', 'csv' => 'text/csv', _ => 'application/json' };
-    final XFile file;
     final dir = format == 'zip' ? await tempDir() : null;
     if (dir != null) {
       // Phones: the ZIP streams into a temp file instead of memory.
       await api.exportZipTo(groupId, '$dir/$fileName');
-      file = XFile('$dir/$fileName', name: fileName, mimeType: mime);
-    } else {
-      final Uint8List bytes =
-          format == 'zip' ? await api.exportZip(groupId) : utf8.encode(await api.export(groupId, format));
-      if (kIsWeb) {
-        downloadFile(bytes, fileName, mime);
-        return;
-      }
-      file = XFile.fromData(bytes, name: fileName, mimeType: mime);
+      await SharePlus.instance.share(ShareParams(
+          files: [XFile('$dir/$fileName', name: fileName, mimeType: mime)], fileNameOverrides: [fileName]));
+      return;
     }
-    await SharePlus.instance.share(ShareParams(files: [file], fileNameOverrides: [fileName]));
+    final Uint8List bytes =
+        format == 'zip' ? await api.exportZip(groupId) : utf8.encode(await api.export(groupId, format));
+    await shareFile(bytes, fileName, mime);
   } catch (e) {
     if (context.mounted) showError(context, e);
   }
 }
+
+/// [bytes] as `fileName` through the share sheet; the browser downloads it.
+Future<void> shareFile(Uint8List bytes, String fileName, String mime) async {
+  if (kIsWeb) return downloadFile(bytes, fileName, mime);
+  await SharePlus.instance.share(ShareParams(
+      files: [XFile.fromData(bytes, name: fileName, mimeType: mime)], fileNameOverrides: [fileName]));
+}
+
+/// Export everything (docs/API.md `GET /me/export`): one JSON file with my profile, ways to get paid, settings and
+/// every group, deleted ones included, as `evensies-export-YYYY-MM-DD.json`.
+Future<void> exportAccount(BuildContext context, WidgetRef ref) async {
+  try {
+    final json = await ref.read(apiProvider).exportAccount();
+    await shareFile(utf8.encode(json), 'evensies-export-${todayIso()}.json', 'application/json');
+  } catch (e) {
+    if (context.mounted) {
+      showError(context, e is ApiException && e.code == 'NETWORK' ? context.l.exportNeedsConnection : e);
+    }
+  }
+}
+
+/// Help & feedback (docs/API.md 도움말): a GitHub issue, the operator's address when it has one, the privacy policy.
+const issuesUrl = 'https://github.com/devyourown/evensies/issues/new';
+const privacyUrl = 'https://devyourown.github.io/evensies/privacy';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -64,8 +86,9 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final _url = TextEditingController(text: ref.read(serverUrlProvider));
 
-  /// GET/PUT /me/notifications; null while loading or when it failed ([_prefsFailed]).
-  Map<String, bool>? _prefs;
+  /// GET/PUT /me/notifications; null while loading or when it failed ([_prefsFailed]). The switches are booleans,
+  /// `emailDigest` / `emailDigestEffective` strings (Phase 10).
+  Map<String, Object>? _prefs;
   bool _prefsFailed = false;
   bool _savingHome = false;
   bool _savingPhoto = false;
@@ -109,6 +132,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
     if (choice == null || !mounted) return;
+    // Known offline: say so now, not after a photo was picked for nothing.
+    if (ref.read(offlineProvider)) return showError(context, context.l.photoNeedsConnection);
     final api = ref.read(apiProvider);
     final source = choice == 'camera' ? ImageSource.camera : ImageSource.gallery;
     try {
@@ -157,18 +182,69 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// Optimistic; reverts when the server refuses or is unreachable.
-  Future<void> _setPref(String key, bool on) async {
+  /// Optimistic; reverts when the server refuses or is unreachable. A switch sends the switches only (a missing
+  /// `emailDigest` stays as saved); [key] `emailDigest` sends them with the new choice.
+  Future<void> _setPref(String key, Object value) async {
     final old = _prefs!;
-    setState(() => _prefs = {...old, key: on});
+    setState(() => _prefs = {...old, key: value});
     try {
-      final saved = await ref.read(apiProvider).putNotificationPrefs({...old, key: on});
+      final body = <String, Object>{
+        for (final e in old.entries)
+          if (e.value is bool) e.key: e.value,
+        key: value,
+      };
+      final saved = await ref.read(apiProvider).putNotificationPrefs(body);
       if (mounted) setState(() => _prefs = saved);
     } catch (e) {
       if (!mounted) return;
       setState(() => _prefs = old);
       showError(context, context.l.notifSaveFailed);
     }
+  }
+
+  /// Email summary (docs/API.md 이메일 요약): Auto, Daily, Weekly, Monthly or Off.
+  Future<void> _pickDigest() async {
+    final current = _prefs?['emailDigest'] as String? ?? 'auto';
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(ctx.l.emailSummary),
+        children: [
+          RadioGroup<String>(
+            groupValue: current,
+            onChanged: (v) => Navigator.pop(ctx, v),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final c in const ['auto', 'daily', 'weekly', 'monthly', 'off'])
+                RadioListTile<String>(
+                  key: Key('digest-$c'),
+                  value: c,
+                  title: Text(ctx.l.digestChoice(c)),
+                  subtitle: c == 'auto' ? Text(ctx.l.digestAutoHelp) : null,
+                ),
+            ]),
+          ),
+        ],
+      ),
+    );
+    if (picked != null && picked != current) await _setPref('emailDigest', picked);
+  }
+
+  /// "Auto — daily, because notifications are off", or the picked one.
+  String _digestText(AppLocalizations l) {
+    final choice = _prefs?['emailDigest'] as String? ?? 'auto';
+    if (choice != 'auto') return l.digestChoice(choice);
+    return switch (_prefs?['emailDigestEffective']) {
+      'daily' => l.digestAutoDaily,
+      'monthly' => l.digestAutoMonthly,
+      _ => l.digestChoice('auto'),
+    };
+  }
+
+  /// Opens [url] outside the app (GitHub, the privacy policy).
+  Future<void> _open(String url) async {
+    final l = context.l;
+    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) => false);
+    if (!ok && mounted) showInfo(context, l.couldNotOpen(url));
   }
 
   /// PATCH /me, online only (docs/API.md): the session keeps what the server saved.
@@ -189,6 +265,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Back online (a resume or the offline retry synced): what failed to load comes back without Retry.
+    ref.listen(offlineProvider, (was, now) {
+      if (was == true && !now && _prefsFailed) _loadPrefs();
+    });
     final session = ref.watch(sessionProvider).value;
     final home = ref.watch(homeCurrencyProvider);
     final groups = ref.watch(groupsProvider).value ?? const <GroupRow>[];
@@ -198,12 +278,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l = context.l;
     String k(String text) => keepAll(text, l.localeName);
     final lockSupported = !kIsWeb && (ref.watch(lockSupportedProvider).value ?? false);
+    final info = ref.watch(infoProvider);
+    final deleted = ref.watch(deletedGroupsProvider).value ?? const <GroupRow>[];
     Widget header(String s) => Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
           child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
         );
     return Scaffold(
-      appBar: AppBar(title: Text(l.settingsTitle)),
+      appBar: AppBar(title: Text(l.settingsTitle), automaticallyImplyLeading: !isWide(context)),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
@@ -265,9 +347,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               SwitchListTile(
                 secondary: Icon(icon),
                 title: Text(label),
-                value: _prefs?[key] ?? true,
+                value: _prefs?[key] as bool? ?? true,
                 onChanged: _prefs == null ? null : (v) => _setPref(key, v),
               ),
+          // Phase 10, only when this server sends email and has the setting.
+          if (info.emailLogin && (_prefs?.containsKey('emailDigest') ?? false))
+            ListTile(
+              key: const Key('email-digest'),
+              leading: const Icon(Icons.mark_email_read_outlined),
+              title: Text(l.emailSummary),
+              subtitle: Text(k(session?.email == null ? l.digestNoEmail : _digestText(l))),
+              enabled: session?.email != null,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _pickDigest,
+            ),
           if (_prefsFailed)
             ListTile(
               leading: Icon(Icons.cloud_off_outlined, color: cs.onSurfaceVariant),
@@ -281,6 +374,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             ),
           header(l.exportImport),
+          ListTile(
+            key: const Key('export-everything'),
+            leading: const Icon(Icons.download_outlined),
+            title: Text(l.exportEverything),
+            subtitle: Text(k(l.exportEverythingHint)),
+            onTap: () => exportAccount(context, ref),
+          ),
+          if (deleted.isNotEmpty)
+            ListTile(
+              key: const Key('deleted-groups'),
+              leading: const Icon(Icons.restore_from_trash_outlined),
+              title: Text(l.deletedGroups),
+              subtitle: Text(l.deletedGroupsCount(deleted.length)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/deleted'),
+            ),
           if (groups.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -366,10 +475,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ],
           header(l.account),
+          // Phase 10: hidden when this server sends no email.
+          if (info.emailLogin)
+            ListTile(
+              key: const Key('account-email'),
+              leading: Icon(session?.emailBounced == true ? Icons.warning_amber_rounded : Icons.mail_outline,
+                  color: session?.emailBounced == true ? cs.error : null),
+              title: Text(session?.email == null ? l.addEmail : l.emailLabel),
+              subtitle: Text(
+                  k(session?.email == null
+                      ? l.addEmailHint
+                      : session?.emailBounced == true
+                          ? '${session!.email}\n${l.emailBouncedNote}'
+                          : session!.email!),
+                  style: session?.emailBounced == true ? TextStyle(color: cs.error) : null),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/email'),
+            ),
           ListTile(
-            leading: const Icon(Icons.description_outlined),
-            title: Text(l.licenses),
-            onTap: () => showLicensePage(context: context, applicationName: 'Evensies'),
+            key: const Key('blocked-people'),
+            leading: const Icon(Icons.block),
+            title: Text(l.blockedPeople),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/blocked'),
           ),
           ListTile(
             leading: const Icon(Icons.logout),
@@ -377,9 +505,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: _signOut,
           ),
           ListTile(
+            key: const Key('sign-out-everywhere'),
+            leading: const Icon(Icons.devices_other_outlined),
+            title: Text(l.signOutEverywhere),
+            onTap: _signOutEverywhere,
+          ),
+          ListTile(
             leading: Icon(Icons.delete_forever_outlined, color: cs.error),
             title: Text(l.deleteAccount, style: TextStyle(color: cs.error)),
             onTap: _deleteAccount,
+          ),
+          header(l.helpFeedback),
+          ListTile(
+            key: const Key('help-issue'),
+            leading: const Icon(Icons.bug_report_outlined),
+            title: Text(l.helpReportProblem),
+            subtitle: Text(k(l.helpReportProblemHint)),
+            onTap: () => _open(issuesUrl),
+          ),
+          if (info.supportEmail case final support?)
+            ListTile(
+              key: const Key('help-email'),
+              leading: const Icon(Icons.mail_outline),
+              title: Text(l.helpContact),
+              subtitle: Text(support),
+              onTap: () => openMail(context, support),
+            ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: Text(l.privacyPolicy),
+            onTap: () => _open(privacyUrl),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: Text(l.licenses),
+            onTap: () => showLicensePage(context: context, applicationName: 'Evensies'),
           ),
         ],
       ),
@@ -420,6 +580,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) context.go('/login');
   }
 
+  /// Online only: the server has to drop the other devices' sign-ins.
+  Future<void> _signOutEverywhere() async {
+    final l = context.l;
+    final ok = await confirm(context,
+        title: l.signOutEverywhereTitle, message: l.signOutEverywhereMessage, confirmLabel: l.signOutEverywhere);
+    if (!ok) return;
+    try {
+      await ref.read(authServiceProvider).logoutEverywhere();
+      if (mounted) context.go('/login');
+    } catch (e) {
+      if (mounted) showError(context, e is ApiException && e.code == 'NETWORK' ? l.signOutEverywhereOffline : e);
+    }
+  }
+
   Future<void> _import(GroupRow g) async {
     try {
       final picked = (await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['csv'])).firstOrNull;
@@ -433,7 +607,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _deleteAccount() async {
-    final ok = await confirm(context, title: context.l.deleteAccountTitle, message: context.l.deleteAccountMessage);
+    final l = context.l;
+    final ok = await confirm(context,
+        title: l.deleteAccountTitle, message: [l.deleteAccountMessage, l.deleteAccountExportTip].join('\n\n'));
     if (!ok) return;
     try {
       await ref.read(authServiceProvider).deleteAccount();

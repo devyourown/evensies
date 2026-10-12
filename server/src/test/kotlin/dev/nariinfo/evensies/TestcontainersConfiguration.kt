@@ -10,5 +10,7 @@ import org.testcontainers.utility.DockerImageName
 class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
-    fun postgresContainer(): PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
+    fun postgresContainer(): PostgreSQLContainer =
+        // Data in memory: several test servers (contexts) run at once, and a near-full Docker disk then broke them.
+        PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine")).withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
 }

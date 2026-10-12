@@ -1,16 +1,24 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart' show ImageSource;
 
 import '../../core/money.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/confirm.dart';
+import '../../core/cover.dart';
 import '../../core/currency_picker.dart';
 import '../../core/l10n.dart';
 import '../../core/offline_banner.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
+import '../../data/api/dto.dart';
+import '../../data/blob_store.dart';
 import '../../data/db/database.dart';
+import '../../data/images.dart';
+import '../../data/receipts.dart' show receiptFilesProvider;
 import '../../data/sync/group_state_store.dart';
 import '../../domain/models.dart';
 import '../../domain/recurrence.dart' show Series;
@@ -19,7 +27,8 @@ import '../../providers.dart';
 import '../expense_form/split_editor.dart';
 import '../group_detail/balances.dart';
 
-/// Group settings (route `/groups/:id/settings`): name, default currency, simplify debts, default split, leave.
+/// Group settings (route `/groups/:id/settings`): name, cover and type (Phase 10), default currency, simplify debts,
+/// default split, leave, delete.
 /// Any member may change them (no admins); changes travel as `group.updated` (docs/API.md rules 11–12).
 class GroupSettingsScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -30,6 +39,7 @@ class GroupSettingsScreen extends ConsumerStatefulWidget {
 
 class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
   bool _leaving = false;
+  bool _savingCover = false;
 
   String get _id => widget.groupId;
 
@@ -63,6 +73,26 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
             subtitle: Text(group.name),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _rename(group),
+          ),
+          ListTile(
+            key: const Key('cover'),
+            leading: _savingCover
+                ? const SizedBox(width: 48, height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+                : GroupCover(groupId: _id, type: group.type, coverImageId: group.coverImageId, size: 48),
+            title: Text(l.coverPhoto),
+            subtitle: Text(l.coverPhotoHint),
+            trailing: const Icon(Icons.chevron_right),
+            enabled: !_savingCover,
+            onTap: () => _cover(group),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: GroupTypeChips(
+              value: group.type,
+              onChanged: (t) {
+                if (t != shownGroupType(group.type)) ref.read(localWritesProvider).updateGroup(_id, type: t);
+              },
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.currency_exchange),
@@ -116,6 +146,13 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
                 : null,
             onTap: () => _leave(group),
           ),
+          ListTile(
+            key: const Key('delete-group'),
+            leading: Icon(Icons.delete_outline, color: cs.error),
+            title: Text(l.deleteGroup, style: TextStyle(color: cs.error)),
+            subtitle: Text(l.deleteGroupHint),
+            onTap: () => _delete(group),
+          ),
         ],
       );
     }
@@ -138,6 +175,92 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     final l = context.l;
     final why = leaveBlocker(l, value, group.myMemberId) ?? state.seriesBlocker(l, group.myMemberId);
     return (why == null, why ?? l.balanceSettledNote);
+  }
+
+  /// Change cover (a photo prepared like the others: long edge 1600, EXIF dropped; uploaded, online only) or Remove
+  /// cover (an event, offline too). The server pushes the new cover's `group.updated`; the sync brings it back.
+  Future<void> _cover(GroupRow group) async {
+    final l = context.l;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (!kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(ctx.l.photoTake),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+          ListTile(
+            key: const Key('cover-choose'),
+            leading: const Icon(Icons.photo_library_outlined),
+            title: Text(kIsWeb ? ctx.l.photoChooseFile : ctx.l.photoChoose),
+            onTap: () => Navigator.pop(ctx, 'gallery'),
+          ),
+          if (group.coverImageId != null)
+            ListTile(
+              key: const Key('cover-remove'),
+              leading: Icon(Icons.delete_outline, color: Theme.of(ctx).colorScheme.error),
+              title: Text(ctx.l.removeCover, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final store = ref.read(receiptFilesProvider).store;
+    if (choice == 'remove') {
+      await ref.read(localWritesProvider).updateGroup(_id, removeCover: true);
+      await dropCover(store, group.coverImageId);
+      return;
+    }
+    // Known offline: say so now, not after a photo was picked for nothing.
+    if (ref.read(offlineProvider)) return showError(context, l.coverNeedsConnection);
+    final source = choice == 'camera' ? ImageSource.camera : ImageSource.gallery;
+    try {
+      final bytes = await ref.read(pickPhotoProvider)(source, maxEdge: 1600, quality: 82);
+      if (bytes == null || !mounted) return;
+      setState(() => _savingCover = true);
+      final r = await ref.read(apiProvider).putCover(_id, bytes);
+      // The bytes are the cover now: no download, and the old one's file goes.
+      await store.write(BlobArea.cache, coverFileName(r.coverImageId), bytes).catchError((_) {});
+      final db = ref.read(dbProvider);
+      await (db.update(db.groups)..where((g) => g.id.equals(_id)))
+          .write(GroupsCompanion(coverImageId: Value(r.coverImageId)));
+      await dropCover(store, group.coverImageId);
+      ref.read(syncProvider).syncLater(_id);
+    } on ApiException catch (e) {
+      if (mounted) {
+        showError(
+            context,
+            switch (e) {
+              ApiException(code: 'NETWORK') => l.coverNeedsConnection,
+              ApiException(status: 429) => l.coverTooMany,
+              ApiException(code: 'NOT_JPEG' || 'IMAGE_TOO_LARGE' || 'TOO_LARGE') => l.photoUnusable,
+              _ => e,
+            });
+      }
+    } catch (e) {
+      if (mounted) showError(context, photoErrorText(l, e, source));
+    } finally {
+      if (mounted) setState(() => _savingCover = false);
+    }
+  }
+
+  /// Deleted for everyone, offline too; Undo for 10 s, then Settings → Deleted groups or the activity row.
+  Future<void> _delete(GroupRow group) async {
+    final l = context.l;
+    final ok = await confirm(context,
+        title: l.deleteGroupTitle(group.name), message: l.deleteGroupMessage, confirmLabel: l.delete);
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final writes = ref.read(localWritesProvider);
+    await writes.deleteGroup(_id);
+    router.go('/');
+    showUndo(messenger, l.groupDeletedName(group.name), () => writes.restoreGroup(_id));
   }
 
   Future<void> _rename(GroupRow group) async {

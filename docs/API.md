@@ -18,20 +18,20 @@
 | GET | `/me` | | `UserDto`. `displayName`이 빈 문자열이면 앱은 이름 입력 화면을 띄운다(이메일은 이름으로 쓰지 않음) |
 | PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string, "language"?: string\|null}` — 하나 이상 필요. `displayName`은 공백 제거 후 1~30자(이모지 허용), `homeCurrency`는 `shared/currencies.json`의 코드(대문자 그대로), `language`(9단계)는 `^[a-z]{2,3}$` 또는 `null`(지움) | `UserDto`(바꾼 뒤). 아래 규칙 |
 | GET | `/info` | 인증 불필요(9단계) | `ServerInfo`(아래). 미리 빌드한 웹 앱 하나가 어느 서버에서든 로그인 버튼을 고르게 한다 |
-| DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환). 6단계: `friend_code`를 `NULL`로 하고 그 사용자의 `friendships`·`reminders`(보낸 것·받은 것)·`activity_seen` 행을 지우며, 커밋 뒤 프로필 사진 파일을 지운다(친구에게는 기록이 그대로인 자리표시 친구로 보인다) |
-| POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다) |
+| DELETE | `/me` | | 204. 사용자 행은 deleted_at, 모든 Member.user_id는 null(자리표시로 전환). 6단계: `friend_code`를 `NULL`로 하고 그 사용자의 `friendships`·`reminders`(보낸 것·받은 것)·`activity_seen` 행을 지우며, 커밋 뒤 프로필 사진 파일을 지운다(친구에게는 기록이 그대로인 자리표시 친구로 보인다). 10단계: 이름·주소·이메일 설정·차단도 지운다("이메일·계정") |
+| POST | `/devices` | `{"deviceId","fcmToken"}` | 204. 사용자당 최근에 등록한 기기 10개만 남기고 오래된 것은 지운다. 같은 `fcmToken`을 가진 다른 기기 행(다른 사용자 포함)도 지운다(한 폰에서 다른 계정으로 로그인하면 이전 사용자의 푸시가 끊긴다). 10단계: `"notificationsAllowed"?: bool`(없으면 `true`) |
 | DELETE | `/devices/{deviceId}` | | 204. 호출자 본인의 그 기기 행만 지운다(없거나 다른 사용자의 기기면 아무것도 안 하고 204). 앱은 로그아웃할 때 세션을 지우기 **전에** 보낸다. 오프라인이면 실패해도 로그아웃은 진행한다. 앱은 세션이 사라지면(로그아웃, 계정 삭제, 토큰 갱신 실패) 그 폰의 FCM 토큰도 지운다(FCM `deleteToken`, 오프라인이면 로그아웃 상태로 다음 실행·복귀 때 다시 시도). 그러면 서버의 다음 발송이 `UNREGISTERED`를 받아 남은 행을 지운다 |
 
 ```
-UserDto {"id","displayName","homeCurrency": string|null,"language": string|null}
-ServerInfo {"appleServicesId": string|null, "googleWebClientId": string|null, "devLogin": bool}
+UserDto {"id","displayName","homeCurrency": string|null,"language": string|null,"email": string|null,"emailBounced": bool}
+ServerInfo {"appleServicesId": string|null, "googleWebClientId": string|null, "devLogin": bool, "emailLogin": bool, "appleLogin": bool, "googleLogin": bool, "supportEmail": string|null}
 ```
 - `homeCurrency`(4단계): 사용자의 표시용 통화("≈ $13.46"). 저장한 적 없으면 `null`이고 앱은 기기 지역의 통화(`Money.currencyForLocale`)를 쓴다. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽는다.
 - 새로 고침(5단계): 앱은 저장된 세션으로 시작할 때와 앞으로 돌아올 때마다(resume, `syncAll`과 함께) `GET /me`를 불러 받은 `displayName`·`homeCurrency`를 세션에 덮어쓴다. 다른 폰에서 바꾼 이름·홈 통화가 다시 로그인하지 않아도 보인다. 오프라인·5xx·429면 저장된 값을 그대로 둔다. 401은 지금처럼(토큰 갱신이 실패하면 로그아웃). 로그인 직후에는 로그인 응답의 `user`를 쓴다. 받은 `displayName`이 빈 문자열이면 이름 입력 화면(위).
 - `language`(9단계, "언어·웹"): 서버가 이 사용자에게 만드는 글(푸시·리마인더, 10단계 이메일)의 언어. `null` = 정한 적 없음 = 영어. 로그인 응답의 `user`, `GET /me`, `PATCH /me` 모두 같은 `UserDto`다. 앱은 키가 없는 응답(이전 서버)을 `null`로 읽고, 화면 언어는 이 값이 아니라 기기 언어(또는 Settings → Language)로 정한다(아래 "앱의 언어").
 - `PATCH /me` 검사(모두 검사한 뒤 한꺼번에 저장): `displayName`·`homeCurrency`는 `null`이면 없는 것으로 본다. `language`만 다르다: 키가 없으면 그대로, `null`이면 지운다(영어), 문자열이면 `^[a-z]{2,3}$`(대문자·지역 `de_AT`·`de-AT`·한 글자·`deutsch`·`<b>`는 400 `VALIDATION`), 그 밖의 JSON 타입은 400 `VALIDATION`. 맞는 형식이면 `strings.json`에 없는 언어(`xx`)도 저장하고 영어로 만든다. 세 키가 모두 없으면(`{}`, `{"displayName": null}` 포함, `{"language": null}`은 키가 있으므로 지우기) 400 `VALIDATION`. `displayName`이 범위 밖이면 400 `VALIDATION`. `homeCurrency`가 문자열이 아니면 400 `VALIDATION`, 목록에 없는 코드면(`"usd"` 포함) 400 `UNKNOWN_CURRENCY`. 홈 통화는 지울 수 없다(바꾸기만). 이전 본문 `{"displayName"}`은 그대로 동작한다. 앱은 온라인일 때만 보낸다(오프라인 큐 없음). 삭제된 계정은 401(지금과 같음).
 
-- `GET /info`(9단계): `appleServicesId` = `EVENSIES_APPLE_SERVICES_ID`, `googleWebClientId` = `EVENSIES_GOOGLE_WEB_CLIENT_ID`(빈 값이면 `null`), `devLogin` = `evensies.auth.dev-login`. 속도 제한 없음. 앱은 웹에서만 부른다(폰 앱은 빌드에 든 값). 10단계가 `emailLogin`·`appleLogin`·`googleLogin`·`supportEmail`을 더한다(앱은 모르는 키를 무시한다).
+- `GET /info`(9단계): `appleServicesId` = `EVENSIES_APPLE_SERVICES_ID`, `googleWebClientId` = `EVENSIES_GOOGLE_WEB_CLIENT_ID`(빈 값이면 `null`), `devLogin` = `evensies.auth.dev-login`. 속도 제한 없음. 앱은 웹에서만 부른다(폰 앱은 빌드에 든 값). 10단계: `emailLogin`·`appleLogin`·`googleLogin`·`supportEmail`(아래 "이메일·계정"). `email`·`emailBounced`(`UserDto`, 10단계)도 거기에 있다.
 - 받는 `aud`(9단계): `/auth/apple`은 {`EVENSIES_APPLE_CLIENT_ID`(iOS 번들 ID), `EVENSIES_APPLE_SERVICES_ID`(웹 Services ID)} 가운데 빈 값이 아닌 것, `/auth/google`은 `EVENSIES_GOOGLE_CLIENT_IDS` ∪ {`EVENSIES_GOOGLE_WEB_CLIENT_ID`}(빈 값 제외). 둘 다 비면 지금처럼 400 `AUTH_NOT_CONFIGURED`, 그 밖의 `aud`는 401. Services ID는 Apple에서 기본 App ID 아래로 묶으므로 웹과 iOS의 `sub`가 같다(같은 사용자). 폰의 `google_sign_in`은 이미 웹 클라이언트 id를 `serverClientId`로 써서 그 `aud`의 토큰을 받으므로 `EVENSIES_GOOGLE_WEB_CLIENT_ID`는 보통 `EVENSIES_GOOGLE_CLIENT_IDS`에 이미 있는 값이다(합집합이라 겹쳐도 된다). Google의 `sub`는 계정마다 하나라 웹·폰이 같다.
 - 토큰 갱신(앱, 9단계에 정함): 동시에 난 401들은 갱신 `Future` 하나를 함께 기다린다(지금과 같음). 갱신이 401로 실패했는데 저장된 refresh 토큰이 그 사이 바뀌었으면(다른 탭이나 다른 요청이 먼저 갱신) 세션을 지우지 않고 저장된 access 토큰으로 그 요청을 한 번 다시 보낸다. 저장된 토큰이 그대로면 지금처럼 `clearSession()`. 웹의 두 탭은 drift DB 하나를 함께 쓰므로 이 규칙으로 서로를 로그아웃시키지 않는다.
 
@@ -48,8 +48,8 @@ access 15분, refresh 30일. JWT HS256, 비밀은 `EVENSIES_JWT_SECRET`.
 | POST | `/invites/{code}/join` | `{"memberId": "<기존 자리표시 멤버>"}` 또는 `{"newMemberId","name"}` | `GroupDto`. `member.linked` 또는 `member.added`(userId 포함) 이벤트 기록. 6단계: 친구 그룹이면 `newMemberId`는 409 `LIMIT_EXCEEDED`(멤버는 2명), 자리표시 claim은 그룹 상한 검사 없이 받고 `friendships` 행을 넣는다(아래 "친구") |
 
 ```
-GroupDto        {"id","name","defaultCurrency","inviteCode","createdAt","latestSeq","myMemberId","simplifyDebts","defaultSplit","kind"}
-GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
+GroupDto        {"id","name","defaultCurrency","inviteCode","createdAt","latestSeq","myMemberId","simplifyDebts","defaultSplit","kind","type","coverImageId","deleted"}
+GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind","type","coverImageId","deleted"}
 ```
 - `kind`(6단계): `"group"`(보통 그룹) 또는 `"friend"`(친구 그룹, 아래 "친구"). `GroupDto`·`GroupSummaryDto`·snapshot의 `group`·`GET /invites/{code}`에 있다. 앱은 키가 없는 응답(이전 서버)을 `"group"`으로 읽는다. 그룹을 만들 때 정해지고 바뀌지 않는다(적용 규칙 13). `POST /groups`는 언제나 `"group"`이고 친구 그룹은 `POST /friends`만 만든다. 앱의 Groups 탭은 `"group"`만 보이고, 친구 그룹은 Friends 탭에서 사람으로 보인다(`/groups/{id}`로 열면 친구 페이지로 보낸다).
 - `simplifyDebts`(boolean, 기본 `true`)와 `defaultSplit`(`SplitSpec|null`, 기본 `null`, 아래 "SplitSpec")은 그룹 설정이다. `POST /groups`·`GET /groups/{id}`·`POST /invites/{code}/join` 응답과 snapshot의 `group`에 있다(`GroupSummaryDto`에는 없다). 앱은 두 키가 없는 응답을 기본값으로 읽는다. `POST /groups`는 기본값으로 만든다(요청에 두 키 없음).
@@ -128,8 +128,10 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 ### 이벤트 종류와 payload
 | type | payload |
 |---|---|
-| `group.created` | `{"name","defaultCurrency","kind"?: "group"\|"friend"}` (서버가 POST /groups·POST /friends에서 생성). `kind`(6단계)는 POST /friends만 `"friend"`로 넣는다. 없으면 `"group"`(적용 규칙 13) |
-| `group.updated` | `{"name"?: string, "defaultCurrency"?: string, "simplifyDebts"?: bool, "defaultSplit"?: SplitSpec\|null}` — 없는 키는 그대로, `"defaultSplit": null`은 지운다(규칙 11). `defaultSplit`의 mode는 `percent`·`shares`만. 지출·송금이 있는 그룹의 `defaultCurrency`는 400 없이 받아 저장하지만 적용하지 않는다(규칙 12). `kind` 키가 있으면(값과 상관없이, 모든 그룹) 400 `VALIDATION`(6단계) |
+| `group.created` | `{"name","defaultCurrency","kind"?: "group"\|"friend","type"?: "trip"\|"home"\|"couple"\|"other"}` (서버가 POST /groups·POST /friends에서 생성). `kind`(6단계)는 POST /friends만 `"friend"`로 넣는다. 없으면 `"group"`(적용 규칙 13). `type`(10단계)은 POST /groups의 `type`, 없으면 `"other"`(규칙 17) |
+| `group.updated` | `{"name"?: string, "defaultCurrency"?: string, "simplifyDebts"?: bool, "defaultSplit"?: SplitSpec\|null}` — 없는 키는 그대로, `"defaultSplit": null`은 지운다(규칙 11). `defaultSplit`의 mode는 `percent`·`shares`만. 지출·송금이 있는 그룹의 `defaultCurrency`는 400 없이 받아 저장하지만 적용하지 않는다(규칙 12). `kind` 키가 있으면(값과 상관없이, 모든 그룹) 400 `VALIDATION`(6단계). 10단계: `"type"?`(네 값 가운데 하나, `null`도 400)과 `"coverImageId"?: string\|null` — 클라이언트는 `null`(지우기)만 보낸다. `null`이 아닌 값은 400 `VALIDATION`이고 `PUT /groups/{id}/cover`만 만든다(규칙 17) |
+| `group.deleted` | `{}`(10단계, "그룹 유형·표지·삭제") — 그룹의 활성 멤버 누구나. 모두에게 삭제된다. payload의 키는 읽지 않는다. 그 뒤의 이벤트도 거부하지 않는다(규칙 17) |
+| `group.restored` | `{}`(10단계) — 그룹의 활성 멤버 누구나. 삭제되지 않은 그룹이면 받고 아무것도 바꾸지 않는다(규칙 17) |
 | `member.added` | `{"memberId","name","userId": string|null}` — 친구 그룹(6단계)에 셋째 멤버를 더하면 409 `LIMIT_EXCEEDED` |
 | `member.linked` | `{"memberId","userId"}` — `userId`는 보낸 사람 본인. 이미 사용자에 연결된 멤버이거나 보낸 사람이 이 그룹에 이미 (removed 아닌) 멤버를 가지고 있으면 400 `MEMBER_TAKEN`. 앱은 보내지 않고 `/invites/{code}/join`이 만든다. `member.added`에 `userId`(본인)를 넣을 때도 이미 멤버가 있으면 같은 400 |
 | `member.removed` | `{"memberId"}` (removed=true 표시, 삭제 아님). 보낸 사람 자신의 멤버면 그룹 나가기(활동 `member_left`). 친구 그룹(6단계)에서는 400 `VALIDATION`(나가기·빼기 없음, 친구 삭제는 10단계) |
@@ -144,8 +146,8 @@ GroupSummaryDto {"id","name","defaultCurrency","latestSeq","memberCount","kind"}
 | `payment.deleted` | `{"paymentId","replacedBy"?: string\|null}` — 보낸 사람 또는 받는 사람("받지 못함")이 보낼 수 있다(그리고 그 송금을 만든 사용자, 지금처럼 `paymentCreator`). `replacedBy`(7단계): 송금 편집(아래 "송금 기록·편집")이 넣는 새 송금의 id. 없거나 `null`이면 보통 삭제. 있으면 UUID 문자열(아니면 400 `VALIDATION`). 서버는 그 송금이 있는지 보지 않는다. 적용은 보통 삭제에 더해 `replaced=true`(규칙 7: 그 뒤 `payment.restored`는 무시) |
 | `payment.restored` | `{"paymentId"}`(7단계) — 삭제된 송금을 되살린다(규칙 7). **그 송금을 지울 수 있는 사용자만**(`payment.deleted`와 같다: 만든 사용자, 보내는·받는 멤버에 연결된 사용자. 아니면 403 `FORBIDDEN`). 없는 송금이면 통과하고 적용기가 무시한다(규칙 4). 편집으로 바뀐(`replaced`) 송금이나 살아 있는 송금이면 400 없이 받아 저장하고 아무것도 바꾸지 않는다(오프라인 기기는 편집을 모를 수 있다) |
 | `attachment.added` | `{"attachmentId","expenseId"}`(7단계, "영수증") — 그룹 멤버 누구나. 검사 순서: 두 값이 UUID 문자열(400 `VALIDATION`) → 상태에 이미 있는 `attachmentId`면 같은 `expenseId`일 때 통과(적용기가 무시, 멱등), 다른 지출이면 400 `VALIDATION` → 이 그룹에 올린 파일이 없으면(`POST /groups/{id}/attachments/{attachmentId}`를 하지 않았거나 다른 그룹에 올림) 400 `ATTACHMENT_NOT_UPLOADED` → `expenseId`가 상태에 없는 지출이면(삭제된 지출은 있는 것) 400 `VALIDATION` → 그 지출에 삭제 안 된 영수증이 이미 10개면 409 `LIMIT_EXCEEDED`. 같은 배치의 `expense.created` 뒤라면 통과한다(상태가 이벤트마다 나아간다) |
-| `recurrence.created` | `{"recurrenceId","frequency": "weekly"\|"biweekly"\|"monthly"\|"yearly","startDate": "YYYY-MM-DD","timeZone": string,"template": {...}}`(8단계, "반복 지출") — 그룹 멤버 누구나(친구 그룹 포함). `template` = 이 시리즈가 만들 `expense.created` payload에서 `expenseId`·`date`·`recurrenceId`·`occurrence`를 뺀 것. 이미 있는 id면 받고 아무것도 바꾸지 않는다(규칙 15). payload의 다른 키는 적용기가 읽지 않는다(10단계가 `remindDaysBefore`를 더한다) |
-| `recurrence.updated` | `{"recurrenceId","fields": {...}}`(8단계) — template에서 바뀐 키만, 키 이름·JSON 타입은 `expense.updated.fields`와 같다(`shares`·`payers`는 통째로). 앱은 `expense.updated`와 같은 규칙으로 보낸다: 돈 필드 하나가 바뀌면 여섯 개 모두, `currency`·`fxRateToDefault`는 둘 다(합치기는 키 단위뿐이고 규칙 10 같은 파생이 없다). 일정(`frequency`·`startDate`·`timeZone`)은 바꿀 수 없다(멈추고 새 시리즈). 없거나 멈춘 시리즈면 받고 무시. 이미 올라간 반복은 바뀌지 않는다 |
+| `recurrence.created` | `{"recurrenceId","frequency": "weekly"\|"biweekly"\|"monthly"\|"yearly","startDate": "YYYY-MM-DD","timeZone": string,"template": {...}}`(8단계, "반복 지출") — 그룹 멤버 누구나(친구 그룹 포함). `template` = 이 시리즈가 만들 `expense.created` payload에서 `expenseId`·`date`·`recurrenceId`·`occurrence`를 뺀 것. 이미 있는 id면 받고 아무것도 바꾸지 않는다(규칙 15). payload의 다른 키는 적용기가 읽지 않는다. 10단계: `"remindDaysBefore"?: 1..7\|null`(없으면 `null`, 반복 지출 알림 메일 며칠 전, 규칙 18) |
+| `recurrence.updated` | `{"recurrenceId","fields": {...}}`(8단계) — template에서 바뀐 키만, 키 이름·JSON 타입은 `expense.updated.fields`와 같다(`shares`·`payers`는 통째로). 앱은 `expense.updated`와 같은 규칙으로 보낸다: 돈 필드 하나가 바뀌면 여섯 개 모두, `currency`·`fxRateToDefault`는 둘 다(합치기는 키 단위뿐이고 규칙 10 같은 파생이 없다). 일정(`frequency`·`startDate`·`timeZone`)은 바꿀 수 없다(멈추고 새 시리즈). 없거나 멈춘 시리즈면 받고 무시. 이미 올라간 반복은 바뀌지 않는다. 10단계: `"remindDaysBefore"?: 1..7\|null`은 `fields`의 **형제**다(있으면 바꾸고 `null`은 지운다, 없으면 그대로, 규칙 18). `fields`는 그대로 필수다: 알림만 바꿀 때도 `"fields": {}`를 보낸다(앱 적용기는 `fields`를 언제나 읽는다) |
 | `recurrence.deleted` | `{"recurrenceId"}`(8단계) — 시리즈를 멈춘다. 되살리는 이벤트는 없다(다시 반복하려면 새 시리즈). 이미 올라간 반복은 남는다. 없거나 이미 멈춘 시리즈면 받고 무시 |
 | `attachment.deleted` | `{"attachmentId","expenseId"?}`(7단계) — 그룹 멤버 누구나. `attachmentId`는 UUID 문자열(400 `VALIDATION`). 없는 영수증이면 통과하고 적용기가 무시한다. `expenseId`는 선택이고 검사하지 않는다: 서버는 저장 전에 그 영수증이 붙은 지출의 id로 고치고(없는 영수증이면 키를 뺀다) pull되는 payload도 고친 값이다(활동의 `expenseId` 필터가 찾도록). 적용기는 읽지 않는다. 앱은 넣어 보낸다. 커밋한 뒤 서버가 두 파일을 지운다("영수증") |
 
@@ -198,13 +200,13 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
 
 | 이벤트 | 규칙 | 오류 |
 |---|---|---|
-| `recurrence.created` | `recurrenceId`는 소문자 UUID; `frequency`는 `weekly`·`biweekly`·`monthly`·`yearly` 가운데 하나; `startDate`는 `YYYY-MM-DD`의 있는 날짜(`requireDate`) | 400 `VALIDATION` |
+| `recurrence.created` | `recurrenceId`는 소문자 UUID; `frequency`는 `weekly`·`biweekly`·`monthly`·`yearly` 가운데 하나; `startDate`는 `YYYY-MM-DD`의 있는 날짜(`requireDate`); 10단계 `remindDaysBefore`가 있으면 정수 1~7 또는 `null` | 400 `VALIDATION` |
 | | `timeZone`은 1~64자 문자열이고 `ZoneId.of`가 받는다(IANA 이름, `Z`, `±HH:MM` 등) | 400 `VALIDATION` |
 | | `template`은 객체이고 금지 키가 없다 | 400 `VALIDATION` |
 | | `template`이 지출로 맞다(이미 있는 id여도 검사한다) | 지출과 같은 코드 |
 | | 상태에 없는 id이고 이 그룹에 멈추지 않은 시리즈가 이미 100개(abuse cap) | 409 `LIMIT_EXCEEDED` |
 | | 다른 그룹의 id(저장할 때 `ON CONFLICT … WHERE group_id` 0행, 다른 `*.created`와 같다) | 400 `VALIDATION` |
-| `recurrence.updated` | `recurrenceId`는 소문자 UUID; `fields`는 객체이고 금지 키가 없다; `fields`의 키는 `expense.updated.fields`와 같은 JSON 타입 검사 | 400 `VALIDATION` |
+| `recurrence.updated` | `recurrenceId`는 소문자 UUID; `fields`는 객체이고(없거나 `null`이면 400, `remindDaysBefore`만 바꿀 때도) 금지 키가 없다; `fields`의 키는 `expense.updated.fields`와 같은 JSON 타입 검사; 10단계 `remindDaysBefore`가 있으면 정수 1~7 또는 `null` | 400 `VALIDATION` |
 | | 시리즈가 멈추지 않았으면 합친 template(template에 `fields`를 키마다 덮어쓴 것, 규칙 15)이 지출로 맞다. 없거나 멈춘 시리즈면 위 검사만 하고 받는다(적용기가 무시) | 지출과 같은 코드 |
 | `recurrence.deleted` | `recurrenceId`는 소문자 UUID. 없거나 이미 멈춘 시리즈도 받는다 | 400 `VALIDATION` |
 | `expense.created`·`expense.updated` | `recurrenceId`(소문자 UUID 문자열\|null)와 `occurrence`(정수\|null)는 둘 다 값이 있거나 둘 다 `null`. `expense.created`에서 없는 키는 `null`. `expense.updated.fields`에서는 두 키가 함께 있거나 함께 없다(하나만 있으면 상태가 어긋난다) | 400 `VALIDATION` |
@@ -244,7 +246,7 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
     - `attachment.deleted`: 없는 `attachmentId`면 무시, 있으면 `deleted=true`(목록에서 빼지 않는다). payload의 `expenseId`는 읽지 않는다.
     - 지출의 `deleted`·`moved`는 영수증을 바꾸지 않는다(`expense.deleted`는 영수증을 지우지 않는다).
 15. 반복 시리즈(8단계): 상태에 `recurrences`(`{id, frequency, startDate, timeZone, template, deleted}`, 만든 순서)가 있다. 기본값 `[]`.
-    - `recurrence.created`: 그 id가 이미 있으면(멈춘 것 포함) 아무것도 바꾸지 않는다(멱등, 첫 일정·template 그대로). 없으면 `{id, frequency, startDate, timeZone, template: 받은 그대로, deleted: false}`를 뒤에 더한다(payload의 다른 키, 예를 들어 `deleted`는 읽지 않는다).
+    - `recurrence.created`: 그 id가 이미 있으면(멈춘 것 포함) 아무것도 바꾸지 않는다(멱등, 첫 일정·template 그대로). 없으면 `{id, frequency, startDate, timeZone, template: 받은 그대로, deleted: false}`를 뒤에 더한다(payload의 다른 키, 예를 들어 `deleted`는 읽지 않는다. 10단계 `remindDaysBefore`는 규칙 18).
     - `recurrence.updated`: 없거나 `deleted`인 시리즈면 무시한다. 아니면 `fields`의 키마다 template의 그 키를 받은 값으로 바꾼다. `null`도 `null`로 저장하고 키를 지우지 않는다. `fields`에 없는 키는 그대로, 배열·객체 값은 통째로 바꾼다(Kotlin `template.deepCopy().setAll(fields)`, Dart `{...template, ...fields}`). 규칙 10 같은 파생은 없다.
     - `recurrence.deleted`: 있으면 `deleted = true`(목록에서 빼지 않는다), 없으면 무시. 되돌리는 이벤트는 없다.
     - 시리즈 이벤트는 지출을 바꾸지 않는다: template을 고치거나 멈춰도 이미 올라간 반복은 그대로다.
@@ -252,8 +254,14 @@ ItemizedBill {"lines": [{"name": string, "amount": int, "memberIds": [memberId]}
     - `expense.created`: 받은 값(없으면 `null`).
     - `expense.updated`(삭제 안 된 지출, 규칙 3): `fields`에 키가 있으면 그 값으로 바꾸고 `null`이면 지운다(규칙 9의 `notes`와 같다). 없으면 그대로.
     - 적용기는 그 시리즈가 있는지, 멈췄는지 보지 않는다(서버 정규화가 없는 시리즈를 뺀다). `expense.deleted`·`expense.restored`·옮기기는 표시를 바꾸지 않는다.
+17. 그룹 유형·표지·삭제(10단계): 그룹에 `type`(기본 `"other"`), `coverImageId`(기본 `null`), `deleted`(기본 `false`)가 있다.
+    - `group.created`가 `type`을 정한다(없거나 문자열이 아니면 `"other"`). `group.updated`에 문자열 `type`이 있으면 바꾼다.
+    - `coverImageId`: `group.updated`에 키가 있으면 그 값으로 바꾼다(`null`은 지움), 없으면 그대로.
+    - `group.deleted`는 `deleted = true`, `group.restored`는 `deleted = false`. seq 순서상 나중 것이 이긴다. 둘 다 멤버·지출·송금·시리즈를 바꾸지 않고, 삭제된 그룹에 오는 다른 이벤트도 보통처럼 적용한다(삭제는 숨기기일 뿐 잠금이 아니다).
+    - 앱은 모르는 `type`을 Other로 보인다.
+18. 반복 지출 알림(10단계): 시리즈에 `remindDaysBefore`(`int|null`, 기본 `null`)가 있다. `recurrence.created`가 정하고(없으면 `null`), `recurrence.updated`에 키가 있으면 바꾼다(`null`은 지움). 없거나 멈춘 시리즈의 `recurrence.updated`는 지금처럼 무시한다(규칙 15). `fields`와 따로 적용한다.
 
-4·5단계는 적용 규칙을 더하지 않는다. 6단계는 규칙 13을 더하고(규칙 7에 옮긴 지출 예외) 규칙 8을 송금 댓글로 넓힌다. 7단계는 규칙 14를 더하고 규칙 7을 송금(`payment.restored`, 편집으로 바뀐 송금 예외)으로 넓힌다. 8단계는 규칙 15·16을 더하고 규칙 4를 `recurrence.*`로 넓힌다. 9단계 이후의 규칙 번호는 17부터다.
+4·5단계는 적용 규칙을 더하지 않는다. 6단계는 규칙 13을 더하고(규칙 7에 옮긴 지출 예외) 규칙 8을 송금 댓글로 넓힌다. 7단계는 규칙 14를 더하고 규칙 7을 송금(`payment.restored`, 편집으로 바뀐 송금 예외)으로 넓힌다. 8단계는 규칙 15·16을 더하고 규칙 4를 `recurrence.*`로 넓힌다. 9단계는 규칙을 더하지 않는다. 10단계는 규칙 17·18을 더한다.
 - 4단계: `fxRateToDefault`는 받은 숫자 그대로 저장한다(`0`도 `0`으로 저장, `null`은 규칙 9대로 지움). 그 뜻과 잔액에서 쓰는 법은 아래 "통화 환산".
 - 5단계: `category`는 받은 문자열 그대로 저장한다(key로 바꾸지 않음, `null`은 규칙 9대로 지움, `shared/sync-cases.json`의 category 케이스). 뜻은 아래 "카테고리".
 
@@ -354,8 +362,8 @@ FxTable {"date": "2026-10-10", "base": "EUR", "rates": {"EUR": 1.0, "USD": 1.121
 - 질의를 공백으로 나눈 항이 **모두** 맞아야 한다. 항은 fold한 값이 fold한 description·notes·각 댓글·원문 category·resolve한 label·그 부모 label 가운데 하나의 부분 문자열이면 맞는다.
 - 금액: 항이 `^\d+([.,]\d{1,3})?$`이면 금액으로도 맞을 수 있다. 소수 k자리 수 N(`,`는 소수점), 통화 자릿수 d(`shared/currencies.json` `decimals`)일 때 `k ≤ d`이고 `amount ~/ 10^(d−k) == N·10^k`. `12` = €12.00–€12.99, `12,5` = €12.50–€12.59, `12,50` = €12.50, JPY `12000` = ¥12,000. 정수로 읽을 수 없을 만큼 길면 금액으로는 안 맞는다.
 - 필터: `category`는 하위 key(resolve 결과가 같음) 또는 부모 key(resolve 결과가 `{부모}.`로 시작. `uncategorized`는 `null`·legacy도 잡는다). `month`는 `YYYY-MM`(`date`의 앞 7자).
-- 질의가 비고 필터도 없으면 `[]`. 결과는 date 내림차순, 같으면 id 오름차순. `ponytail:` 선형 탐색, 150ms 디바운스. 지출이 2만 개쯤 넘으면 SQLite FTS5.
-- 화면: `/search?group=&category=&month=`(모두 선택). 그룹 목록에서 열면 모든 그룹, 그룹 화면에서 열면 그 그룹(지울 수 있는 칩).
+- 질의가 비고 필터도 없으면 `[]`(10단계 `all`이면 모든 문서). 결과는 date 내림차순, 같으면 id 오름차순. `ponytail:` 선형 탐색, 150ms 디바운스. 지출이 2만 개쯤 넘으면 SQLite FTS5.
+- 화면: `/search?group=&category=&month=&all=`(모두 선택). 그룹 목록에서 열면 모든 그룹, 그룹 화면에서 열면 그 그룹(지울 수 있는 칩). `all=1`(10단계, 웹 넓은 배치의 **All expenses**): 아무것도 입력하지 않아도 모든 그룹의 지출을 위 순서로 보이고, 입력하면 그대로 좁힌다(지출이 없으면 "No expenses yet").
 
 ## 인사이트 (5단계, 앱만)
 그룹마다 합계와 막대. 서버 변경 없음. `computeTotals`, `shared/totals-cases.json`.
@@ -391,6 +399,7 @@ PaymentMethod {"type","value","holder"?: string, "bank"?: string, "bic"?: string
 | `kakaopay` | 카카오페이 송금코드 링크 | | `https://qr.kakaopay.com/`로 시작, 200자 이하 |
 | `iban` | IBAN(공백 제거, 대문자) | `holder` 필수(1~70자), `bic` 선택(8 또는 11자) | mod-97 검사 |
 | `kr_bank` | 계좌번호(숫자·하이픈) | `bank` 필수(1~30자), `holder` 필수 | 숫자 8~20자리 |
+| `upi` | UPI ID(VPA, 10단계) | `holder` 선택(1~70자) | `^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$` |
 
 상한: 사용자당 8개, `iban`·`kr_bank`는 각 3개, 나머지 유형은 1개.
 
@@ -646,7 +655,7 @@ ALTER TABLE expenses
 **하루 정리** (`storage/Sweep.kt`, `@Scheduled(cron = "0 30 3 * * *")`, 서버 시계. 7단계의 남은 일):
 1. `DELETE FROM attachments WHERE expense_id IS NULL AND created_at < now() - interval '7 days' RETURNING id, group_id`: 7일 동안 어느 지출에도 붙지 않은 올리기(거부된 `attachment.added`, 올린 뒤 앱이 사라짐). 지운 행마다 두 파일(`AttachmentController.keys`)을 지운다. 행을 먼저 지우므로 그 사이에 붙을 수 없다(붙은 행은 조건에서 빠진다). 7일인 이유: 올리기와 그 `attachment.added` push 사이에 연결이 끊긴 폰이 며칠 오프라인이어도 영수증을 잃지 않게(그 뒤의 `attachment.added`는 400 `ATTACHMENT_NOT_UPLOADED`).
 2. `deleted_at`이 있는 행의 두 파일을 지운다(커밋과 파일 삭제 사이의 크래시로 남은 것. 없는 파일은 아무것도 안 한다). `ponytail:` 삭제된 행 전부를 매일 본다. 수십만 행이 되면 최근 7일로 좁힌다.
-- 파일 삭제가 실패하면 WARN 로그만 남긴다(2는 다음 날 다시 본다. 1의 파일은 고아로 남는다 — `ponytail:` 문제가 되면 디렉터리를 훑는다). 10단계가 같은 정리에 표지 파일을 더한다.
+- 파일 삭제가 실패하면 WARN 로그만 남긴다(2는 다음 날 다시 본다. 1의 파일은 고아로 남는다 — `ponytail:` 문제가 되면 디렉터리를 훑는다). 10단계: 같은 정리가 그룹의 지금 표지가 아닌 표지 파일도 지운다(1시간 안에 쓴 파일은 남긴다, "그룹 유형·표지·삭제").
 
 **상한**: 그룹당 멈추지 않은 시리즈 100(abuse cap, 409 `LIMIT_EXCEEDED`). 그 밖에는 무료·무제한이다.
 
@@ -728,7 +737,7 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
             "categories": {"<parent key or category key>": "<label>"}}}
 ```
 - `en`이 계약이다: 8단계까지 서버·공유 문장의 글 전부(내용은 파일). 설계의 초안에서 바꾼 것: 꼬리(`suffix`)는 앞의 ` · ` 없이 독립 구절이고 `words.dot`으로 잇는다(앱 목록이 `myDelta`를 따로 한 줄로 보이므로), 환불·송금 댓글·영수증 여러 장·모르는 kind의 틀(`expense_added_refund`, `expense_repeated_refund`, `comment_added_payment`, `receipts_added`, `receipts_removed`, `unknown`), 이미 있던 `expense_moved`·`payment_edited`·`payment_restored`, `batch.repeats`, 카테고리 변경 `category`(`{from} → {to}`)·`categorySame`, `changes.other`, `remind.two`·`more`(조각 잇기 대신 `{a}`·`{b}` 틀), 랜딩 글(현재 페이지 기준), `categories`. `shares`와 `split` 변경은 같은 말이라 `split` 하나.
-- 다른 언어는 `en`의 키·변형·자리표시를 모두 가진다(양쪽 테스트: 같은 키 집합, 같은 변형, 틀마다 같은 자리표시 집합). 10단계가 `email.*`, `group_deleted`·`group_restored`, 변경 label `type`·`coverImageId`를 더한다.
+- 다른 언어는 `en`의 키·변형·자리표시를 모두 가진다(양쪽 테스트: 같은 키 집합, 같은 변형, 틀마다 같은 자리표시 집합). 10단계가 `email.*`(만든 사람용 `email.recurring.footerSelf` 포함), `unsubscribe.*`, `group_deleted`·`group_restored`와 친구 그룹용 `friend_deleted`·`friend_restored`, 변경 label `type`·`coverImageId`, `words.groupType`을 더한다.
 - 대체: 없는 언어 → `en`. 없는 키(잎 단위, 변형 포함) → `en`의 그 값. 덜 번역된 언어도 영어 조각으로 동작한다(완전한지는 테스트가 따로 본다).
 - 자리표시: `{이름}`(`[A-Za-z]+`)만, ICU 없음. 틀을 왼쪽부터 **한 번** 훑으며 값을 그대로 넣는다: 값 안의 `{A}`(설명·댓글에 쓴 글)는 다시 바꾸지 않는다. 모르는 자리표시는 그대로 둔다.
 - 번역 규칙(`_doc`과 같다): 문장 통째로 옮긴다. `{A}`·`{member}`·`{from}`·`{to}`·`{name}`에는 `words.you`·`words.someone`이 들어갈 수 있으니 이름에만 맞는 접사(한국어 `님`)를 붙이지 않는다(목적어가 나일 수 없는 `you` 변형의 주어처럼 들어갈 수 없는 자리는 예외). `{n}` 문장은 모든 n ≥ 2에 맞게. 말투: de·es·it·nl·sv·pl·pt는 반말(informal), fr는 `vous`, ja는 です/ます, ko는 해요체. 고정 용어: expense, balance, settle up, owe, owed, share, split, group, payment, refund, receipt, repeat. 따옴표는 그 언어대로(`„…“`, `「…」`, `« … »`).
@@ -736,7 +745,7 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
 
 ### 문장 만들기 (앱 `domain/activity.dart`, 서버 `activity/ActivityText.kt`, `shared/activity-cases.json`)
 보는 사람 `me`, 이름 표 `names`, 언어 `lang`(앱은 화면 언어, 서버는 받는 사람의 언어):
-1. **틀 key** = `kind`. 단 `refund`인 `expense_added`·`expense_repeated`는 `expense_added_refund`·`expense_repeated_refund`, `paymentId`가 있는 `comment_added`는 `comment_added_payment`, 앱 목록이 영수증 여러 장을 한 줄로 보일 때(`count` ≥ 2) `receipts_added`·`receipts_removed`. `en`에 없는 kind는 `unknown`.
+1. **틀 key** = `kind`. 단 `refund`인 `expense_added`·`expense_repeated`는 `expense_added_refund`·`expense_repeated_refund`, `paymentId`가 있는 `comment_added`는 `comment_added_payment`, 앱 목록이 영수증 여러 장을 한 줄로 보일 때(`count` ≥ 2) `receipts_added`·`receipts_removed`, 10단계: 친구 그룹(`kind == "friend"`)의 `group_deleted`·`group_restored`는 `friend_deleted`·`friend_restored`(친구 그룹 이름 `"Anna & Ben"`은 내부용이라 보이지 않는다. 앱은 그 그룹의 `kind`, 서버는 푸시·요약의 그룹으로 정한다). `en`에 없는 kind는 `unknown`.
 2. **변형**: 주어 = `actorMemberId`(단 `member_joined`·`member_left`는 `memberId`, `payment_added`는 `fromMember`). 목적어 = `member_added`·`member_removed`·`friend_added`는 `memberId`, `payment_added`는 `toMember`, `payment_confirmed`는 `fromMember`(그 밖은 없음). 주어가 `me`이고 `en` 틀에 `self`가 있으면 `self`, 아니고 목적어가 `me`이고 `you`가 있으면 `you`, 아니면 `other`.
 3. **값**: `{A}`(actor), `{member}`, `{from}`·`{to}`(송금 멤버)는 이름 규칙 — `me`면 `words.you`, `null`이거나 `names`에 없으면 `words.someone`, 그 밖에는 이름 그대로. `{name}` 그룹 이름, `{description}`·`{text}`(없으면 `""`), `{amount}` = M(`amount`, `currency`, `lang`), `{frequency}` = `words.frequency[frequency]`(모르는 값은 그대로), `{changes}`(6), `{n}`(ASCII 숫자).
 4. **대문자**: 틀이 자리표시로 시작하고 그 값이 `words.you`·`words.someone`에서 왔으면 첫 UTF-16 문자를 대문자로(Dart `toUpperCase()`, Kotlin `uppercase()`). 멤버 이름은 그대로다(이름이 `someone`이어도). 문장 가운데는 바꾸지 않는다.
@@ -747,7 +756,7 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
    - 모르는 field는 `changes.other`를 한 번만 넣는다(이전: 서버는 field 이름, 앱은 뺐다. 서버는 아는 field만 보내므로 새 서버와 이전 앱이 만날 때만 보인다).
 7. **푸시 묶음**(서버, "푸시"의 빼기·묶음 규칙 그대로): 1개면 그 문장, actor가 섞이면 `batch.mixed`, 모두 `expense_added` → `batch.expenses`, 모두 `comment_added` → `batch.comments`, 모두 `expense_repeated` → `batch.repeats`, 그 밖 `batch.changes`. `{A}`는 3·4 규칙.
 - `en`의 결과는 9단계 전과 바이트 단위로 같다(`activity-cases.json`의 `cases`·`batches` 그대로. 금액만 아래 "금액 표기").
-- 서버: `ActivityText.sentence`·`body`·`reminder`와 `Money.display`가 `lang`을 받는다(설계의 `Sentences.render`는 이름만 다르다. 지금 이름을 둔다). `title`은 그대로. 앱: `activityText(item, names, me, {lang, withDelta, count})`, `myDeltaText(item, {lang})`.
+- 서버: `ActivityText.sentence`·`body`·`reminder`와 `Money.display`가 `lang`을 받는다(10단계: `sentence`·`body`는 `friend`도 받는다)(설계의 `Sentences.render`는 이름만 다르다. 지금 이름을 둔다). `title`은 그대로. 앱: `activityText(item, names, me, {lang, withDelta, count})`, `myDeltaText(item, {lang})`.
 
 ### 금액 표기 M(x) (앱 `formatMoney`, 서버 `Money.display`, `activity-cases.json` `money`)
 `M(minor, currency, lang)`, `L` = `strings.json`의 그 언어(없는 언어·키는 `en`):
@@ -785,17 +794,17 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
 
 ### 웹 앱 (서버 이미지 안, `/app/`)
 - **빌드**: `deploy/Dockerfile`의 첫 단계 `FROM ghcr.io/cirruslabs/flutter:3.41.4 AS web`(CI `subosito/flutter-action`도 같은 버전)이 `app/pubspec.yaml`·`pubspec.lock`·`l10n.yaml`·`analysis_options.yaml`·`lib`·`web`·`assets`를 복사하고 `flutter build web --release --base-href /app/ --no-web-resources-cdn --csp`. Gradle 단계가 `build/web/`을 `server/src/main/resources/static/app/`(gitignore)에 넣고 `bootJar`. 저장소 루트 `.dockerignore`: `app/build`, `app/ios/Pods`, `app/.dart_tool`, `**/*.jks`, `**/key.properties`, `deploy/secrets`, `deploy/backups`, `deploy/data`. CI `app` 작업이 같은 `flutter build web` 명령을 돌린다. 출시 때: CI가 `ghcr.io/devyourown/evensies-server`를 만들고 `update.sh`는 `docker compose pull`(4 GB 서버에서 Flutter를 빌드하지 않게).
-- **경로**(`WebConfig`): `GET /` → 302 `/app/`, `GET /app` → 302 `/app/`, `GET /app/` → `forward:/app/index.html`, `/app/**`는 정적 파일. `/`, `/app`, `/app/**`는 인증 없이(`permitAll`). 정적 파일은 `Cache-Control: no-cache`(`spring.web.resources.cache.cachecontrol.no-cache: true`), `.wasm`은 `application/wasm`(Tomcat 기본 매핑). 앱 안 경로는 해시 URL(`/app/#/groups/<id>`)이라 서버가 알 필요가 없다. API(`GET /groups` 등)는 지금처럼 토큰이 없으면 401 JSON, `/j/*`·`/f/*`·Caddy는 그대로.
+- **경로**(`WebConfig`): `GET /` → 302 `/app/`, `GET /app` → 302 `/app/`, `GET /app/` → `forward:/app/index.html`, `/app/**`는 정적 파일. `/`, `/app`, `/app/**`는 인증 없이(`permitAll`). 정적 파일은 `Cache-Control: no-cache`(`spring.web.resources.cache.cachecontrol.no-cache: true`), `.wasm`은 `application/wasm`(Tomcat 기본 매핑). 앱 안 경로는 해시 URL(`/app/#/groups/<id>`)이라 서버가 알 필요가 없다. `push`로 연 화면도 주소창에 자기 경로가 보이고(`GoRouter.optionURLReflectsImperativeAPIs = true`, `main.dart`. `push`하는 경로는 모두 `/` 아래 진짜 중첩 경로라 그대로 다시 열린다) 새로 고침하면 같은 화면이다. API(`GET /groups` 등)는 지금처럼 토큰이 없으면 401 JSON, `/j/*`·`/f/*`·Caddy는 그대로.
 - **CSP**(Spring Security `headers { contentSecurityPolicy }`, API·랜딩·정적 파일 **모든 응답**):
   ```
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com/gsi/client https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https://*.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' blob: https://fonts.gstatic.com https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/ https://appleid.apple.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   ```
   토큰이 IndexedDB(drift)에 있으므로 우리 origin에서는 로그인 스크립트(Google·Apple) 말고 제3자 스크립트가 돌지 않는다. `connect-src`의 `blob:`은 고른 사진·파일을 그 blob: URL에서 읽기 위해서다(`'self'`는 blob:을 포함하지 않고, blob: URL은 이 origin만 만든다. 9단계 브라우저 확인에서 빠진 것을 찾음). 브라우저 확인에서 위반이 나오면 같은 커밋에서 이 문자열과 함께 고친다. Flutter 웹은 Roboto·Noto를 `fonts.gstatic.com`에서 받는다(`docs/privacy.md`). 사진(프로필, 영수증, 10단계 표지)은 언제나 `ApiClient`로 받아 `Image.memory`로 보인다(같은 origin, CORS·CSP 변경 없음).
 - **CORS**(개발 전용): `EVENSIES_CORS_ORIGINS`의 정확한 origin만(`CorsConfigurationSource`, `/**`). 메서드 `GET, POST, PUT, PATCH, DELETE`, 헤더 `Authorization, Content-Type`, max age 3600, credentials 없음(토큰은 헤더). 목록에 없는 origin의 preflight는 403(Spring 본문, 우리 오류 JSON이 아니다), 목록이 비면 CORS 헤더를 내지 않는다.
-- **로그인**(웹은 `GET /info`를 읽는다): Apple(`appleServicesId`가 있을 때) `getAppleIDCredential(…, webAuthenticationOptions: WebAuthenticationOptions(clientId: servicesId, redirectUri: Uri.parse('${Uri.base.origin}/app/')))`(Apple은 localhost를 받지 않으므로 출시 때 확인). Google(`googleWebClientId`가 있을 때) `GoogleSignIn.instance.initialize(clientId: …)` + `package:google_sign_in_web/web_only.dart`의 `renderButton()`(조건부 import `dart.library.js_interop`, `google_sign_in_web` 1.1.3을 직접 의존성으로). 받은 id 토큰은 폰과 같은 `/auth/apple`·`/auth/google`로 간다. Dev login은 `devLogin`이나 `--dart-define=DEV_LOGIN`일 때. `appleAvailable` = `kIsWeb || iOS || macOS`.
+- **로그인**(웹은 `GET /info`를 읽는다): Apple(`appleServicesId`가 있을 때) `getAppleIDCredential(…, webAuthenticationOptions: WebAuthenticationOptions(clientId: servicesId, redirectUri: Uri.parse('${Uri.base.origin}/app/')))`(Apple은 localhost를 받지 않으므로 출시 때 확인). Google(`googleWebClientId`가 있을 때) `GoogleSignIn.instance.initialize(clientId: …)` + `package:google_sign_in_web/web_only.dart`의 `renderButton()`(조건부 import `dart.library.js_interop`, `google_sign_in_web` 1.1.3을 직접 의존성으로). `google_sign_in_web`은 앱이 시작할 때(플러그인 등록, `main()` 전) 모든 페이지에 Google 스크립트(`accounts.google.com/gsi/client`)를 넣으므로, `web/gsi_lazy.js`(`index.html`에서 Flutter보다 먼저)가 그 `<script>`를 붙잡아 두었다가 로그인 화면이 `googleWebClientId`를 받았을 때(`loadGoogleSignIn()`)에만 붙인다. Google 로그인이 없는 서버와 로그인 뒤의 페이지는 Google에 요청하지 않는다(`docs/privacy.md`). 받은 id 토큰은 폰과 같은 `/auth/apple`·`/auth/google`로 간다. Dev login은 `devLogin`이나 `--dart-define=DEV_LOGIN`일 때. `appleAvailable` = `kIsWeb || iOS || macOS`.
 - **서버 주소**: 웹은 `Uri.base.origin`(개발은 `--dart-define=EVENSIES_SERVER_URL`). Settings → Server 칸은 웹에서 숨긴다.
 - **로그인 뒤 돌아가기**: 로그인이 필요한 경로는 `/login?next=<원래 위치(경로+질의), URL 인코딩>`으로 보내고, 로그인 뒤 `next`가 `/`로 시작하고 `//`로 시작하지 않을 때만 그리로 간다(아니면 `/`). 랜딩의 `/app/#/join/{CODE}`가 로그인을 거쳐 참여 화면으로 간다.
-- **데이터**: drift `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'), driftWorker: Uri.parse('drift_worker-2.34.4.js'), onResult: …)`. 두 파일은 `app/web/`에 커밋하고 버전은 `pubspec.lock`의 `sqlite3`(3.5.2)·`drift`(2.34.4)와 같아야 한다(`web_assets_test.dart`). COOP/COEP가 없으므로 IndexedDB + shared worker이고 탭들이 DB 하나를 함께 쓴다(Android Chrome은 탭마다 IndexedDB). `ponytail:` OPFS는 cross-origin isolation이 필요해 로그인 팝업이 깨진다.
+- **데이터**: drift `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'), driftWorker: Uri.parse('drift_worker-2.34.4.js'), onResult: …)`. 두 파일은 `app/web/`에 커밋하고 버전은 `pubspec.lock`의 `sqlite3`(3.5.2)·`drift`(2.34.4)와 같아야 한다(`web_assets_test.dart`). COOP/COEP가 없으므로 IndexedDB + shared worker이고 탭들이 DB 하나를 함께 쓴다. shared worker가 아예 없는 브라우저(drift가 탭마다 IndexedDB `unsafeIndexedDb`를 고른다)와 shared worker가 시작하지 못하는 브라우저(앱이 탭의 IndexedDB로 다시 연다)는 탭마다 DB 사본을 가지므로 Web Lock `evensies-db`로 한 번에 한 탭(`AppDatabase.openChecked`, 두 번째 탭은 `browserOtherTab`). `ponytail:` OPFS는 cross-origin isolation이 필요해 로그인 팝업이 깨진다.
 - **새로 고침**: 웹 푸시는 없다. 탭이 앞에 올 때와 보이는 동안 60초마다 `syncAll()`(지금의 resume과 같이 `GET /me`·`GET /activity/unread`도).
 - **`lib/`에 `dart:io` 없음**: 내보내기는 폰에서 `XFile.fromData`(+ `fileNameOverrides`)를 공유 시트로, 웹에서는 Blob 링크(`download` 속성, `core/browser_web.dart`의 `downloadFile`)로 내려받는다(share_plus는 `navigator.share`를 불러 macOS의 Chrome·Safari에서 저장할 수 없는 시스템 공유 시트가 뜬다), Splitwise 가져오기는 `pickFiles(withData: true)` + `MultipartFile.fromBytes`(`importSplitwise(String groupId, List<int> bytes)`), 영수증·프로필 사진은 메모리 경로, `initPush`·`_listenDeepLinks`는 웹에서 건너뛴다, `path_provider`·`path` 직접 의존성 삭제.
 - **사진(웹)**: `image_picker`의 `maxWidth`·`maxHeight`·`imageQuality`(캔버스로 줄이고 EXIF를 버린다). `flutter_image_compress`는 폰에서만(`kIsWeb` 뒤). 결과가 JPEG가 아니면 앱이 `Choose a JPEG photo`로 거부한다. `ponytail:` 필요해지면 캔버스로 PNG → JPEG.
@@ -814,7 +823,7 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
 | 반복 지출의 시간대 | 브라우저의 지금 오프셋(8단계 `deviceTimeZone()` 그대로) |
 | 인쇄용 요약(parity #38) | Insights의 **Print summary**(웹만)가 5단계 요약 글만 담은 새 탭(`<pre>`, 이름이 들어 있으므로 HTML이 아닌 `textContent`)을 열고 브라우저 인쇄 창을 띄운다. 앱 화면 자체는 캔버스라 그대로 인쇄하지 않는다. 팝업이 막히면 아무 일도 없고 공유 버튼(클립보드)은 그대로 |
 | 11단계 팁 | 숨긴다(웹에는 앱 내 결제가 없다) |
-| 화면 배치 | 640px 가운데 열, 바깥은 `surfaceContainerLow`. 데스크톱 배치·데스크톱 앱은 없다 |
+| 화면 배치 | 1024px 미만 창과 로그인·이름 화면: 640px 가운데 열, 바깥은 `surfaceContainerLow`. 1024px 이상(10단계, Splitwise 웹처럼 세 열): 왼쪽 300px에 Dashboard·Activity·All expenses(위 "검색"의 `all=1`)·그룹·친구(각자 내 잔액, 고른 것 강조)와 그 아래 **Add expense**(열린 그룹·친구와 함께), 가운데에 그 페이지(`/`는 Dashboard: 전체 카드와 나에게 줄 사람·내가 줄 사람. 그룹·친구 페이지에는 뒤로 화살표와 FAB가 없다), 오른쪽 340px에 그룹이면 멤버별 잔액과 Settle up, 친구면 통화·그룹별 잔액, Dashboard 옆이면 최근 활동, 그 밖에는 전체 카드. 새로 로그인한 첫 동기화 동안은 스피너. 가운데 열은 따로 semantics 컨테이너라 페이지의 modal barrier가 사이드바를 화면 읽기 프로그램에서 숨기지 않는다. 데스크톱 앱은 없다 |
 
 ### 홈 화면 위젯 (앱만: iOS small/medium, Android 2×2)
 Dart가 번역·표기를 마친 JSON 하나를 쓰고, 네이티브(Swift `EvensiesWidget`, Kotlin `BalanceWidgetProvider` + `org.json`)는 그리기만 한다. `home_widget` 0.9.3, 키 `summary`(iOS App Group `group.dev.nariinfo.evensies`, Android home_widget prefs).
@@ -845,6 +854,177 @@ Dart가 번역·표기를 마친 JSON 하나를 쓰고, 네이티브(Swift `Even
 
 ### 9단계 오류 코드
 새 코드는 없다. `PATCH /me`의 `language` → 400 `VALIDATION`. 웹 로그인의 `aud` 오류는 지금처럼 401, 설정이 없으면 400 `AUTH_NOT_CONFIGURED`. 허용되지 않은 CORS preflight → 403(Spring 본문). 새 환경 변수: `EVENSIES_APPLE_SERVICES_ID`, `EVENSIES_GOOGLE_WEB_CLIENT_ID`, `EVENSIES_CORS_ORIGINS`(아래 "환경 변수").
+
+## 이메일·계정 (10단계)
+이메일은 선택이다. `EVENSIES_SMTP_HOST`가 비면 서버는 9단계까지와 똑같이 돌고, 이메일 기능은 모두 꺼지며(`GET /info`의 `emailLogin: false`), 앱은 그 화면을 숨긴다. 모든 메일은 `text/plain; charset=UTF-8`이고 추적이 없으며, 왜 받았는지 쓰고, 받는 사람의 언어(`users.language`, `shared/strings.json`의 `email.*`)로 쓴다. 10단계의 다른 부분(그룹 유형·표지·삭제, 친구 삭제, 차단, 전체 내보내기, 모든 기기 로그아웃, UPI)은 이메일 없이도 돈다.
+
+### 엔드포인트
+| 메서드 | 경로 | 인증 | 요청 | 응답 / 오류 |
+|---|---|---|---|---|
+| GET | `/info` | 공개 | | 9단계 키 + `"emailLogin","appleLogin","googleLogin","supportEmail"`(아래) |
+| POST | `/groups` | ✓ | `"type"?` 추가 | 지금과 같음. 네 값이 아닌 `type` → 400 `VALIDATION` |
+| POST | `/auth/email/start` | 공개 | `{"email"}` | 204(계정이 있든 없든). 400 `VALIDATION`·`EMAIL_NOT_CONFIGURED`·`EMAIL_REJECTED`, 429, 503 `EMAIL_UNAVAILABLE` |
+| POST | `/auth/email/verify` | 공개 | `{"email","code"}` | `AuthResponse`. 400 `CODE_INVALID`(틀림·만료·사용함·시도 초과), 400 `VALIDATION`(코드가 6자리 숫자가 아님), 429 |
+| POST | `/me/email` | ✓ | `{"email"}` | 204(새 주소로 코드). 오류는 `start`와 같다 |
+| POST | `/me/email/verify` | ✓ | `{"email","code"}` | `UserDto`. 400 `CODE_INVALID`, 409 `EMAIL_TAKEN` |
+| DELETE | `/me/email` | ✓ | | 204. 409 `EMAIL_REQUIRED`(이메일 코드로만 로그인하는 계정) |
+| GET / PUT | `/me/notifications` | ✓ | `NotificationPrefs` | `emailDigest`·`emailDigestEffective` 추가(아래 "요약 메일"). 잘못된 값 → 400 `VALIDATION`. 삭제된 계정은 GET도 401 |
+| POST | `/devices` | ✓ | `"notificationsAllowed"?: bool` 추가(없으면 `true`) | 204 |
+| POST | `/me/logout-all` | ✓ | | 204 |
+| GET | `/me/export` | ✓ | | `AccountExport`, `Content-Disposition: attachment; filename="evensies-export-YYYY-MM-DD.json"`(UTC 날짜). 429 |
+| GET | `/me/blocks` | ✓ | | `[{"userId","displayName"}]`(먼저 차단한 순) |
+| PUT / DELETE | `/me/blocks/{userId}` | ✓ | | 204(이미 그런 상태여도). 400 `VALIDATION`(자기 자신), 404(모르거나 삭제된 사용자) |
+| POST | `/groups/{id}/members/{memberId}/invite-email` | 멤버 | `{"email"}` | 204(조용히 건너뛸 때도). 400 `VALIDATION`·`EMAIL_NOT_CONFIGURED`·`EMAIL_REJECTED`, 404(멤버, 또는 삭제된 그룹), 409 `MEMBER_TAKEN`, 429, 503 |
+| PUT | `/groups/{id}/cover` | 멤버 | multipart `file`: JPEG, 1 MB 이하, 변 2048 이하 | `{"coverImageId","latestSeq"}`. 400 `NOT_JPEG`·`IMAGE_TOO_LARGE`, 413 `TOO_LARGE`, 403, 429 |
+| GET | `/groups/{id}/cover/{coverId}` | 멤버 | | `image/jpeg`. 403; 지금 표지가 아니면 404 |
+| GET / POST | `/email/unsubscribe?t=` | 공개 | POST 본문은 `List-Unsubscribe=One-Click`이어도 되고 비어도 된다 | `text/html`. 잘못된 토큰 → 400 HTML 페이지 |
+| POST | `/webhooks/email` | Svix 서명 | Resend 이벤트 JSON(`type`·`data.to`만 읽는다) | 204. 401 서명이 틀리거나 오래됨, 404 비밀이 비었음 |
+| POST | `/dev/jobs/email` | ✓ (dev-login일 때만 존재) | | 204 |
+
+```
+ServerInfo        {"appleServicesId","googleWebClientId","devLogin","emailLogin": bool,"appleLogin": bool,"googleLogin": bool,"supportEmail": string|null}
+UserDto           {"id","displayName","homeCurrency","language","email": string|null,"emailBounced": bool}
+GroupDto          {..., "kind","type","coverImageId": string|null,"deleted": bool}
+GroupSummaryDto   {"id","name","defaultCurrency","latestSeq","memberCount","kind","type","coverImageId","deleted"}   (GET /groups는 삭제된 그룹도 준다)
+NotificationPrefs {"expenses","comments","members","reminders","emailDigest": "auto","emailDigestEffective": "daily"}
+AccountExport     {"exportedAt","user":{"id","displayName","email","homeCurrency","language"},"paymentMethods":[PaymentMethod],
+                   "notifications": NotificationPrefs,"groups":[SnapshotDto, …]}
+```
+- `ServerInfo`: `emailLogin` = SMTP가 설정됨(메일러가 켜짐), `appleLogin` = `/auth/apple`이 받는 `aud`가 하나라도 있음(`EVENSIES_APPLE_CLIENT_ID`·`EVENSIES_APPLE_SERVICES_ID`), `googleLogin` = 같은 뜻으로 Google, `supportEmail` = `EVENSIES_SUPPORT_EMAIL`(빈 값이면 `null`). 앱은 오프라인이거나 이전 서버면 `{emailLogin: false, appleLogin: true, googleLogin: true}`로 읽고 로그인 화면은 서버가 못 하는 버튼을 숨긴다.
+- `UserDto.email`: 검증된 계정 주소(다른 멤버에게는 어디에도 보이지 않는다). `emailBounced`: 그 주소가 `bounce`로 막혀 있음(앱: "Emails to this address bounce — change it or verify it again"). 앱은 키가 없는 응답을 `null`·`false`로 읽는다.
+- `GroupDto`·`GroupSummaryDto`·snapshot의 `group`: `type`(기본 `"other"`), `coverImageId`(기본 `null`), `deleted`(기본 `false`). 앱은 키가 없는 응답을 기본값으로 읽는다.
+- `AccountExport`: 호출자가 지금(removed 아님) 멤버인 모든 그룹의 snapshot(삭제된 그룹·친구 그룹 포함). `notifications`는 `GET /me/notifications`와 같다. 영수증 이미지는 그룹별 ZIP(7단계)으로만 나온다. 사용자당 시간당 3회(abuse cap, 넘으면 429).
+- `POST /me/logout-all`: 그 사용자의 refresh 토큰과 기기 행을 모두 지운다(그 기기들의 푸시도 끊긴다). `ponytail:` access 토큰은 최대 15분 더 유효하다. 바로 끊어야 하면 `users.tokens_valid_after`를 `JwtAuthFilter`에서 본다.
+- `DELETE /me`(10단계에 더한 것): `display_name = ''`, `email = NULL`, `notification_prefs`, `email_codes`(그 사용자가 요청했거나 그 주소로 간 것), 그 사용자가 보낸 `email_invites`, `user_blocks`(양쪽 방향)를 지운다. 이메일 코드 계정은 같은 주소로 다시 로그인하면 지금처럼 되살아난다(이름 없이).
+- `POST /devices`의 `notificationsAllowed`: OS가 이 기기에 알림을 보이게 하는지. 앱은 등록할 때와, 앞으로 돌아왔을 때 값이 바뀌었으면 다시 보낸다. "Auto" 요약 메일이 쓴다.
+
+### 이메일 검증
+- 주소: 공백을 자르고 소문자로 바꾼다. 254자 이하, `^[^\s@]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)+$`(SMTPUTF8 없음). 이 모양이지만 JavaMail이 한 주소로 읽지 못하는 것(`a,b@example.com`, `a"b@example.com`)도 400 `VALIDATION`이고 `email_log`에 남지 않는다.
+- 코드: `^\d{6}$`.
+- `remindDaysBefore`: 정수 1~7 또는 `null`, 아니면 400 `VALIDATION`.
+- 그룹 `type`: `trip`·`home`·`couple`·`other` 가운데 하나. 있는 `type: null`도 400(“그대로”로 읽히므로).
+
+### 이메일 로그인 (`/auth/email/*`, `/auth/**`의 permitAll 아래)
+- `start`: `SecureRandom` 6자리 코드, 10분, 5번 시도, 한 번만. 새 코드가 이전 코드를 바꾼다. 저장하는 것은 `HMAC(K, email + ":" + code)`뿐이다(아래 "토큰"). 메일 언어는 그 주소를 가진 활성 계정의 언어, 없으면 영어.
+- `verify`: 그 `email`을 가진 활성 사용자, 없으면 `findOrCreate("email", email, "")` 뒤 `email`을 넣는다. 새 사용자는 이름이 비어 있으므로 이름 입력 화면이 뜬다. 같은 주소의 삭제된 이메일 계정은 되살아난다(이름 없이). 성공하면 그 주소의 suppression을 지운다(주소가 다시 동작함이 확인됐다).
+- 비교는 상수 시간. 시도마다 `attempts`를 올리고(틀린 시도도 커밋), 여섯째 시도는 무엇이든 실패다. 맞으면 행을 지우므로 같은 코드의 동시 확인은 하나만 이긴다.
+- 같은 검증된 주소의 Apple/Google 계정이 있으면 그 계정으로 로그인한다(아래 "계정 이메일"). 계정을 자동으로 합치지 않는다.
+
+### 계정 이메일
+- `IdTokenVerifier`는 `email_verified`가 참일 때만 `email`을 준다(Apple은 `"true"` 문자열도 보낸다).
+- Apple/Google 로그인: 그 계정에 주소가 없고, 사용자가 그 계정에서 주소를 지운 적이 없고(`users.email_removed`, V13), 다른 활성 계정이 그 주소를 갖지 않을 때만 `users.email`을 넣는다. 유니크 인덱스 경합은 잡고 무시한다(계정은 자동으로 합쳐지지 않는다).
+- 바꾸기(`POST /me/email` → `POST /me/email/verify`): 코드는 새 주소로 간다. 다른 활성 계정이 그 주소를 가지면 verify에서만 409 `EMAIL_TAKEN`(start는 드러내지 않는다). 이메일 코드 계정은 `subject`도 새 주소를 따라가므로 옛 주소로는 더 이상 이 계정에 로그인하지 않는다(옛 주소로 로그인하면 새 계정). 같은 주소를 쓰던 **삭제된** 이메일 코드 계정은 그 주소를 놓는다(`subject`에 `:deleted:{id}`를 붙임). 활성 계정이 그 주소를 갖지 않으면 주소는 비어 있는 것이다. verify가 성공하면 그 주소의 suppression을 지운다.
+- 지우기(`DELETE /me/email`): Apple·Google·dev 계정만. `email = NULL`과 `email_removed = true`(다음 Apple/Google 로그인이 id 토큰의 주소를 다시 넣지 않는다. 코드로 다시 더하는 것은 된다). 주소가 없으면 요약 메일·반복 지출 알림도 없다.
+
+### 메일러 (`email/Mailer.kt`, `JavaMailSender`)
+- `EmailConfig`는 `evensies.email.smtp-host`가 비어 있지 않을 때만 `JavaMailSenderImpl`을 만든다(`spring.mail.host`가 아님: Boot는 빈 값도 있는 것으로 본다). TLS: `starttls`(기본, 필수), `ssl`(465), `none`(Mailpit 전용). 연결·읽기·쓰기 시간 제한 10초. `/actuator/health`는 메일 서버를 보지 않는다.
+- `send(kind, to, chargedUserId, Email, ref?)`의 순서: 1. suppression(코드는 건너뛴다) → `SUPPRESSED` 2. 하루 예산 → `OVER_BUDGET` 3. 받는 주소 검사(위) 4. `email_log` 행(주소는 해시) 5. 보내기, 성공하면 `ref`를 그 행에 쓴다.
+- 동기 5xx 거부(`SendFailedException.invalidAddresses`) → `bounce` suppression + 400 `EMAIL_REJECTED`. 그 밖의 실패 → 503 `EMAIL_UNAVAILABLE`(실패한 시도도 `email_log`에 남아 예산·주소당 상한에 들어간다).
+- 모든 메일에 `Auto-Submitted: auto-generated`. 초대·요약·반복 지출 알림에는 `List-Unsubscribe: <url>`과 `List-Unsubscribe-Post: List-Unsubscribe=One-Click`(RFC 8058). 코드에는 없다.
+- 사용자 글의 CR/LF는 빼고, 이름은 40자, 댓글은 80자로 자른다(`…`).
+- From: `EVENSIES_EMAIL_FROM`.
+
+### 토큰 (`email/EmailTokens.kt`)
+- `K = HMAC-SHA256(EVENSIES_JWT_SECRET, "evensies-email")`(새 비밀 없음).
+- 코드 해시: `HMAC(K, email + ":" + code)`의 hex.
+- 수신 거부 토큰: `base64url("{kind}:{subject}") + "." + base64url(HMAC(K, 같은 글)의 앞 16바이트)`. kind `digest`(subject = userId, 반복 지출 알림도 이것), `invites`(subject = 주소의 sha256 hex). 만료 없음. JWT 비밀을 바꾸면 옛 링크는 "앱에서 설정을 바꾸세요" 페이지가 된다.
+
+### 이메일 초대
+- 호출자는 활성 멤버, 멤버는 그 그룹에 있고 removed도 연결도 아니다(연결됨 409 `MEMBER_TAKEN`, 없음·removed·다른 그룹 404, 그룹이 삭제됨 404).
+- **보내지 않고 204**(아무것도 드러내지 않는다): 주소가 suppression에 있음, 그 멤버에 이미 초대 행이 있음, 그 주소가 7일 동안 초대를 3번 받음.
+- 초대한 사람당 24시간 20통(초대 + 초대 알림) → 429. 하루 예산 100% → 429 "Email limit reached for today — share the link instead".
+- `email_invites` 행은 실제로 보냈을 때만 넣는다. 이미 Evensies를 쓰는 사람도 자동으로 연결하지 않는다(자리표시를 직접 고른다).
+- 언어: 그 주소를 가진 활성 계정의 언어, 없으면 초대한 사람의 언어.
+- 링크: `{EVENSIES_PUBLIC_URL}/j/{code}?m={memberId}`. `/j/{code}`는 UUID 모양의 `m`만 `evensies://join/{code}?m=…`와 `/app/#/join/{code}?m=…`로 넘기고 그 밖의 값은 버린다. 앱은 그 자리표시가 아직 연결되지 않았을 때만 미리 고르고, 사용자가 확인한다.
+
+### 매시 작업 (`email/EmailJobs.kt`, `@Scheduled(cron = "0 5 * * * *")`, `evensies.email.job-cron`)
+이메일이 꺼져 있으면 아무것도 하지 않는다. 순서: 정리 → 초대 알림 → 반복 지출 알림 → 요약 메일. 한 단계가 실패하면 로그만 남기고 다음 단계로 간다. `ponytail:` 한 인스턴스에서 모든 요약 후보를 매시 읽는다. 사용자 1만 명이나 인스턴스 둘 이상이면 due 시각으로 나눠 읽고 `pg_try_advisory_lock`을 잡는다.
+- **정리:** 만료된 `email_codes`, 14일 지난 `email_invites`, 30일 지난 `email_log`.
+- **초대 알림:** `reminded_at IS NULL`이고 `sent_at`이 3일 전보다 오래된 행 가운데 멤버가 아직 연결 안 되고 removed 아니며 그룹이 삭제 안 된 것. 하나에 한 번. 예산에 걸리면 멈추고 다음 실행에 이어간다.
+- **반복 지출 알림:** 삭제 안 된 그룹의 멈추지 않은 시리즈 가운데 `remind_days_before`가 있고 `reminded_occurrence < next_occurrence`이며 `next_due_at − remind_days_before일 <= now < next_due_at`인 것. template의 `payers`나 `shares`에 있는 연결된·removed 아닌 멤버 가운데 주소가 있고, suppression이 아니고, `email_digest <> 'off'`이고, 시리즈를 만든 사람을 차단하지 않은 사람에게 보낸다. 모두에게 보냈거나(suppression도 끝난 것으로 친다) 받을 사람이 없으면 `reminded_occurrence = next_occurrence`. 보내기가 실패하면 그 반복은 열린 채로 다음 실행이 다시 시도하고, 이미 받은 사람은 건너뛴다(`email_log.ref = "{recurrenceId}:{occurrence}"`, V13). 예산에 걸리면 멈춘다. "Your share"는 template에 저장된 몫이다(효준님 함수를 쓰지 않는다). 시리즈를 만든 사람이 받는 메일의 끝줄은 `email.recurring.footerSelf`("…because you turned on reminders…").
+- **요약 메일:** 아래.
+
+### 요약 메일 (Settings → Notifications → Email summary)
+- `emailDigest`: `auto`(기본) · `daily` · `weekly` · `monthly` · `off`. PUT에서 선택(없으면 저장된 값 그대로), 그 밖의 값은 400 `VALIDATION`. 값이 바뀌면 시계를 다시 시작한다(지금부터, 지금까지의 이벤트는 보내지 않음).
+- `emailDigestEffective`(읽기 전용): 주소가 없거나, 서버의 이메일이 꺼져 있거나, 주소가 suppression에 있거나, `emailDigest`가 `off`면 `off`. `auto`는 푸시를 받을 수 있는 기기가 있으면 `monthly`, 없으면 `daily`. 그 밖에는 고른 값. 푸시를 받을 수 있음 = FCM 토큰이 있고 `notificationsAllowed`이고 60일 안에 본 기기가 있으며 FCM이 설정됨. 2단계 푸시 스위치 셋이 모두 꺼져 있으면 푸시 없음으로 본다.
+- **후보:** 주소가 있는 활성 사용자, suppression 아님, `email_digest <> 'off'`. `notification_prefs` 행(또는 시계)이 없으면 `last_digest_at = now`, 지금의 가장 큰 `feed_id`로 만들고 보내지 않는다(시계 시작).
+- **언제:** `nextDue(last, mode)` — daily는 다음 17:00 UTC, weekly는 다음 월요일 17:00 UTC, monthly는 다음 1일 09:00 UTC. `now >= nextDue`면 보낸다(놓친 실행은 따라잡는다). `ponytail:` UTC만 쓴다(8단계는 시리즈마다 시간대를 두고 사용자마다는 두지 않는다). 원하면 `users.time_zone`을 더한다.
+- **창:** `feed_id > last_digest_feed_id`인 이벤트(2단계의 전역 저장 순서), 그 사용자가 활성 연결 멤버인 그룹, actor ≠ 그 사용자, 그 사용자가 차단한 actor 아님. 한 번에 최대 500개.
+- **줄:** 9단계 문장(그 사용자의 언어), 문장이 없는 kind는 뺀다. 창 안에서 만들고 지운 지출은 그 지출에 관한 줄이 모두 빠진다. 보낼 때 삭제된 그룹은 창 안의 `group_deleted` 줄만 낸다. 그룹당 10줄, 모두 30줄, 넘으면 "…and N more in {group}". 그룹은 최신 이벤트 순. 친구 그룹은 상대 이름으로 부르고 삭제·복원 문장은 `friend_deleted`·`friend_restored`다(아래 "활동").
+- **잔액:** `Balances.ofGroup(state)`(6단계, 통화 칸마다). 그룹·통화마다 0이 아닌 잔액 한 줄. `NotImplementedError`(효준님 함수의 Kotlin 이식 전)면 잔액 부분만 뺀다. 삭제된 그룹의 잔액은 넣지 않는다.
+- **보내는 조건:** daily·weekly는 줄이 하나 이상, monthly는 줄이 하나 이상이거나 0이 아닌 잔액.
+- **한 번 돈 뒤:** 보냈거나 보낼 것이 없으면 `last_digest_at = now`, `last_digest_feed_id` = 그 실행의 최댓값. 예산에 걸렸거나 보내기가 실패하면 그대로 둔다.
+- 하루 예산의 80%에서 요약을 멈춘다.
+
+### 수신 거부와 반송 (`email/EmailController.kt`, `/email/unsubscribe`·`/webhooks/email`은 permitAll)
+- **GET**은 랜딩 페이지 모양의 HTML(언어는 `Accept-Language`, `strings.json`의 `unsubscribe.*`)에 버튼 하나를 보인다. 링크 검사기가 미리 열므로 아무것도 바꾸지 않는다.
+- **POST**(버튼, 또는 메일 앱의 one-click)가 적용한다: `digest` → `email_digest = 'off'`(요약과 반복 지출 알림이 멈춘다, 삭제된 계정은 건너뛴다), `invites` → `unsubscribe` suppression.
+- **웹훅** `POST /webhooks/email`은 Resend의 Svix 서명을 검사한다: 서명 내용 = `svix-id + "." + svix-timestamp + "." + body`, 키 = `whsec_` 뒤의 base64, 헤더는 공백으로 나뉜 `v1,<sig>` 항목들, 시각은 5분 안. `email.bounced` → `data.to`의 주소마다 `bounce` suppression, `email.complained` → `complaint` suppression + 그 주소 계정의 `email_digest = 'off'`. 다른 type은 204로 무시. suppression은 처음 이유를 지킨다(unsubscribe가 bounce로 바뀌지 않는다).
+- 다른 메일 서버의 비동기 반송은 받지 않는다(동기 5xx만).
+
+### 메일 문구 (`strings.json`의 `email.*`, 13개 언어)
+| kind | 키 | 수신 거부 |
+|---|---|---|
+| `login_code` | `email.code.subject`, `email.code.login` | 없음 |
+| `change_code` | `email.code.subject`, `email.code.change` | 없음 |
+| `invite`·`invite_reminder` | `email.invite.subject`/`reminderSubject`, `body`, `footer` | `invites` |
+| `recurring_reminder` | `email.recurring.subject`, `body`, `footer`(만든 사람이 받으면 `footerSelf`) | `digest` |
+| `digest` | `email.digest.subjectOne`/`subjectMany`/`subjectGroupsOne`/`subjectGroups`/`subjectMonthly`, `more`, `balances`, `owe`/`owed`, `open`, `reasonAuto`/`reasonAutoMonthly`/`reasonDaily`/`reasonWeekly`/`reasonMonthly`, `unsubscribe` | `digest` |
+
+서버가 인사(`email.hi` "Hi {name},", 이름이 비면 `email.hiNoName`), 빈 줄, 본문, `—` 줄, 끝줄을 붙인다. 코드 메일에는 인사가 없다. 영어 문구는 설계 문서(`docs/superpowers/plans/phases/phase-10-email-account-polish.md` "Templates")와 같고, 초대 본문은 "Evensies is free, with no ads."로 끝난다. 날짜는 그 언어의 `FormatStyle.MEDIUM`, 금액은 M(x).
+
+### 하루 예산과 속도 제한 (abuse cap, 제품 제한이 아님)
+| 무엇 | 상한 | 넘으면 |
+|---|---|---|
+| `/auth/email/start`·`/auth/email/verify` | 클라이언트 IP당 분당 10회(자체 `RateLimiter`, `evensies.email.auth-rate-per-minute`) | 429 `RATE_LIMITED` |
+| `POST /me/email` | 계정당 분당 10회(같은 `RateLimiter`, 키는 사용자 id: IP는 여럿이 함께 쓸 수 있다) | 429 `RATE_LIMITED` |
+| 주소당 코드 | 시간당 5통(`email_log`, 로그인·변경 합쳐서) | 429 |
+| 계정당 변경 코드 | 시간당 5통(`email_log.user_id`, 주소가 달라도) | 429 |
+| 틀린 코드 | 5번 시도 뒤 그 코드는 죽는다 | 400 `CODE_INVALID` |
+| 초대한 사람당 초대 메일 | 24시간 20통 | 429 |
+| 주소당 초대 메일 | 7일 3통, 멤버당 초대 1 + 알림 1 | 조용히 건너뜀, 204 |
+| 표지 올리기 | 사용자당 시간당 20회(실패한 시도 포함) | 429 |
+| 전체 내보내기 | 사용자당 시간당 3회 | 429 |
+| `EVENSIES_EMAIL_DAILY_LIMIT`(지난 24시간, 0 = 없음) | 요약·반복 지출 알림은 80%에서, 초대는 100%에서 멈춘다. 코드는 언제나 보낸다 | 다음 실행을 기다린다. 초대는 429 |
+
+그룹당 멤버 50, 사용자당 그룹 100도 abuse cap이다: 실제 그룹보다 훨씬 크고, 닿으면 알려 달라.
+
+### 그룹 유형·표지·삭제 (적용 규칙 17)
+- **유형:** `group.created`·`POST /groups`의 `type`(없으면 `"other"`), `group.updated.type`. 앱은 Trip `flight_takeoff`, Home `home_outlined`, Couple `favorite_border`, Other `groups_outlined`과 그 색 띠로 보이고, 모르는 값은 Other로 보인다.
+- **표지:** `PUT /groups/{id}/cover` → `Jpeg.clean(bytes, 2048)`(6단계, GPS EXIF 등 제거) → `FileStore.write("covers/{groupId}/{coverId}.jpg")` → 호출자로 `group.updated {"coverImageId"}`를 `pushValidated`로 넣는다(푸시 실패면 파일을 지운다). 커밋 뒤 이전 파일을 지운다. 클라이언트가 보내는 `group.updated`는 `coverImageId: null`(지우기)만 된다. `null`이 아닌 값은 400 `VALIDATION`(값은 언제나 `PUT /groups/{id}/cover`가 만든다). `null`로 지우면 커밋 뒤 파일을 지운다. 삭제된 그룹에도 올릴 수 있다(다른 이벤트처럼 받는다).
+- 표지 `GET`은 멤버만(아니면 403, 그룹 없음 404), 지금 `coverImageId`만(옛 id·모르는 id 404). `Cache-Control: private, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`. 앱은 `{appSupport}/covers/{coverId}.jpg`에 캐시하고(id는 바뀌지 않는다) id가 바뀌면 옛 파일을 지운다.
+- 8단계의 하루 정리(03:30)가 그룹의 지금 id가 아닌 표지 파일도 지운다. 1시간 안에 쓴 파일은 남긴다(올리기는 `group.updated`가 커밋되기 전에 파일을 쓴다).
+- **삭제·복원:** `group.deleted {}`·`group.restored {}`, 그룹의 활성 멤버 누구나(관리자 없음). 모두에게 삭제된다. `GroupStateStore`가 `deleted_at`을 쓴다(삭제는 `COALESCE(deleted_at, now())`, 복원은 `NULL`). 삭제 뒤의 이벤트도 **거부하지 않고** 그대로 적용한다(오프라인 수정이 사라지지 않는다). 영수증·표지 파일은 남는다.
+- 삭제된 그룹: 표시 푸시와 요약 줄은 `group_deleted`·`group_restored` 말고 내지 않는다(data만 있는 동기화는 간다). 초대 미리보기·참여·랜딩은 404. 사용자당 그룹 상한(100)은 삭제되지 않은 `kind = 'group'`만 세므로 복원이 상한에 막히지 않는다. 리마인더(6단계)의 금액에서 빠진다(앱의 개요·Friends 탭도 뺀다).
+- 8단계 스케줄러: `runDue`는 삭제된 그룹의 시리즈를 건너뛴다. `group.restored`가 적용되면(삭제되어 있던 그룹) 멈추지 않은 시리즈마다 `next_occurrence`를 그 시간대의 오늘 이후 첫 반복(`firstOnOrAfter`, 뒤로 가지 않음)으로 옮긴다. 삭제되어 있던 동안의 반복을 한꺼번에 올리지 않는다.
+- **친구 삭제:** 앱이 그 사람과의 친구 그룹마다 `group.deleted`를 보낸다. 두 사람 모두에게 그룹 밖 지출이 사라지고 같은 방법으로 복원된다. 그 두 사람의 `POST /friends`(어느 쪽이든)는 삭제된 친구 그룹에 서버가 만든 `group.restored`(actor = 호출자)를 더하고 그 그룹을 돌려준다(기록이 돌아온다).
+- 앱: Settings → Deleted groups(있을 때만)와 **Restore**, 삭제 직후 10초 **Undo**, 활동의 `group_deleted` 행의 **Restore**. drift `Groups.type`·`coverImageId`·`deleted`(schemaVersion 10). `watchGroups`는 삭제된 그룹을 빼고, Friends 탭·전체 카드·검색·위젯에서도 빠진다.
+
+### 차단 (`user_blocks`)
+차단한 사람에게:
+- 차단된 사람의 `POST /friends` → `code`면 404, `userId`면 403(모르는 사람과 같다).
+- 차단된 사람의 리마인더 → 보낸 사람에게는 200, 받는 사람에게는 푸시 없음.
+- 차단된 사람의 이벤트 → 표시 푸시 없음(data만), 요약 줄 없음.
+- 차단된 사람이 만든 시리즈의 반복 지출 알림 없음.
+
+돈은 그대로 보인다: 공유 그룹과 잔액은 바뀌지 않는다(사람을 조용하게 할 뿐이다). **Report…**는 앱이 `mailto:{supportEmail}?subject=Evensies report&body=User id: {userId}`를 연다(`supportEmail`이 없으면 숨김).
+
+### 결제 수단 UPI
+| type | value | 추가 필드 | 검증 | 상한 |
+|---|---|---|---|---|
+| `upi` | UPI ID(VPA, Paytm도 있다) | `holder` 선택, 1~70자 | `^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$` | 사용자당 1(모두 8은 그대로) |
+
+앱 `payLink`: `upi://pay?pa={vpa}&pn={holder}&tn={메모 50자 이하}`, INR일 때만 `&am={plainAmount}&cu=INR`. `launchUrl`이 false면 "No UPI app found"와 복사 버튼.
+
+### 호환(10단계)
+- Flyway V12(`users.email`, `groups.archived_at` → `deleted_at`, `groups.type`·`cover_image_id`, `devices.notifications_allowed`, `notification_prefs.email_digest`·`last_digest_at`·`last_digest_feed_id`, `recurrences.remind_days_before`·`reminded_occurrence`, `user_blocks`, `email_codes`, `email_invites`, `email_suppressions`, `email_log`), V13(`users.email_removed`, `email_log.ref`). drift schemaVersion 10.
+- 이전 이벤트에는 `type`·`coverImageId`·`group.deleted`·`group.restored`·`remindDaysBefore`가 없고 기본값(`"other"`, `null`, `false`, `null`)이 맞다. 이전 앱은 새 type과 키를 무시한다(그래서 삭제된 그룹을 보통 그룹으로 보인다. parity 전에는 출시가 없어 받아들인다).
+
+### 10단계 오류 코드
+`EMAIL_NOT_CONFIGURED` 400(이 서버에 이메일이 없음), `EMAIL_REJECTED` 400(메일 서버가 주소를 거부함), `CODE_INVALID` 400, `EMAIL_TAKEN` 409, `EMAIL_REQUIRED` 409, `EMAIL_UNAVAILABLE` 503(지금 보낼 수 없음, 나중에). 이미지는 6단계 코드(`NOT_JPEG`, `IMAGE_TOO_LARGE`, `TOO_LARGE`)를 쓴다.
+
+### 운영(출시 때, 효준님)
+Resend 계정(EU) → 도메인 `evensies.nariinfo.dev`에 SPF·DKIM·DMARC `p=none` → API 키를 `deploy/.env`에 → 웹훅을 `/webhooks/email`로 → `no-reply@evensies.nariinfo.dev`를 Apple(Sign in with Apple → Email Communication)에 등록(`@privaterelay.appleid.com` 주소에도 간다) → `EVENSIES_SUPPORT_EMAIL`. Resend는 SMTP 끝점일 뿐이고 다른 SMTP 서버도 환경 변수만 바꾸면 된다. 로컬은 `deploy/docker-compose.dev.yml`의 Mailpit(SMTP 1025, 받은 편지함 http://localhost:8025, `dev` 프로필의 기본값).
 
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
@@ -883,7 +1063,9 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | kind | 원본 이벤트 | 채워지는 필드 |
 |---|---|---|
 | `group_created` | `group.created` | `name`(그룹 이름) |
-| `group_updated` | `group.updated` | `changes`(`name`, `defaultCurrency`, `simplifyDebts`, `defaultSplit`) |
+| `group_updated` | `group.updated` | `changes`(`name`, `defaultCurrency`, `simplifyDebts`, `defaultSplit`, 10단계 `type`·`coverImageId`) |
+| `group_deleted` | `group.deleted`(10단계) | `name`(직후 그룹 이름). 이미 삭제된 그룹의 삭제는 숨김 1 |
+| `group_restored` | `group.restored`(10단계) | `name`. 삭제되지 않은 그룹의 복원은 숨김 1 |
 | `member_added` | 보통 그룹의 `member.added`(payload `userId`가 보낸 사람이 아님 — 자리표시 추가) | `memberId` |
 | `member_joined` | `member.added`(payload `userId` = 보낸 사람, 초대로 새 멤버), `member.linked` | `memberId` |
 | `member_removed` | `member.removed`(빠지는 멤버가 보낸 사용자의 멤버가 아님) | `memberId` |
@@ -933,7 +1115,9 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 | kind | 문장 |
 |---|---|
 | `group_created` | `{A} created the group “{name}”` |
-| `group_updated` | `{A} changed the group: {변경들}` — `name “{from}” → “{to}”`, `currency {from} → {to}`, `simplify debts on`/`simplify debts off`(`to` 값), `default split`을 `, `로 잇는다 |
+| `group_updated` | `{A} changed the group: {변경들}` — `name “{from}” → “{to}”`, `currency {from} → {to}`, `simplify debts on`/`simplify debts off`(`to` 값), `default split`을 `, `로 잇는다. 10단계: `type {to}`(`words.groupType`: Trip / Home / Couple / Other, 모르는 값은 Other), `cover photo` |
+| `group_deleted` | `{A} deleted the group “{name}”` (10단계). 친구 그룹이면 `{A} deleted your non-group expenses`(`friend_deleted`, 친구 그룹 이름은 내부용이다) |
+| `group_restored` | `{A} restored the group “{name}”` (10단계). 친구 그룹이면 `{A} restored your non-group expenses`(`friend_restored`) |
 | `member_added` | `{A} added {member}` |
 | `member_joined` | `{member} joined` (member가 맨 앞) |
 | `member_removed` | `{A} removed {member}` |
@@ -963,7 +1147,7 @@ ActivityItem {"groupId","feedId","seq","kind","createdAt","actorMemberId",
 
 ### 푸시
 - 이벤트가 **새로 저장된** push가 커밋되면(clientId 중복만 있는 재시도는 알림 없음) 그룹의 연결된·removed 아닌 멤버 가운데 **보낸 사용자가 아닌** 사용자의 기기(FCM 토큰 있는)로 보낸다. 내 변경은 내 기기에 알리지 않는다(지금과 같음). 8단계: 스케줄러가 올린 반복은 보낸 사용자가 없으므로 모든 연결 멤버(시리즈를 만든 사람 포함)에게 간다. 읽지 않은 활동도 그것을 센다(`actor_user_id IS DISTINCT FROM`).
-- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`(7단계 `payment_restored` 포함)·`receipt_*`(7단계)·`recurrence_*`(8단계, `expense_repeated`는 `expense_*`), `comments` = `comment_added`(송금 댓글 포함), `members` = `member_*`(`member_left` 포함)·`friend_added`(6단계)·`group_updated`.
+- 수신자마다 이번 push의 새 이벤트로 ActivityItem을 만들고(`me` = 수신자의 멤버), 숨김 항목과 수신자의 알림 설정이 끈 분류를 뺀다. 분류: `expenses` = `expense_*`·`payment_*`(7단계 `payment_restored` 포함)·`receipt_*`(7단계)·`recurrence_*`(8단계, `expense_repeated`는 `expense_*`), `comments` = `comment_added`(송금 댓글 포함), `members` = `member_*`(`member_left` 포함)·`friend_added`(6단계)·`group_*`(`group_updated`, 10단계 `group_deleted`·`group_restored`). 10단계: 삭제된 그룹은 `group_deleted`·`group_restored` 말고 표시 알림을 내지 않고(묶어 둔 항목도 보낼 때 다시 거른다), 수신자가 차단한 actor의 push는 data만 보낸다(아래 "이메일·계정"의 "차단").
 - 남은 항목이 있으면 **표시 알림**(FCM notification + data): title = 그룹 이름(보낼 때의 이름. 친구 그룹(6단계)이면 수신자의 멤버가 아닌 쪽 멤버의 이름), body = 항목이 1개면 그 문장, 2개 이상이면 묶음 문장. 표시 알림에는 수신자의 그때 읽지 않은 수 `total`을 배지로 넣는다(6단계, 아래 "읽지 않은 활동").
 - 묶음: 수신자·그룹마다 마지막 표시 알림 뒤 `EVENSIES_PUSH_BATCH_SECONDS`(기본 30)초 안에 생긴 항목은 바로 보내지 않고 모아 두었다가, 그 시간이 지나는 순간 모은 항목 전부를 표시 알림 하나로 보낸다. 서버 메모리에만 두므로 재시작하면 모은 항목은 버려진다.
 - 표시 알림을 보내지 않는 push(남은 항목 없음, 알림 꺼짐, 묶는 중)에도 **data만 있는 메시지**는 바로 보낸다(동기화용, 지금과 같음).
@@ -1001,9 +1185,9 @@ ActivityUnread {"total": 3, "groups": {"<groupId>": 2, "<groupId>": 1}}
 | PUT | `/me/notifications` | `NotificationPrefs` (`expenses`·`comments`·`members`는 필수 boolean, 전체 교체. `reminders`(6단계)는 선택: 없으면 저장된 값 그대로, 있으면 boolean) | `NotificationPrefs`(네 키 모두). 필수 키가 빠지거나 boolean이 아니면, `reminders`가 boolean이 아니면(`null` 포함) 400 `VALIDATION` |
 
 ```
-NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminders": bool}
+NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminders": bool, "emailDigest": string, "emailDigestEffective": string}
 ```
-`expenses` = 지출·송금, `comments` = 댓글, `members` = 멤버 참여·추가·제외·나감과 그룹 설정(이름·통화·부채 단순화·기본 분할) 변경. `reminders`(6단계) = 다른 사람이 보낸 리마인더 표시 알림(저장한 적 없으면 `true`). 2~5단계 앱은 `reminders`를 보내지 않으므로 그 값이 바뀌지 않는다. 꺼도 동기화용 data 메시지는 계속 온다. `DELETE /me`는 설정도 지운다.
+`expenses` = 지출·송금, `comments` = 댓글, `members` = 멤버 참여·추가·제외·나감과 그룹 설정(이름·통화·부채 단순화·기본 분할) 변경. `reminders`(6단계) = 다른 사람이 보낸 리마인더 표시 알림(저장한 적 없으면 `true`). 2~5단계 앱은 `reminders`를 보내지 않으므로 그 값이 바뀌지 않는다. 꺼도 동기화용 data 메시지는 계속 온다. `DELETE /me`는 설정도 지운다. `emailDigest`·`emailDigestEffective`(10단계)는 "이메일·계정"의 "요약 메일".
 
 ## 환경 변수 (서버)
 | 변수 | 기본 | 설명 |
@@ -1023,3 +1207,11 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminde
 | `EVENSIES_PUBLIC_URL` | `http://localhost:8080` | 초대 링크 도메인 |
 | `EVENSIES_FX_URL` | `https://api.frankfurter.dev/v2` | 환율 출처(`{url}/rates?base=EUR&date=`, Frankfurter v2 응답 모양). 빈 값이면 자동 환율 끔(`GET /fx`는 언제나 503). 키 없음, 무료 |
 | `EVENSIES_STORAGE_DIR` | `./data` | 6단계: 올린 파일(프로필 사진, 7단계 영수증, 10단계 그룹 표지)의 디렉터리. Docker 이미지는 `ENV EVENSIES_STORAGE_DIR=/data`, `deploy/docker-compose.yml`이 `./data:/data`를 마운트한다. DB 덤프와 함께 백업한다(출시 때 효준님이 호스트의 rclone cron에 `deploy/data`를 더한다. 자체 호스팅은 `./data`를 백업) |
+| `EVENSIES_SMTP_HOST` | (빈 값) | 10단계: 비면 이메일이 모두 꺼진다. Resend는 `smtp.resend.com`, 개발은 `localhost`(Mailpit, `dev` 프로필의 기본값) |
+| `EVENSIES_SMTP_PORT` | `587` | `dev` 프로필은 `1025` |
+| `EVENSIES_SMTP_USER` / `EVENSIES_SMTP_PASSWORD` | | Resend는 `resend` / API 키(비밀값, `.env`에만). USER가 비면 인증 없이 보낸다 |
+| `EVENSIES_SMTP_TLS` | `starttls` | `starttls`(필수), `ssl`(465), `none`(Mailpit 전용, `dev` 프로필의 기본값). 그 밖의 값이면 서버가 뜨지 않는다 |
+| `EVENSIES_EMAIL_FROM` | `Evensies <no-reply@localhost>` | 검증된 도메인이어야 한다 |
+| `EVENSIES_EMAIL_DAILY_LIMIT` | `0` | 지난 24시간 메일 수 상한, 0 = 없음. Resend Free는 `100` |
+| `EVENSIES_EMAIL_WEBHOOK_SECRET` | | Resend `whsec_…`(비밀값). 비면 `/webhooks/email`이 404 |
+| `EVENSIES_SUPPORT_EMAIL` | | 도움말·신고에 보이는 운영자 주소(`GET /info`의 `supportEmail`). 비면 GitHub만 보이고 Report가 없다 |

@@ -35,4 +35,12 @@ void main() {
     expect(extractInviteCode('see you at seven tonight'), isNull); // too long
     expect(extractInviteCode('ABC100'), isNull); // 1 and 0 never appear in codes
   });
+
+  test('an email invite link keeps a UUID-shaped placeholder id, anything else is dropped (Phase 10)', () {
+    const m = '7f1c9a2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b';
+    expect(joinRoute('K7P4QX', 'https://evensies.example/j/K7P4QX?m=$m'), '/join/K7P4QX?m=$m');
+    expect(joinRoute('K7P4QX', 'evensies://join/K7P4QX?m=$m'), '/join/K7P4QX?m=$m');
+    expect(joinRoute('K7P4QX', 'https://evensies.example/j/K7P4QX?m=../../x'), '/join/K7P4QX');
+    expect(joinRoute('K7P4QX', 'https://evensies.example/j/K7P4QX'), '/join/K7P4QX');
+  });
 }

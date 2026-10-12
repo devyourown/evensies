@@ -374,6 +374,9 @@ class Recurrence {
 
   /// Stopped: no more repeats (there is no restart).
   final bool deleted;
+
+  /// Days before each repeat that the server emails a reminder (1–7), or null for none (docs/API.md rule 18).
+  final int? remindDaysBefore;
   const Recurrence({
     required this.id,
     required this.frequency,
@@ -381,15 +384,18 @@ class Recurrence {
     required this.timeZone,
     required this.template,
     this.deleted = false,
+    this.remindDaysBefore,
   });
 
-  Recurrence copyWith({Map<String, dynamic>? template, bool? deleted}) => Recurrence(
+  /// [remind] replaces remindDaysBefore when given (`(null,)` clears it).
+  Recurrence copyWith({Map<String, dynamic>? template, bool? deleted, (int?,)? remind}) => Recurrence(
         id: id,
         frequency: frequency,
         startDate: startDate,
         timeZone: timeZone,
         template: template ?? this.template,
         deleted: deleted ?? this.deleted,
+        remindDaysBefore: remind == null ? remindDaysBefore : remind.$1,
       );
 
   /// The template's description ("Rent"), or null when it has none.
@@ -402,6 +408,7 @@ class Recurrence {
         timeZone: j['timeZone'] as String,
         template: (j['template'] as Map).cast<String, dynamic>(),
         deleted: j['deleted'] as bool? ?? false,
+        remindDaysBefore: (j['remindDaysBefore'] as num?)?.toInt(),
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -410,6 +417,7 @@ class Recurrence {
         'timeZone': timeZone,
         'template': template,
         'deleted': deleted,
+        'remindDaysBefore': remindDaysBefore,
       };
 }
 
@@ -424,6 +432,12 @@ class GroupState {
   /// Group settings (docs/API.md 적용 규칙 11).
   final bool simplifyDebts;
   final SplitSpec? defaultSplit;
+
+  /// Phase 10 (rule 17): `trip`, `home`, `couple` or `other` as sent (the app shows an unknown one as Other), the
+  /// current cover photo id, and whether a member deleted the group (deleted for everyone, any member restores it).
+  final String type;
+  final String? coverImageId;
+  final bool deleted;
   final List<Member> members;
   final List<Expense> expenses;
   final List<Payment> payments;
@@ -440,6 +454,9 @@ class GroupState {
     this.kind = 'group',
     this.simplifyDebts = true,
     this.defaultSplit,
+    this.type = 'other',
+    this.coverImageId,
+    this.deleted = false,
     this.members = const [],
     this.expenses = const [],
     this.payments = const [],
@@ -457,6 +474,9 @@ class GroupState {
     bool? simplifyDebts,
     SplitSpec? defaultSplit,
     bool clearDefaultSplit = false,
+    String? type,
+    (String?,)? cover,
+    bool? deleted,
     List<Member>? members,
     List<Expense>? expenses,
     List<Payment>? payments,
@@ -470,6 +490,9 @@ class GroupState {
         kind: kind ?? this.kind,
         simplifyDebts: simplifyDebts ?? this.simplifyDebts,
         defaultSplit: clearDefaultSplit ? null : (defaultSplit ?? this.defaultSplit),
+        type: type ?? this.type,
+        coverImageId: cover == null ? coverImageId : cover.$1,
+        deleted: deleted ?? this.deleted,
         members: members ?? this.members,
         expenses: expenses ?? this.expenses,
         payments: payments ?? this.payments,
@@ -499,6 +522,10 @@ class GroupState {
       kind: g['kind'] as String? ?? 'group',
       simplifyDebts: g['simplifyDebts'] as bool? ?? true,
       defaultSplit: SplitSpec.fromJson(g['defaultSplit']),
+      // Missing before Phase 10 and in older sync-cases `expected`.
+      type: g['type'] as String? ?? 'other',
+      coverImageId: g['coverImageId'] as String?,
+      deleted: g['deleted'] as bool? ?? false,
       members: (j['members'] as List).cast<Map<String, dynamic>>().map(Member.fromJson).toList(),
       expenses: (j['expenses'] as List).cast<Map<String, dynamic>>().map(Expense.fromJson).toList(),
       payments: (j['payments'] as List).cast<Map<String, dynamic>>().map(Payment.fromJson).toList(),
@@ -528,6 +555,9 @@ class GroupState {
         'kind': kind,
         'simplifyDebts': simplifyDebts,
         'defaultSplit': defaultSplit?.toJson(),
+        'type': type,
+        'coverImageId': coverImageId,
+        'deleted': deleted,
       };
 }
 

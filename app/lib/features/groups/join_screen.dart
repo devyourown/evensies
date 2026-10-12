@@ -12,7 +12,10 @@ import '../friends/add_friend_screen.dart' show addFriendByCode;
 
 class JoinScreen extends ConsumerStatefulWidget {
   final String code;
-  const JoinScreen({super.key, required this.code});
+
+  /// An email invite's placeholder (`?m=`, Phase 10): preselected while it is unlinked; the user still confirms.
+  final String? memberId;
+  const JoinScreen({super.key, required this.code, this.memberId});
   @override
   ConsumerState<JoinScreen> createState() => _JoinScreenState();
 }
@@ -30,6 +33,7 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
   }();
   static const _newMember = '__new__';
   String _memberId = _newMember; // existing placeholder id, or _newMember
+  bool _preselected = false;
   // New members default to the profile name, like when creating a group.
   late final _name = TextEditingController(text: ref.read(sessionProvider).value?.displayName ?? '');
   bool _busy = false;
@@ -90,6 +94,10 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
             if (found.friend case final name?) return _friendInvite(name);
             final p = found.group!;
             final placeholders = p.members.where((m) => !m.linked).toList();
+            if (!_preselected) {
+              _preselected = true;
+              if (placeholders.any((m) => m.id == widget.memberId)) _memberId = widget.memberId!;
+            }
             // A placeholder friend's link: only the placeholder can be claimed (a third member gets 409).
             if (p.kind == 'friend') {
               if (placeholders.isEmpty) {

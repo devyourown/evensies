@@ -5,3 +5,6 @@ Widget googleWebButton(String lang) => const SizedBox.shrink();
 
 /// Phones have Apple's sheet built in.
 Future<void> loadAppleSignIn() async {}
+
+/// Phones load Google's sign-in themselves.
+void loadGoogleSignIn() {}

@@ -117,4 +117,22 @@ class PaymentMethodsTest : IntegrationTestBase() {
         assertEquals(204, http.delete("/me", ben).status)
         assertEquals(setOf(annaMember), http.get("/groups/$id/payment-methods", anna).body.propertyNames().toSet())
     }
+
+    /** Phase 10: UPI (India; Paytm users have one too), one per user, `holder` optional. */
+    @Test
+    fun upi() {
+        val t = login("Pm-upi-${UUID.randomUUID().toString().take(6)}")
+        val ok = put(t, mapOf("type" to "upi", "value" to " anna.b-1@okicici ", "holder" to " Anna B "))
+        assertEquals(200, ok.status, ok.text)
+        assertEquals("anna.b-1@okicici", ok.body[0]["value"].asString())
+        assertEquals("Anna B", ok.body[0]["holder"].asString())
+        assertEquals(200, put(t, mapOf("type" to "upi", "value" to "9876543210@paytm")).status)
+        assertTrue(!http.get("/me/payment-methods", t).body[0].has("holder"), "holder is optional")
+        for (bad in listOf("anna", "a@okicici", "anna@", "anna@1bank", "anna@ok icici", "an na@okicici", "anna@o", "anna@okicici@x")) {
+            assertInvalid(t, mapOf("type" to "upi", "value" to bad), "UPI")
+        }
+        assertInvalid(t, mapOf("type" to "upi", "value" to "anna@okicici", "holder" to "x".repeat(71)), "holder")
+        val two = put(t, mapOf("type" to "upi", "value" to "anna@okicici"), mapOf("type" to "upi", "value" to "anna@okaxis"))
+        assertEquals(400 to "VALIDATION", two.status to two.code(), "one UPI ID per user")
+    }
 }

@@ -113,6 +113,28 @@ class EventRepository(private val jdbc: JdbcClient, private val mapper: ObjectMa
         ).param("u", userId).param("f", feedId).param("g", groupId).update()
     }
 
+    /**
+     * Phase 10 digest window: events with [after] < feed_id <= [upTo] in the groups where [userId] is an active member
+     * (paired with that member, as in [findBeforeForUser]), not by the user or by someone they blocked, oldest first,
+     * at most [limit]. Per group it reads only past the mark (index `events_group_feed_id`).
+     */
+    fun digestWindow(userId: UUID, after: Long, upTo: Long, limit: Int): List<Pair<Event, String>> = jdbc.sql(
+        """
+        SELECT e.*, m.id AS my_member_id
+        FROM (SELECT DISTINCT ON (group_id) group_id, id FROM members WHERE user_id = :u AND removed = false ORDER BY group_id, created_at) m
+        CROSS JOIN LATERAL (
+            SELECT * FROM events e
+            WHERE e.group_id = m.group_id AND e.feed_id > :after AND e.feed_id <= :upTo AND e.actor_user_id IS DISTINCT FROM :u
+              AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker = :u AND b.blocked = e.actor_user_id)
+            ORDER BY e.feed_id LIMIT :limit
+        ) e
+        ORDER BY e.feed_id LIMIT :limit
+        """
+    ).param("u", userId).param("after", after).param("upTo", upTo).param("limit", limit)
+        .query { rs, i -> rowMapper(rs, i) to rs.getString("my_member_id") }.list()
+
+    fun maxFeedId(): Long = jdbc.sql("SELECT COALESCE(max(feed_id), 0) FROM events").query(Long::class.java).single()
+
     fun deleteSeenByUser(userId: UUID) {
         jdbc.sql("DELETE FROM activity_seen WHERE user_id = :u").param("u", userId).update()
     }

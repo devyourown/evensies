@@ -1,5 +1,5 @@
 {
-  "_doc": "Text both sides render from one table (docs/API.md '언어·웹'): activity sentences (app feed, server push), push batch and reminder text, invite landing pages, category labels, frequency words and the money notation M(x). Keyed by language (en ko nl fr de id it ja pl pt es sv th); 'en' is the source and the fallback: a missing language renders 'en', a missing key or variant renders the 'en' one. Copies that must stay byte-equal: app/assets/strings.json, server/src/main/resources/strings.json. Templates use {placeholders} only (no ICU, no plurals): a value is inserted verbatim in one left-to-right pass, so a description containing '{A}' stays as typed. Every language has every key and variant of 'en' with the same placeholders. activity.<kind> variants: 'self' when the subject is the viewer, 'you' when the object is the viewer, else 'other' (a missing variant falls back to 'other'). A {name}-like placeholder can hold a member name, words.you or words.someone: don't attach affixes that only fit names (e.g. Korean 님) to placeholders that can hold words.you. words.you/words.someone at the very start of a sentence get their first letter upper-cased; member names never change. Batch sentences ({n}) must read correctly for every n >= 2. suffix.* is joined to a sentence with words.dot and also stands alone (the app's feed line). Not translated: member and group names, descriptions, comments, brand and provider names, currency codes, ISO dates in change lists.",
+  "_doc": "Text both sides render from one table (docs/API.md '언어·웹'): activity sentences (app feed, server push), push batch and reminder text, invite landing pages, category labels, frequency words and the money notation M(x). Keyed by language (en ko nl fr de id it ja pl pt es sv th); 'en' is the source and the fallback: a missing language renders 'en', a missing key or variant renders the 'en' one. Copies that must stay byte-equal: app/assets/strings.json, server/src/main/resources/strings.json. Templates use {placeholders} only (no ICU, no plurals): a value is inserted verbatim in one left-to-right pass, so a description containing '{A}' stays as typed. Every language has every key and variant of 'en' with the same placeholders. activity.<kind> variants: 'self' when the subject is the viewer, 'you' when the object is the viewer, else 'other' (a missing variant falls back to 'other'). A {name}-like placeholder can hold a member name, words.you or words.someone: don't attach affixes that only fit names (e.g. Korean 님) to placeholders that can hold words.you. words.you/words.someone at the very start of a sentence get their first letter upper-cased; member names never change. Batch sentences ({n}) must read correctly for every n >= 2. suffix.* is joined to a sentence with words.dot and also stands alone (the app's feed line). Not translated: member and group names, descriptions, comments, brand and provider names, currency codes, ISO dates in change lists. Phase 10: email.* (plain-text emails; the server adds the greeting, the '—' line and the footer), unsubscribe.* (the unsubscribe page), activity group_deleted/group_restored (friend_deleted/friend_restored: the same kinds in a friend group, whose name is internal), email.recurring.footerSelf (the reader made the series), changes.type/coverImageId, words.groupType (an unknown type reads as other).",
   "en": {
     "money": {
       "pattern": "{s}{n}",
@@ -17,6 +17,12 @@
         "biweekly": "every 2 weeks",
         "monthly": "monthly",
         "yearly": "yearly"
+      },
+      "groupType": {
+        "trip": "Trip",
+        "home": "Home",
+        "couple": "Couple",
+        "other": "Other"
       }
     },
     "activity": {
@@ -27,6 +33,22 @@
       "group_updated": {
         "other": "{A} changed the group: {changes}",
         "self": "You changed the group: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} deleted the group “{name}”",
+        "self": "You deleted the group “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} restored the group “{name}”",
+        "self": "You restored the group “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} deleted your non-group expenses",
+        "self": "You deleted these non-group expenses"
+      },
+      "friend_restored": {
+        "other": "{A} restored your non-group expenses",
+        "self": "You restored these non-group expenses"
       },
       "member_added": {
         "other": "{A} added {member}",
@@ -160,6 +182,8 @@
       "simplifyDebtsOn": "simplify debts on",
       "simplifyDebtsOff": "simplify debts off",
       "defaultSplit": "default split",
+      "type": "type {to}",
+      "coverImageId": "cover photo",
       "description": "description “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "exchange rate",
@@ -200,6 +224,54 @@
       "hint": "Have the app? Open it, tap “Join with a code” and enter {code}.",
       "appStore": "App Store (coming soon)",
       "googlePlay": "Google Play (coming soon)"
+    },
+    "email": {
+      "hi": "Hi {name},",
+      "hiNoName": "Hi,",
+      "code": {
+        "subject": "{code} is your Evensies code",
+        "login": "Your sign-in code is {code}. It expires in 10 minutes. If you didn't ask for it, ignore this email — nobody can sign in without the code.",
+        "change": "Enter {code} in the app to use this address for your Evensies account. It expires in 10 minutes."
+      },
+      "invite": {
+        "subject": "{inviter} invited you to “{group}” on Evensies",
+        "reminderSubject": "Reminder: {inviter} invited you to “{group}”",
+        "body": "{inviter} added you to “{group}” on Evensies, an app for splitting shared expenses.\n\nJoin the group: {link}\nOr install Evensies and enter the code {code}.\n\nEvensies is free, with no ads.",
+        "footer": "You got this email because {inviter} entered your address. We keep it for 14 days to send one reminder, then delete it.\nDon't want invites from Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) will be added on {date}",
+        "body": "“{description}” in {group} repeats {frequency} and will be added on {date}. Your share: {share}.\nTo change or stop it, edit the latest one in the app.",
+        "footer": "You get this because {creator} turned on reminders for this repeating expense.\nUnsubscribe: {url}",
+        "footerSelf": "You get this because you turned on reminders for this repeating expense.\nUnsubscribe: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 update in {group}",
+        "subjectMany": "{n} updates in {group}",
+        "subjectGroupsOne": "{n} updates in {group} and 1 other group",
+        "subjectGroups": "{n} updates in {group} and {k} other groups",
+        "subjectMonthly": "Your Evensies summary for {month} {year}",
+        "more": "…and {n} more in {group}",
+        "balances": "Your balances",
+        "owe": "{group}: you owe {amount}",
+        "owed": "{group}: you are owed {amount}",
+        "open": "Open the Evensies app to see details.",
+        "reasonAuto": "You get this daily because notifications are off on your devices.",
+        "reasonAutoMonthly": "You get this monthly summary by default. You can change it in Settings → Notifications.",
+        "reasonDaily": "You get this daily summary because you chose it in Settings → Notifications.",
+        "reasonWeekly": "You get this weekly summary because you chose it in Settings → Notifications.",
+        "reasonMonthly": "You get this monthly summary because you chose it in Settings → Notifications.",
+        "unsubscribe": "Unsubscribe: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Evensies emails",
+      "digest": "Stop email summaries and reminders about repeating expenses?",
+      "invites": "Stop all invites from Evensies to this address?",
+      "button": "Unsubscribe",
+      "doneDigest": "Done. You won't get email summaries or reminders any more. You can turn them on again in Settings → Notifications.",
+      "doneInvites": "Done. Evensies won't send invites to this address any more.",
+      "invalid": "This link doesn't work any more. You can change your email settings in the app: Settings → Notifications."
     },
     "categories": {
       "food": "Food and drink",
@@ -271,6 +343,12 @@
         "biweekly": "2주마다",
         "monthly": "매달",
         "yearly": "매년"
+      },
+      "groupType": {
+        "trip": "여행",
+        "home": "집",
+        "couple": "커플",
+        "other": "기타"
       }
     },
     "activity": {
@@ -281,6 +359,22 @@
       "group_updated": {
         "other": "{A}님이 그룹을 변경했어요: {changes}",
         "self": "그룹을 변경했어요: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A}님이 ‘{name}’ 그룹을 삭제했어요",
+        "self": "‘{name}’ 그룹을 삭제했어요"
+      },
+      "group_restored": {
+        "other": "{A}님이 ‘{name}’ 그룹을 복원했어요",
+        "self": "‘{name}’ 그룹을 복원했어요"
+      },
+      "friend_deleted": {
+        "other": "{A}님이 그룹 밖 지출을 삭제했어요",
+        "self": "그룹 밖 지출을 삭제했어요"
+      },
+      "friend_restored": {
+        "other": "{A}님이 그룹 밖 지출을 복원했어요",
+        "self": "그룹 밖 지출을 복원했어요"
       },
       "member_added": {
         "other": "{A}님이 {member}님을 추가했어요",
@@ -414,6 +508,8 @@
       "simplifyDebtsOn": "빚 간소화 켬",
       "simplifyDebtsOff": "빚 간소화 끔",
       "defaultSplit": "기본 분할",
+      "type": "유형 {to}",
+      "coverImageId": "표지 사진",
       "description": "설명 ‘{from}’ → ‘{to}’",
       "amount": "{from} → {to}",
       "fxRateToDefault": "환율",
@@ -454,6 +550,54 @@
       "hint": "앱이 있나요? 앱을 열고 이 코드를 입력하세요: {code}",
       "appStore": "App Store (출시 예정)",
       "googlePlay": "Google Play (출시 예정)"
+    },
+    "email": {
+      "hi": "{name}님, 안녕하세요.",
+      "hiNoName": "안녕하세요.",
+      "code": {
+        "subject": "Evensies 코드: {code}",
+        "login": "로그인 코드: {code}\n10분 뒤에 만료돼요. 직접 요청하지 않았다면 이 메일은 무시하세요. 코드 없이는 아무도 로그인할 수 없어요.",
+        "change": "이 주소를 Evensies 계정에 쓰려면 앱에 이 코드를 입력하세요: {code}\n10분 뒤에 만료돼요."
+      },
+      "invite": {
+        "subject": "{inviter}님이 Evensies의 ‘{group}’ 그룹에 초대했어요",
+        "reminderSubject": "다시 알려 드려요: {inviter}님이 ‘{group}’ 그룹에 초대했어요",
+        "body": "{inviter}님이 공동 지출을 나누는 앱 Evensies의 ‘{group}’ 그룹에 회원님을 추가했어요.\n\n그룹 참여하기: {link}\n또는 Evensies를 설치하고 이 코드를 입력하세요: {code}\n\nEvensies는 무료이고 광고가 없어요.",
+        "footer": "{inviter}님이 이 주소를 입력해서 이 메일을 받으셨어요. 주소는 알림을 한 번 더 보내기 위해 14일 동안만 보관한 뒤 삭제해요.\nEvensies 초대를 받고 싶지 않다면: {url}"
+      },
+      "recurring": {
+        "subject": "{date}에 ‘{description}’({amount}) 지출이 추가돼요",
+        "body": "{group}의 ‘{description}’ 지출은 {frequency} 반복되며 {date}에 추가돼요. 내 몫: {share}.\n바꾸거나 멈추려면 앱에서 가장 최근 항목을 수정하세요.",
+        "footer": "{creator}님이 이 반복 지출의 알림을 켜서 이 메일을 받으셨어요.\n수신 거부: {url}",
+        "footerSelf": "이 반복 지출의 알림을 직접 켜서 이 메일을 받으셨어요.\n수신 거부: {url}"
+      },
+      "digest": {
+        "subjectOne": "{group}에 새 소식 1개",
+        "subjectMany": "{group}에 새 소식 {n}개",
+        "subjectGroupsOne": "{group} 외 1개 그룹에 새 소식 {n}개",
+        "subjectGroups": "{group} 외 {k}개 그룹에 새 소식 {n}개",
+        "subjectMonthly": "{year}년 {month} Evensies 요약",
+        "more": "…{group}에 {n}개 더",
+        "balances": "내 잔액",
+        "owe": "{group}: 내가 줄 돈 {amount}",
+        "owed": "{group}: 내가 받을 돈 {amount}",
+        "open": "자세한 내용은 Evensies 앱에서 확인하세요.",
+        "reasonAuto": "기기에서 알림이 꺼져 있어서 매일 이 메일을 보내 드려요.",
+        "reasonAutoMonthly": "기본 설정이라 매달 이 요약을 보내 드려요. 설정 → 알림에서 바꿀 수 있어요.",
+        "reasonDaily": "설정 → 알림에서 매일 요약을 선택하셔서 이 메일을 보내 드려요.",
+        "reasonWeekly": "설정 → 알림에서 매주 요약을 선택하셔서 이 메일을 보내 드려요.",
+        "reasonMonthly": "설정 → 알림에서 매달 요약을 선택하셔서 이 메일을 보내 드려요.",
+        "unsubscribe": "수신 거부: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Evensies 메일",
+      "digest": "요약 메일과 반복 지출 알림 메일을 그만 받을까요?",
+      "invites": "이 주소로 오는 Evensies 초대를 모두 그만 받을까요?",
+      "button": "수신 거부",
+      "doneDigest": "완료됐어요. 이제 요약 메일과 알림 메일을 보내지 않아요. 설정 → 알림에서 다시 켤 수 있어요.",
+      "doneInvites": "완료됐어요. 이제 이 주소로 Evensies 초대를 보내지 않아요.",
+      "invalid": "이 링크는 더 이상 쓸 수 없어요. 앱의 설정 → 알림에서 메일 설정을 바꿀 수 있어요."
     },
     "categories": {
       "food": "식비",
@@ -525,6 +669,12 @@
         "biweekly": "om de 2 weken",
         "monthly": "maandelijks",
         "yearly": "jaarlijks"
+      },
+      "groupType": {
+        "trip": "Reis",
+        "home": "Huis",
+        "couple": "Stel",
+        "other": "Overig"
       }
     },
     "activity": {
@@ -535,6 +685,22 @@
       "group_updated": {
         "other": "{A} heeft de groep gewijzigd: {changes}",
         "self": "Je hebt de groep gewijzigd: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} heeft de groep ‘{name}’ verwijderd",
+        "self": "Je hebt de groep ‘{name}’ verwijderd"
+      },
+      "group_restored": {
+        "other": "{A} heeft de groep ‘{name}’ hersteld",
+        "self": "Je hebt de groep ‘{name}’ hersteld"
+      },
+      "friend_deleted": {
+        "other": "{A} heeft jullie uitgaven zonder groep verwijderd",
+        "self": "Je hebt deze uitgaven zonder groep verwijderd"
+      },
+      "friend_restored": {
+        "other": "{A} heeft jullie uitgaven zonder groep hersteld",
+        "self": "Je hebt deze uitgaven zonder groep hersteld"
       },
       "member_added": {
         "other": "{A} heeft {member} toegevoegd",
@@ -668,6 +834,8 @@
       "simplifyDebtsOn": "schulden vereenvoudigen aan",
       "simplifyDebtsOff": "schulden vereenvoudigen uit",
       "defaultSplit": "standaardverdeling",
+      "type": "type {to}",
+      "coverImageId": "omslagfoto",
       "description": "omschrijving ‘{from}’ → ‘{to}’",
       "amount": "{from} → {to}",
       "fxRateToDefault": "wisselkoers",
@@ -708,6 +876,54 @@
       "hint": "Heb je de app? Open hem en doe mee met de code {code}.",
       "appStore": "App Store (binnenkort)",
       "googlePlay": "Google Play (binnenkort)"
+    },
+    "email": {
+      "hi": "Hoi {name},",
+      "hiNoName": "Hoi,",
+      "code": {
+        "subject": "{code} is je Evensies-code",
+        "login": "Je inlogcode is {code}. Hij verloopt over 10 minuten. Heb je hem niet aangevraagd? Negeer dan deze e-mail — zonder de code kan niemand inloggen.",
+        "change": "Voer {code} in de app in om dit adres voor je Evensies-account te gebruiken. Hij verloopt over 10 minuten."
+      },
+      "invite": {
+        "subject": "{inviter} heeft je uitgenodigd voor ‘{group}’ op Evensies",
+        "reminderSubject": "Herinnering: {inviter} heeft je uitgenodigd voor ‘{group}’",
+        "body": "{inviter} heeft je toegevoegd aan ‘{group}’ op Evensies, een app om gedeelde kosten te verdelen.\n\nWord lid van de groep: {link}\nOf installeer Evensies en voer de code {code} in.\n\nEvensies is gratis en zonder advertenties.",
+        "footer": "Je krijgt deze e-mail omdat {inviter} je adres heeft ingevoerd. We bewaren het 14 dagen om één herinnering te sturen en verwijderen het daarna.\nWil je geen uitnodigingen van Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "‘{description}’ ({amount}) wordt op {date} toegevoegd",
+        "body": "‘{description}’ in {group} herhaalt zich {frequency} en wordt op {date} toegevoegd. Jouw deel: {share}.\nWil je het wijzigen of stoppen? Bewerk dan de nieuwste in de app.",
+        "footer": "Je krijgt dit omdat {creator} herinneringen voor deze terugkerende uitgave heeft aangezet.\nAfmelden: {url}",
+        "footerSelf": "Je krijgt dit omdat je herinneringen voor deze terugkerende uitgave hebt aangezet.\nAfmelden: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 update in {group}",
+        "subjectMany": "{n} updates in {group}",
+        "subjectGroupsOne": "{n} updates in {group} en 1 andere groep",
+        "subjectGroups": "{n} updates in {group} en {k} andere groepen",
+        "subjectMonthly": "Je Evensies-overzicht voor {month} {year}",
+        "more": "…en nog {n} in {group}",
+        "balances": "Je saldi",
+        "owe": "{group}: je bent {amount} schuldig",
+        "owed": "{group}: je krijgt {amount}",
+        "open": "Open de Evensies-app voor de details.",
+        "reasonAuto": "Je krijgt dit dagelijks omdat meldingen op je apparaten uit staan.",
+        "reasonAutoMonthly": "Je krijgt dit maandoverzicht standaard. Je kunt het wijzigen via Instellingen → Meldingen.",
+        "reasonDaily": "Je krijgt dit dagelijkse overzicht omdat je het hebt gekozen via Instellingen → Meldingen.",
+        "reasonWeekly": "Je krijgt dit wekelijkse overzicht omdat je het hebt gekozen via Instellingen → Meldingen.",
+        "reasonMonthly": "Je krijgt dit maandelijkse overzicht omdat je het hebt gekozen via Instellingen → Meldingen.",
+        "unsubscribe": "Afmelden: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "E-mails van Evensies",
+      "digest": "Geen overzichten en herinneringen over terugkerende uitgaven meer per e-mail?",
+      "invites": "Geen uitnodigingen van Evensies meer naar dit adres?",
+      "button": "Afmelden",
+      "doneDigest": "Klaar. Je krijgt geen overzichten en herinneringen meer per e-mail. Je kunt ze weer aanzetten via Instellingen → Meldingen.",
+      "doneInvites": "Klaar. Evensies stuurt geen uitnodigingen meer naar dit adres.",
+      "invalid": "Deze link werkt niet meer. Je kunt je e-mailinstellingen wijzigen in de app: Instellingen → Meldingen."
     },
     "categories": {
       "food": "Eten en drinken",
@@ -779,6 +995,12 @@
         "biweekly": "toutes les 2 semaines",
         "monthly": "chaque mois",
         "yearly": "chaque année"
+      },
+      "groupType": {
+        "trip": "Voyage",
+        "home": "Maison",
+        "couple": "Couple",
+        "other": "Autre"
       }
     },
     "activity": {
@@ -789,6 +1011,22 @@
       "group_updated": {
         "other": "{A} a modifié le groupe\u00a0: {changes}",
         "self": "Vous avez modifié le groupe\u00a0: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} a supprimé le groupe «\u00a0{name}\u00a0»",
+        "self": "Vous avez supprimé le groupe «\u00a0{name}\u00a0»"
+      },
+      "group_restored": {
+        "other": "{A} a restauré le groupe «\u00a0{name}\u00a0»",
+        "self": "Vous avez restauré le groupe «\u00a0{name}\u00a0»"
+      },
+      "friend_deleted": {
+        "other": "{A} a supprimé vos dépenses hors groupe",
+        "self": "Vous avez supprimé ces dépenses hors groupe"
+      },
+      "friend_restored": {
+        "other": "{A} a restauré vos dépenses hors groupe",
+        "self": "Vous avez restauré ces dépenses hors groupe"
       },
       "member_added": {
         "other": "{A} a ajouté {member}",
@@ -922,6 +1160,8 @@
       "simplifyDebtsOn": "simplification des dettes activée",
       "simplifyDebtsOff": "simplification des dettes désactivée",
       "defaultSplit": "répartition par défaut",
+      "type": "type {to}",
+      "coverImageId": "photo de couverture",
       "description": "description «\u00a0{from}\u00a0» → «\u00a0{to}\u00a0»",
       "amount": "{from} → {to}",
       "fxRateToDefault": "taux de change",
@@ -962,6 +1202,54 @@
       "hint": "Vous avez l’app\u00a0? Ouvrez-la et rejoignez le groupe avec le code {code}.",
       "appStore": "App Store (bientôt disponible)",
       "googlePlay": "Google Play (bientôt disponible)"
+    },
+    "email": {
+      "hi": "Bonjour {name},",
+      "hiNoName": "Bonjour,",
+      "code": {
+        "subject": "{code} est votre code Evensies",
+        "login": "Votre code de connexion est {code}. Il expire dans 10 minutes. Si vous ne l’avez pas demandé, ignorez cet e-mail\u00a0: personne ne peut se connecter sans le code.",
+        "change": "Saisissez {code} dans l’app pour utiliser cette adresse avec votre compte Evensies. Il expire dans 10 minutes."
+      },
+      "invite": {
+        "subject": "{inviter} vous invite dans «\u00a0{group}\u00a0» sur Evensies",
+        "reminderSubject": "Rappel\u00a0: {inviter} vous invite dans «\u00a0{group}\u00a0»",
+        "body": "{inviter} vous a ajouté à «\u00a0{group}\u00a0» sur Evensies, une app pour partager les dépenses communes.\n\nRejoindre le groupe\u00a0: {link}\nOu installez Evensies et saisissez le code {code}.\n\nEvensies est gratuit et sans publicité.",
+        "footer": "Vous recevez cet e-mail parce que {inviter} a saisi votre adresse. Nous la gardons 14 jours pour envoyer un rappel, puis nous la supprimons.\nVous ne voulez plus d’invitations d’Evensies\u00a0? {url}"
+      },
+      "recurring": {
+        "subject": "«\u00a0{description}\u00a0» ({amount}) sera ajouté le {date}",
+        "body": "«\u00a0{description}\u00a0» dans {group} se répète {frequency} et sera ajouté le {date}. Votre part\u00a0: {share}.\nPour le modifier ou l’arrêter, modifiez le plus récent dans l’app.",
+        "footer": "Vous recevez cet e-mail parce que {creator} a activé les rappels pour cette dépense récurrente.\nSe désabonner\u00a0: {url}",
+        "footerSelf": "Vous recevez cet e-mail parce que vous avez activé les rappels pour cette dépense récurrente.\nSe désabonner : {url}"
+      },
+      "digest": {
+        "subjectOne": "1 nouveauté dans {group}",
+        "subjectMany": "{n} nouveautés dans {group}",
+        "subjectGroupsOne": "{n} nouveautés dans {group} et 1 autre groupe",
+        "subjectGroups": "{n} nouveautés dans {group} et {k} autres groupes",
+        "subjectMonthly": "Votre résumé Evensies de {month} {year}",
+        "more": "…et {n} de plus dans {group}",
+        "balances": "Vos soldes",
+        "owe": "{group}\u00a0: vous devez {amount}",
+        "owed": "{group}\u00a0: on vous doit {amount}",
+        "open": "Ouvrez l’app Evensies pour voir les détails.",
+        "reasonAuto": "Vous recevez cet e-mail chaque jour parce que les notifications sont désactivées sur vos appareils.",
+        "reasonAutoMonthly": "Vous recevez ce résumé mensuel par défaut. Vous pouvez le changer dans Réglages → Notifications.",
+        "reasonDaily": "Vous recevez ce résumé quotidien parce que vous l’avez choisi dans Réglages → Notifications.",
+        "reasonWeekly": "Vous recevez ce résumé hebdomadaire parce que vous l’avez choisi dans Réglages → Notifications.",
+        "reasonMonthly": "Vous recevez ce résumé mensuel parce que vous l’avez choisi dans Réglages → Notifications.",
+        "unsubscribe": "Se désabonner\u00a0: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "E-mails d’Evensies",
+      "digest": "Ne plus recevoir les résumés ni les rappels de dépenses récurrentes par e-mail\u00a0?",
+      "invites": "Ne plus recevoir aucune invitation d’Evensies à cette adresse\u00a0?",
+      "button": "Se désabonner",
+      "doneDigest": "C’est fait. Vous ne recevrez plus de résumés ni de rappels par e-mail. Vous pouvez les réactiver dans Réglages → Notifications.",
+      "doneInvites": "C’est fait. Evensies n’enverra plus d’invitations à cette adresse.",
+      "invalid": "Ce lien ne fonctionne plus. Vous pouvez modifier vos réglages d’e-mail dans l’app\u00a0: Réglages → Notifications."
     },
     "categories": {
       "food": "Alimentation et boissons",
@@ -1033,6 +1321,12 @@
         "biweekly": "alle 2 Wochen",
         "monthly": "monatlich",
         "yearly": "jährlich"
+      },
+      "groupType": {
+        "trip": "Reise",
+        "home": "Zuhause",
+        "couple": "Paar",
+        "other": "Sonstiges"
       }
     },
     "activity": {
@@ -1043,6 +1337,22 @@
       "group_updated": {
         "other": "{A} hat die Gruppe geändert: {changes}",
         "self": "Du hast die Gruppe geändert: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} hat die Gruppe „{name}“ gelöscht",
+        "self": "Du hast die Gruppe „{name}“ gelöscht"
+      },
+      "group_restored": {
+        "other": "{A} hat die Gruppe „{name}“ wiederhergestellt",
+        "self": "Du hast die Gruppe „{name}“ wiederhergestellt"
+      },
+      "friend_deleted": {
+        "other": "{A} hat eure Ausgaben ohne Gruppe gelöscht",
+        "self": "Du hast diese Ausgaben ohne Gruppe gelöscht"
+      },
+      "friend_restored": {
+        "other": "{A} hat eure Ausgaben ohne Gruppe wiederhergestellt",
+        "self": "Du hast diese Ausgaben ohne Gruppe wiederhergestellt"
       },
       "member_added": {
         "other": "{A} hat {member} hinzugefügt",
@@ -1176,6 +1486,8 @@
       "simplifyDebtsOn": "Schulden vereinfachen aktiviert",
       "simplifyDebtsOff": "Schulden vereinfachen deaktiviert",
       "defaultSplit": "Standardaufteilung",
+      "type": "Typ {to}",
+      "coverImageId": "Titelbild",
       "description": "Beschreibung „{from}“ → „{to}“",
       "amount": "{from} → {to}",
       "fxRateToDefault": "Wechselkurs",
@@ -1216,6 +1528,54 @@
       "hint": "Du hast die App? Öffne sie und tritt mit dem Code {code} bei.",
       "appStore": "App Store (bald verfügbar)",
       "googlePlay": "Google Play (bald verfügbar)"
+    },
+    "email": {
+      "hi": "Hallo {name},",
+      "hiNoName": "Hallo,",
+      "code": {
+        "subject": "{code} ist dein Evensies-Code",
+        "login": "Dein Anmeldecode ist {code}. Er läuft in 10 Minuten ab. Wenn du ihn nicht angefordert hast, ignoriere diese E-Mail – ohne den Code kann sich niemand anmelden.",
+        "change": "Gib {code} in der App ein, um diese Adresse für dein Evensies-Konto zu verwenden. Der Code läuft in 10 Minuten ab."
+      },
+      "invite": {
+        "subject": "{inviter} hat dich zu „{group}“ auf Evensies eingeladen",
+        "reminderSubject": "Erinnerung: {inviter} hat dich zu „{group}“ eingeladen",
+        "body": "{inviter} hat dich zu „{group}“ auf Evensies hinzugefügt, einer App zum Teilen gemeinsamer Ausgaben.\n\nDer Gruppe beitreten: {link}\nOder installiere Evensies und gib den Code {code} ein.\n\nEvensies ist kostenlos und werbefrei.",
+        "footer": "Du bekommst diese E-Mail, weil {inviter} deine Adresse eingegeben hat. Wir behalten sie 14 Tage, um eine Erinnerung zu senden, und löschen sie dann.\nKeine Einladungen von Evensies mehr? {url}"
+      },
+      "recurring": {
+        "subject": "„{description}“ ({amount}) wird am {date} hinzugefügt",
+        "body": "„{description}“ in {group} wiederholt sich {frequency} und wird am {date} hinzugefügt. Dein Anteil: {share}.\nZum Ändern oder Beenden bearbeite den neuesten Eintrag in der App.",
+        "footer": "Du bekommst diese E-Mail, weil {creator} Erinnerungen für diese wiederkehrende Ausgabe eingeschaltet hat.\nAbbestellen: {url}",
+        "footerSelf": "Du bekommst diese E-Mail, weil du Erinnerungen für diese wiederkehrende Ausgabe eingeschaltet hast.\nAbbestellen: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 Neuigkeit in {group}",
+        "subjectMany": "{n} Neuigkeiten in {group}",
+        "subjectGroupsOne": "{n} Neuigkeiten in {group} und 1 weiteren Gruppe",
+        "subjectGroups": "{n} Neuigkeiten in {group} und {k} weiteren Gruppen",
+        "subjectMonthly": "Deine Evensies-Zusammenfassung für {month} {year}",
+        "more": "…und {n} weitere in {group}",
+        "balances": "Deine Salden",
+        "owe": "{group}: du schuldest {amount}",
+        "owed": "{group}: du bekommst {amount}",
+        "open": "Öffne die Evensies-App, um Details zu sehen.",
+        "reasonAuto": "Du bekommst diese E-Mail täglich, weil Mitteilungen auf deinen Geräten ausgeschaltet sind.",
+        "reasonAutoMonthly": "Du bekommst diese Zusammenfassung standardmäßig monatlich. Du kannst das unter Einstellungen → Mitteilungen ändern.",
+        "reasonDaily": "Du bekommst diese tägliche Zusammenfassung, weil du sie unter Einstellungen → Mitteilungen gewählt hast.",
+        "reasonWeekly": "Du bekommst diese wöchentliche Zusammenfassung, weil du sie unter Einstellungen → Mitteilungen gewählt hast.",
+        "reasonMonthly": "Du bekommst diese monatliche Zusammenfassung, weil du sie unter Einstellungen → Mitteilungen gewählt hast.",
+        "unsubscribe": "Abbestellen: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "E-Mails von Evensies",
+      "digest": "Keine Zusammenfassungen und Erinnerungen an wiederkehrende Ausgaben mehr per E-Mail?",
+      "invites": "Keine Einladungen von Evensies mehr an diese Adresse?",
+      "button": "Abbestellen",
+      "doneDigest": "Erledigt. Du bekommst keine Zusammenfassungen und Erinnerungen mehr per E-Mail. Unter Einstellungen → Mitteilungen kannst du sie wieder einschalten.",
+      "doneInvites": "Erledigt. Evensies sendet keine Einladungen mehr an diese Adresse.",
+      "invalid": "Dieser Link funktioniert nicht mehr. Du kannst deine E-Mail-Einstellungen in der App ändern: Einstellungen → Mitteilungen."
     },
     "categories": {
       "food": "Essen und Trinken",
@@ -1287,6 +1647,12 @@
         "biweekly": "setiap 2 minggu",
         "monthly": "setiap bulan",
         "yearly": "setiap tahun"
+      },
+      "groupType": {
+        "trip": "Perjalanan",
+        "home": "Rumah",
+        "couple": "Pasangan",
+        "other": "Lainnya"
       }
     },
     "activity": {
@@ -1297,6 +1663,22 @@
       "group_updated": {
         "other": "{A} mengubah grup: {changes}",
         "self": "Anda mengubah grup: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} menghapus grup “{name}”",
+        "self": "Anda menghapus grup “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} memulihkan grup “{name}”",
+        "self": "Anda memulihkan grup “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} menghapus pengeluaran di luar grup kalian",
+        "self": "Anda menghapus pengeluaran di luar grup ini"
+      },
+      "friend_restored": {
+        "other": "{A} memulihkan pengeluaran di luar grup kalian",
+        "self": "Anda memulihkan pengeluaran di luar grup ini"
       },
       "member_added": {
         "other": "{A} menambahkan {member}",
@@ -1430,6 +1812,8 @@
       "simplifyDebtsOn": "sederhanakan utang aktif",
       "simplifyDebtsOff": "sederhanakan utang nonaktif",
       "defaultSplit": "pembagian default",
+      "type": "jenis {to}",
+      "coverImageId": "foto sampul",
       "description": "deskripsi “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "kurs",
@@ -1470,6 +1854,54 @@
       "hint": "Sudah punya aplikasinya? Buka aplikasi dan gabung dengan kode {code}.",
       "appStore": "App Store (segera hadir)",
       "googlePlay": "Google Play (segera hadir)"
+    },
+    "email": {
+      "hi": "Halo {name},",
+      "hiNoName": "Halo,",
+      "code": {
+        "subject": "{code} adalah kode Evensies Anda",
+        "login": "Kode masuk Anda adalah {code}. Kode ini berlaku 10 menit. Jika Anda tidak memintanya, abaikan email ini — tidak ada yang bisa masuk tanpa kode ini.",
+        "change": "Masukkan {code} di aplikasi untuk memakai alamat ini di akun Evensies Anda. Kode ini berlaku 10 menit."
+      },
+      "invite": {
+        "subject": "{inviter} mengundang Anda ke “{group}” di Evensies",
+        "reminderSubject": "Pengingat: {inviter} mengundang Anda ke “{group}”",
+        "body": "{inviter} menambahkan Anda ke “{group}” di Evensies, aplikasi untuk membagi pengeluaran bersama.\n\nGabung ke grup: {link}\nAtau pasang Evensies dan masukkan kode {code}.\n\nEvensies gratis dan tanpa iklan.",
+        "footer": "Anda menerima email ini karena {inviter} memasukkan alamat Anda. Kami menyimpannya selama 14 hari untuk mengirim satu pengingat, lalu menghapusnya.\nTidak ingin menerima undangan dari Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) akan ditambahkan pada {date}",
+        "body": "“{description}” di {group} berulang {frequency} dan akan ditambahkan pada {date}. Bagian Anda: {share}.\nUntuk mengubah atau menghentikannya, edit yang terbaru di aplikasi.",
+        "footer": "Anda menerima ini karena {creator} menyalakan pengingat untuk pengeluaran berulang ini.\nBerhenti berlangganan: {url}",
+        "footerSelf": "Anda menerima ini karena Anda menyalakan pengingat untuk pengeluaran berulang ini.\nBerhenti berlangganan: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 pembaruan di {group}",
+        "subjectMany": "{n} pembaruan di {group}",
+        "subjectGroupsOne": "{n} pembaruan di {group} dan 1 grup lain",
+        "subjectGroups": "{n} pembaruan di {group} dan {k} grup lain",
+        "subjectMonthly": "Ringkasan Evensies Anda untuk {month} {year}",
+        "more": "…dan {n} lagi di {group}",
+        "balances": "Saldo Anda",
+        "owe": "{group}: Anda berutang {amount}",
+        "owed": "{group}: Anda akan menerima {amount}",
+        "open": "Buka aplikasi Evensies untuk melihat detailnya.",
+        "reasonAuto": "Anda menerima ini setiap hari karena notifikasi di perangkat Anda dimatikan.",
+        "reasonAutoMonthly": "Anda menerima ringkasan bulanan ini secara bawaan. Anda bisa mengubahnya di Pengaturan → Notifikasi.",
+        "reasonDaily": "Anda menerima ringkasan harian ini karena Anda memilihnya di Pengaturan → Notifikasi.",
+        "reasonWeekly": "Anda menerima ringkasan mingguan ini karena Anda memilihnya di Pengaturan → Notifikasi.",
+        "reasonMonthly": "Anda menerima ringkasan bulanan ini karena Anda memilihnya di Pengaturan → Notifikasi.",
+        "unsubscribe": "Berhenti berlangganan: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Email Evensies",
+      "digest": "Berhenti menerima ringkasan dan pengingat pengeluaran berulang lewat email?",
+      "invites": "Berhenti menerima semua undangan Evensies ke alamat ini?",
+      "button": "Berhenti berlangganan",
+      "doneDigest": "Selesai. Anda tidak akan menerima ringkasan atau pengingat lewat email lagi. Anda bisa menyalakannya lagi di Pengaturan → Notifikasi.",
+      "doneInvites": "Selesai. Evensies tidak akan mengirim undangan ke alamat ini lagi.",
+      "invalid": "Tautan ini sudah tidak berlaku. Anda bisa mengubah pengaturan email di aplikasi: Pengaturan → Notifikasi."
     },
     "categories": {
       "food": "Makanan dan minuman",
@@ -1541,6 +1973,12 @@
         "biweekly": "ogni 2 settimane",
         "monthly": "ogni mese",
         "yearly": "ogni anno"
+      },
+      "groupType": {
+        "trip": "Viaggio",
+        "home": "Casa",
+        "couple": "Coppia",
+        "other": "Altro"
       }
     },
     "activity": {
@@ -1551,6 +1989,22 @@
       "group_updated": {
         "other": "{A} ha modificato il gruppo: {changes}",
         "self": "Hai modificato il gruppo: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} ha eliminato il gruppo “{name}”",
+        "self": "Hai eliminato il gruppo “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} ha ripristinato il gruppo “{name}”",
+        "self": "Hai ripristinato il gruppo “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} ha eliminato le vostre spese fuori gruppo",
+        "self": "Hai eliminato queste spese fuori gruppo"
+      },
+      "friend_restored": {
+        "other": "{A} ha ripristinato le vostre spese fuori gruppo",
+        "self": "Hai ripristinato queste spese fuori gruppo"
       },
       "member_added": {
         "other": "{A} ha aggiunto {member}",
@@ -1684,6 +2138,8 @@
       "simplifyDebtsOn": "semplificazione dei debiti attivata",
       "simplifyDebtsOff": "semplificazione dei debiti disattivata",
       "defaultSplit": "divisione predefinita",
+      "type": "tipo {to}",
+      "coverImageId": "foto di copertina",
       "description": "descrizione “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "tasso di cambio",
@@ -1724,6 +2180,54 @@
       "hint": "Hai l’app? Aprila e unisciti con il codice {code}.",
       "appStore": "App Store (in arrivo)",
       "googlePlay": "Google Play (in arrivo)"
+    },
+    "email": {
+      "hi": "Ciao {name},",
+      "hiNoName": "Ciao,",
+      "code": {
+        "subject": "{code} è il tuo codice Evensies",
+        "login": "Il tuo codice di accesso è {code}. Scade tra 10 minuti. Se non l’hai richiesto, ignora questa email: nessuno può accedere senza il codice.",
+        "change": "Inserisci {code} nell’app per usare questo indirizzo con il tuo account Evensies. Scade tra 10 minuti."
+      },
+      "invite": {
+        "subject": "{inviter} ti ha invitato in “{group}” su Evensies",
+        "reminderSubject": "Promemoria: {inviter} ti ha invitato in “{group}”",
+        "body": "{inviter} ti ha aggiunto a “{group}” su Evensies, un’app per dividere le spese comuni.\n\nUnisciti al gruppo: {link}\nOppure installa Evensies e inserisci il codice {code}.\n\nEvensies è gratuita e senza pubblicità.",
+        "footer": "Ricevi questa email perché {inviter} ha inserito il tuo indirizzo. Lo conserviamo per 14 giorni per inviare un promemoria, poi lo cancelliamo.\nNon vuoi inviti da Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) verrà aggiunta il {date}",
+        "body": "“{description}” in {group} si ripete {frequency} e verrà aggiunta il {date}. La tua quota: {share}.\nPer modificarla o interromperla, modifica la più recente nell’app.",
+        "footer": "Ricevi questa email perché {creator} ha attivato i promemoria per questa spesa ricorrente.\nAnnulla l’iscrizione: {url}",
+        "footerSelf": "Ricevi questa email perché hai attivato i promemoria per questa spesa ricorrente.\nAnnulla l’iscrizione: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 novità in {group}",
+        "subjectMany": "{n} novità in {group}",
+        "subjectGroupsOne": "{n} novità in {group} e in 1 altro gruppo",
+        "subjectGroups": "{n} novità in {group} e in altri {k} gruppi",
+        "subjectMonthly": "Il tuo riepilogo Evensies di {month} {year}",
+        "more": "…e altre {n} in {group}",
+        "balances": "I tuoi saldi",
+        "owe": "{group}: devi {amount}",
+        "owed": "{group}: devi ricevere {amount}",
+        "open": "Apri l’app Evensies per vedere i dettagli.",
+        "reasonAuto": "Ricevi questa email ogni giorno perché le notifiche sono disattivate sui tuoi dispositivi.",
+        "reasonAutoMonthly": "Ricevi questo riepilogo mensile per impostazione predefinita. Puoi cambiarlo in Impostazioni → Notifiche.",
+        "reasonDaily": "Ricevi questo riepilogo giornaliero perché l’hai scelto in Impostazioni → Notifiche.",
+        "reasonWeekly": "Ricevi questo riepilogo settimanale perché l’hai scelto in Impostazioni → Notifiche.",
+        "reasonMonthly": "Ricevi questo riepilogo mensile perché l’hai scelto in Impostazioni → Notifiche.",
+        "unsubscribe": "Annulla l’iscrizione: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Email di Evensies",
+      "digest": "Non ricevere più riepiloghi e promemoria delle spese ricorrenti via email?",
+      "invites": "Non ricevere più inviti da Evensies a questo indirizzo?",
+      "button": "Annulla l’iscrizione",
+      "doneDigest": "Fatto. Non riceverai più riepiloghi né promemoria via email. Puoi riattivarli in Impostazioni → Notifiche.",
+      "doneInvites": "Fatto. Evensies non invierà più inviti a questo indirizzo.",
+      "invalid": "Questo link non funziona più. Puoi modificare le impostazioni email nell’app: Impostazioni → Notifiche."
     },
     "categories": {
       "food": "Cibo e bevande",
@@ -1795,6 +2299,12 @@
         "biweekly": "2週間ごと",
         "monthly": "毎月",
         "yearly": "毎年"
+      },
+      "groupType": {
+        "trip": "旅行",
+        "home": "家",
+        "couple": "カップル",
+        "other": "その他"
       }
     },
     "activity": {
@@ -1805,6 +2315,22 @@
       "group_updated": {
         "other": "{A}がグループを変更しました: {changes}",
         "self": "グループを変更しました: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A}がグループ「{name}」を削除しました",
+        "self": "グループ「{name}」を削除しました"
+      },
+      "group_restored": {
+        "other": "{A}がグループ「{name}」を復元しました",
+        "self": "グループ「{name}」を復元しました"
+      },
+      "friend_deleted": {
+        "other": "{A}がグループ外の支出を削除しました",
+        "self": "グループ外の支出を削除しました"
+      },
+      "friend_restored": {
+        "other": "{A}がグループ外の支出を復元しました",
+        "self": "グループ外の支出を復元しました"
       },
       "member_added": {
         "other": "{A}が{member}を追加しました",
@@ -1938,6 +2464,8 @@
       "simplifyDebtsOn": "借金の簡略化をオン",
       "simplifyDebtsOff": "借金の簡略化をオフ",
       "defaultSplit": "デフォルトの分割",
+      "type": "種類 {to}",
+      "coverImageId": "カバー写真",
       "description": "説明「{from}」→「{to}」",
       "amount": "{from} → {to}",
       "fxRateToDefault": "為替レート",
@@ -1978,6 +2506,54 @@
       "hint": "アプリをお持ちですか？アプリを開いて、コード {code} で参加してください。",
       "appStore": "App Store（近日公開）",
       "googlePlay": "Google Play（近日公開）"
+    },
+    "email": {
+      "hi": "{name}さん、こんにちは。",
+      "hiNoName": "こんにちは。",
+      "code": {
+        "subject": "Evensies のコード: {code}",
+        "login": "サインインコードは {code} です。10分で期限切れになります。心当たりがない場合はこのメールを無視してください。コードがなければ誰もサインインできません。",
+        "change": "アプリに {code} を入力すると、このアドレスを Evensies アカウントで使えます。10分で期限切れになります。"
+      },
+      "invite": {
+        "subject": "{inviter}さんから Evensies の「{group}」への招待",
+        "reminderSubject": "リマインダー: {inviter}さんから「{group}」への招待",
+        "body": "{inviter}さんが、共有の支出を割り勘するアプリ Evensies の「{group}」にあなたを追加しました。\n\nグループに参加: {link}\nまたは Evensies をインストールしてコード {code} を入力してください。\n\nEvensies は無料で、広告はありません。",
+        "footer": "{inviter}さんがあなたのアドレスを入力したため、このメールをお送りしています。アドレスはリマインダーを1回送るために14日間保管し、その後削除します。\nEvensies からの招待を受け取りたくない場合: {url}"
+      },
+      "recurring": {
+        "subject": "「{description}」({amount})は {date} に追加されます",
+        "body": "{group}の「{description}」は{frequency}繰り返され、{date} に追加されます。あなたの負担: {share}。\n変更または停止するには、アプリで最新のものを編集してください。",
+        "footer": "{creator}がこの繰り返しの支出のリマインダーをオンにしたため、このメールをお送りしています。\n配信停止: {url}",
+        "footerSelf": "この繰り返しの支出のリマインダーをご自身でオンにしたため、このメールをお送りしています。\n配信停止: {url}"
+      },
+      "digest": {
+        "subjectOne": "{group}の更新 1件",
+        "subjectMany": "{group}の更新 {n}件",
+        "subjectGroupsOne": "{group}とほか1グループの更新 {n}件",
+        "subjectGroups": "{group}とほか{k}グループの更新 {n}件",
+        "subjectMonthly": "{year}年{month}の Evensies まとめ",
+        "more": "…ほか{n}件（{group}）",
+        "balances": "あなたの残高",
+        "owe": "{group}: あなたの支払い {amount}",
+        "owed": "{group}: あなたの受け取り {amount}",
+        "open": "詳しくは Evensies アプリでご覧ください。",
+        "reasonAuto": "お使いのデバイスで通知がオフになっているため、毎日このメールをお送りしています。",
+        "reasonAutoMonthly": "初期設定により、毎月このまとめをお送りしています。設定 → 通知で変更できます。",
+        "reasonDaily": "設定 → 通知で毎日のまとめを選んだため、このメールをお送りしています。",
+        "reasonWeekly": "設定 → 通知で毎週のまとめを選んだため、このメールをお送りしています。",
+        "reasonMonthly": "設定 → 通知で毎月のまとめを選んだため、このメールをお送りしています。",
+        "unsubscribe": "配信停止: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Evensies のメール",
+      "digest": "まとめメールと繰り返しの支出のリマインダーメールを停止しますか？",
+      "invites": "このアドレスへの Evensies からの招待をすべて停止しますか？",
+      "button": "配信停止",
+      "doneDigest": "完了しました。まとめメールとリマインダーメールは今後届きません。設定 → 通知で再びオンにできます。",
+      "doneInvites": "完了しました。このアドレスに Evensies から招待を送ることはありません。",
+      "invalid": "このリンクは使えなくなりました。アプリの設定 → 通知でメールの設定を変更できます。"
     },
     "categories": {
       "food": "飲食",
@@ -2049,6 +2625,12 @@
         "biweekly": "co 2 tygodnie",
         "monthly": "co miesiąc",
         "yearly": "co rok"
+      },
+      "groupType": {
+        "trip": "Podróż",
+        "home": "Dom",
+        "couple": "Para",
+        "other": "Inne"
       }
     },
     "activity": {
@@ -2059,6 +2641,22 @@
       "group_updated": {
         "other": "{A} zmienia grupę: {changes}",
         "self": "Zmieniasz grupę: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} usuwa grupę „{name}”",
+        "self": "Usuwasz grupę „{name}”"
+      },
+      "group_restored": {
+        "other": "{A} przywraca grupę „{name}”",
+        "self": "Przywracasz grupę „{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} usuwa wasze wydatki poza grupą",
+        "self": "Usuwasz te wydatki poza grupą"
+      },
+      "friend_restored": {
+        "other": "{A} przywraca wasze wydatki poza grupą",
+        "self": "Przywracasz te wydatki poza grupą"
       },
       "member_added": {
         "other": "{A} dodaje {member}",
@@ -2192,6 +2790,8 @@
       "simplifyDebtsOn": "upraszczanie długów włączone",
       "simplifyDebtsOff": "upraszczanie długów wyłączone",
       "defaultSplit": "domyślny podział",
+      "type": "typ {to}",
+      "coverImageId": "zdjęcie w tle",
       "description": "opis „{from}” → „{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "kurs wymiany",
@@ -2232,6 +2832,54 @@
       "hint": "Masz aplikację? Otwórz ją i dołącz za pomocą kodu {code}.",
       "appStore": "App Store (wkrótce)",
       "googlePlay": "Google Play (wkrótce)"
+    },
+    "email": {
+      "hi": "Cześć {name},",
+      "hiNoName": "Cześć,",
+      "code": {
+        "subject": "{code} to Twój kod Evensies",
+        "login": "Twój kod logowania to {code}. Wygasa za 10 minut. Jeśli to nie Ty, zignoruj tę wiadomość — bez kodu nikt się nie zaloguje.",
+        "change": "Wpisz {code} w aplikacji, aby używać tego adresu na koncie Evensies. Kod wygasa za 10 minut."
+      },
+      "invite": {
+        "subject": "{inviter} zaprasza Cię do „{group}” w Evensies",
+        "reminderSubject": "Przypomnienie: {inviter} zaprasza Cię do „{group}”",
+        "body": "{inviter} dodaje Cię do „{group}” w Evensies, aplikacji do dzielenia wspólnych wydatków.\n\nDołącz do grupy: {link}\nAlbo zainstaluj Evensies i wpisz kod {code}.\n\nEvensies jest bezpłatne i bez reklam.",
+        "footer": "Ta wiadomość trafiła do Ciebie, bo Twój adres został podany przez: {inviter}. Przechowujemy go 14 dni, aby wysłać jedno przypomnienie, a potem go usuwamy.\nNie chcesz zaproszeń z Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "„{description}” ({amount}) zostanie dodane {date}",
+        "body": "„{description}” w {group} powtarza się {frequency} i zostanie dodane {date}. Twoja część: {share}.\nAby to zmienić lub zatrzymać, edytuj najnowszy wpis w aplikacji.",
+        "footer": "Ta wiadomość trafiła do Ciebie, bo przypomnienia dla tego cyklicznego wydatku zostały włączone przez: {creator}.\nWypisz się: {url}",
+        "footerSelf": "Ta wiadomość trafiła do Ciebie, bo przypomnienia dla tego cyklicznego wydatku zostały włączone przez Ciebie.\nWypisz się: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 nowość w {group}",
+        "subjectMany": "Nowości w {group}: {n}",
+        "subjectGroupsOne": "Nowości w {group} i 1 innej grupie: {n}",
+        "subjectGroups": "Nowości w {group} i innych grupach ({k}): {n}",
+        "subjectMonthly": "Twoje podsumowanie Evensies: {month} {year}",
+        "more": "…i jeszcze {n} w {group}",
+        "balances": "Twoje salda",
+        "owe": "{group}: do oddania {amount}",
+        "owed": "{group}: do odebrania {amount}",
+        "open": "Otwórz aplikację Evensies, aby zobaczyć szczegóły.",
+        "reasonAuto": "Dostajesz to codziennie, bo powiadomienia na Twoich urządzeniach są wyłączone.",
+        "reasonAutoMonthly": "Domyślnie dostajesz to podsumowanie co miesiąc. Możesz to zmienić w Ustawienia → Powiadomienia.",
+        "reasonDaily": "Dostajesz to codzienne podsumowanie, bo wybrano je w Ustawienia → Powiadomienia.",
+        "reasonWeekly": "Dostajesz to cotygodniowe podsumowanie, bo wybrano je w Ustawienia → Powiadomienia.",
+        "reasonMonthly": "Dostajesz to comiesięczne podsumowanie, bo wybrano je w Ustawienia → Powiadomienia.",
+        "unsubscribe": "Wypisz się: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "E-maile z Evensies",
+      "digest": "Nie wysyłać już podsumowań i przypomnień o powtarzających się wydatkach?",
+      "invites": "Nie wysyłać już żadnych zaproszeń z Evensies na ten adres?",
+      "button": "Wypisz się",
+      "doneDigest": "Gotowe. Nie będziesz już dostawać podsumowań ani przypomnień e-mailem. Możesz je znowu włączyć w Ustawienia → Powiadomienia.",
+      "doneInvites": "Gotowe. Evensies nie będzie już wysyłać zaproszeń na ten adres.",
+      "invalid": "Ten link już nie działa. Ustawienia e-maili zmienisz w aplikacji: Ustawienia → Powiadomienia."
     },
     "categories": {
       "food": "Jedzenie i picie",
@@ -2303,6 +2951,12 @@
         "biweekly": "a cada 2 semanas",
         "monthly": "todo mês",
         "yearly": "todo ano"
+      },
+      "groupType": {
+        "trip": "Viagem",
+        "home": "Casa",
+        "couple": "Casal",
+        "other": "Outro"
       }
     },
     "activity": {
@@ -2313,6 +2967,22 @@
       "group_updated": {
         "other": "{A} alterou o grupo: {changes}",
         "self": "Você alterou o grupo: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} excluiu o grupo “{name}”",
+        "self": "Você excluiu o grupo “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} restaurou o grupo “{name}”",
+        "self": "Você restaurou o grupo “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} excluiu as despesas fora de grupo de vocês",
+        "self": "Você excluiu estas despesas fora de grupo"
+      },
+      "friend_restored": {
+        "other": "{A} restaurou as despesas fora de grupo de vocês",
+        "self": "Você restaurou estas despesas fora de grupo"
       },
       "member_added": {
         "other": "{A} adicionou {member}",
@@ -2446,6 +3116,8 @@
       "simplifyDebtsOn": "simplificar dívidas ativado",
       "simplifyDebtsOff": "simplificar dívidas desativado",
       "defaultSplit": "divisão padrão",
+      "type": "tipo {to}",
+      "coverImageId": "foto de capa",
       "description": "descrição “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "taxa de câmbio",
@@ -2486,6 +3158,54 @@
       "hint": "Já tem o app? Abra e entre com o código {code}.",
       "appStore": "App Store (em breve)",
       "googlePlay": "Google Play (em breve)"
+    },
+    "email": {
+      "hi": "Olá {name},",
+      "hiNoName": "Olá,",
+      "code": {
+        "subject": "{code} é o seu código do Evensies",
+        "login": "Seu código de acesso é {code}. Ele expira em 10 minutos. Se você não pediu, ignore este e-mail — ninguém consegue entrar sem o código.",
+        "change": "Digite {code} no app para usar este endereço na sua conta do Evensies. Ele expira em 10 minutos."
+      },
+      "invite": {
+        "subject": "{inviter} convidou você para “{group}” no Evensies",
+        "reminderSubject": "Lembrete: {inviter} convidou você para “{group}”",
+        "body": "{inviter} adicionou você a “{group}” no Evensies, um app para dividir despesas compartilhadas.\n\nEntrar no grupo: {link}\nOu instale o Evensies e digite o código {code}.\n\nO Evensies é gratuito e sem anúncios.",
+        "footer": "Você recebeu este e-mail porque {inviter} digitou seu endereço. Nós o guardamos por 14 dias para enviar um lembrete e depois o apagamos.\nNão quer convites do Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) será adicionada em {date}",
+        "body": "“{description}” em {group} se repete {frequency} e será adicionada em {date}. Sua parte: {share}.\nPara mudar ou parar, edite a mais recente no app.",
+        "footer": "Você recebe isto porque {creator} ativou lembretes para esta despesa recorrente.\nCancelar inscrição: {url}",
+        "footerSelf": "Você recebe isto porque ativou lembretes para esta despesa recorrente.\nCancelar inscrição: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 novidade em {group}",
+        "subjectMany": "{n} novidades em {group}",
+        "subjectGroupsOne": "{n} novidades em {group} e em mais 1 grupo",
+        "subjectGroups": "{n} novidades em {group} e em mais {k} grupos",
+        "subjectMonthly": "Seu resumo do Evensies de {month} de {year}",
+        "more": "…e mais {n} em {group}",
+        "balances": "Seus saldos",
+        "owe": "{group}: você deve {amount}",
+        "owed": "{group}: você tem {amount} a receber",
+        "open": "Abra o app Evensies para ver os detalhes.",
+        "reasonAuto": "Você recebe isto todos os dias porque as notificações estão desativadas nos seus dispositivos.",
+        "reasonAutoMonthly": "Você recebe este resumo mensal por padrão. Você pode mudar isso em Ajustes → Notificações.",
+        "reasonDaily": "Você recebe este resumo diário porque escolheu isso em Ajustes → Notificações.",
+        "reasonWeekly": "Você recebe este resumo semanal porque escolheu isso em Ajustes → Notificações.",
+        "reasonMonthly": "Você recebe este resumo mensal porque escolheu isso em Ajustes → Notificações.",
+        "unsubscribe": "Cancelar inscrição: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "E-mails do Evensies",
+      "digest": "Parar de receber resumos e lembretes de despesas recorrentes por e-mail?",
+      "invites": "Parar de receber convites do Evensies neste endereço?",
+      "button": "Cancelar inscrição",
+      "doneDigest": "Pronto. Você não vai mais receber resumos nem lembretes por e-mail. Você pode reativá-los em Ajustes → Notificações.",
+      "doneInvites": "Pronto. O Evensies não vai mais enviar convites para este endereço.",
+      "invalid": "Este link não funciona mais. Você pode mudar suas configurações de e-mail no app: Ajustes → Notificações."
     },
     "categories": {
       "food": "Comida e bebida",
@@ -2557,6 +3277,12 @@
         "biweekly": "cada 2 semanas",
         "monthly": "cada mes",
         "yearly": "cada año"
+      },
+      "groupType": {
+        "trip": "Viaje",
+        "home": "Casa",
+        "couple": "Pareja",
+        "other": "Otro"
       }
     },
     "activity": {
@@ -2567,6 +3293,22 @@
       "group_updated": {
         "other": "{A} cambió el grupo: {changes}",
         "self": "Cambiaste el grupo: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} eliminó el grupo “{name}”",
+        "self": "Eliminaste el grupo “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} restauró el grupo “{name}”",
+        "self": "Restauraste el grupo “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} eliminó los gastos sin grupo que comparten",
+        "self": "Eliminaste estos gastos sin grupo"
+      },
+      "friend_restored": {
+        "other": "{A} restauró los gastos sin grupo que comparten",
+        "self": "Restauraste estos gastos sin grupo"
       },
       "member_added": {
         "other": "{A} añadió a {member}",
@@ -2700,6 +3442,8 @@
       "simplifyDebtsOn": "simplificar deudas activado",
       "simplifyDebtsOff": "simplificar deudas desactivado",
       "defaultSplit": "división predeterminada",
+      "type": "tipo {to}",
+      "coverImageId": "foto de portada",
       "description": "descripción “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "tipo de cambio",
@@ -2740,6 +3484,54 @@
       "hint": "¿Tienes la app? Ábrela y únete con el código {code}.",
       "appStore": "App Store (próximamente)",
       "googlePlay": "Google Play (próximamente)"
+    },
+    "email": {
+      "hi": "Hola, {name}:",
+      "hiNoName": "Hola:",
+      "code": {
+        "subject": "{code} es tu código de Evensies",
+        "login": "Tu código de inicio de sesión es {code}. Caduca en 10 minutos. Si no lo pediste, ignora este correo: nadie puede iniciar sesión sin el código.",
+        "change": "Introduce {code} en la app para usar esta dirección en tu cuenta de Evensies. Caduca en 10 minutos."
+      },
+      "invite": {
+        "subject": "{inviter} te invitó a “{group}” en Evensies",
+        "reminderSubject": "Recordatorio: {inviter} te invitó a “{group}”",
+        "body": "{inviter} te añadió a “{group}” en Evensies, una app para dividir gastos compartidos.\n\nÚnete al grupo: {link}\nO instala Evensies e introduce el código {code}.\n\nEvensies es gratis y no tiene anuncios.",
+        "footer": "Recibes este correo porque {inviter} escribió tu dirección. La guardamos 14 días para enviar un recordatorio y luego la borramos.\n¿No quieres invitaciones de Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) se añadirá el {date}",
+        "body": "“{description}” en {group} se repite {frequency} y se añadirá el {date}. Tu parte: {share}.\nPara cambiarlo o detenerlo, edita el más reciente en la app.",
+        "footer": "Recibes esto porque {creator} activó los recordatorios de este gasto recurrente.\nDarse de baja: {url}",
+        "footerSelf": "Recibes esto porque activaste los recordatorios de este gasto recurrente.\nDarse de baja: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 novedad en {group}",
+        "subjectMany": "{n} novedades en {group}",
+        "subjectGroupsOne": "{n} novedades en {group} y 1 grupo más",
+        "subjectGroups": "{n} novedades en {group} y {k} grupos más",
+        "subjectMonthly": "Tu resumen de Evensies de {month} de {year}",
+        "more": "…y {n} más en {group}",
+        "balances": "Tus saldos",
+        "owe": "{group}: debes {amount}",
+        "owed": "{group}: te deben {amount}",
+        "open": "Abre la app Evensies para ver los detalles.",
+        "reasonAuto": "Recibes esto a diario porque las notificaciones están desactivadas en tus dispositivos.",
+        "reasonAutoMonthly": "Recibes este resumen mensual de forma predeterminada. Puedes cambiarlo en Ajustes → Notificaciones.",
+        "reasonDaily": "Recibes este resumen diario porque lo elegiste en Ajustes → Notificaciones.",
+        "reasonWeekly": "Recibes este resumen semanal porque lo elegiste en Ajustes → Notificaciones.",
+        "reasonMonthly": "Recibes este resumen mensual porque lo elegiste en Ajustes → Notificaciones.",
+        "unsubscribe": "Darse de baja: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Correos de Evensies",
+      "digest": "¿Dejar de recibir resúmenes y recordatorios de gastos recurrentes por correo?",
+      "invites": "¿Dejar de recibir invitaciones de Evensies en esta dirección?",
+      "button": "Darse de baja",
+      "doneDigest": "Listo. Ya no recibirás resúmenes ni recordatorios por correo. Puedes volver a activarlos en Ajustes → Notificaciones.",
+      "doneInvites": "Listo. Evensies ya no enviará invitaciones a esta dirección.",
+      "invalid": "Este enlace ya no funciona. Puedes cambiar los ajustes de correo en la app: Ajustes → Notificaciones."
     },
     "categories": {
       "food": "Comida y bebida",
@@ -2813,6 +3605,12 @@
         "biweekly": "varannan vecka",
         "monthly": "varje månad",
         "yearly": "varje år"
+      },
+      "groupType": {
+        "trip": "Resa",
+        "home": "Hem",
+        "couple": "Par",
+        "other": "Övrigt"
       }
     },
     "activity": {
@@ -2823,6 +3621,22 @@
       "group_updated": {
         "other": "{A} ändrade gruppen: {changes}",
         "self": "Du ändrade gruppen: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} raderade gruppen ”{name}”",
+        "self": "Du raderade gruppen ”{name}”"
+      },
+      "group_restored": {
+        "other": "{A} återställde gruppen ”{name}”",
+        "self": "Du återställde gruppen ”{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} raderade era utgifter utan grupp",
+        "self": "Du raderade de här utgifterna utan grupp"
+      },
+      "friend_restored": {
+        "other": "{A} återställde era utgifter utan grupp",
+        "self": "Du återställde de här utgifterna utan grupp"
       },
       "member_added": {
         "other": "{A} lade till {member}",
@@ -2956,6 +3770,8 @@
       "simplifyDebtsOn": "förenkla skulder på",
       "simplifyDebtsOff": "förenkla skulder av",
       "defaultSplit": "standarddelning",
+      "type": "typ {to}",
+      "coverImageId": "omslagsbild",
       "description": "beskrivning ”{from}” → ”{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "växelkurs",
@@ -2996,6 +3812,54 @@
       "hint": "Har du appen? Öppna den och ange koden {code}.",
       "appStore": "App Store (kommer snart)",
       "googlePlay": "Google Play (kommer snart)"
+    },
+    "email": {
+      "hi": "Hej {name}!",
+      "hiNoName": "Hej!",
+      "code": {
+        "subject": "{code} är din Evensies-kod",
+        "login": "Din inloggningskod är {code}. Den slutar gälla om 10 minuter. Om du inte bad om den kan du ignorera det här mejlet – ingen kan logga in utan koden.",
+        "change": "Ange {code} i appen för att använda den här adressen för ditt Evensies-konto. Den slutar gälla om 10 minuter."
+      },
+      "invite": {
+        "subject": "{inviter} har bjudit in dig till ”{group}” på Evensies",
+        "reminderSubject": "Påminnelse: {inviter} har bjudit in dig till ”{group}”",
+        "body": "{inviter} har lagt till dig i ”{group}” på Evensies, en app för att dela gemensamma utgifter.\n\nGå med i gruppen: {link}\nEller installera Evensies och ange koden {code}.\n\nEvensies är gratis och utan reklam.",
+        "footer": "Du får det här mejlet eftersom {inviter} angav din adress. Vi sparar den i 14 dagar för att skicka en påminnelse och raderar den sedan.\nVill du inte ha inbjudningar från Evensies? {url}"
+      },
+      "recurring": {
+        "subject": "”{description}” ({amount}) läggs till {date}",
+        "body": "”{description}” i {group} upprepas {frequency} och läggs till {date}. Din del: {share}.\nÄndra eller stoppa den genom att redigera den senaste i appen.",
+        "footer": "Du får det här eftersom {creator} slog på påminnelser för den här återkommande utgiften.\nAvsluta prenumeration: {url}",
+        "footerSelf": "Du får det här eftersom du slog på påminnelser för den här återkommande utgiften.\nAvsluta prenumeration: {url}"
+      },
+      "digest": {
+        "subjectOne": "1 uppdatering i {group}",
+        "subjectMany": "{n} uppdateringar i {group}",
+        "subjectGroupsOne": "{n} uppdateringar i {group} och 1 annan grupp",
+        "subjectGroups": "{n} uppdateringar i {group} och {k} andra grupper",
+        "subjectMonthly": "Din Evensies-sammanfattning för {month} {year}",
+        "more": "…och {n} till i {group}",
+        "balances": "Dina saldon",
+        "owe": "{group}: du är skyldig {amount}",
+        "owed": "{group}: du ska få {amount}",
+        "open": "Öppna Evensies-appen för att se detaljer.",
+        "reasonAuto": "Du får det här dagligen eftersom aviseringar är avstängda på dina enheter.",
+        "reasonAutoMonthly": "Du får den här månadssammanfattningen som standard. Du kan ändra det under Inställningar → Aviseringar.",
+        "reasonDaily": "Du får den här dagliga sammanfattningen eftersom du valde den under Inställningar → Aviseringar.",
+        "reasonWeekly": "Du får den här veckovisa sammanfattningen eftersom du valde den under Inställningar → Aviseringar.",
+        "reasonMonthly": "Du får den här månatliga sammanfattningen eftersom du valde den under Inställningar → Aviseringar.",
+        "unsubscribe": "Avsluta prenumeration: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "Mejl från Evensies",
+      "digest": "Sluta få sammanfattningar och påminnelser om återkommande utgifter via mejl?",
+      "invites": "Sluta få inbjudningar från Evensies till den här adressen?",
+      "button": "Avsluta prenumeration",
+      "doneDigest": "Klart. Du får inga fler sammanfattningar eller påminnelser via mejl. Du kan slå på dem igen under Inställningar → Aviseringar.",
+      "doneInvites": "Klart. Evensies skickar inga fler inbjudningar till den här adressen.",
+      "invalid": "Den här länken fungerar inte längre. Du kan ändra dina mejlinställningar i appen: Inställningar → Aviseringar."
     },
     "categories": {
       "food": "Mat och dryck",
@@ -3067,6 +3931,12 @@
         "biweekly": "ทุก 2 สัปดาห์",
         "monthly": "ทุกเดือน",
         "yearly": "ทุกปี"
+      },
+      "groupType": {
+        "trip": "ทริป",
+        "home": "บ้าน",
+        "couple": "คู่รัก",
+        "other": "อื่นๆ"
       }
     },
     "activity": {
@@ -3077,6 +3947,22 @@
       "group_updated": {
         "other": "{A} แก้ไขกลุ่ม: {changes}",
         "self": "คุณแก้ไขกลุ่ม: {changes}"
+      },
+      "group_deleted": {
+        "other": "{A} ลบกลุ่ม “{name}”",
+        "self": "คุณลบกลุ่ม “{name}”"
+      },
+      "group_restored": {
+        "other": "{A} กู้คืนกลุ่ม “{name}”",
+        "self": "คุณกู้คืนกลุ่ม “{name}”"
+      },
+      "friend_deleted": {
+        "other": "{A} ลบรายจ่ายนอกกลุ่มของคุณ",
+        "self": "คุณลบรายจ่ายนอกกลุ่มเหล่านี้"
+      },
+      "friend_restored": {
+        "other": "{A} กู้คืนรายจ่ายนอกกลุ่มของคุณ",
+        "self": "คุณกู้คืนรายจ่ายนอกกลุ่มเหล่านี้"
       },
       "member_added": {
         "other": "{A} เพิ่ม {member}",
@@ -3210,6 +4096,8 @@
       "simplifyDebtsOn": "เปิดการรวมหนี้",
       "simplifyDebtsOff": "ปิดการรวมหนี้",
       "defaultSplit": "การแบ่งเริ่มต้น",
+      "type": "ประเภท {to}",
+      "coverImageId": "รูปหน้าปก",
       "description": "คำอธิบาย “{from}” → “{to}”",
       "amount": "{from} → {to}",
       "fxRateToDefault": "อัตราแลกเปลี่ยน",
@@ -3250,6 +4138,54 @@
       "hint": "มีแอปแล้วใช่ไหม เปิดแอปแล้วเข้าร่วมด้วยรหัส {code}",
       "appStore": "App Store (เร็วๆ นี้)",
       "googlePlay": "Google Play (เร็วๆ นี้)"
+    },
+    "email": {
+      "hi": "สวัสดี {name}",
+      "hiNoName": "สวัสดี",
+      "code": {
+        "subject": "{code} คือรหัส Evensies ของคุณ",
+        "login": "รหัสเข้าสู่ระบบของคุณคือ {code} รหัสนี้จะหมดอายุใน 10 นาที หากคุณไม่ได้ขอรหัสนี้ โปรดเพิกเฉยต่ออีเมลนี้ เพราะไม่มีใครเข้าสู่ระบบได้หากไม่มีรหัส",
+        "change": "ป้อน {code} ในแอปเพื่อใช้อีเมลนี้กับบัญชี Evensies ของคุณ รหัสนี้จะหมดอายุใน 10 นาที"
+      },
+      "invite": {
+        "subject": "{inviter} เชิญคุณเข้ากลุ่ม “{group}” ใน Evensies",
+        "reminderSubject": "เตือนความจำ: {inviter} เชิญคุณเข้ากลุ่ม “{group}”",
+        "body": "{inviter} เพิ่มคุณเข้ากลุ่ม “{group}” ใน Evensies แอปสำหรับหารค่าใช้จ่ายร่วมกัน\n\nเข้าร่วมกลุ่ม: {link}\nหรือติดตั้ง Evensies แล้วป้อนรหัส {code}\n\nEvensies ใช้ฟรีและไม่มีโฆษณา",
+        "footer": "คุณได้รับอีเมลนี้เพราะ {inviter} ป้อนอีเมลของคุณ เราจะเก็บไว้ 14 วันเพื่อส่งการเตือนหนึ่งครั้ง แล้วจึงลบทิ้ง\nไม่ต้องการคำเชิญจาก Evensies ใช่ไหม {url}"
+      },
+      "recurring": {
+        "subject": "“{description}” ({amount}) จะถูกเพิ่มในวันที่ {date}",
+        "body": "“{description}” ในกลุ่ม {group} ซ้ำ{frequency} และจะถูกเพิ่มในวันที่ {date} ส่วนของคุณ: {share}\nหากต้องการเปลี่ยนหรือหยุด ให้แก้ไขรายการล่าสุดในแอป",
+        "footer": "คุณได้รับอีเมลนี้เพราะ {creator} เปิดการเตือนสำหรับค่าใช้จ่ายที่เกิดซ้ำนี้\nยกเลิกการรับอีเมล: {url}",
+        "footerSelf": "คุณได้รับอีเมลนี้เพราะคุณเปิดการเตือนสำหรับค่าใช้จ่ายที่เกิดซ้ำนี้\nยกเลิกการรับอีเมล: {url}"
+      },
+      "digest": {
+        "subjectOne": "มีอัปเดต 1 รายการใน {group}",
+        "subjectMany": "มีอัปเดต {n} รายการใน {group}",
+        "subjectGroupsOne": "มีอัปเดต {n} รายการใน {group} และอีก 1 กลุ่ม",
+        "subjectGroups": "มีอัปเดต {n} รายการใน {group} และอีก {k} กลุ่ม",
+        "subjectMonthly": "สรุป Evensies ของคุณประจำเดือน{month} {year}",
+        "more": "…และอีก {n} รายการใน {group}",
+        "balances": "ยอดคงเหลือของคุณ",
+        "owe": "{group}: คุณต้องจ่าย {amount}",
+        "owed": "{group}: คุณจะได้รับ {amount}",
+        "open": "เปิดแอป Evensies เพื่อดูรายละเอียด",
+        "reasonAuto": "คุณได้รับอีเมลนี้ทุกวันเพราะการแจ้งเตือนบนอุปกรณ์ของคุณปิดอยู่",
+        "reasonAutoMonthly": "คุณได้รับสรุปรายเดือนนี้ตามค่าเริ่มต้น เปลี่ยนได้ที่ การตั้งค่า → การแจ้งเตือน",
+        "reasonDaily": "คุณได้รับสรุปรายวันนี้เพราะคุณเลือกไว้ที่ การตั้งค่า → การแจ้งเตือน",
+        "reasonWeekly": "คุณได้รับสรุปรายสัปดาห์นี้เพราะคุณเลือกไว้ที่ การตั้งค่า → การแจ้งเตือน",
+        "reasonMonthly": "คุณได้รับสรุปรายเดือนนี้เพราะคุณเลือกไว้ที่ การตั้งค่า → การแจ้งเตือน",
+        "unsubscribe": "ยกเลิกการรับอีเมล: {url}"
+      }
+    },
+    "unsubscribe": {
+      "title": "อีเมลจาก Evensies",
+      "digest": "หยุดรับอีเมลสรุปและการเตือนค่าใช้จ่ายที่เกิดซ้ำใช่ไหม",
+      "invites": "หยุดรับคำเชิญทั้งหมดจาก Evensies ที่อีเมลนี้ใช่ไหม",
+      "button": "ยกเลิกการรับอีเมล",
+      "doneDigest": "เรียบร้อยแล้ว คุณจะไม่ได้รับอีเมลสรุปหรือการเตือนอีก เปิดใหม่ได้ที่ การตั้งค่า → การแจ้งเตือน",
+      "doneInvites": "เรียบร้อยแล้ว Evensies จะไม่ส่งคำเชิญไปที่อีเมลนี้อีก",
+      "invalid": "ลิงก์นี้ใช้ไม่ได้แล้ว คุณเปลี่ยนการตั้งค่าอีเมลได้ในแอป: การตั้งค่า → การแจ้งเตือน"
     },
     "categories": {
       "food": "อาหารและเครื่องดื่ม",

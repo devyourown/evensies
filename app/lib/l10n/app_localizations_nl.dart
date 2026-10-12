@@ -2829,4 +2829,459 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get yourRate => 'jouw koers';
+
+  @override
+  String get loginEmail => 'Doorgaan met e-mail';
+
+  @override
+  String get emailLoginTitle => 'Inloggen met e-mail';
+
+  @override
+  String get emailLoginIntro =>
+      'We mailen je een code van 6 cijfers. Geen wachtwoord nodig.';
+
+  @override
+  String get emailLabel => 'E-mail';
+
+  @override
+  String get emailInvalid => 'Vul een geldig e-mailadres in';
+
+  @override
+  String get sendCode => 'Code versturen';
+
+  @override
+  String codeSentTo(String email) {
+    return 'Vul de code van 6 cijfers in die we naar $email stuurden. Hij verloopt over 10 minuten.';
+  }
+
+  @override
+  String get codeLabel => 'Code van 6 cijfers';
+
+  @override
+  String get verifyCode => 'Doorgaan';
+
+  @override
+  String get resendCode => 'Code opnieuw versturen';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return 'Opnieuw versturen over $seconds s';
+  }
+
+  @override
+  String get codeResent => 'We hebben een nieuwe code gestuurd.';
+
+  @override
+  String get useDifferentEmail => 'Ander e-mailadres gebruiken';
+
+  @override
+  String get codeCheckSpam => 'Niets ontvangen? Kijk in je spammap.';
+
+  @override
+  String get errorCodeInvalid =>
+      'Die code klopt niet of is verlopen. Vraag een nieuwe aan.';
+
+  @override
+  String get errorEmailNotConfigured => 'Deze server verstuurt geen e-mail.';
+
+  @override
+  String get errorEmailRejected =>
+      'Dit adres kan geen e-mail ontvangen. Controleer het op typefouten.';
+
+  @override
+  String get errorEmailTaken => 'Een ander account gebruikt dit adres al.';
+
+  @override
+  String get errorEmailRequired =>
+      'Met je e-mail log je in, dus die kan niet weg.';
+
+  @override
+  String get errorEmailUnavailable =>
+      'E-mail werkt nu even niet. Probeer het later opnieuw.';
+
+  @override
+  String get emailSaved => 'E-mail opgeslagen';
+
+  @override
+  String removeEmailTitle(String email) {
+    return '$email verwijderen?';
+  }
+
+  @override
+  String get removeEmailMessage =>
+      'Je krijgt geen e-mailoverzichten of herinneringen meer en kunt er niet meer mee inloggen.';
+
+  @override
+  String get emailRemoved => 'E-mail verwijderd';
+
+  @override
+  String get emailNeedsConnection =>
+      'Je e-mail wijzigen kan alleen met een verbinding.';
+
+  @override
+  String get emailBouncedNote =>
+      'E-mails naar dit adres komen terug — wijzig het of bevestig het opnieuw';
+
+  @override
+  String get emailVerifiedNote => 'Bevestigd · andere leden zien het nooit';
+
+  @override
+  String get changeEmail => 'E-mail wijzigen';
+
+  @override
+  String get emailAccountHelp =>
+      'Om in te loggen en voor e-mailoverzichten. We sturen een code om te controleren dat het van jou is. Andere leden zien het nooit.';
+
+  @override
+  String get removeEmail => 'E-mail verwijderen';
+
+  @override
+  String get addEmail => 'E-mail toevoegen';
+
+  @override
+  String get addEmailHint => 'Log ermee in en krijg overzichten per e-mail';
+
+  @override
+  String unblockedName(String name) {
+    return '$name gedeblokkeerd';
+  }
+
+  @override
+  String get blockNeedsConnection => 'Blokkeren kan alleen met een verbinding.';
+
+  @override
+  String get blockedEmpty => 'Je hebt niemand geblokkeerd.';
+
+  @override
+  String get blockedNeedsConnection =>
+      'Geblokkeerde mensen zien kan alleen met een verbinding';
+
+  @override
+  String get unblock => 'Deblokkeren';
+
+  @override
+  String get blockedPeople => 'Geblokkeerde mensen';
+
+  @override
+  String get blockedHelp =>
+      'Geblokkeerde mensen kunnen je niet als vriend toevoegen of herinneringen sturen, en hun wijzigingen geven je geen melding of e-mail. Gedeelde groepen en saldi blijven zoals ze zijn.';
+
+  @override
+  String get deletedGroupsEmpty => 'Geen verwijderde groepen';
+
+  @override
+  String get deletedGroupsHelp =>
+      'Herstellen brengt een groep voor iedereen terug, met alles erin.';
+
+  @override
+  String get deletedGroups => 'Verwijderde groepen';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count groepen kunnen worden hersteld',
+      one: '1 groep kan worden hersteld',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection =>
+      'Exporteren kan alleen met een verbinding.';
+
+  @override
+  String get exportEverything => 'Alles exporteren (JSON)';
+
+  @override
+  String get exportEverythingHint =>
+      'Je profiel, manieren om betaald te worden, instellingen en elke groep, ook verwijderde';
+
+  @override
+  String get emailSummary => 'E-mailoverzicht';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': 'Automatisch',
+      'daily': 'Dagelijks',
+      'weekly': 'Wekelijks',
+      'monthly': 'Maandelijks',
+      'off': 'Uit',
+      'other': 'Automatisch',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp =>
+      'Dagelijks als je apparaten geen meldingen kunnen tonen, anders maandelijks';
+
+  @override
+  String get digestAutoDaily =>
+      'Automatisch — dagelijks, omdat meldingen uit staan';
+
+  @override
+  String get digestAutoMonthly =>
+      'Automatisch — maandelijks, omdat je apparaten meldingen krijgen';
+
+  @override
+  String get digestNoEmail =>
+      'Voeg onder Account een e-mail toe om overzichten te krijgen';
+
+  @override
+  String get helpReportProblem => 'Een probleem melden of iets voorstellen';
+
+  @override
+  String get helpReportProblemHint => 'Op GitHub, waar iedereen het kan zien';
+
+  @override
+  String get helpContact => 'Support mailen';
+
+  @override
+  String get privacyPolicy => 'Privacybeleid';
+
+  @override
+  String get helpFeedback => 'Hulp en feedback';
+
+  @override
+  String get signOutEverywhere => 'Op alle apparaten uitloggen';
+
+  @override
+  String get signOutEverywhereTitle => 'Op alle apparaten uitloggen?';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'Elke telefoon en browser met je account wordt uitgelogd, deze ook. Je groepen blijven op de server.';
+
+  @override
+  String get signOutEverywhereOffline =>
+      'Op alle apparaten uitloggen kan alleen met een verbinding.';
+
+  @override
+  String get deleteAccountExportTip => 'Tip: exporteer eerst alles.';
+
+  @override
+  String get coverPhoto => 'Omslagfoto';
+
+  @override
+  String get coverPhotoHint =>
+      'Staat bovenaan de groep en in de lijst. Alleen leden zien hem.';
+
+  @override
+  String get removeCover => 'Omslag verwijderen';
+
+  @override
+  String get coverNeedsConnection =>
+      'De omslag wijzigen kan alleen met een verbinding.';
+
+  @override
+  String get coverTooMany =>
+      'Dat zijn veel omslagwijzigingen. Probeer het over een uur opnieuw.';
+
+  @override
+  String get deleteGroup => 'Groep verwijderen';
+
+  @override
+  String get deleteGroupHint => 'Voor iedereen · elk lid kan hem herstellen';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return '‘$name’ verwijderen?';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      'Voor iedereen verwijderd. Elk lid kan hem herstellen via Instellingen → Verwijderde groepen.';
+
+  @override
+  String groupDeletedName(String name) {
+    return '‘$name’ verwijderd';
+  }
+
+  @override
+  String get groupDeletedBanner => 'Deze groep is verwijderd';
+
+  @override
+  String get groupRestored => 'Groep hersteld';
+
+  @override
+  String get deleteFriend => 'Vriend verwijderen';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return '$name verwijderen?';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return 'Je uitgaven zonder groep met $name worden voor jullie allebei verwijderd. Gedeelde groepen blijven. Je kunt ze herstellen via Instellingen → Verwijderde groepen, of door $name opnieuw toe te voegen.';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return '$name verwijderd';
+  }
+
+  @override
+  String get block => 'Blokkeren';
+
+  @override
+  String blockTitle(String name) {
+    return '$name blokkeren?';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name kan je dan niet als vriend toevoegen of herinneringen sturen, en wijzigingen van $name geven je geen melding of e-mail. Gedeelde groepen en saldi blijven.';
+  }
+
+  @override
+  String blockedName(String name) {
+    return '$name geblokkeerd';
+  }
+
+  @override
+  String get report => 'Melden…';
+
+  @override
+  String get reportSubject => 'Melding Evensies';
+
+  @override
+  String reportBody(String userId) {
+    return 'Gebruikers-ID: $userId\n\nWat er gebeurde:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'Uitnodigen per e-mail…';
+
+  @override
+  String get inviteEmailField => 'E-mail (optioneel)';
+
+  @override
+  String get inviteEmailHelp =>
+      'We mailen een uitnodigingslink. Alleen gebruikt voor deze uitnodiging.';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return '$name uitnodigen per e-mail';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return 'Uitnodiging verstuurd naar $email';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'Lid toegevoegd. Uitnodigen per e-mail kan alleen met een verbinding — probeer het opnieuw vanuit de ledenlijst.';
+
+  @override
+  String get inviteEmailOffline =>
+      'Uitnodigen per e-mail kan alleen met een verbinding.';
+
+  @override
+  String get inviteEmailLimit =>
+      'E-maillimiet voor vandaag bereikt — deel in plaats daarvan de link.';
+
+  @override
+  String emailReminder(String choice) {
+    return 'Herinnering per e-mail: $choice';
+  }
+
+  @override
+  String get remindNever => 'Nooit';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count dagen van tevoren',
+      one: '1 dag van tevoren',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi => 'India: Paytm, PhonePe, Google Pay en andere UPI-apps';
+
+  @override
+  String get fieldUpi => 'UPI-ID';
+
+  @override
+  String get fieldUpiHint => 'Zoals naam@okicici';
+
+  @override
+  String get fieldUpiName => 'Naam (optioneel)';
+
+  @override
+  String get fieldUpiNameHint => 'Te zien voor wie jou betaalt';
+
+  @override
+  String get methodErrorUpi => 'Vul een UPI-ID in zoals naam@bank';
+
+  @override
+  String get noUpiApp =>
+      'Geen UPI-app gevonden. Kopieer in plaats daarvan de UPI-ID en het bedrag.';
+
+  @override
+  String get upiIdLabel => 'UPI-ID';
+
+  @override
+  String get copyUpiId => 'UPI-ID kopiëren';
+
+  @override
+  String get upiIdCopied => 'UPI-ID gekopieerd';
+
+  @override
+  String get dashboard => 'Overzicht';
+
+  @override
+  String get allExpenses => 'Alle uitgaven';
+
+  @override
+  String get groupBalances => 'Saldi van de groep';
+
+  @override
+  String get yourBalance => 'Jouw saldo';
+
+  @override
+  String get dashboardOwesYou => 'Is je schuldig';
+
+  @override
+  String get dashboardYouOwe => 'Je bent schuldig';
+
+  @override
+  String get historyAndComments => 'Geschiedenis en opmerkingen';
+
+  @override
+  String get showEarlier => 'Eerdere tonen';
+
+  @override
+  String get settleUpFirst => 'Eerst afrekenen';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'Je kunt $name als vriend verwijderen zodra je uitgaven buiten groepen zijn afgerekend.';
+  }
+
+  @override
+  String get noMailApp =>
+      'Geen e-mailapp gevonden. Kopieer de gegevens hieronder en schrijf vanuit een willekeurige e-mailapp.';
+
+  @override
+  String get copyAddress => 'Adres kopiëren';
+
+  @override
+  String get copyMessage => 'Bericht kopiëren';
+
+  @override
+  String get browserNoStorage =>
+      'Deze browser kan de gegevens van Evensies niet bewaren. Probeer een andere browser of een venster dat niet privé is.';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies is al open in een ander tabblad van deze browser. Gebruik dat tabblad, of sluit het en laad dit opnieuw.';
 }

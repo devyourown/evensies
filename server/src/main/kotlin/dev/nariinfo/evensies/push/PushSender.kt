@@ -25,6 +25,9 @@ interface PushSender {
      */
     fun send(tokens: List<String>, title: String?, body: String?, data: Map<String, String>, badge: Int? = null): List<String>
 
+    /** False when pushes go nowhere (no FCM credentials): "auto" email summaries then go out daily (Phase 10). */
+    val enabled: Boolean get() = true
+
     companion object {
         /** FCM's limit for one multicast. */
         const val MAX_TOKENS = 500
@@ -40,6 +43,8 @@ class FcmPushSender(props: AppProperties) : PushSender {
             FirebaseApp.initializeApp(FirebaseOptions.builder().setCredentials(GoogleCredentials.fromStream(it)).build())
         }
     }
+
+    override val enabled: Boolean get() = app != null
 
     init {
         if (app == null) log.info("FCM push disabled: EVENSIES_FCM_CREDENTIALS_FILE not set")

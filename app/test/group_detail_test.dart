@@ -46,7 +46,7 @@ void main() {
   testWidgets('tiles name several payers and refunds; my part uses what I paid minus my share', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(kind: 'group', 
+        const GroupRow(kind: 'group', type: 'other', deleted: false, 
           id: 'g1',
           name: 'Rome',
           defaultCurrency: 'EUR',
@@ -97,7 +97,7 @@ void main() {
   });
 
   Future<void> seedMine() => db
-      .upsertGroup(const GroupRow(kind: 'group', 
+      .upsertGroup(const GroupRow(kind: 'group', type: 'other', deleted: false, 
           id: 'g1', name: 'Flat 3B', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true))
       .then((_) => GroupStateStore(db).save(
             'g1',
@@ -157,7 +157,7 @@ void main() {
   testWidgets('balances that leave expenses out never read "All settled"', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -209,7 +209,7 @@ void main() {
       (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -235,7 +235,7 @@ void main() {
   testWidgets('an expense with a receipt shows a receipt mark; a removed receipt does not count', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -261,7 +261,7 @@ void main() {
   testWidgets('pull to refresh syncs from the empty Expenses list and from Balances', (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
       );
       await GroupStateStore(db).save(
         'g1',
@@ -284,7 +284,7 @@ void main() {
 
   testWidgets('Balances names who should pay next: the most owed among members still in the group', (t) async {
     Future<void> seed(String me) => t.runAsync(() async {
-          await db.upsertGroup(GroupRow(kind: 'group', 
+          await db.upsertGroup(GroupRow(kind: 'group', type: 'other', deleted: false, 
               id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: me, simplifyDebts: true));
           await GroupStateStore(db).save(
             'g1',
@@ -326,7 +326,7 @@ void main() {
     expect(sync.later, isEmpty); // not on this device: nothing to pull into
     await unmount(t);
     await t.runAsync(() => db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true)));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true)));
     await open(t, sync: sync);
     expect(sync.later, ['g1']);
     await unmount(t);

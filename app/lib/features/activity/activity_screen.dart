@@ -17,13 +17,14 @@ import '../../l10n/app_localizations_en.dart';
 import '../../providers.dart';
 import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
+import '../groups/wide_layout.dart' show isWide;
 
 /// Overall feed across all my groups (route `/activity`).
 class ActivityScreen extends StatelessWidget {
   const ActivityScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(context.l.activity)),
+        appBar: AppBar(title: Text(context.l.activity), automaticallyImplyLeading: !isWide(context)),
         body: const Column(children: [OfflineBanner(), Expanded(child: ActivityList())]),
       );
 }
@@ -204,6 +205,8 @@ class _ActivityListState extends ConsumerState<ActivityList> {
             'expense_deleted' || 'expense_moved' =>
               i.expenseId != null && restoreOffered.add(i.expenseId!) && i.kind == 'expense_deleted',
             'payment_deleted' => i.paymentId != null && restoreOffered.add(i.paymentId!),
+            // Phase 10: the group's newest delete, while it is still deleted (the tile checks that).
+            'group_deleted' => restoreOffered.add('group:${i.groupId ?? widget.groupId}'),
             _ => false,
           },
         ));
@@ -334,6 +337,7 @@ class ActivityTile extends ConsumerWidget {
             : null;
     final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final restorable = offerRestore && item.kind == 'expense_deleted' && expense != null && expense.deleted;
+    final restorableGroup = offerRestore && item.kind == 'group_deleted' && group != null && group.deleted;
     // A deleted payment: not an edited one, and only for the payer's or receiver's user (docs/API.md 송금 되살리기).
     final me = ref.watch(sessionProvider).value?.userId;
     final restorablePayment = offerRestore &&
@@ -344,7 +348,7 @@ class ActivityTile extends ConsumerWidget {
         me != null &&
         (state?.member(payment.fromMember)?.userId == me || state?.member(payment.toMember)?.userId == me);
     final (icon, bg, fg) = switch (item.kind) {
-      'expense_deleted' || 'payment_deleted' || 'member_removed' || 'receipt_removed' => (
+      'expense_deleted' || 'payment_deleted' || 'member_removed' || 'receipt_removed' || 'group_deleted' => (
           Icons.delete_outline,
           cs.errorContainer,
           cs.onErrorContainer
@@ -355,7 +359,8 @@ class ActivityTile extends ConsumerWidget {
       'recurrence_deleted' => (Icons.event_busy_outlined, cs.surfaceContainerHighest, cs.onSurfaceVariant),
       'receipt_added' => (Icons.add_photo_alternate_outlined, cs.primaryContainer, cs.onPrimaryContainer),
       'expense_updated' || 'payment_edited' => (Icons.edit_outlined, cs.primaryContainer, cs.onPrimaryContainer),
-      'expense_restored' || 'payment_restored' => (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
+      'expense_restored' || 'payment_restored' || 'group_restored' =>
+        (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
       'comment_added' => (Icons.chat_bubble_outline, cs.secondaryContainer, cs.onSecondaryContainer),
       'payment_added' || 'payment_confirmed' => (Icons.payments_outlined, cs.tertiaryContainer, cs.onTertiaryContainer),
       'member_added' || 'member_joined' || 'friend_added' => (
@@ -393,6 +398,8 @@ class ActivityTile extends ConsumerWidget {
       target = '/groups/$groupId/members';
     } else if (kind == 'group_updated') {
       target = '/groups/$groupId/settings';
+    } else if (kind == 'group_deleted' || kind == 'group_restored') {
+      target = '/groups/$groupId'; // a deleted group's page has the Restore banner
     } else if (kind.startsWith('recurrence_')) {
       target = null;
     } else {
@@ -412,7 +419,8 @@ class ActivityTile extends ConsumerWidget {
                   ? (actor != null && actor == group?.myMemberId
                       ? l.youCommented
                       : l.nameCommented(names[actor] ?? l.someone))
-                  : activityText(item, names, group?.myMemberId, withDelta: false, count: count),
+                  : activityText(item, names, group?.myMemberId,
+                      withDelta: false, count: count, friend: state?.isFriend ?? group?.kind == 'friend'),
               l.localeName),
           maxLines: kind == 'comment_added' ? 3 : null,
           overflow: kind == 'comment_added' ? TextOverflow.ellipsis : null),
@@ -427,7 +435,16 @@ class ActivityTile extends ConsumerWidget {
               if (delta != null && meta.isNotEmpty) const TextSpan(text: ' · '),
               TextSpan(text: meta),
             ])),
-      trailing: restorable
+      trailing: restorableGroup
+          ? TextButton(
+              key: const Key('restore-group-row'),
+              onPressed: () async {
+                await ref.read(localWritesProvider).restoreGroup(groupId);
+                if (context.mounted) showInfo(context, context.l.groupRestored);
+              },
+              child: Text(l.restore),
+            )
+          : restorable
           ? TextButton(
               onPressed: () async {
                 await ref.read(localWritesProvider).restoreExpense(groupId, expense.id);

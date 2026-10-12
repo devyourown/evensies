@@ -14,6 +14,7 @@ import 'domain/overview.dart' show Overview;
 import 'core/l10n.dart';
 import 'features/auth/auth_service.dart';
 import 'features/friends/home_data.dart';
+import 'features/groups/wide_layout.dart';
 import 'features/home_widget/widget_summary.dart';
 import 'features/lock/app_lock.dart';
 import 'providers.dart';
@@ -135,12 +136,18 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
   }
 
   void _refresh({bool avatars = false}) {
-    ref.read(syncProvider).syncAll();
-    ref.read(authServiceProvider).refreshMe();
-    ref.read(unreadProvider.notifier).refresh();
-    ref.read(authServiceProvider).syncLanguage(ref.read(languageProvider));
-    // A friend's new (or removed) photo; the shown one stays while it reloads.
-    if (avatars) ref.invalidate(avatarProvider);
+    // Signed out (the sign-in page): nothing of mine to fetch, and no 401s in the console.
+    if (ref.read(sessionProvider).value != null) {
+      ref.read(syncProvider).syncAll();
+      ref.read(authServiceProvider).refreshMe();
+      ref.read(unreadProvider.notifier).refresh();
+      ref.read(authServiceProvider).syncLanguage(ref.read(languageProvider));
+    }
+    // A friend's new (or removed) photo; the shown one stays while it reloads. And what the server offers (email).
+    if (avatars) {
+      ref.invalidate(avatarProvider);
+      ref.invalidate(serverInfoProvider);
+    }
   }
 
   void _listenDeepLinks() {
@@ -149,7 +156,9 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
       if (uri == null) return;
       final link = uri.toString();
       final code = extractInviteCode(link);
-      if (code != null) ref.read(routerProvider).push(isFriendLink(link) ? '/friends/add?code=$code' : '/join/$code');
+      if (code != null) {
+        ref.read(routerProvider).push(isFriendLink(link) ? '/friends/add?code=$code' : joinRoute(code, link));
+      }
     }
 
     links.getInitialLink().then(handle);
@@ -159,6 +168,9 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     final lang = ref.watch(languageProvider);
+    // Until the saved session is loaded, nothing rather than a flash of the sign-in page (router redirect).
+    final session = ref.watch(sessionProvider);
+    final loading = session.isLoading && !session.hasValue;
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (_) => 'Evensies',
@@ -176,13 +188,11 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
       darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),
       routerConfig: ref.watch(routerProvider),
       builder: (context, child) {
-        final app = child ?? const SizedBox.shrink();
-        // The web: one 640 px column in the middle of the window (docs/API.md 화면 배치); phones: the lock on top.
+        final app = loading ? ColoredBox(color: Theme.of(context).colorScheme.surface) : child ?? const SizedBox.shrink();
+        // The web: one 640 px column in the middle of the window, or the three columns of a wide window (docs/API.md
+        // 화면 배치); phones: the lock on top.
         if (!kIsWeb) return LockGate(child: app);
-        return ColoredBox(
-          color: Theme.of(context).colorScheme.surfaceContainerLow,
-          child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 640), child: app)),
-        );
+        return WebColumn(wide: isWide(context), child: app);
       },
     );
   }

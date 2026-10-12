@@ -202,12 +202,11 @@ class ExpenseDetailScreen extends ConsumerWidget {
                     editable: !e.deleted,
                   ),
                 ],
-                section(l.history),
-                ExpenseHistory(groupId: groupId, expenseId: e.id),
                 const SizedBox(height: 24),
                 const Divider(height: 1),
                 const SizedBox(height: 16),
-                CommentThread(groupId: groupId, expenseId: e.id),
+                // History and comments in one thread, oldest first (Splitwise's expense page).
+                ExpenseHistory(groupId: groupId, expenseId: e.id),
               ],
             ),
           ),
@@ -378,8 +377,8 @@ List<({String name, bool isMe, String text})> _people(
   ];
 }
 
-/// The expense's own events from the group feed (docs/API.md `expenseId`), newest first, 20 at a time; offline it
-/// shows what the activity cache holds for this expense.
+/// The expense's own events from the group feed (docs/API.md `expenseId`), 20 at a time, threaded with its comments
+/// ([CommentThread]); offline it shows what the activity cache holds for this expense.
 class ExpenseHistory extends ConsumerStatefulWidget {
   final String groupId;
   final String expenseId;
@@ -467,46 +466,39 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final l = context.l;
-    if (_items.isEmpty && (_loading || _nextBefore == null)) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: _loading
-            ? const Align(
-                alignment: Alignment.centerLeft,
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-              )
-            : Text(_live ? l.noHistoryYet : l.historyOffline,
-                style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-      );
-    }
-    final rows = <Widget>[];
-    String? lastDay;
-    for (final (item: i, :count) in foldReceipts(_items)) {
-      final day = dayLabel(i.createdAt, l: l);
-      if (day != lastDay) {
-        lastDay = day;
-        rows.add(Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(day, style: text.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
-        ));
-      }
-      rows.add(ActivityTile(key: ValueKey(i.seq), item: i, count: count, groupId: widget.groupId, embedded: true));
-    }
-    // An older server ignores the filter: a page can hold none of this expense's items yet more may follow.
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (!_live && !_loading)
+    // Oldest first: the earlier history pages load at the top. An older server ignores the filter, so a page can hold
+    // none of this expense's items yet more may follow.
+    final header = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (_loading && _items.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+        )
+      else if (!_live && _items.isEmpty)
+        Text(l.historyOffline, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant))
+      else if (!_live)
         Text(l.showingSavedHistory, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-      ...rows,
       if (_nextBefore != null)
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
+            key: const Key('history-earlier'),
             onPressed: _loadingMore ? null : _more,
             child: _loadingMore
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(l.showMore),
+                : Text(l.showEarlier),
           ),
         ),
     ]);
+    return CommentThread(
+      groupId: widget.groupId,
+      expenseId: widget.expenseId,
+      history: _items,
+      title: l.historyAndComments,
+      header: header,
+    );
   }
 }

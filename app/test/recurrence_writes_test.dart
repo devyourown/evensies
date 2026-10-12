@@ -41,7 +41,7 @@ void main() {
     sync = _Manual(db, api);
     writes = LocalWrites(db, sync);
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Flat', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Flat', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
   });

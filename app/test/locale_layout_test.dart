@@ -49,7 +49,7 @@ void main() {
     await db.saveSession(
         const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna Maria'));
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Summer trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1',
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Summer trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1',
         simplifyDebts: true));
     const names = ['Anna Maria', 'Benedikt', 'Carolina', 'Dmitri'];
     for (var i = 0; i < names.length; i++) {

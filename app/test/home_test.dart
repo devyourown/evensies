@@ -37,7 +37,7 @@ void main() {
   Future<void> group(String id, String name, String kind, String me, List<Member> members,
       {List<Expense> expenses = const [], List<Payment> payments = const []}) async {
     await db.upsertGroup(GroupRow(
-        kind: kind, id: id, name: name, defaultCurrency: 'EUR', latestSeq: 0, myMemberId: me, simplifyDebts: true,
+        type: 'other', deleted: false, kind: kind, id: id, name: name, defaultCurrency: 'EUR', latestSeq: 0, myMemberId: me, simplifyDebts: true,
         inviteCode: 'INV$id'));
     await GroupStateStore(db).save(
         id,

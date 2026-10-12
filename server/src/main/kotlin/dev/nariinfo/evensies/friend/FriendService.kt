@@ -2,6 +2,7 @@ package dev.nariinfo.evensies.friend
 
 import dev.nariinfo.evensies.activity.ActivityText
 import dev.nariinfo.evensies.auth.AuthService
+import dev.nariinfo.evensies.auth.BlockRepository
 import dev.nariinfo.evensies.auth.User
 import dev.nariinfo.evensies.auth.UserRepository
 import dev.nariinfo.evensies.common.ApiException
@@ -52,6 +53,7 @@ class FriendService(
     private val rateLimiter: RateLimiter,
     private val props: AppProperties,
     private val mapper: ObjectMapper,
+    private val blocks: BlockRepository,
     txManager: PlatformTransactionManager,
 ) {
     private val tx = TransactionTemplate(txManager)
@@ -105,16 +107,22 @@ class FriendService(
                 ?: throw notShared() // unknown and deleted look the same
         }
         if (other.id == me) selfFriend()
+        // Phase 10: someone who blocked me looks unknown.
+        if (blocks.isBlocked(other.id, me)) throw if (code != null) ApiException.notFound("Friend code") else notShared()
         val (dto, stored) = tx.execute {
             // An account deleted since the lookup above is gone: its cleanup already ran, so nothing may link it now.
             if (friends.lockUsers(me, other.id) < 2) throw if (code != null) ApiException.notFound("Friend code") else notShared()
-            friends.findGroup(me, other.id)?.let { return@execute groupService.get(it, me) to emptyList<Event>() }
+            friends.findGroup(me, other.id)?.let { existing ->
+                // Phase 10 "delete friend" deleted the pair's group: adding them again restores it, history and all.
+                val restored = if (groups.find(existing)?.deleted == true) events.pushTrusted(existing, me, listOf(event("group.restored", emptyMap()))) else emptyList()
+                return@execute groupService.get(existing, me) to restored
+            }
             val stored = create(id, me, myName, other.id, other.displayName.ifBlank { "Friend" }, currency)
             friends.insertPair(me, other.id, id)
             groupService.get(id, me) to stored
         }!!
         // After commit: the push worker reads the new group and members on another connection.
-        if (stored.isNotEmpty()) notifier.notify(id, me, stored)
+        if (stored.isNotEmpty()) notifier.notify(stored.first().groupId, me, stored)
         return dto
     }
 
@@ -138,13 +146,15 @@ class FriendService(
         val sender = auth.me(me)
         val shared = if (me == them) emptyList() else members.sharedGroups(me, them)
         if (shared.isEmpty()) throw notShared()
-        val ledgers = shared.mapNotNull { GroupLedger.of(it.toString(), stateStore.load(it), me.toString()) }
+        // A deleted group (Phase 10, e.g. a deleted friend) doesn't count until it is restored.
+        val ledgers = shared.map(stateStore::load).zip(shared).filterNot { it.first.deleted }.mapNotNull { (state, g) -> GroupLedger.of(g.toString(), state, me.toString()) }
         val owed = Overview.compute(ledgers, me.toString()).people[them.toString()].orEmpty().filterValues { it > 0 }.toSortedMap()
         if (owed.isEmpty()) throw ApiException(HttpStatus.CONFLICT, "NOTHING_OWED", "They don't owe you anything")
         if (!friends.takeReminderSlot(me, them)) {
             throw ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "One reminder a day", friends.secondsUntilNextReminder(me, them))
         }
-        if (prefs.get(them).reminders) {
+        // Phase 10: a reminder from someone they blocked is accepted but never shown.
+        if (prefs.get(them).reminders && !blocks.isBlocked(them, me)) {
             val (title, body) = ActivityText.reminder(sender.displayName, owed.toList(), users.find(them)?.language ?: "en")
             notifier.remind(them, me, title, body)
         }

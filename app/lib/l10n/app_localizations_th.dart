@@ -2778,4 +2778,449 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get yourRate => 'อัตราที่คุณใส่';
+
+  @override
+  String get loginEmail => 'ดำเนินการต่อด้วยอีเมล';
+
+  @override
+  String get emailLoginTitle => 'เข้าสู่ระบบด้วยอีเมล';
+
+  @override
+  String get emailLoginIntro =>
+      'เราจะส่งรหัส 6 หลักไปทางอีเมล ไม่ต้องใช้รหัสผ่าน';
+
+  @override
+  String get emailLabel => 'อีเมล';
+
+  @override
+  String get emailInvalid => 'กรอกอีเมลที่ถูกต้อง';
+
+  @override
+  String get sendCode => 'ส่งรหัส';
+
+  @override
+  String codeSentTo(String email) {
+    return 'กรอกรหัส 6 หลักที่เราส่งไปที่ $email รหัสจะหมดอายุใน 10 นาที';
+  }
+
+  @override
+  String get codeLabel => 'รหัส 6 หลัก';
+
+  @override
+  String get verifyCode => 'ดำเนินการต่อ';
+
+  @override
+  String get resendCode => 'ส่งรหัสอีกครั้ง';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return 'ส่งรหัสอีกครั้งได้ใน $seconds วินาที';
+  }
+
+  @override
+  String get codeResent => 'เราส่งรหัสใหม่แล้ว';
+
+  @override
+  String get useDifferentEmail => 'ใช้อีเมลอื่น';
+
+  @override
+  String get codeCheckSpam => 'ยังไม่ได้รับใช่ไหม ลองดูในโฟลเดอร์สแปม';
+
+  @override
+  String get errorCodeInvalid => 'รหัสไม่ถูกต้องหรือหมดอายุแล้ว ขอรหัสใหม่';
+
+  @override
+  String get errorEmailNotConfigured => 'เซิร์ฟเวอร์นี้ไม่ส่งอีเมล';
+
+  @override
+  String get errorEmailRejected =>
+      'อีเมลนี้รับข้อความไม่ได้ ตรวจดูว่าพิมพ์ถูกต้อง';
+
+  @override
+  String get errorEmailTaken => 'มีบัญชีอื่นใช้อีเมลนี้อยู่แล้ว';
+
+  @override
+  String get errorEmailRequired =>
+      'อีเมลเป็นวิธีเดียวที่คุณใช้เข้าสู่ระบบ จึงลบไม่ได้';
+
+  @override
+  String get errorEmailUnavailable => 'ตอนนี้ส่งอีเมลไม่ได้ ลองอีกครั้งภายหลัง';
+
+  @override
+  String get emailSaved => 'บันทึกอีเมลแล้ว';
+
+  @override
+  String removeEmailTitle(String email) {
+    return 'ลบ $email ไหม';
+  }
+
+  @override
+  String get removeEmailMessage =>
+      'คุณจะไม่ได้รับสรุปหรือการเตือนทางอีเมลอีก และเข้าสู่ระบบด้วยอีเมลนี้ไม่ได้';
+
+  @override
+  String get emailRemoved => 'ลบอีเมลแล้ว';
+
+  @override
+  String get emailNeedsConnection =>
+      'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อเปลี่ยนอีเมล';
+
+  @override
+  String get emailBouncedNote =>
+      'อีเมลที่ส่งไปที่อยู่นี้ตีกลับ — เปลี่ยนหรือยืนยันอีกครั้ง';
+
+  @override
+  String get emailVerifiedNote => 'ยืนยันแล้ว · สมาชิกคนอื่นไม่เคยเห็น';
+
+  @override
+  String get changeEmail => 'เปลี่ยนอีเมล';
+
+  @override
+  String get emailAccountHelp =>
+      'ใช้เข้าสู่ระบบและรับสรุปทางอีเมล เราจะส่งรหัสเพื่อตรวจว่าเป็นของคุณ สมาชิกคนอื่นไม่เคยเห็น';
+
+  @override
+  String get removeEmail => 'ลบอีเมล';
+
+  @override
+  String get addEmail => 'เพิ่มอีเมล';
+
+  @override
+  String get addEmailHint => 'ใช้เข้าสู่ระบบและรับสรุปทางอีเมล';
+
+  @override
+  String unblockedName(String name) {
+    return 'เลิกบล็อก $name แล้ว';
+  }
+
+  @override
+  String get blockNeedsConnection => 'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อบล็อก';
+
+  @override
+  String get blockedEmpty => 'คุณยังไม่ได้บล็อกใคร';
+
+  @override
+  String get blockedNeedsConnection =>
+      'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อดูคนที่บล็อก';
+
+  @override
+  String get unblock => 'เลิกบล็อก';
+
+  @override
+  String get blockedPeople => 'คนที่บล็อก';
+
+  @override
+  String get blockedHelp =>
+      'คนที่บล็อกจะเพิ่มคุณเป็นเพื่อนหรือส่งการเตือนไม่ได้ และการเปลี่ยนแปลงของเขาจะไม่แจ้งเตือนหรือส่งอีเมลถึงคุณ กลุ่มที่ใช้ร่วมกันและยอดคงเหลือยังอยู่เหมือนเดิม';
+
+  @override
+  String get deletedGroupsEmpty => 'ไม่มีกลุ่มที่ลบ';
+
+  @override
+  String get deletedGroupsHelp =>
+      'การกู้คืนจะนำกลุ่มกลับมาให้ทุกคนพร้อมทุกอย่างในกลุ่ม';
+
+  @override
+  String get deletedGroups => 'กลุ่มที่ลบ';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'กู้คืนได้ $count กลุ่ม',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection => 'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อส่งออก';
+
+  @override
+  String get exportEverything => 'ส่งออกทั้งหมด (JSON)';
+
+  @override
+  String get exportEverythingHint =>
+      'โปรไฟล์ วิธีรับเงิน การตั้งค่า และทุกกลุ่ม รวมถึงกลุ่มที่ลบ';
+
+  @override
+  String get emailSummary => 'สรุปทางอีเมล';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': 'อัตโนมัติ',
+      'daily': 'ทุกวัน',
+      'weekly': 'ทุกสัปดาห์',
+      'monthly': 'ทุกเดือน',
+      'off': 'ปิด',
+      'other': 'อัตโนมัติ',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp =>
+      'ทุกวันถ้าอุปกรณ์ของคุณแสดงการแจ้งเตือนไม่ได้ ไม่อย่างนั้นทุกเดือน';
+
+  @override
+  String get digestAutoDaily => 'อัตโนมัติ — ทุกวัน เพราะปิดการแจ้งเตือนอยู่';
+
+  @override
+  String get digestAutoMonthly =>
+      'อัตโนมัติ — ทุกเดือน เพราะอุปกรณ์ของคุณได้รับการแจ้งเตือน';
+
+  @override
+  String get digestNoEmail => 'เพิ่มอีเมลในบัญชีเพื่อรับสรุป';
+
+  @override
+  String get helpReportProblem => 'แจ้งปัญหาหรือเสนอฟีเจอร์';
+
+  @override
+  String get helpReportProblemHint => 'บน GitHub ซึ่งทุกคนเห็นได้';
+
+  @override
+  String get helpContact => 'อีเมลถึงฝ่ายช่วยเหลือ';
+
+  @override
+  String get privacyPolicy => 'นโยบายความเป็นส่วนตัว';
+
+  @override
+  String get helpFeedback => 'ความช่วยเหลือและคำติชม';
+
+  @override
+  String get signOutEverywhere => 'ออกจากระบบในทุกอุปกรณ์';
+
+  @override
+  String get signOutEverywhereTitle => 'ออกจากระบบในทุกอุปกรณ์ไหม';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'โทรศัพท์และเบราว์เซอร์ทุกเครื่องที่ใช้บัญชีของคุณจะออกจากระบบ รวมถึงเครื่องนี้ กลุ่มของคุณยังอยู่บนเซิร์ฟเวอร์';
+
+  @override
+  String get signOutEverywhereOffline =>
+      'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อออกจากระบบในทุกอุปกรณ์';
+
+  @override
+  String get deleteAccountExportTip => 'เคล็ดลับ: ส่งออกทั้งหมดก่อน';
+
+  @override
+  String get coverPhoto => 'รูปหน้าปก';
+
+  @override
+  String get coverPhotoHint =>
+      'แสดงที่ส่วนหัวของกลุ่มและในรายการ เฉพาะสมาชิกที่เห็น';
+
+  @override
+  String get removeCover => 'ลบหน้าปก';
+
+  @override
+  String get coverNeedsConnection =>
+      'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อเปลี่ยนหน้าปก';
+
+  @override
+  String get coverTooMany =>
+      'เปลี่ยนหน้าปกบ่อยเกินไป ลองอีกครั้งในอีกหนึ่งชั่วโมง';
+
+  @override
+  String get deleteGroup => 'ลบกลุ่ม';
+
+  @override
+  String get deleteGroupHint => 'สำหรับทุกคน · สมาชิกคนไหนก็กู้คืนได้';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return 'ลบ “$name” ไหม';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      'ลบสำหรับทุกคน สมาชิกคนไหนก็กู้คืนได้จาก การตั้งค่า → กลุ่มที่ลบ';
+
+  @override
+  String groupDeletedName(String name) {
+    return 'ลบ “$name” แล้ว';
+  }
+
+  @override
+  String get groupDeletedBanner => 'กลุ่มนี้ถูกลบแล้ว';
+
+  @override
+  String get groupRestored => 'กู้คืนกลุ่มแล้ว';
+
+  @override
+  String get deleteFriend => 'ลบเพื่อน';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return 'ลบ $name ไหม';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return 'ค่าใช้จ่ายนอกกลุ่มของคุณกับ $name จะถูกลบสำหรับทั้งสองคน กลุ่มที่ใช้ร่วมกันยังอยู่ คุณกู้คืนได้จาก การตั้งค่า → กลุ่มที่ลบ หรือเพิ่ม $name อีกครั้ง';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return 'ลบ $name แล้ว';
+  }
+
+  @override
+  String get block => 'บล็อก';
+
+  @override
+  String blockTitle(String name) {
+    return 'บล็อก $name ไหม';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name จะเพิ่มคุณเป็นเพื่อนหรือส่งการเตือนไม่ได้ และการเปลี่ยนแปลงของ $name จะไม่แจ้งเตือนหรือส่งอีเมลถึงคุณ กลุ่มที่ใช้ร่วมกันและยอดคงเหลือยังอยู่';
+  }
+
+  @override
+  String blockedName(String name) {
+    return 'บล็อก $name แล้ว';
+  }
+
+  @override
+  String get report => 'รายงาน…';
+
+  @override
+  String get reportSubject => 'รายงานจาก Evensies';
+
+  @override
+  String reportBody(String userId) {
+    return 'รหัสผู้ใช้: $userId\n\nเกิดอะไรขึ้น:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'เชิญทางอีเมล…';
+
+  @override
+  String get inviteEmailField => 'อีเมล (ไม่บังคับ)';
+
+  @override
+  String get inviteEmailHelp =>
+      'เราจะส่งลิงก์คำเชิญไปทางอีเมล ใช้เฉพาะคำเชิญนี้';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return 'เชิญ $name ทางอีเมล';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return 'ส่งคำเชิญไปที่ $email แล้ว';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'เพิ่มสมาชิกแล้ว การเชิญทางอีเมลต้องเชื่อมต่ออินเทอร์เน็ต — ลองอีกครั้งจากรายชื่อสมาชิก';
+
+  @override
+  String get inviteEmailOffline => 'ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อเชิญทางอีเมล';
+
+  @override
+  String get inviteEmailLimit => 'ส่งอีเมลครบจำนวนของวันนี้แล้ว — แชร์ลิงก์แทน';
+
+  @override
+  String emailReminder(String choice) {
+    return 'เตือนทางอีเมล: $choice';
+  }
+
+  @override
+  String get remindNever => 'ไม่เตือน';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ก่อน $count วัน',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi => 'อินเดีย: Paytm, PhonePe, Google Pay และแอป UPI อื่นๆ';
+
+  @override
+  String get fieldUpi => 'UPI ID';
+
+  @override
+  String get fieldUpiHint => 'เช่น name@okicici';
+
+  @override
+  String get fieldUpiName => 'ชื่อ (ไม่บังคับ)';
+
+  @override
+  String get fieldUpiNameHint => 'แสดงให้คนที่จ่ายเงินให้คุณเห็น';
+
+  @override
+  String get methodErrorUpi => 'กรอก UPI ID แบบ name@bank';
+
+  @override
+  String get noUpiApp => 'ไม่พบแอป UPI คัดลอก UPI ID และจำนวนเงินแทน';
+
+  @override
+  String get upiIdLabel => 'UPI ID';
+
+  @override
+  String get copyUpiId => 'คัดลอก UPI ID';
+
+  @override
+  String get upiIdCopied => 'คัดลอก UPI ID แล้ว';
+
+  @override
+  String get dashboard => 'แดชบอร์ด';
+
+  @override
+  String get allExpenses => 'รายจ่ายทั้งหมด';
+
+  @override
+  String get groupBalances => 'ยอดคงเหลือของกลุ่ม';
+
+  @override
+  String get yourBalance => 'ยอดของคุณ';
+
+  @override
+  String get dashboardOwesYou => 'ค้างจ่ายคุณ';
+
+  @override
+  String get dashboardYouOwe => 'คุณค้างจ่าย';
+
+  @override
+  String get historyAndComments => 'ประวัติและความคิดเห็น';
+
+  @override
+  String get showEarlier => 'แสดงก่อนหน้า';
+
+  @override
+  String get settleUpFirst => 'ชำระหนี้ก่อน';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'คุณลบ $name ออกจากเพื่อนได้เมื่อชำระค่าใช้จ่ายนอกกลุ่มครบแล้ว';
+  }
+
+  @override
+  String get noMailApp =>
+      'ไม่พบแอปอีเมล คัดลอกรายละเอียดด้านล่างแล้วส่งจากแอปอีเมลใดก็ได้';
+
+  @override
+  String get copyAddress => 'คัดลอกที่อยู่';
+
+  @override
+  String get copyMessage => 'คัดลอกข้อความ';
+
+  @override
+  String get browserNoStorage =>
+      'เบราว์เซอร์นี้เก็บข้อมูลของ Evensies ไม่ได้ ลองใช้เบราว์เซอร์อื่น หรือหน้าต่างที่ไม่ใช่โหมดส่วนตัว';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies เปิดอยู่แล้วในอีกแท็บของเบราว์เซอร์นี้ ใช้แท็บนั้น หรือปิดแท็บนั้นแล้วโหลดแท็บนี้ใหม่';
 }

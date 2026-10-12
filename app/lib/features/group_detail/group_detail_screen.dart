@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/cover.dart';
 import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
+import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../data/fx_rates.dart';
 import '../../domain/fx.dart';
@@ -15,6 +18,7 @@ import '../activity/activity_screen.dart';
 import '../categories/category_ui.dart';
 import '../friends/friend_screen.dart';
 import '../friends/home_data.dart';
+import '../groups/wide_layout.dart' show isWide;
 import 'balances.dart';
 import 'convert_sheet.dart';
 
@@ -48,16 +52,58 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final group = async.value;
     if (group == null && async.hasValue) return const _Gone();
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    // A friend group is a person (docs/API.md 친구): links and pushes to it land on the friend's page.
-    if (group.kind == 'friend') return _FriendGroup(groupId: groupId);
+    // A friend group is a person (docs/API.md 친구): links and pushes to it land on the friend's page. A deleted one
+    // is on no friend page any more: its banner and Restore only.
+    if (group.kind == 'friend') {
+      return group.deleted ? _DeletedFriendGroup(group: group) : _FriendGroup(groupId: groupId);
+    }
     final l = context.l;
+    final cs = Theme.of(context).colorScheme;
+    // The header (docs/API.md 그룹 표지): the cover under a scrim, or the type's band.
+    final photo = group.coverImageId != null &&
+        ref.watch(coverProvider((groupId: groupId, coverId: group.coverImageId!))).valueOrNull != null;
+    // On the dark scrim: the theme's light surface colour (light mode) or its light text colour (dark mode).
+    final onHeader = photo
+        ? (cs.brightness == Brightness.dark ? cs.onSurface : cs.surface)
+        : groupTypeColors(cs, group.type).$2;
+    // The status bar over it: light icons on the scrim, else whatever reads on the band's colour.
+    final header = photo ? Brightness.dark : ThemeData.estimateBrightnessForColor(groupTypeColors(cs, group.type).$1);
     return DefaultTabController(
       key: ValueKey(tab), // a new ?tab= on the same page re-selects the tab
       length: 3,
       initialIndex: tab == 'activity' ? 2 : 0,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(group.name),
+          // Wide web layout: the sidebar is the way back.
+          automaticallyImplyLeading: !isWide(context),
+          // The band's type icon sits by the name, clear of the buttons.
+          title: photo
+              ? Text(group.name)
+              : Row(children: [
+                  Icon(groupTypeIcon(group.type), key: const Key('header-type-icon')),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(group.name)),
+                ]),
+          toolbarHeight: kToolbarHeight + 24,
+          foregroundColor: onHeader,
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarBrightness: header, // iOS
+            statusBarIconBrightness: header == Brightness.dark ? Brightness.light : Brightness.dark, // Android
+          ),
+          flexibleSpace: Stack(fit: StackFit.expand, children: [
+            GroupCover(groupId: groupId, type: group.type, coverImageId: group.coverImageId),
+            if (photo)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [cs.scrim.withValues(alpha: 0.35), cs.scrim.withValues(alpha: 0.7)],
+                  ),
+                ),
+              ),
+          ]),
           actions: [
             IconButton(
               tooltip: l.search,
@@ -81,7 +127,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ),
           ],
           // The largest text sizes: tabs that scroll, not labels clipped to "Expe".
-          bottom: TabBar(isScrollable: MediaQuery.textScalerOf(context).scale(1) > 2, tabs: [
+          bottom: TabBar(
+              isScrollable: MediaQuery.textScalerOf(context).scale(1) > 2,
+              labelColor: onHeader,
+              unselectedLabelColor: onHeader.withValues(alpha: 0.75),
+              indicatorColor: onHeader,
+              dividerColor: Colors.transparent,
+              tabs: [
             Tab(text: l.expenses),
             Tab(text: l.balances),
             Tab(
@@ -96,6 +148,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           ]),
         ),
         body: Column(children: [
+          if (group.deleted) DeletedGroupBanner(groupId: groupId),
           const OfflineBanner(),
           Expanded(
             child: TabBarView(children: [
@@ -105,14 +158,54 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ]),
           ),
         ]),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push('/groups/$groupId/expenses/new'),
-          icon: const Icon(Icons.add),
-          label: Text(l.expenseFab),
-        ),
+        // Wide web layout: the sidebar's Add expense adds to this group.
+        floatingActionButton: isWide(context)
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: () => context.push('/groups/$groupId/expenses/new'),
+                icon: const Icon(Icons.add),
+                label: Text(l.expenseFab),
+              ),
       ),
     );
   }
+}
+
+/// "This group is deleted · Restore" on a deleted group's pages (docs/API.md 그룹 삭제).
+class DeletedGroupBanner extends ConsumerWidget {
+  final String groupId;
+  const DeletedGroupBanner({super.key, required this.groupId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final l = context.l;
+    return MaterialBanner(
+      key: const Key('deleted-banner'),
+      backgroundColor: cs.errorContainer,
+      leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
+      content: Text(keepAll(l.groupDeletedBanner, l.localeName), style: TextStyle(color: cs.onErrorContainer)),
+      actions: [
+        FilledButton(
+          key: const Key('restore-group'),
+          onPressed: () async {
+            await ref.read(localWritesProvider).restoreGroup(groupId);
+            if (context.mounted) showInfo(context, l.groupRestored);
+          },
+          child: Text(l.restore),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeletedFriendGroup extends StatelessWidget {
+  final GroupRow group;
+  const _DeletedFriendGroup({required this.group});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(context.l.nonGroup)),
+        body: Column(children: [DeletedGroupBanner(groupId: group.id)]),
+      );
 }
 
 class _FriendGroup extends ConsumerWidget {
@@ -201,8 +294,11 @@ class _ExpensesTab extends ConsumerWidget {
               Icon(Icons.receipt_long_outlined, size: 64, color: cs.primary),
               const SizedBox(height: 16),
               Text(context.l.noExpensesYet, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(context.l.tapExpenseToAdd, style: TextStyle(color: cs.onSurfaceVariant)),
+              // The wide web layout has no "Expense" button here: the sidebar's Add expense is the one.
+              if (!isWide(context)) ...[
+                const SizedBox(height: 4),
+                Text(context.l.tapExpenseToAdd, style: TextStyle(color: cs.onSurfaceVariant)),
+              ],
             ]),
           ),
         ]),

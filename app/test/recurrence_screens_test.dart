@@ -11,6 +11,8 @@ import 'package:intl/intl.dart';
 import 'package:evensies/core/env.dart';
 import 'package:evensies/core/ids.dart';
 import 'package:evensies/core/money.dart';
+import 'package:evensies/data/api/dto.dart' show ServerInfo;
+import 'package:evensies/features/auth/auth_service.dart' show infoProvider;
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/local_writes.dart' show templateOf;
 import 'package:evensies/data/receipts.dart';
@@ -56,7 +58,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Flat', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm2', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Flat', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm2', simplifyDebts: true));
     // Rent, monthly since 1 Sep: the first expense, the server's repeat on 1 Oct, and Gym outside any series.
     await GroupStateStore(db).save(
       'g1',
@@ -75,13 +77,15 @@ void main() {
   });
   tearDown(() => db.close());
 
-  Widget app(String location) => ProviderScope(
+  /// [email]: the server sends email (Phase 10 `GET /info` emailLogin).
+  Widget app(String location, {bool email = false}) => ProviderScope(
         overrides: [
           dbProvider.overrideWithValue(db),
           syncProvider.overrideWithValue(NoSync(db)),
           apiProvider.overrideWithValue(FakeApi(db)),
           sharedPreferencesProvider.overrideWithValue(prefs),
           receiptFileProvider.overrideWith((ref, k) async => null),
+          infoProvider.overrideWithValue(ServerInfo(emailLogin: email)),
         ],
         child: MaterialApp.router(
           routerConfig: GoRouter(initialLocation: location, routes: [
@@ -200,6 +204,61 @@ void main() {
     await t.tap(find.widgetWithText(FilledButton, 'Save'));
     await settle(t);
   }
+
+  group('email reminder before a repeat (Phase 10)', () {
+    Future<void> remind(WidgetTester t, String label) async {
+      await t.tap(find.byKey(const Key('remind')));
+      await t.pumpAndSettle();
+      await t.tap(find.widgetWithText(MenuItemButton, label));
+      await t.pumpAndSettle();
+    }
+
+    testWidgets('a new repeating expense sends remindDaysBefore with recurrence.created', (t) async {
+      tall(t);
+      await t.pumpWidget(app('/groups/g1/expenses/new', email: true));
+      await settle(t);
+      expect(find.byKey(const Key('remind')), findsNothing); // only with a schedule
+      await pick(t, 'Every month');
+      expect(find.text('Email a reminder: Never'), findsOneWidget);
+      await remind(t, '3 days before');
+      expect(find.text('Email a reminder: 3 days before'), findsOneWidget);
+      await t.enterText(find.byKey(const Key('amount')), '1200');
+      await t.enterText(find.byKey(const Key('description')), 'Rent');
+      await save(t);
+      final out = await outbox(t);
+      expect(out.map((o) => o.$1), ['recurrence.created', 'expense.created']);
+      expect(out[0].$2['remindDaysBefore'], 3);
+      await unmount(t);
+    });
+
+    testWidgets('hidden when the server sends no email; Never sends no key', (t) async {
+      tall(t);
+      await t.pumpWidget(app('/groups/g1/expenses/new'));
+      await settle(t);
+      await pick(t, 'Every month');
+      expect(find.byKey(const Key('remind')), findsNothing);
+      await t.enterText(find.byKey(const Key('amount')), '1200');
+      await t.enterText(find.byKey(const Key('description')), 'Rent');
+      await save(t);
+      expect((await outbox(t)).first.$2.containsKey('remindDaysBefore'), isFalse);
+      await unmount(t);
+    });
+
+    testWidgets('on the latest repeat a changed reminder goes with recurrence.updated, next to fields', (t) async {
+      tall(t);
+      await t.pumpWidget(app('/groups/g1/expenses/x1/edit', email: true));
+      await settle(t);
+      await remind(t, '7 days before');
+      await t.tap(find.byKey(const Key('repeat-future'))); // unticked: only this one, but the reminder is the series'
+      await t.pumpAndSettle();
+      await save(t);
+      final out = await outbox(t);
+      expect(out.map((o) => o.$1), ['recurrence.updated']);
+      expect(out.single.$2, {'recurrenceId': 'r1', 'fields': <String, dynamic>{}, 'remindDaysBefore': 7});
+      expect((await t.runAsync(() => db.select(db.recurrences).getSingle()))!.remindDaysBefore, 7);
+      await unmount(t);
+    });
+  });
 
   group('expense form', () {
     testWidgets('a new expense: Repeat → Every month shows the next date and saves a series with its first expense',

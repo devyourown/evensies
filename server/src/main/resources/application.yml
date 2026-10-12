@@ -28,6 +28,10 @@ management:
     web:
       exposure:
         include: health
+  health:
+    # Phase 10: an SMTP relay that is slow or down must not make the server look unhealthy (email is optional).
+    mail:
+      enabled: false
 
 evensies:
   jwt-secret: ${EVENSIES_JWT_SECRET:}
@@ -49,3 +53,15 @@ evensies:
   fx:
     # Frankfurter v2 shape ({url}/rates?base=EUR&date=); empty turns automatic rates off.
     url: ${EVENSIES_FX_URL:https://api.frankfurter.dev/v2}
+  # Help & feedback and Report in the app; empty = GitHub issues only.
+  support-email: ${EVENSIES_SUPPORT_EMAIL:}
+  # Email (Phase 10): an empty host turns every email feature off. Any SMTP relay; the password is a secret (.env only).
+  email:
+    smtp-host: ${EVENSIES_SMTP_HOST:}
+    smtp-port: ${EVENSIES_SMTP_PORT:587}
+    smtp-user: ${EVENSIES_SMTP_USER:}
+    smtp-password: ${EVENSIES_SMTP_PASSWORD:}
+    smtp-tls: ${EVENSIES_SMTP_TLS:starttls}
+    from: "${EVENSIES_EMAIL_FROM:Evensies <no-reply@localhost>}"
+    daily-limit: ${EVENSIES_EMAIL_DAILY_LIMIT:0}
+    webhook-secret: ${EVENSIES_EMAIL_WEBHOOK_SECRET:}

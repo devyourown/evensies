@@ -3,6 +3,7 @@ package dev.nariinfo.evensies.auth
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.AppProperties
 import dev.nariinfo.evensies.config.userId
+import dev.nariinfo.evensies.email.Mailer
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.Authentication
@@ -19,8 +20,14 @@ import tools.jackson.databind.JsonNode
 /** [displayName]: Apple sends the user's name only once, outside the id token, so the app forwards it. */
 data class IdTokenRequest(val idToken: String, val displayName: String? = null)
 data class RefreshRequest(val refreshToken: String)
-data class DeviceRequest(val deviceId: String, val fcmToken: String)
-data class ServerInfo(val appleServicesId: String?, val googleWebClientId: String?, val devLogin: Boolean)
+/** [notificationsAllowed] (Phase 10): whether the OS lets this device show notifications; missing = true. */
+data class DeviceRequest(val deviceId: String, val fcmToken: String, val notificationsAllowed: Boolean = true)
+
+/** Phase 10 adds which sign-ins this server offers and the operator's contact address (null = none). */
+data class ServerInfo(
+    val appleServicesId: String?, val googleWebClientId: String?, val devLogin: Boolean,
+    val emailLogin: Boolean, val appleLogin: Boolean, val googleLogin: Boolean, val supportEmail: String?,
+)
 
 @RestController
 class AuthController(
@@ -29,14 +36,15 @@ class AuthController(
     private val props: AppProperties,
     @Qualifier("appleVerifier") private val apple: IdTokenVerifier,
     @Qualifier("googleVerifier") private val google: IdTokenVerifier,
+    private val mailer: Mailer,
 ) {
     @PostMapping("/auth/apple")
     fun apple(@RequestBody req: IdTokenRequest): AuthResponse =
-        apple.verify(req.idToken).let { auth.login("apple", it.subject, it.displayName.ifBlank { req.displayName.orEmpty() }) }
+        apple.verify(req.idToken).let { auth.login("apple", it.subject, it.displayName.ifBlank { req.displayName.orEmpty() }, it.email) }
 
     @PostMapping("/auth/google")
     fun google(@RequestBody req: IdTokenRequest): AuthResponse =
-        google.verify(req.idToken).let { auth.login("google", it.subject, it.displayName.ifBlank { req.displayName.orEmpty() }) }
+        google.verify(req.idToken).let { auth.login("google", it.subject, it.displayName.ifBlank { req.displayName.orEmpty() }, it.email) }
 
     @PostMapping("/auth/refresh")
     fun refresh(@RequestBody req: RefreshRequest): TokenPair = auth.refresh(req.refreshToken)
@@ -59,7 +67,11 @@ class AuthController(
 
     /** Public (docs/API.md "인증"): which sign-in buttons a prebuilt web app shows on this server. */
     @GetMapping("/info")
-    fun info() = ServerInfo(props.auth.appleServicesId.trim().ifEmpty { null }, props.auth.googleWebClientId.trim().ifEmpty { null }, props.auth.devLogin)
+    fun info() = ServerInfo(
+        props.auth.appleServicesId.trim().ifEmpty { null }, props.auth.googleWebClientId.trim().ifEmpty { null }, props.auth.devLogin,
+        emailLogin = mailer.enabled, appleLogin = apple.audiences.isNotEmpty(), googleLogin = google.audiences.isNotEmpty(),
+        supportEmail = props.supportEmail.trim().ifEmpty { null },
+    )
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -68,7 +80,12 @@ class AuthController(
     @PostMapping("/devices")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun device(authentication: Authentication, @RequestBody req: DeviceRequest) =
-        devices.upsert(req.deviceId, authentication.userId, req.fcmToken)
+        devices.upsert(req.deviceId, authentication.userId, req.fcmToken, req.notificationsAllowed)
+
+    /** Sign out on all devices (Phase 10). */
+    @PostMapping("/me/logout-all")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun logoutAll(authentication: Authentication) = auth.logoutAll(authentication.userId)
 
     /** Sign-out: this phone stops getting the user's pushes. 204 also when the row is gone already. */
     @DeleteMapping("/devices/{deviceId}")

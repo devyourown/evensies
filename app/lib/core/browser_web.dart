@@ -1,5 +1,9 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
+
+import 'package:drift/drift.dart' show DatabaseConnection, QueryExecutor;
+import 'package:drift/wasm.dart';
 
 @JS('open')
 external _Window? _open(String url, String target);
@@ -12,6 +16,24 @@ external String _createObjectUrl(_Blob blob);
 
 @JS('URL.revokeObjectURL')
 external void _revokeObjectUrl(String url);
+
+@JS('navigator.locks')
+external _LockManager? get _locks;
+
+@JS('SharedWorker')
+external JSAny? get _sharedWorker;
+
+/// False in a browser without shared workers at all: drift then keeps the database on each tab itself
+/// (`unsafeIndexedDb`, AppDatabase.openChecked).
+bool get hasSharedWorkers => _sharedWorker != null;
+
+extension type _LockManager._(JSObject _) implements JSObject {
+  external JSPromise<JSAny?> request(String name, _LockOptions options, JSFunction callback);
+}
+
+extension type _LockOptions._(JSObject _) implements JSObject {
+  external factory _LockOptions({bool ifAvailable});
+}
 
 @JS('Blob')
 extension type _Blob._(JSObject _) implements JSObject {
@@ -66,4 +88,26 @@ void downloadFile(Uint8List bytes, String fileName, String mime) {
   a.remove();
   // Not at once: some browsers start reading the blob only after click() returns.
   Future<void>.delayed(const Duration(minutes: 1), () => _revokeObjectUrl(url));
+}
+
+/// The app database in IndexedDB on this tab, without drift's shared worker (`unsafeIndexedDb`): for a browser where
+/// that worker can't start (AppDatabase.openChecked).
+QueryExecutor tabDatabase(String name, Uri sqlite3, Uri worker) => DatabaseConnection.delayed(Future(() async {
+      final probe = await WasmDatabase.probe(sqlite3Uri: sqlite3, driftWorkerUri: worker, databaseName: name);
+      return probe.open(WasmStorageImplementation.unsafeIndexedDb, name);
+    }));
+
+/// Takes the Web Lock [name] for as long as this tab lives; false when another tab of this browser has it. A browser
+/// without Web Locks: true (nothing to share it with).
+Future<bool> holdTabLock(String name) {
+  final locks = _locks;
+  if (locks == null) return Future.value(true);
+  final got = Completer<bool>();
+  JSAny? held(JSAny? lock) {
+    got.complete(lock != null);
+    return lock == null ? null : Completer<void>().future.toJS; // never settles: kept until the tab closes
+  }
+
+  locks.request(name, _LockOptions(ifAvailable: true), held.toJS).toDart.ignore();
+  return got.future;
 }

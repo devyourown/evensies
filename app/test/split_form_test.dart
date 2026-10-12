@@ -39,7 +39,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
     await db.upsertGroup(
-      const GroupRow(kind: 'group', 
+      const GroupRow(kind: 'group', type: 'other', deleted: false, 
         id: 'g1',
         name: 'Trip',
         defaultCurrency: 'EUR',

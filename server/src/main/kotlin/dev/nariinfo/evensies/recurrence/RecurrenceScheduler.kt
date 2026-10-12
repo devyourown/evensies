@@ -58,8 +58,13 @@ class RecurrenceScheduler(
 
     /** Adds every repeat due at [now] (downtime is caught up in order); returns how many were stored. */
     fun runDue(now: Instant): Int {
-        val due = jdbc.sql("SELECT id FROM recurrences WHERE deleted_at IS NULL AND next_due_at <= :now ORDER BY next_due_at LIMIT 200")
-            .param("now", now.atOffset(ZoneOffset.UTC)).query(UUID::class.java).list().filterNotNull()
+        // Phase 10: a deleted group's series wait; its restore moves them past the deleted period (GroupStateStore).
+        val due = jdbc.sql(
+            """
+            SELECT r.id FROM recurrences r JOIN groups g ON g.id = r.group_id AND g.deleted_at IS NULL
+            WHERE r.deleted_at IS NULL AND r.next_due_at <= :now ORDER BY r.next_due_at LIMIT 200
+            """
+        ).param("now", now.atOffset(ZoneOffset.UTC)).query(UUID::class.java).list().filterNotNull()
         var stored = 0
         for (id in due) {
             while (true) stored += postNext(id, now) ?: break
@@ -81,7 +86,7 @@ class RecurrenceScheduler(
         val rates = if (needsRate(seen)) fx.rates(date) else null
         val stored: List<Event> = try {
             tx.execute {
-                val group = groups.lockForUpdate(seen.groupId) ?: return@execute null
+                val group = groups.lockForUpdate(seen.groupId)?.takeUnless { it.deleted } ?: return@execute null
                 val r = find(id)?.takeIf { !it.deleted && it.dueAt <= now && it.n == seen.n } ?: return@execute null
                 val oid = derivedId(id, r.n)
                 val payload = r.template.deepCopy().put("expenseId", oid.toString()).put("date", date.toString())

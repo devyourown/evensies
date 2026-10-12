@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/cover.dart';
 import '../../core/l10n.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
@@ -13,6 +14,7 @@ import '../../providers.dart';
 import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
 import 'create_group_dialog.dart';
+import 'wide_layout.dart';
 
 /// Home (route `/`, `/?tab=friends`): Groups and Friends tabs, each with the overall card, the filter chips and a
 /// closed "Settled up (n)" section (docs/API.md 개요 화면).
@@ -38,6 +40,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A wide web window lists the groups and friends in its left column: the middle shows the dashboard.
+    if (isWide(context)) return const WideDashboard();
     final data = ref.watch(homeDataProvider).value;
     final rows = ref.watch(groupsProvider).value ?? const <GroupRow>[];
     final unread = ref.watch(unreadProvider)?.total ?? 0;
@@ -149,6 +153,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   Widget _groupsTab(HomeData? data, List<GroupRow> rows) {
     final groups = rows.where((g) => g.kind != 'friend').toList();
+    // A fresh sign-in: the groups are on their way, not missing.
+    if (groups.isEmpty && ref.watch(firstLoadProvider)) return const Center(child: CircularProgressIndicator());
     if (groups.isEmpty) {
       return ListView(children: [
         if (data != null && data.people.isNotEmpty) Padding(padding: const EdgeInsets.all(16), child: OverallCard(data: data)),
@@ -189,7 +195,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   Widget _friendsTab(HomeData? data) {
     final cs = Theme.of(context).colorScheme;
-    if (data == null) return const Center(child: CircularProgressIndicator());
+    if (data == null || (data.people.isEmpty && ref.watch(firstLoadProvider))) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (data.people.isEmpty) {
       return ListView(children: [
         Padding(
@@ -382,7 +390,7 @@ class _GroupCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: CircleAvatar(child: Text(group.name.isEmpty ? '?' : group.name.characters.first.toUpperCase())),
+        leading: GroupCover(groupId: group.id, type: group.type, coverImageId: group.coverImageId, size: 48),
         title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text.rich(TextSpan(children: [
           TextSpan(text: '${l.memberCount(memberCount)} · '),

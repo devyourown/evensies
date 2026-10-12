@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/api/dto.dart';
 import '../data/local_writes.dart' show LeaveException, MoveException;
@@ -32,6 +33,57 @@ Future<void> shareText(BuildContext context, String text) async {
   }
   await Clipboard.setData(ClipboardData(text: text));
   if (context.mounted) showInfo(context, context.l.copiedToClipboard);
+}
+
+/// An email to [to] in the mail app; with none (a simulator, a browser without a mail handler), a sheet with the
+/// address and [body] to copy instead, like the UPI sheet's.
+Future<void> openMail(BuildContext context, String to, {String? subject, String? body}) async {
+  final query = [
+    // Spaces as %20, not +: mail apps show a + literally.
+    if (subject != null) 'subject=${Uri.encodeComponent(subject)}',
+    if (body != null) 'body=${Uri.encodeComponent(body)}',
+  ];
+  final ok = await launchUrl(Uri(scheme: 'mailto', path: to, query: query.isEmpty ? null : query.join('&')))
+      .catchError((_) => false);
+  if (ok || !context.mounted) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) {
+      final l = ctx.l;
+      final text = Theme.of(ctx).textTheme;
+      Widget copy(Key key, String label, String value) => OutlinedButton.icon(
+            key: key,
+            icon: const Icon(Icons.copy, size: 18),
+            label: Text(label),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: value));
+              if (ctx.mounted) showInfo(ctx, l.copiedToClipboard);
+            },
+          );
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(keepAll(l.noMailApp, l.localeName),
+                key: const Key('no-mail-app'),
+                style: text.bodyMedium?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            SelectableText(to, style: text.titleMedium),
+            const SizedBox(height: 8),
+            copy(const Key('copy-mail-address'), l.copyAddress, to),
+            if (body != null) ...[
+              const SizedBox(height: 16),
+              SelectableText([?subject, body.trim()].join('\n\n')),
+              const SizedBox(height: 8),
+              copy(const Key('copy-mail-body'), l.copyMessage, body),
+            ],
+          ]),
+        ),
+      );
+    },
+  );
 }
 
 String errorText(AppLocalizations l, Object e) => switch (e) {
@@ -68,5 +120,11 @@ String errorForCode(AppLocalizations l, String code) => switch (code) {
       'IMPORT_FAILED' => l.errorImportFailed,
       'AUTH_NOT_CONFIGURED' => l.errorAuthNotConfigured,
       'DUPLICATE' => l.errorDuplicate,
+      'CODE_INVALID' => l.errorCodeInvalid,
+      'EMAIL_NOT_CONFIGURED' => l.errorEmailNotConfigured,
+      'EMAIL_REJECTED' => l.errorEmailRejected,
+      'EMAIL_TAKEN' => l.errorEmailTaken,
+      'EMAIL_REQUIRED' => l.errorEmailRequired,
+      'EMAIL_UNAVAILABLE' => l.errorEmailUnavailable,
       _ => l.errorGeneric(code),
     };

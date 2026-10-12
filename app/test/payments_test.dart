@@ -36,7 +36,7 @@ void main() {
     prefs = await SharedPreferences.getInstance();
     await db.saveSession(const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna'));
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await GroupStateStore(db).save(
         'g1',
         const GroupState(name: 'Rome', defaultCurrency: 'EUR', members: [

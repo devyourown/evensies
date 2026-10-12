@@ -15,23 +15,53 @@ class UserDto {
 
   /// The language the server writes to this user in (push, reminders); null = English or a server before Phase 9.
   final String? language;
-  const UserDto({required this.id, required this.displayName, this.homeCurrency, this.language});
+
+  /// The verified account email (Phase 10; never shown to other members), and whether mail to it bounces.
+  final String? email;
+  final bool emailBounced;
+  const UserDto(
+      {required this.id,
+      required this.displayName,
+      this.homeCurrency,
+      this.language,
+      this.email,
+      this.emailBounced = false});
   factory UserDto.fromJson(Map<String, dynamic> j) => UserDto(
       id: j['id'] as String,
       displayName: j['displayName'] as String,
       homeCurrency: j['homeCurrency'] as String?,
-      language: j['language'] as String?);
+      language: j['language'] as String?,
+      email: j['email'] as String?,
+      emailBounced: j['emailBounced'] == true);
 }
 
-/// `GET /info` (docs/API.md 9단계): the web app's sign-in buttons. Unknown keys (Phase 10) are ignored.
+/// `GET /info` (docs/API.md 9단계, 10단계): the sign-in buttons and whether this server sends email. Offline or a
+/// server before Phase 10: [fallback] (no email, Apple and Google as built in).
 class ServerInfo {
   final String? appleServicesId, googleWebClientId;
   final bool devLogin;
-  const ServerInfo({this.appleServicesId, this.googleWebClientId, this.devLogin = false});
+  final bool emailLogin, appleLogin, googleLogin;
+
+  /// The operator's contact address (Help & feedback, Report); null when not set.
+  final String? supportEmail;
+  const ServerInfo({
+    this.appleServicesId,
+    this.googleWebClientId,
+    this.devLogin = false,
+    this.emailLogin = false,
+    this.appleLogin = true,
+    this.googleLogin = true,
+    this.supportEmail,
+  });
+  static const fallback = ServerInfo();
   factory ServerInfo.fromJson(Map<String, dynamic> j) => ServerInfo(
       appleServicesId: j['appleServicesId'] as String?,
       googleWebClientId: j['googleWebClientId'] as String?,
-      devLogin: j['devLogin'] == true);
+      devLogin: j['devLogin'] == true,
+      emailLogin: j['emailLogin'] == true,
+      appleLogin: j['appleLogin'] != false,
+      googleLogin: j['googleLogin'] != false,
+      supportEmail: switch (j['supportEmail']) { final String s when s.isNotEmpty => s, _ => null });
 }
 
 /// `GET /fx` (docs/API.md 환율): [rates] = units per 1 EUR; [date] = the latest quote date in it.
@@ -74,6 +104,11 @@ class GroupDto {
 
   /// `group` or `friend` (Phase 6); a server before it leaves the key out.
   final String kind;
+
+  /// Phase 10: the group type, the cover photo id and deleted for everyone (defaults for an older server).
+  final String type;
+  final String? coverImageId;
+  final bool deleted;
   const GroupDto({
     required this.id,
     required this.name,
@@ -85,6 +120,9 @@ class GroupDto {
     this.simplifyDebts = true,
     this.defaultSplit,
     this.kind = 'group',
+    this.type = 'other',
+    this.coverImageId,
+    this.deleted = false,
   });
 
   /// `simplifyDebts`/`defaultSplit` default to true/null when a server before Phase 3 leaves them out.
@@ -99,6 +137,9 @@ class GroupDto {
         simplifyDebts: j['simplifyDebts'] as bool? ?? true,
         defaultSplit: SplitSpec.fromJson(j['defaultSplit']),
         kind: j['kind'] as String? ?? 'group',
+        type: j['type'] as String? ?? 'other',
+        coverImageId: j['coverImageId'] as String?,
+        deleted: j['deleted'] == true,
       );
 }
 

@@ -5,6 +5,7 @@ import dev.nariinfo.evensies.activity.Activity.withoutDeletedComments
 import dev.nariinfo.evensies.activity.ActivityItem
 import dev.nariinfo.evensies.activity.ActivityText
 import dev.nariinfo.evensies.activity.UnreadActivity
+import dev.nariinfo.evensies.auth.BlockRepository
 import dev.nariinfo.evensies.auth.DeviceRepository
 import dev.nariinfo.evensies.auth.UserRepository
 import dev.nariinfo.evensies.config.AppProperties
@@ -42,6 +43,7 @@ class PushNotifier(
     private val devices: DeviceRepository,
     private val users: UserRepository,
     private val prefs: NotificationPrefsRepository,
+    private val blocks: BlockRepository,
     private val stateStore: GroupStateStore,
     private val unread: UnreadActivity,
     props: AppProperties,
@@ -71,12 +73,17 @@ class PushNotifier(
             if (tokens.isEmpty()) continue
             val me = m.id.toString()
             val wanted = prefs.get(user)
-            val items = stored.mapNotNull { it.item(me) }.filter { wanted.allows(it.kind) }.withoutDeletedComments(stateStore::deletedComments)
+            // Phase 10: a blocked actor's changes and a deleted group's (but its delete and restore) only sync, never show.
+            val muted = actorUserId != null && blocks.isBlocked(user, actorUserId)
+            val items = if (muted) emptyList() else stored.mapNotNull { it.item(me) }.filter { wanted.allows(it.kind) }.shown(group)
+                .withoutDeletedComments(stateStore::deletedComments)
             val visible = if (items.isNotEmpty() && claimVisible(user to groupId, items)) visible(group, all, m, items, names) else null
             byMessage.getOrPut(visible) { mutableListOf() } += tokens
         }
         for ((v, tokens) in byMessage) send(tokens, v?.title, v?.body, data(group), v?.badge)
     }
+
+    private fun List<ActivityItem>.shown(group: Group) = if (group.deleted) filter { it.kind in DELETION_KINDS } else this
 
     /** The badge and language differ per recipient, so tokens are grouped by the whole visible message. */
     private data class Visible(val title: String, val body: String, val badge: Int)
@@ -84,7 +91,7 @@ class PushNotifier(
     private fun visible(group: Group, all: List<Member>, me: Member, items: List<ActivityItem>, names: Map<String, String>): Visible {
         val title = if (group.kind == "friend") all.firstOrNull { it.id != me.id }?.name ?: group.name else group.name
         val lang = users.find(me.userId!!)?.language ?: "en"
-        return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString(), lang), unread.of(me.userId).total)
+        return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString(), lang, friend = group.kind == "friend"), unread.of(me.userId).total)
     }
 
     /** A reminder (docs/API.md "리마인더") to every device of [toUser]; no badge, data `{type: remind, fromUserId}`. */
@@ -116,10 +123,11 @@ class PushNotifier(
     private fun flush(key: Pair<UUID, UUID>) {
         val (user, groupId) = key
         val slot = slots[key] ?: return
-        val items = slot.pending.toList().withoutDeletedComments(stateStore::deletedComments)
+        val pending = slot.pending.toList()
         slot.pending.clear()
         slot.lastVisible = Instant.now()
         val group = groups.find(groupId) ?: return
+        val items = pending.shown(group).withoutDeletedComments(stateStore::deletedComments)
         val me = members.findByGroupAndUser(groupId, user) ?: return // left the group meanwhile
         val tokens = devices.fcmTokensOfUser(user)
         if (items.isEmpty() || tokens.isEmpty()) return
@@ -138,6 +146,11 @@ class PushNotifier(
 
     /** FCM data values are strings. */
     private fun data(group: Group) = mapOf("type" to "sync", "groupId" to group.id.toString(), "seq" to group.latestSeq.toString())
+
+    companion object {
+        /** What a deleted group still shows (docs/API.md "그룹 삭제"). */
+        val DELETION_KINDS = setOf("group_deleted", "group_restored")
+    }
 
     private fun guarded(id: UUID, block: () -> Unit) {
         try {

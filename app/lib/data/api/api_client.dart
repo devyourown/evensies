@@ -116,6 +116,38 @@ class ApiClient {
   Future<AuthResponse> authDev(String name) => _call(
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
+  // --- email (Phase 10, docs/API.md 이메일): codes, never passwords
+  /// Sends a 6-digit sign-in code to [email] (204 whether or not an account exists).
+  Future<void> emailStart(String email) => _call(
+      () => _dio.post('/auth/email/start', data: {'email': email}, options: Options(extra: {'noAuth': true})), (_) {});
+  Future<AuthResponse> emailVerify(String email, String code) => _call(
+      () => _dio.post('/auth/email/verify',
+          data: {'email': email, 'code': code}, options: Options(extra: {'noAuth': true})),
+      (d) => AuthResponse.fromJson(_map(d)));
+
+  /// Sends a code to [email], the new account address (it is saved once [verifyEmail] gets the code).
+  Future<void> addEmail(String email) => _call(() => _dio.post('/me/email', data: {'email': email}), (_) {});
+  Future<UserDto> verifyEmail(String email, String code) => _call(
+      () => _dio.post('/me/email/verify', data: {'email': email, 'code': code}), (d) => UserDto.fromJson(_map(d)));
+  Future<void> removeEmail() => _call(() => _dio.delete('/me/email'), (_) {});
+
+  /// Signs every device of the account out (their refresh tokens and push registrations go).
+  Future<void> logoutAll() => _call(() => _dio.post('/me/logout-all'), (_) {});
+
+  /// `GET /me/export` as the JSON text the server wrote (docs/API.md AccountExport).
+  Future<String> exportAccount() => _call(
+      () => _dio.get('/me/export', options: Options(responseType: ResponseType.plain)), (d) => d as String);
+
+  // --- blocks (docs/API.md 차단)
+  Future<List<({String userId, String displayName})>> blocks() => _call(
+      () => _dio.get('/me/blocks'),
+      (d) => [
+            for (final b in (d as List).cast<Map>())
+              (userId: b['userId'] as String, displayName: b['displayName'] as String? ?? ''),
+          ]);
+  Future<void> block(String userId) => _call(() => _dio.put('/me/blocks/$userId'), (_) {});
+  Future<void> unblock(String userId) => _call(() => _dio.delete('/me/blocks/$userId'), (_) {});
+
   Future<UserDto> me() => _call(() => _dio.get('/me'), (d) => UserDto.fromJson(_map(d)));
   /// Only the given keys are sent (docs/API.md PATCH /me); at least one is needed. [language] (Phase 9) is sent only
   /// when given, as the code (a server before Phase 9 refuses a body with only it: 400).
@@ -124,23 +156,31 @@ class ApiClient {
           data: {'displayName': ?displayName, 'homeCurrency': ?homeCurrency, 'language': ?language}),
       (d) => UserDto.fromJson(_map(d)));
 
-  /// `GET /info` (no auth): which sign-in buttons this server offers on the web.
-  Future<ServerInfo> info() => _call(
-      () => _dio.get('/info', options: Options(extra: {'noAuth': true})), (d) => ServerInfo.fromJson(_map(d)));
+  /// `GET /info` (no auth) as received: the sign-in buttons and email features this server offers ([ServerInfo]).
+  Future<Map<String, dynamic>> infoJson() =>
+      _call(() => _dio.get('/info', options: Options(extra: {'noAuth': true})), _map);
 
   /// Rates per 1 EUR for [date] (YYYY-MM-DD; null = today). Gives up after 3 s so the form falls back to the cache.
   Future<FxTable> fx([String? date]) => _call(
       () => _dio.get('/fx', queryParameters: {'date': ?date}).timeout(const Duration(seconds: 3)),
       (d) => FxTable.fromJson(_map(d)));
   Future<void> deleteMe() => _call(() => _dio.delete('/me'), (_) {});
-  Future<void> registerDevice(String deviceId, String fcmToken) =>
-      _call(() => _dio.post('/devices', data: {'deviceId': deviceId, 'fcmToken': fcmToken}), (_) {});
+  /// [notificationsAllowed] (Phase 10): whether the OS lets this device show notifications ("auto" email summaries go
+  /// to people whose devices can't).
+  Future<void> registerDevice(String deviceId, String fcmToken, {bool? notificationsAllowed}) => _call(
+      () => _dio.post('/devices',
+          data: {'deviceId': deviceId, 'fcmToken': fcmToken, 'notificationsAllowed': ?notificationsAllowed}),
+      (_) {});
   Future<void> unregisterDevice(String deviceId) => _call(() => _dio.delete('/devices/$deviceId'), (_) {});
 
-  // --- notification prefs: {"expenses","comments","members","reminders"?} → bool (docs/API.md 알림 설정)
-  Map<String, bool> _prefs(dynamic d) => _map(d).cast<String, bool>();
-  Future<Map<String, bool>> getNotificationPrefs() => _call(() => _dio.get('/me/notifications'), _prefs);
-  Future<Map<String, bool>> putNotificationPrefs(Map<String, bool> prefs) =>
+  // --- notification prefs (docs/API.md 알림 설정): {"expenses","comments","members","reminders"?} → bool, and since
+  // Phase 10 "emailDigest" / "emailDigestEffective" → a string. Nulls are dropped.
+  Map<String, Object> _prefs(dynamic d) => {
+        for (final e in _map(d).entries)
+          if (e.value is bool || e.value is String) e.key: e.value as Object,
+      };
+  Future<Map<String, Object>> getNotificationPrefs() => _call(() => _dio.get('/me/notifications'), _prefs);
+  Future<Map<String, Object>> putNotificationPrefs(Map<String, Object> prefs) =>
       _call(() => _dio.put('/me/notifications', data: prefs), _prefs);
 
   // --- activity: newest first; only nextBefore == null means the end (pages can be short or empty).
@@ -228,6 +268,7 @@ class ApiClient {
     required String defaultCurrency,
     required String memberId,
     required String memberName,
+    String? type,
   }) =>
       _call(
           () => _dio.post('/groups', data: {
@@ -236,8 +277,22 @@ class ApiClient {
                 'defaultCurrency': defaultCurrency,
                 'memberId': memberId,
                 'memberName': memberName,
+                'type': ?type,
               }),
           (d) => GroupDto.fromJson(_map(d)));
+
+  /// Emails [memberId] (a placeholder) an invite to the group (204 also when the server skips it silently).
+  Future<void> inviteByEmail(String groupId, String memberId, String email) => _call(
+      () => _dio.post('/groups/$groupId/members/$memberId/invite-email', data: {'email': email}), (_) {});
+
+  /// A new cover (a prepared JPEG): the server stores it and pushes `group.updated {coverImageId}` as me.
+  Future<({String coverImageId, int latestSeq})> putCover(String groupId, Uint8List jpeg) => _call(
+      () => _dio.put('/groups/$groupId/cover',
+          data: FormData.fromMap({'file': MultipartFile.fromBytes(jpeg, filename: 'cover.jpg')})),
+      (d) => (coverImageId: _map(d)['coverImageId'] as String, latestSeq: (_map(d)['latestSeq'] as num).toInt()));
+  Future<Uint8List> cover(String groupId, String coverId) => _call(
+      () => _dio.get('/groups/$groupId/cover/$coverId', options: Options(responseType: ResponseType.bytes)),
+      (d) => Uint8List.fromList(d as List<int>));
   Future<List<GroupSummaryDto>> listGroups() => _call(() => _dio.get('/groups'),
       (d) => (d as List).map((e) => GroupSummaryDto.fromJson(_map(e))).toList());
   Future<GroupDto> getGroup(String id) => _call(() => _dio.get('/groups/$id'), (d) => GroupDto.fromJson(_map(d)));

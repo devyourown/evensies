@@ -32,7 +32,7 @@ class SecurityConfig {
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .headers { it.contentSecurityPolicy { csp -> csp.policyDirectives(CSP) } }
             .authorizeHttpRequests {
-                it.requestMatchers("/auth/**", "/actuator/health", "/j/*", "/f/*", "/", "/app", "/app/**").permitAll()
+                it.requestMatchers("/auth/**", "/actuator/health", "/j/*", "/f/*", "/", "/app", "/app/**", "/email/unsubscribe", "/webhooks/email").permitAll()
                     .requestMatchers(HttpMethod.GET, "/invites/*", "/friend-invites/*", "/info").permitAll()
                     .anyRequest().authenticated()
             }

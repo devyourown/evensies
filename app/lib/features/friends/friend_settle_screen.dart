@@ -177,6 +177,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
                 methods: _methods == null ? null : theirMethods,
                 failed: _methodsFailed,
                 toName: p.name,
+                currency: c,
                 onPay: (m) => payWith(context, m, toName: p.name, amount: -v, currency: c, note: 'Evensies: ${p.name}'),
               ),
             ],

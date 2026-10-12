@@ -28,6 +28,7 @@ import '../../domain/receipt_parser.dart';
 import '../../domain/recurrence.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
+import '../auth/auth_service.dart' show infoProvider;
 import '../../data/local_writes.dart' show MoveException;
 import '../categories/category_ui.dart';
 import '../expense_detail/expense_detail_screen.dart' show DeletedExpenseCard;
@@ -117,6 +118,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// "Also change future repeats" on the latest repeat.
   bool _future = true;
 
+  /// Email a reminder this many days before each repeat (Phase 10, rule 18); null = Never.
+  int? _remind;
+
   /// The rate field was typed in this session (or holds a stored rate): kept when the date changes.
   bool _fxTyped = false;
 
@@ -179,6 +183,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _latest = series == null ? null : state.latestRepeat(series.id);
       _lastPosted = series == null ? 0 : state.lastPosted(series.id);
       _repeat = series?.frequency; // a stopped series starts at Never: picking one starts a new series
+      _remind = series?.remindDaysBefore;
       _future = true;
       _amount.text = inputAmount(e.amount, e.currency);
       _description.text = e.description;
@@ -747,6 +752,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return [
       note(const Key('repeat-next'), Icons.event_repeat,
           l.nextRepeat(nextDay == null ? next.date : DateFormat.yMMMEd().format(nextDay))),
+      // Email a reminder (Phase 10): only when this server sends email.
+      if (ref.watch(infoProvider).emailLogin) _reminderButton(cs, text),
       if (series != null && f == series.frequency)
         CheckboxListTile(
           key: const Key('repeat-future'),
@@ -759,6 +766,33 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           subtitle: Text(_future ? l.futureFields : l.onlyThisOne),
         ),
     ];
+  }
+
+  /// "Email a reminder: Never / 1 day before / 3 days before / 7 days before"; everyone on the expense who has an
+  /// email gets it (docs/API.md 반복 지출 알림).
+  Widget _reminderButton(ColorScheme cs, TextTheme text) {
+    final l = context.l;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: MenuAnchor(
+        menuChildren: [
+          for (final d in const [null, 1, 3, 7])
+            MenuItemButton(
+              key: Key('remind-${d ?? 'never'}'),
+              leadingIcon: d == _remind ? const Icon(Icons.check, size: 18) : const SizedBox(width: 18),
+              onPressed: () => setState(() => _remind = d),
+              child: Text(d == null ? l.remindNever : l.remindDaysBefore(d)),
+            ),
+        ],
+        builder: (context, menu, _) => TextButton.icon(
+          key: const Key('remind'),
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
+          onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+          icon: Icon(_remind == null ? Icons.notifications_none : Icons.notifications_active_outlined, size: 18),
+          label: Text(l.emailReminder(_remind == null ? l.remindNever : l.remindDaysBefore(_remind!))),
+        ),
+      ),
+    );
   }
 
   /// The receipts already on the expense (tap: full screen, remove) and the ones added here (attached on Save; the
@@ -1151,7 +1185,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         await _move(group, old, e);
         return;
       } else if (old == null) {
-        await w.createExpense(group.id, e, repeat: _repeat);
+        await w.createExpense(group.id, e, repeat: _repeat, remindDaysBefore: _repeat == null ? null : _remind);
       } else {
         final money = e.amount != old.amount ||
             e.paidBy != old.paidBy ||
@@ -1196,16 +1230,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Future<void> _saveSeries(String groupId, Expense e, Map<String, dynamic> fields) async {
     final w = ref.read(localWritesProvider);
     final series = _series, f = _repeat;
+    // The reminder belongs to the series: a changed one goes with recurrence.updated (rule 18).
+    final remind = series != null && _isLatest && _remind != series.remindDaysBefore ? (_remind,) : null;
     if (series != null && _isLatest && f == null) {
       await w.stopRecurrence(groupId, series.id);
       await w.updateExpense(groupId, e, fields);
     } else if (f != null && _restarts) {
-      await w.repeatFrom(groupId, e, f, stop: series?.id, fields: fields);
+      await w.repeatFrom(groupId, e, f, stop: series?.id, fields: fields, remindDaysBefore: _remind);
     } else if (series != null && _isLatest && _future) {
       await w.updateExpense(groupId, e, fields);
-      await w.updateRecurrence(groupId, series.id, {...fields}..remove('date'));
+      await w.updateRecurrence(groupId, series.id, {...fields}..remove('date'), remind: remind);
     } else {
       await w.updateExpense(groupId, e, fields);
+      if (remind != null) await w.updateRecurrence(groupId, series!.id, const {}, remind: remind);
     }
   }
 

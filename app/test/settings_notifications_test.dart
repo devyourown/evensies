@@ -86,6 +86,22 @@ void main() {
     await unmount(t);
   });
 
+  testWidgets('offline, then the server answers again (resume, retry): the switches come back without Retry', (t) async {
+    await t.pumpWidget(await app());
+    await settle(t);
+    final sync = ProviderScope.containerOf(t.element(find.byType(SettingsScreen))).read(syncProvider);
+    sync.offline.value = true;
+    await settle(t);
+    expect(find.text('Notification settings need a connection'), findsOneWidget);
+
+    api.prefs = {'expenses': true, 'comments': true, 'members': true};
+    sync.offline.value = false;
+    await settle(t);
+    expect(find.text('Notification settings need a connection'), findsNothing);
+    expect(t.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Comments')).onChanged, isNotNull);
+    await unmount(t);
+  });
+
   testWidgets('home currency: the region\'s until picked, saved with PATCH /me; offline keeps the saved one', (t) async {
     await t.runAsync(() => db.saveSession(
         const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna')));

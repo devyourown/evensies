@@ -13,8 +13,8 @@ object ActivityText {
     const val MAX_TITLE = 100
     const val MAX_BODY = 200
 
-    /** One render: who is who and in which language. */
-    private class Render(lang: String, val names: Map<String, String>, val me: String?) {
+    /** One render: who is who and in which language; [friend]: the group is a friend group (Phase 6). */
+    private class Render(lang: String, val names: Map<String, String>, val me: String?, val friend: Boolean = false) {
         val lang = Strings.lang(lang)
 
         fun s(vararg path: String): String = Strings.get(lang, *path) ?: ""
@@ -29,6 +29,9 @@ object ActivityText {
         }
 
         fun money(minor: Any?, currency: String?) = Money.display((minor as Number?)?.toLong() ?: 0, currency ?: "", lang)
+
+        /** `words.groupType`; an unknown type reads as Other (rule 17). */
+        fun groupType(type: String?) = type?.let { Strings.get(lang, "words", "groupType", it) } ?: s("words", "groupType", "other")
     }
 
     /** The member a kind is about (`self` variant) and the one it is done to (`you` variant), docs/API.md "문장 만들기" 2. */
@@ -45,21 +48,25 @@ object ActivityText {
         else -> null
     }
 
-    /** The template key: refunds, payment comments and kinds `en` lacks (`unknown`) have their own. */
-    private fun key(i: ActivityItem): String {
+    /**
+     * The template key: refunds, payment comments, a friend group's delete/restore (`friend_deleted`, `friend_restored`:
+     * its name is internal) and kinds `en` lacks (`unknown`) have their own.
+     */
+    private fun key(i: ActivityItem, friend: Boolean): String {
         val k = when {
             i.refund == true && (i.kind == "expense_added" || i.kind == "expense_repeated") -> i.kind + "_refund"
             i.kind == "comment_added" && i.paymentId != null -> "comment_added_payment"
+            friend && (i.kind == "group_deleted" || i.kind == "group_restored") -> i.kind.replace("group_", "friend_")
             else -> i.kind
         }
         return if (Strings.get("en", "activity", k, "other") != null) k else "unknown"
     }
 
-    fun sentence(item: ActivityItem, names: Map<String, String>, me: String?, lang: String = "en"): String =
-        sentence(item, Render(lang, names, me))
+    fun sentence(item: ActivityItem, names: Map<String, String>, me: String?, lang: String = "en", friend: Boolean = false): String =
+        sentence(item, Render(lang, names, me, friend))
 
     private fun sentence(item: ActivityItem, r: Render): String {
-        val key = key(item)
+        val key = key(item, r.friend)
         fun viewer(id: String?) = id != null && id == r.me
         val variant = when {
             viewer(subject(item)) && Strings.get("en", "activity", key, "self") != null -> "self"
@@ -102,6 +109,8 @@ object ActivityText {
                 "defaultCurrency" -> label("currency", c.from, c.to) // group_updated
                 "simplifyDebts" -> r.s("changes", if (c.to == true) "simplifyDebtsOn" else "simplifyDebtsOff") // group_updated
                 "defaultSplit" -> r.s("changes", "defaultSplit") // group_updated
+                "type" -> label("type", null, r.groupType(c.to as String?)) // group_updated
+                "coverImageId" -> r.s("changes", "coverImageId") // group_updated
                 "description" -> label("description", c.from, c.to)
                 "amount" -> label("amount", r.money(c.from, fromCurrency), r.money(c.to, item.currency))
                 "currency" -> label("currency", c.from, c.to)
@@ -164,13 +173,13 @@ object ActivityText {
      * the same actor in the batch (Phase 8: starting, editing ahead or deleting-and-stopping a series is one save, the
      * expense's sentence; another member's stop or a repeat by Evensies next to it stays); the feed keeps both.
      */
-    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?, lang: String = "en"): String {
+    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?, lang: String = "en", friend: Boolean = false): String {
         val added = items.filter { it.kind == "expense_added" }.mapTo(HashSet()) { it.expenseId }
         val series = items.filter { it.kind.startsWith("expense_") }.mapNotNullTo(HashSet()) { i -> i.recurrenceId?.let { it to i.actorMemberId } }
         val shown = items.filterNot {
             (it.kind == "receipt_added" && it.expenseId in added) || (it.kind.startsWith("recurrence_") && (it.recurrenceId to it.actorMemberId) in series)
         }
-        return batch(shown, Render(lang, names, me)).clip(MAX_BODY)
+        return batch(shown, Render(lang, names, me, friend)).clip(MAX_BODY)
     }
 
     private fun batch(items: List<ActivityItem>, r: Render): String {

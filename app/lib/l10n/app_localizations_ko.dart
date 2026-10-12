@@ -1118,7 +1118,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String notConvertedSettlesIn(String currency) {
-    return '환산 안 됨 · $currency · $currency로 정산';
+    return '환산 안 됨 · $currency · $currency 그대로 정산';
   }
 
   @override
@@ -1288,7 +1288,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String evenIn(String currency) {
-    return '$currency로는 정산 완료';
+    return '$currency 정산 완료';
   }
 
   @override
@@ -1733,7 +1733,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String nothingOwedIn(String currency) {
-    return '$currency로는 갚을 돈이 없어요';
+    return '$currency 통화로는 갚을 돈이 없어요';
   }
 
   @override
@@ -1792,12 +1792,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String everyoneEvenIn(String currency) {
-    return '$currency로는 모두 정산됨';
+    return '$currency 통화로는 모두 정산됨';
   }
 
   @override
   String convertTo(String currency) {
-    return '$currency로 환산';
+    return '$currency 통화로 환산';
   }
 
   @override
@@ -1814,7 +1814,7 @@ class AppLocalizationsKo extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '지출 $count개를 $currency로 환산했어요',
+      other: '지출 $count개를 $currency 통화로 환산했어요',
     );
     return '$_temp0';
   }
@@ -1844,7 +1844,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String paymentsStayIn(String currency) {
-    return '$currency 송금은 $currency로 남아요';
+    return '$currency 송금은 $currency 그대로 남아요';
   }
 
   @override
@@ -2111,7 +2111,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String notConvertedTo(String currency) {
-    return '$currency로 환산 안 됨';
+    return '$currency 통화로 환산 안 됨';
   }
 
   @override
@@ -2194,7 +2194,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String youOwe(String amount) {
-    return '내 몫은 $amount이에요';
+    return '내 몫: $amount';
   }
 
   @override
@@ -2375,7 +2375,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String keptUntilConverted(String currency, String group) {
-    return '$group로 환산될 때까지 $currency로 남아요.';
+    return '$group 통화로 환산될 때까지 $currency 그대로 남아요.';
   }
 
   @override
@@ -2682,12 +2682,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String switchToCurrencyQuestion(String currency) {
-    return '항목을 읽으려면 지출을 $currency로 바꿀까요?';
+    return '항목을 읽으려면 지출을 $currency 통화로 바꿀까요?';
   }
 
   @override
   String switchTo(String currency) {
-    return '$currency로 바꾸기';
+    return '$currency 통화로 바꾸기';
   }
 
   @override
@@ -2736,4 +2736,432 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get yourRate => '직접 입력한 환율';
+
+  @override
+  String get loginEmail => '이메일로 계속하기';
+
+  @override
+  String get emailLoginTitle => '이메일로 로그인';
+
+  @override
+  String get emailLoginIntro => '6자리 코드를 이메일로 보내 드려요. 비밀번호는 필요 없어요.';
+
+  @override
+  String get emailLabel => '이메일';
+
+  @override
+  String get emailInvalid => '올바른 이메일 주소를 입력하세요';
+
+  @override
+  String get sendCode => '코드 보내기';
+
+  @override
+  String codeSentTo(String email) {
+    return '$email 주소로 보낸 6자리 코드를 입력하세요. 10분 뒤에 만료돼요.';
+  }
+
+  @override
+  String get codeLabel => '6자리 코드';
+
+  @override
+  String get verifyCode => '계속';
+
+  @override
+  String get resendCode => '코드 다시 보내기';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return '$seconds초 뒤에 다시 보낼 수 있어요';
+  }
+
+  @override
+  String get codeResent => '새 코드를 보냈어요.';
+
+  @override
+  String get useDifferentEmail => '다른 이메일 쓰기';
+
+  @override
+  String get codeCheckSpam => '메일이 안 왔나요? 스팸함을 확인해 보세요.';
+
+  @override
+  String get errorCodeInvalid => '코드가 틀렸거나 만료됐어요. 새 코드를 받으세요.';
+
+  @override
+  String get errorEmailNotConfigured => '이 서버는 이메일을 보내지 않아요.';
+
+  @override
+  String get errorEmailRejected => '이 주소로는 메일을 받을 수 없어요. 오타가 없는지 확인하세요.';
+
+  @override
+  String get errorEmailTaken => '다른 계정이 이미 이 주소를 쓰고 있어요.';
+
+  @override
+  String get errorEmailRequired => '이메일이 유일한 로그인 방법이라 지울 수 없어요.';
+
+  @override
+  String get errorEmailUnavailable => '지금은 이메일을 보낼 수 없어요. 잠시 뒤에 다시 해 보세요.';
+
+  @override
+  String get emailSaved => '이메일을 저장했어요';
+
+  @override
+  String removeEmailTitle(String email) {
+    return '$email 주소를 지울까요?';
+  }
+
+  @override
+  String get removeEmailMessage => '이메일 요약과 알림을 더 받지 않고, 이 주소로 로그인할 수도 없어요.';
+
+  @override
+  String get emailRemoved => '이메일을 지웠어요';
+
+  @override
+  String get emailNeedsConnection => '이메일을 바꾸려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get emailBouncedNote => '이 주소로 보낸 메일이 반송돼요 — 주소를 바꾸거나 다시 인증하세요';
+
+  @override
+  String get emailVerifiedNote => '인증됨 · 다른 멤버에게는 보이지 않아요';
+
+  @override
+  String get changeEmail => '이메일 바꾸기';
+
+  @override
+  String get emailAccountHelp =>
+      '로그인과 이메일 요약에 써요. 본인 주소인지 확인하려고 코드를 보내요. 다른 멤버에게는 보이지 않아요.';
+
+  @override
+  String get removeEmail => '이메일 지우기';
+
+  @override
+  String get addEmail => '이메일 추가';
+
+  @override
+  String get addEmailHint => '이메일로 로그인하고 요약을 받아 보세요';
+
+  @override
+  String unblockedName(String name) {
+    return '$name님의 차단을 풀었어요';
+  }
+
+  @override
+  String get blockNeedsConnection => '차단하려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get blockedEmpty => '차단한 사람이 없어요.';
+
+  @override
+  String get blockedNeedsConnection => '차단 목록을 보려면 인터넷 연결이 필요해요';
+
+  @override
+  String get unblock => '차단 풀기';
+
+  @override
+  String get blockedPeople => '차단한 사람';
+
+  @override
+  String get blockedHelp =>
+      '차단한 사람은 나를 친구로 추가하거나 리마인더를 보낼 수 없고, 그 사람의 변경은 알림이나 이메일로 오지 않아요. 함께하는 그룹과 잔액은 그대로예요.';
+
+  @override
+  String get deletedGroupsEmpty => '삭제한 그룹이 없어요';
+
+  @override
+  String get deletedGroupsHelp => '되살리면 모든 멤버에게 그룹이 안의 내용과 함께 돌아와요.';
+
+  @override
+  String get deletedGroups => '삭제한 그룹';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '되살릴 수 있는 그룹 $count개',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection => '내보내려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get exportEverything => '전체 내보내기 (JSON)';
+
+  @override
+  String get exportEverythingHint => '프로필, 받는 방법, 설정, 모든 그룹(삭제한 그룹 포함)';
+
+  @override
+  String get emailSummary => '이메일 요약';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': '자동',
+      'daily': '매일',
+      'weekly': '매주',
+      'monthly': '매달',
+      'off': '끄기',
+      'other': '자동',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp => '기기에서 알림을 볼 수 없으면 매일, 아니면 매달';
+
+  @override
+  String get digestAutoDaily => '자동 — 알림이 꺼져 있어서 매일';
+
+  @override
+  String get digestAutoMonthly => '자동 — 기기에서 알림을 받고 있어서 매달';
+
+  @override
+  String get digestNoEmail => '요약을 받으려면 계정에서 이메일을 추가하세요';
+
+  @override
+  String get helpReportProblem => '문제 신고 또는 기능 제안';
+
+  @override
+  String get helpReportProblemHint => 'GitHub에 올라가서 누구나 볼 수 있어요';
+
+  @override
+  String get helpContact => '이메일로 문의';
+
+  @override
+  String get privacyPolicy => '개인정보 처리방침';
+
+  @override
+  String get helpFeedback => '도움말 및 의견';
+
+  @override
+  String get signOutEverywhere => '모든 기기에서 로그아웃';
+
+  @override
+  String get signOutEverywhereTitle => '모든 기기에서 로그아웃할까요?';
+
+  @override
+  String get signOutEverywhereMessage =>
+      '이 계정으로 로그인한 모든 휴대폰과 브라우저가 로그아웃돼요. 이 기기도 포함이에요. 그룹은 서버에 그대로 있어요.';
+
+  @override
+  String get signOutEverywhereOffline => '모든 기기에서 로그아웃하려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get deleteAccountExportTip => '팁: 먼저 전체 내보내기를 하세요.';
+
+  @override
+  String get coverPhoto => '표지 사진';
+
+  @override
+  String get coverPhotoHint => '그룹 머리와 목록에 보여요. 멤버만 볼 수 있어요.';
+
+  @override
+  String get removeCover => '표지 지우기';
+
+  @override
+  String get coverNeedsConnection => '표지를 바꾸려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get coverTooMany => '표지를 너무 자주 바꿨어요. 한 시간 뒤에 다시 해 보세요.';
+
+  @override
+  String get deleteGroup => '그룹 삭제';
+
+  @override
+  String get deleteGroupHint => '모든 멤버에게서 삭제 · 누구나 되살릴 수 있어요';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return '‘$name’ 그룹을 삭제할까요?';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      '모든 멤버에게서 삭제돼요. 멤버 누구나 설정 → 삭제한 그룹에서 되살릴 수 있어요.';
+
+  @override
+  String groupDeletedName(String name) {
+    return '‘$name’ 그룹을 삭제했어요';
+  }
+
+  @override
+  String get groupDeletedBanner => '삭제된 그룹이에요';
+
+  @override
+  String get groupRestored => '그룹을 되살렸어요';
+
+  @override
+  String get deleteFriend => '친구 삭제';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return '$name님을 친구에서 삭제할까요?';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return '$name님과의 그룹 밖 지출이 두 사람 모두에게서 삭제돼요. 함께하는 그룹은 그대로예요. 설정 → 삭제한 그룹에서 되살리거나 $name님을 다시 친구로 추가하면 돌아와요.';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return '$name님을 친구에서 삭제했어요';
+  }
+
+  @override
+  String get block => '차단';
+
+  @override
+  String blockTitle(String name) {
+    return '$name님을 차단할까요?';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name님은 나를 친구로 추가하거나 리마인더를 보낼 수 없고, $name님의 변경은 알림이나 이메일로 오지 않아요. 함께하는 그룹과 잔액은 그대로예요.';
+  }
+
+  @override
+  String blockedName(String name) {
+    return '$name님을 차단했어요';
+  }
+
+  @override
+  String get report => '신고…';
+
+  @override
+  String get reportSubject => 'Evensies 신고';
+
+  @override
+  String reportBody(String userId) {
+    return '사용자 ID: $userId\n\n무슨 일이 있었나요:\n';
+  }
+
+  @override
+  String get inviteByEmail => '이메일로 초대…';
+
+  @override
+  String get inviteEmailField => '이메일 (선택)';
+
+  @override
+  String get inviteEmailHelp => '초대 링크를 이메일로 보내 드려요. 이 초대에만 써요.';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return '$name님을 이메일로 초대';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return '$email 주소로 초대를 보냈어요';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      '멤버를 추가했어요. 이메일 초대는 인터넷 연결이 필요해요 — 멤버 목록에서 다시 해 보세요.';
+
+  @override
+  String get inviteEmailOffline => '이메일로 초대하려면 인터넷 연결이 필요해요.';
+
+  @override
+  String get inviteEmailLimit => '오늘 보낼 수 있는 이메일을 다 썼어요 — 대신 링크를 공유하세요.';
+
+  @override
+  String emailReminder(String choice) {
+    return '이메일 알림: $choice';
+  }
+
+  @override
+  String get remindNever => '안 함';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count일 전',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi => '인도: Paytm, PhonePe, Google Pay 등 UPI 앱';
+
+  @override
+  String get fieldUpi => 'UPI ID';
+
+  @override
+  String get fieldUpiHint => '예: name@okicici';
+
+  @override
+  String get fieldUpiName => '이름 (선택)';
+
+  @override
+  String get fieldUpiNameHint => '돈을 보내는 사람에게 보여요';
+
+  @override
+  String get methodErrorUpi => 'name@bank 같은 UPI ID를 입력하세요';
+
+  @override
+  String get noUpiApp => 'UPI 앱이 없어요. 대신 UPI ID와 금액을 복사하세요.';
+
+  @override
+  String get upiIdLabel => 'UPI ID';
+
+  @override
+  String get copyUpiId => 'UPI ID 복사';
+
+  @override
+  String get upiIdCopied => 'UPI ID를 복사했어요';
+
+  @override
+  String get dashboard => '대시보드';
+
+  @override
+  String get allExpenses => '모든 지출';
+
+  @override
+  String get groupBalances => '그룹 잔액';
+
+  @override
+  String get yourBalance => '내 잔액';
+
+  @override
+  String get dashboardOwesYou => '나에게 줄 사람';
+
+  @override
+  String get dashboardYouOwe => '내가 줄 사람';
+
+  @override
+  String get historyAndComments => '기록과 댓글';
+
+  @override
+  String get showEarlier => '이전 기록 보기';
+
+  @override
+  String get settleUpFirst => '먼저 정산하세요';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return '그룹 밖 지출을 모두 정산하면 $name님을 친구에서 삭제할 수 있어요.';
+  }
+
+  @override
+  String get noMailApp => '이메일 앱이 없어요. 아래 내용을 복사해서 아무 이메일 앱에서나 보내세요.';
+
+  @override
+  String get copyAddress => '주소 복사';
+
+  @override
+  String get copyMessage => '내용 복사';
+
+  @override
+  String get browserNoStorage =>
+      '이 브라우저에는 Evensies 데이터를 저장할 수 없어요. 다른 브라우저나 시크릿 모드가 아닌 창에서 열어 보세요.';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies가 이 브라우저의 다른 탭에서 이미 열려 있어요. 그 탭을 쓰거나, 그 탭을 닫고 이 탭을 새로 고쳐 주세요.';
 }

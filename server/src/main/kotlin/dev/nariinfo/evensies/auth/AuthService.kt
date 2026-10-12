@@ -2,6 +2,7 @@ package dev.nariinfo.evensies.auth
 
 import dev.nariinfo.evensies.common.ApiException
 import dev.nariinfo.evensies.config.JwtService
+import dev.nariinfo.evensies.email.Mailer
 import dev.nariinfo.evensies.friend.FriendRepository
 import dev.nariinfo.evensies.group.MemberRepository
 import dev.nariinfo.evensies.money.Money
@@ -35,14 +36,24 @@ class AuthService(
     private val events: EventRepository,
     private val files: FileStore,
     private val jwt: JwtService,
+    private val blocks: BlockRepository,
+    private val mailer: Mailer,
 ) {
     private val random = SecureRandom()
 
-    fun login(provider: String, subject: String, displayName: String): AuthResponse {
+    /** [email]: a verified Apple/Google address, adopted when the account has none ([UserRepository.adoptEmail]). */
+    fun login(provider: String, subject: String, displayName: String, email: String? = null): AuthResponse {
         val user = users.findOrCreate(provider, subject, displayName)
-        val tokens = issue(user.id)
-        return AuthResponse(tokens.accessToken, tokens.refreshToken, user.dto())
+        return session(if (email != null && user.email == null) users.adoptEmail(user.id, email) ?: user else user)
     }
+
+    /** New tokens for [user] (sign-in). */
+    fun session(user: User): AuthResponse {
+        val tokens = issue(user.id)
+        return AuthResponse(tokens.accessToken, tokens.refreshToken, dto(user))
+    }
+
+    fun dto(user: User): UserDto = user.dto(emailBounced = user.email?.let(mailer::isBounced) ?: false)
 
     @Transactional
     fun refresh(refreshToken: String): TokenPair {
@@ -52,10 +63,13 @@ class AuthService(
         return issue(userId)
     }
 
-    fun me(userId: UUID): UserDto {
+    fun me(userId: UUID): UserDto = dto(user(userId))
+
+    /** The active user, else 401. */
+    fun user(userId: UUID): User {
         val user = users.find(userId)
         if (user == null || user.deleted) throw ApiException.unauthorized("Account no longer exists")
-        return user.dto()
+        return user
     }
 
     /**
@@ -74,15 +88,18 @@ class AuthService(
         // A language strings.json lacks ("xx") is stored and rendered as English.
         if (language != null && !LANGUAGE.matches(language)) throw ApiException.badRequest("VALIDATION", "language must be 2 or 3 lowercase letters")
         me(userId) // 401 for deleted accounts
-        return users.update(userId, name, homeCurrency, setLanguage, language).dto()
+        return dto(users.update(userId, name, homeCurrency, setLanguage, language))
     }
 
     /**
      * Soft-deletes the user; their member rows become placeholders so group history stays intact (a friend sees a
      * placeholder friend). The friend code, pairs, reminders and unread marks go; the photo file goes after commit.
+     * Phase 10: also the name, address, email settings, codes, the invites they sent and blocks in both directions.
      */
     @Transactional
     fun deleteAccount(userId: UUID) {
+        users.deleteEmailData(userId)
+        blocks.deleteByUser(userId)
         users.markDeleted(userId)
         members.unlinkUser(userId)
         refreshTokens.deleteByUser(userId)
@@ -94,6 +111,14 @@ class AuthService(
         TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
             override fun afterCommit() = files.delete(AvatarController.key(userId))
         })
+    }
+
+    /** Sign out on all devices: every refresh token and device row (pushes stop). ponytail: access tokens stay valid
+     *  up to 15 minutes; add `users.tokens_valid_after` checked in JwtAuthFilter if instant revoke is needed. */
+    @Transactional
+    fun logoutAll(userId: UUID) {
+        refreshTokens.deleteByUser(userId)
+        devices.deleteByUser(userId)
     }
 
     private fun issue(userId: UUID): TokenPair {

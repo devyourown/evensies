@@ -96,7 +96,7 @@ class EventValidator {
         val p = e.payload
         if (!p.isObject) bad("payload must be an object")
         when (e.type) {
-            "group.created" -> { requireText(p, "name", MAX_GROUP_NAME); requireCurrency(p.text("defaultCurrency")) }
+            "group.created" -> { requireText(p, "name", MAX_GROUP_NAME); requireCurrency(p.text("defaultCurrency")); requireGroupType(p) }
             "group.updated" -> {
                 if (p.has("kind")) bad("kind is set when the group is created and cannot change") // rule 13
                 if (p.has("name")) requireText(p, "name", MAX_GROUP_NAME)
@@ -104,7 +104,11 @@ class EventValidator {
                 if (p.field("defaultCurrency") != null) requireCurrency(p.text("defaultCurrency"))
                 if (p.has("simplifyDebts") && !p.get("simplifyDebts").isBoolean) bad("simplifyDebts must be true or false")
                 p.field("defaultSplit")?.let { validateDefaultSplit(s, it) }
+                requireGroupType(p)
+                // A non-null id comes from PUT /groups/{id}/cover only (EventService.pushAsMember refuses it from clients).
+                if (p.field("coverImageId") != null) requireUuid(p, "coverImageId")
             }
+            "group.deleted", "group.restored" -> Unit // any active member; the payload's keys are not read (rule 17)
             "member.added" -> {
                 requireUuid(p, "memberId"); requireText(p, "name", MAX_MEMBER_NAME); requireOwnUser(p, actor)
                 if (p.text("memberId") !in s.members) {
@@ -217,12 +221,15 @@ class EventValidator {
                 if (template == null || !template.isObject) bad("template must be an object")
                 requireNoScheduleKeys(template, "template")
                 validateTemplate(s, actor, template, startDate!!, uploaded)
+                requireRemindDays(p)
                 if (p.text("recurrenceId") !in s.recurrences && s.recurrences.values.count { !it.deleted } >= MAX_RECURRENCES) {
                     throw ApiException.limit("A group can have at most $MAX_RECURRENCES repeating expenses")
                 }
             }
             "recurrence.updated" -> {
                 requireUuid(p, "recurrenceId")
+                requireRemindDays(p)
+                // Rule 18: remindDaysBefore is a sibling of fields; fields stays required (`{}` for a reminder change alone).
                 val f = p.get("fields")
                 if (f == null || !f.isObject) bad("fields must be an object")
                 requireNoScheduleKeys(f, "fields")
@@ -234,6 +241,17 @@ class EventValidator {
             "recurrence.deleted" -> requireUuid(p, "recurrenceId") // an unknown or stopped series is ignored (rules 4, 15)
             else -> throw ApiException.badRequest("UNKNOWN_TYPE", "Unknown event type ${e.type}")
         }
+    }
+
+    /** Rule 17: a present `type` is one of [GROUP_TYPES] (null too is rejected: it would read as "keep"). */
+    private fun requireGroupType(p: JsonNode) {
+        if (p.has("type") && p.get("type").let { !it.isString || it.asString() !in GROUP_TYPES }) bad("type must be one of ${GROUP_TYPES.joinToString()}")
+    }
+
+    /** Rule 18: a present `remindDaysBefore` is an integer 1–7 or null. */
+    private fun requireRemindDays(p: JsonNode) {
+        val n = p.field("remindDaysBefore") ?: return
+        if (!n.isIntegralNumber || !n.canConvertToInt() || n.asInt() !in 1..7) bad("remindDaysBefore must be an integer from 1 to 7 or null")
     }
 
     /** Template keys a repeat or the schedule sets; a template or `recurrence.updated.fields` never carries them. */
@@ -460,6 +478,7 @@ class EventValidator {
         const val MAX_RECURRENCES = 100
         const val MAX_TIME_ZONE = 64
         val FREQUENCIES = setOf("weekly", "biweekly", "monthly", "yearly")
+        val GROUP_TYPES = setOf("trip", "home", "couple", "other")
         val SCHEDULE_KEYS = listOf("expenseId", "date", "recurrenceId", "occurrence", "frequency", "startDate", "timeZone")
         val EXPENSE_SPLIT_MODES = setOf("equal", "percent", "shares", "adjustment", "itemized")
         val DEFAULT_SPLIT_MODES = setOf("percent", "shares")

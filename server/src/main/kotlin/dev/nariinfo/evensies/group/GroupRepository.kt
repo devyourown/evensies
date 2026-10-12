@@ -22,6 +22,9 @@ class GroupRepository(private val jdbc: JdbcClient, private val json: ObjectMapp
             simplifyDebts = rs.getBoolean("simplify_debts"),
             defaultSplit = rs.getString("default_split")?.let(json::readTree),
             kind = rs.getString("kind"),
+            type = rs.getString("type"),
+            coverImageId = rs.getObject("cover_image_id", UUID::class.java),
+            deleted = rs.getObject("deleted_at") != null,
         )
     }
 
@@ -55,7 +58,7 @@ class GroupRepository(private val jdbc: JdbcClient, private val json: ObjectMapp
 
     fun listForUser(userId: UUID): List<GroupSummaryDto> = jdbc.sql(
         """
-        SELECT g.id, g.name, g.default_currency, g.latest_seq, g.kind,
+        SELECT g.id, g.name, g.default_currency, g.latest_seq, g.kind, g.type, g.cover_image_id, g.deleted_at,
                (SELECT count(*) FROM members c WHERE c.group_id = g.id AND c.removed = false) AS member_count
         FROM groups g JOIN members m ON m.group_id = g.id
         WHERE m.user_id = :userId AND m.removed = false
@@ -65,6 +68,7 @@ class GroupRepository(private val jdbc: JdbcClient, private val json: ObjectMapp
         GroupSummaryDto(
             rs.getObject("id", UUID::class.java), rs.getString("name"), rs.getString("default_currency"),
             rs.getLong("latest_seq"), rs.getInt("member_count"), rs.getString("kind"),
+            rs.getString("type"), rs.getObject("cover_image_id", UUID::class.java), rs.getObject("deleted_at") != null,
         )
     }.list()
 

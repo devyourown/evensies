@@ -9,3 +9,8 @@ evensies:
   cors-origins: ${EVENSIES_CORS_ORIGINS:http://localhost:7357}
   auth:
     dev-login: true
+  # Mailpit (docker-compose.dev.yml): SMTP on 1025, inbox at http://localhost:8025.
+  email:
+    smtp-host: ${EVENSIES_SMTP_HOST:localhost}
+    smtp-port: ${EVENSIES_SMTP_PORT:1025}
+    smtp-tls: ${EVENSIES_SMTP_TLS:none}

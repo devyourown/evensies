@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/confirm.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
 import '../../core/l10n.dart';
@@ -14,10 +15,12 @@ import '../../domain/models.dart' show GroupState;
 import '../../domain/overview.dart';
 import '../../domain/payment_methods.dart';
 import '../../providers.dart';
+import '../auth/auth_service.dart' show infoProvider;
 import '../group_detail/group_detail_screen.dart' show DateHeader, ExpenseTile, PaymentTile;
 import '../settings/settings_screen.dart' show exportGroup;
 import 'add_friend_screen.dart' show shareFriendLink;
 import 'home_data.dart';
+import '../groups/wide_layout.dart' show isWide;
 
 /// "Ben owes you €4.00" / "You owe Ben €3.00" ([capital] false: a line under a group name).
 String friendAmountText(AppLocalizations l, String name, int v, String currency, {bool capital = true}) {
@@ -150,6 +153,63 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     await shareText(context, msg);
   }
 
+  /// Delete friend (docs/API.md 친구 삭제): `group.deleted` on every friend group with [p], offline too; their
+  /// non-group expenses go for both of us, and come back with Undo, Settings → Deleted groups or adding them again.
+  /// Shared groups stay. Like Splitwise, only once our non-group balance ([nonGroup], per currency) is settled: deleting
+  /// would wipe that debt for both of us, so the dialog shows it and offers Settle up instead.
+  Future<void> _deleteFriend(Person p, Map<String, int> nonGroup) async {
+    final l = context.l;
+    if (nonGroup.isNotEmpty) {
+      final owed = [for (final c in [...nonGroup.keys]..sort()) friendAmountText(l, p.name, nonGroup[c]!, c)];
+      final settle = await confirm(context,
+          title: l.settleUpFirst,
+          message: [owed.join('\n'), l.deleteFriendSettleFirst(p.name)].join('\n\n'),
+          confirmLabel: l.settleUp,
+          destructive: false);
+      if (settle && mounted) context.push('/friends/${p.key}/settle');
+      return;
+    }
+    final ok = await confirm(context,
+        title: l.deleteFriendTitle(p.name), message: l.deleteFriendMessage(p.name), confirmLabel: l.delete);
+    if (!ok || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final writes = ref.read(localWritesProvider);
+    final ids = [...p.friendGroups];
+    for (final id in ids) {
+      await writes.deleteGroup(id);
+    }
+    router.go('/?tab=friends');
+    showUndo(messenger, l.friendDeleted(p.name), () async {
+      for (final id in ids) {
+        await writes.restoreGroup(id);
+      }
+    });
+  }
+
+  /// Block or unblock (docs/API.md 차단), online only: they can't add me or remind me, and their changes stop
+  /// notifying me; shared groups and balances stay.
+  Future<void> _block(Person p, {required bool block}) async {
+    final l = context.l;
+    if (block &&
+        !await confirm(context,
+            title: l.blockTitle(p.name), message: l.blockMessage(p.name), confirmLabel: l.block)) {
+      return;
+    }
+    try {
+      final api = ref.read(apiProvider);
+      await (block ? api.block(p.userId!) : api.unblock(p.userId!));
+      ref.invalidate(blocksProvider);
+      if (mounted) showInfo(context, block ? l.blockedName(p.name) : l.unblockedName(p.name));
+    } catch (e) {
+      if (mounted) showError(context, e is ApiException && e.code == 'NETWORK' ? l.blockNeedsConnection : e);
+    }
+  }
+
+  /// Report… opens an email to the server's support address with the person's user id.
+  Future<void> _report(Person p, String support) =>
+      openMail(context, support, subject: context.l.reportSubject, body: context.l.reportBody(p.userId!));
+
   /// A placeholder friend claims their member through the friend group's invite link.
   Future<void> _invite(HomeData data, Person p) async {
     final code = data.group(p.friendGroups.first)?.row.inviteCode;
@@ -252,18 +312,36 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
           child: Text(s, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
         );
     final currencies = [...p.net.keys]..sort();
+    final support = ref.watch(infoProvider).supportEmail;
+    final blocked = p.userId != null && (ref.watch(blocksProvider).valueOrNull?.any((b) => b.userId == p.userId) ?? false);
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !isWide(context), // wide web layout: the sidebar is the way back
         title: Text(p.name),
         actions: [
-          if (p.friendGroups.isNotEmpty)
+          if (p.friendGroups.isNotEmpty || p.userId != null)
             PopupMenuButton<String>(
+              key: const Key('friend-menu'),
               tooltip: l.more,
-              onSelected: (f) => exportGroup(context, ref, p.friendGroups.first, l.nonGroupWith(p.name), f),
+              onSelected: (v) => switch (v) {
+                'delete' => _deleteFriend(p, nonGroup),
+                'block' => _block(p, block: !blocked),
+                'report' => _report(p, support!),
+                _ => exportGroup(context, ref, p.friendGroups.first, l.nonGroupWith(p.name), v),
+              },
               itemBuilder: (_) => [
-                PopupMenuItem(value: 'csv', child: Text(l.exportNonGroupCsv)),
-                PopupMenuItem(value: 'json', child: Text(l.exportNonGroupJson)),
-                PopupMenuItem(value: 'zip', child: Text(l.exportNonGroupZip)),
+                if (p.friendGroups.isNotEmpty) ...[
+                  PopupMenuItem(value: 'csv', child: Text(l.exportNonGroupCsv)),
+                  PopupMenuItem(value: 'json', child: Text(l.exportNonGroupJson)),
+                  PopupMenuItem(value: 'zip', child: Text(l.exportNonGroupZip)),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(key: const Key('delete-friend'), value: 'delete', child: Text(l.deleteFriend)),
+                ],
+                if (p.userId != null)
+                  PopupMenuItem(
+                      key: const Key('block-friend'), value: 'block', child: Text(blocked ? l.unblock : l.block)),
+                if (p.userId != null && support != null)
+                  PopupMenuItem(key: const Key('report-friend'), value: 'report', child: Text(l.report)),
               ],
             ),
         ],
@@ -392,7 +470,8 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
         ),
       ]),
       // A placeholder in a normal group: add expenses there. No shared group any more: the friend link above.
-      floatingActionButton: !canAdd
+      // Wide web layout: the sidebar's Add expense adds with them.
+      floatingActionButton: !canAdd || isWide(context)
           ? null
           : FloatingActionButton.extended(
               key: const Key('friend-add-expense'),

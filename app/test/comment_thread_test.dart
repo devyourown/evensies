@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:evensies/data/db/database.dart';
+import 'package:evensies/domain/activity.dart';
 import 'package:evensies/features/expense_form/comment_thread.dart';
 import 'package:evensies/providers.dart';
 
@@ -16,7 +17,7 @@ void main() {
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
-    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben'));
     Future<void> comment(String id, String expense, String author, String text, String at, {bool deleted = false}) =>
@@ -35,12 +36,12 @@ void main() {
   });
   tearDown(() => db.close());
 
-  Widget app() => ProviderScope(
+  Widget app({List<ActivityItem> history = const []}) => ProviderScope(
         overrides: [dbProvider.overrideWithValue(db), syncProvider.overrideWithValue(NoSync(db))],
         child: MaterialApp(
           home: Scaffold(
-            body: ListView(padding: const EdgeInsets.all(16), children: const [
-              CommentThread(groupId: 'g1', expenseId: 'x1'),
+            body: ListView(padding: const EdgeInsets.all(16), children: [
+              CommentThread(groupId: 'g1', expenseId: 'x1', history: history),
             ]),
           ),
         ),
@@ -63,6 +64,31 @@ void main() {
     expect(find.textContaining('Ben', findRichText: true), findsOneWidget);
     expect(find.textContaining('You', findRichText: true), findsOneWidget);
     expect(find.byTooltip('Delete comment'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('the thread runs on the server clock: a change between two comments stays between them', (t) async {
+    // The device clock is minutes ahead of the server: the comments' own times (09:00, 09:05) are later than every
+    // feed item, but by seq the edit came between them.
+    ActivityItem item(int seq, String kind, String at, [Map<String, dynamic> more = const {}]) => ActivityItem.fromJson(
+        {'seq': seq, 'kind': kind, 'createdAt': at, 'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Hotel', ...more});
+    final history = [
+      item(7, 'comment_added', '2026-10-11T08:57:00Z', {'commentId': 'c3', 'actorMemberId': 'm1'}),
+      item(6, 'expense_updated', '2026-10-11T08:55:00Z', {
+        'changes': [
+          {'field': 'description', 'from': 'Hotel', 'to': 'Hotel Roma'},
+        ],
+      }),
+      item(5, 'comment_added', '2026-10-11T08:52:00Z', {'commentId': 'c1'}),
+      item(4, 'expense_added', '2026-10-11T08:50:00Z', {'amount': 3000, 'currency': 'EUR'}),
+    ];
+    await t.pumpWidget(app(history: history));
+    await t.pumpAndSettle();
+    double y(String key) => t.getTopLeft(find.byKey(ValueKey(key))).dy;
+    expect(y('h4') < y('cc1') && y('cc1') < y('h6') && y('h6') < y('cc3'), isTrue);
+    // Under a day header a bubble shows the time alone, like the change rows.
+    expect(find.descendant(of: find.byKey(const ValueKey('cc1')), matching: find.textContaining('Oct', findRichText: true)),
+        findsNothing);
     await unmount(t);
   });
 

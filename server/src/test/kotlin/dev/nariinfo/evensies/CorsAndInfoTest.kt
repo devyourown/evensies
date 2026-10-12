@@ -94,6 +94,9 @@ class CorsAndInfoTest : IntegrationTestBase() {
         assertEquals("dev.nariinfo.evensies.web", info.body["appleServicesId"].asString())
         assertEquals("web-client", info.body["googleWebClientId"].asString())
         assertTrue(info.body["devLogin"].asBoolean())
+        // Phase 10: which sign-ins this server offers and the operator's contact address.
+        assertTrue(info.body["appleLogin"].asBoolean() && info.body["googleLogin"].asBoolean() && info.body["emailLogin"].asBoolean())
+        assertEquals("help@evensies.test", info.body["supportEmail"].asString())
     }
 
     /** docs/API.md "받는 `aud`": Apple = bundle id + Services ID, Google = the phone ids ∪ the web id (no duplicate). */

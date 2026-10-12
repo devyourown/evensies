@@ -2,6 +2,8 @@
 abstract final class EventTypes {
   static const groupCreated = 'group.created';
   static const groupUpdated = 'group.updated';
+  static const groupDeleted = 'group.deleted';
+  static const groupRestored = 'group.restored';
   static const memberAdded = 'member.added';
   static const memberLinked = 'member.linked';
   static const memberRemoved = 'member.removed';

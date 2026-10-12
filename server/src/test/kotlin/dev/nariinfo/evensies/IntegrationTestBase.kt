@@ -18,9 +18,15 @@ import java.util.UUID
         "evensies.invite-rate-per-minute=100000", // all tests share 127.0.0.1
         "evensies.jwt-secret=test-only-secret-0123456789-0123456789",
         "evensies.push.batch-seconds=1",
+        // Phase 10: email on, sent to CapturingMailSender; the hourly job runs only when a test calls it.
+        "evensies.email.smtp-host=capture.invalid",
+        "evensies.email.job-cron=-",
+        "evensies.email.auth-rate-per-minute=100000",
+        "evensies.email.webhook-secret=whsec_dGVzdC13ZWJob29rLXNlY3JldC0wMTIzNDU2Nzg5",
+        "evensies.support-email=help@evensies.test",
     ],
 )
-@Import(TestcontainersConfiguration::class, PushCaptureConfiguration::class)
+@Import(TestcontainersConfiguration::class, PushCaptureConfiguration::class, MailCaptureConfiguration::class)
 abstract class IntegrationTestBase {
     @LocalServerPort
     protected var port = 0
@@ -29,6 +35,26 @@ abstract class IntegrationTestBase {
     protected lateinit var mapper: ObjectMapper
 
     protected val http: Http by lazy { Http(port, mapper) }
+
+    /** Phase 10: every email the server sends; the clock the email code runs on. */
+    @Autowired
+    protected lateinit var mail: CapturingMailSender
+
+    @Autowired
+    protected lateinit var testClock: MutableClock
+
+    /** A fresh address no other test uses. */
+    protected fun address(name: String) = "${name.lowercase()}-${UUID.randomUUID().toString().take(8)}@example.test"
+
+    /** Signs in with an emailed code (a new account named [name]); returns (token, address). */
+    protected fun emailUser(name: String, address: String = address(name)): Pair<String, String> {
+        check(http.post("/auth/email/start", mapOf("email" to address)).status == 204)
+        val res = http.post("/auth/email/verify", mapOf("email" to address, "code" to mail.code(address)))
+        check(res.status == 200) { "email sign-in failed: ${res.status} ${res.text}" }
+        val token = res.body["accessToken"].asString()
+        check(http.patch("/me", mapOf("displayName" to name), token).status == 200)
+        return token to address
+    }
 
     companion object {
         /** Exchange rates come from the local [FxStub], never the network. */

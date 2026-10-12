@@ -2796,4 +2796,455 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get yourRate => 'kurs Anda';
+
+  @override
+  String get loginEmail => 'Lanjutkan dengan email';
+
+  @override
+  String get emailLoginTitle => 'Masuk dengan email';
+
+  @override
+  String get emailLoginIntro =>
+      'Kami kirim kode 6 digit lewat email. Tanpa kata sandi.';
+
+  @override
+  String get emailLabel => 'Email';
+
+  @override
+  String get emailInvalid => 'Masukkan alamat email yang valid';
+
+  @override
+  String get sendCode => 'Kirim kode';
+
+  @override
+  String codeSentTo(String email) {
+    return 'Masukkan kode 6 digit yang kami kirim ke $email. Kode berlaku 10 menit.';
+  }
+
+  @override
+  String get codeLabel => 'Kode 6 digit';
+
+  @override
+  String get verifyCode => 'Lanjutkan';
+
+  @override
+  String get resendCode => 'Kirim ulang kode';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return 'Kirim ulang dalam $seconds dtk';
+  }
+
+  @override
+  String get codeResent => 'Kami sudah mengirim kode baru.';
+
+  @override
+  String get useDifferentEmail => 'Pakai email lain';
+
+  @override
+  String get codeCheckSpam => 'Belum masuk? Cek folder spam.';
+
+  @override
+  String get errorCodeInvalid =>
+      'Kode salah atau sudah kedaluwarsa. Minta kode baru.';
+
+  @override
+  String get errorEmailNotConfigured => 'Server ini tidak mengirim email.';
+
+  @override
+  String get errorEmailRejected =>
+      'Alamat itu tidak bisa menerima email. Periksa apakah ada salah ketik.';
+
+  @override
+  String get errorEmailTaken => 'Akun lain sudah memakai alamat ini.';
+
+  @override
+  String get errorEmailRequired =>
+      'Email adalah satu-satunya cara Anda masuk, jadi tidak bisa dihapus.';
+
+  @override
+  String get errorEmailUnavailable =>
+      'Email sedang tidak berfungsi. Coba lagi nanti.';
+
+  @override
+  String get emailSaved => 'Email disimpan';
+
+  @override
+  String removeEmailTitle(String email) {
+    return 'Hapus $email?';
+  }
+
+  @override
+  String get removeEmailMessage =>
+      'Anda tidak akan menerima ringkasan atau pengingat lewat email lagi, dan tidak bisa masuk dengan alamat ini.';
+
+  @override
+  String get emailRemoved => 'Email dihapus';
+
+  @override
+  String get emailNeedsConnection => 'Mengganti email butuh koneksi.';
+
+  @override
+  String get emailBouncedNote =>
+      'Email ke alamat ini terpental — ganti atau verifikasi lagi';
+
+  @override
+  String get emailVerifiedNote =>
+      'Terverifikasi · anggota lain tidak pernah melihatnya';
+
+  @override
+  String get changeEmail => 'Ganti email';
+
+  @override
+  String get emailAccountHelp =>
+      'Untuk masuk dan ringkasan lewat email. Kami kirim kode untuk memastikan alamat ini milik Anda. Anggota lain tidak pernah melihatnya.';
+
+  @override
+  String get removeEmail => 'Hapus email';
+
+  @override
+  String get addEmail => 'Tambah email';
+
+  @override
+  String get addEmailHint =>
+      'Masuk dengannya dan dapatkan ringkasan lewat email';
+
+  @override
+  String unblockedName(String name) {
+    return '$name tidak diblokir lagi';
+  }
+
+  @override
+  String get blockNeedsConnection => 'Memblokir butuh koneksi.';
+
+  @override
+  String get blockedEmpty => 'Anda belum memblokir siapa pun.';
+
+  @override
+  String get blockedNeedsConnection => 'Daftar yang diblokir butuh koneksi';
+
+  @override
+  String get unblock => 'Buka blokir';
+
+  @override
+  String get blockedPeople => 'Orang yang diblokir';
+
+  @override
+  String get blockedHelp =>
+      'Orang yang diblokir tidak bisa menambahkan Anda sebagai teman atau mengirim pengingat, dan perubahan mereka tidak memberi Anda notifikasi atau email. Grup bersama dan saldo tetap seperti semula.';
+
+  @override
+  String get deletedGroupsEmpty => 'Tidak ada grup yang dihapus';
+
+  @override
+  String get deletedGroupsHelp =>
+      'Memulihkan grup mengembalikannya untuk semua orang, lengkap dengan isinya.';
+
+  @override
+  String get deletedGroups => 'Grup yang dihapus';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count grup bisa dipulihkan',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection => 'Mengekspor butuh koneksi.';
+
+  @override
+  String get exportEverything => 'Ekspor semuanya (JSON)';
+
+  @override
+  String get exportEverythingHint =>
+      'Profil, cara menerima pembayaran, pengaturan, dan semua grup, termasuk yang dihapus';
+
+  @override
+  String get emailSummary => 'Ringkasan email';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': 'Otomatis',
+      'daily': 'Harian',
+      'weekly': 'Mingguan',
+      'monthly': 'Bulanan',
+      'off': 'Mati',
+      'other': 'Otomatis',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp =>
+      'Harian jika perangkat Anda tidak bisa menampilkan notifikasi, selain itu bulanan';
+
+  @override
+  String get digestAutoDaily => 'Otomatis — harian, karena notifikasi mati';
+
+  @override
+  String get digestAutoMonthly =>
+      'Otomatis — bulanan, karena perangkat Anda menerima notifikasi';
+
+  @override
+  String get digestNoEmail =>
+      'Tambahkan email di Akun untuk menerima ringkasan';
+
+  @override
+  String get helpReportProblem => 'Laporkan masalah atau usulkan fitur';
+
+  @override
+  String get helpReportProblemHint => 'Di GitHub, bisa dilihat semua orang';
+
+  @override
+  String get helpContact => 'Email dukungan';
+
+  @override
+  String get privacyPolicy => 'Kebijakan privasi';
+
+  @override
+  String get helpFeedback => 'Bantuan & masukan';
+
+  @override
+  String get signOutEverywhere => 'Keluar di semua perangkat';
+
+  @override
+  String get signOutEverywhereTitle => 'Keluar di semua perangkat?';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'Semua ponsel dan browser yang masuk ke akun Anda akan keluar, termasuk yang ini. Grup Anda tetap ada di server.';
+
+  @override
+  String get signOutEverywhereOffline =>
+      'Keluar di semua perangkat butuh koneksi.';
+
+  @override
+  String get deleteAccountExportTip => 'Tips: Ekspor semuanya dulu.';
+
+  @override
+  String get coverPhoto => 'Foto sampul';
+
+  @override
+  String get coverPhotoHint =>
+      'Tampil di bagian atas grup dan di daftar. Hanya anggota yang bisa melihatnya.';
+
+  @override
+  String get removeCover => 'Hapus sampul';
+
+  @override
+  String get coverNeedsConnection => 'Mengganti sampul butuh koneksi.';
+
+  @override
+  String get coverTooMany =>
+      'Terlalu sering mengganti sampul. Coba lagi dalam satu jam.';
+
+  @override
+  String get deleteGroup => 'Hapus grup';
+
+  @override
+  String get deleteGroupHint =>
+      'Untuk semua orang · anggota mana pun bisa memulihkannya';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return 'Hapus “$name”?';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      'Dihapus untuk semua orang. Anggota mana pun bisa memulihkannya dari Pengaturan → Grup yang dihapus.';
+
+  @override
+  String groupDeletedName(String name) {
+    return '“$name” dihapus';
+  }
+
+  @override
+  String get groupDeletedBanner => 'Grup ini sudah dihapus';
+
+  @override
+  String get groupRestored => 'Grup dipulihkan';
+
+  @override
+  String get deleteFriend => 'Hapus teman';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return 'Hapus $name?';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return 'Pengeluaran di luar grup Anda dengan $name dihapus untuk kalian berdua. Grup bersama tetap ada. Anda bisa memulihkannya dari Pengaturan → Grup yang dihapus, atau dengan menambahkan $name lagi.';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return '$name dihapus';
+  }
+
+  @override
+  String get block => 'Blokir';
+
+  @override
+  String blockTitle(String name) {
+    return 'Blokir $name?';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name tidak akan bisa menambahkan Anda sebagai teman atau mengirim pengingat, dan perubahannya tidak akan memberi Anda notifikasi atau email. Grup bersama dan saldo tetap ada.';
+  }
+
+  @override
+  String blockedName(String name) {
+    return '$name diblokir';
+  }
+
+  @override
+  String get report => 'Laporkan…';
+
+  @override
+  String get reportSubject => 'Laporan Evensies';
+
+  @override
+  String reportBody(String userId) {
+    return 'ID pengguna: $userId\n\nApa yang terjadi:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'Undang lewat email…';
+
+  @override
+  String get inviteEmailField => 'Email (opsional)';
+
+  @override
+  String get inviteEmailHelp =>
+      'Kami kirim tautan undangan lewat email. Hanya dipakai untuk undangan ini.';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return 'Undang $name lewat email';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return 'Undangan dikirim ke $email';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'Anggota ditambahkan. Mengundang lewat email butuh koneksi — coba lagi dari daftar anggota.';
+
+  @override
+  String get inviteEmailOffline => 'Mengundang lewat email butuh koneksi.';
+
+  @override
+  String get inviteEmailLimit =>
+      'Batas email hari ini tercapai — bagikan tautannya saja.';
+
+  @override
+  String emailReminder(String choice) {
+    return 'Pengingat email: $choice';
+  }
+
+  @override
+  String get remindNever => 'Tidak pernah';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hari sebelumnya',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi =>
+      'India: Paytm, PhonePe, Google Pay, dan aplikasi UPI lainnya';
+
+  @override
+  String get fieldUpi => 'ID UPI';
+
+  @override
+  String get fieldUpiHint => 'Seperti nama@okicici';
+
+  @override
+  String get fieldUpiName => 'Nama (opsional)';
+
+  @override
+  String get fieldUpiNameHint => 'Ditampilkan kepada orang yang membayar Anda';
+
+  @override
+  String get methodErrorUpi => 'Masukkan ID UPI seperti nama@bank';
+
+  @override
+  String get noUpiApp =>
+      'Aplikasi UPI tidak ditemukan. Salin ID UPI dan jumlahnya saja.';
+
+  @override
+  String get upiIdLabel => 'ID UPI';
+
+  @override
+  String get copyUpiId => 'Salin ID UPI';
+
+  @override
+  String get upiIdCopied => 'ID UPI disalin';
+
+  @override
+  String get dashboard => 'Dasbor';
+
+  @override
+  String get allExpenses => 'Semua pengeluaran';
+
+  @override
+  String get groupBalances => 'Saldo grup';
+
+  @override
+  String get yourBalance => 'Saldo Anda';
+
+  @override
+  String get dashboardOwesYou => 'Berutang kepada Anda';
+
+  @override
+  String get dashboardYouOwe => 'Anda berutang';
+
+  @override
+  String get historyAndComments => 'Riwayat dan komentar';
+
+  @override
+  String get showEarlier => 'Tampilkan sebelumnya';
+
+  @override
+  String get settleUpFirst => 'Lunasi dulu';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'Kamu bisa menghapus $name dari teman setelah pengeluaran di luar grup kalian lunas.';
+  }
+
+  @override
+  String get noMailApp =>
+      'Aplikasi email tidak ditemukan. Salin detail di bawah dan kirim dari aplikasi email apa pun.';
+
+  @override
+  String get copyAddress => 'Salin alamat';
+
+  @override
+  String get copyMessage => 'Salin pesan';
+
+  @override
+  String get browserNoStorage =>
+      'Browser ini tidak bisa menyimpan data Evensies. Coba browser lain, atau jendela yang bukan mode pribadi.';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies sudah terbuka di tab lain di browser ini. Gunakan tab itu, atau tutup lalu muat ulang tab ini.';
 }

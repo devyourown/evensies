@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/cover.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
@@ -29,6 +30,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
   final _me = TextEditingController();
   static const _lastCurrencyKey = 'lastCurrency';
   late String _currency;
+  String _type = 'other';
   bool _busy = false;
 
   @override
@@ -53,6 +55,7 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         defaultCurrency: _currency,
         memberId: memberId,
         memberName: _me.text.trim(),
+        type: _type,
       );
       await db.upsertGroup(GroupRow(
         id: dto.id,
@@ -64,6 +67,8 @@ class _State extends ConsumerState<_CreateGroupDialog> {
         simplifyDebts: dto.simplifyDebts,
         defaultSplitJson: splitToJson(dto.defaultSplit),
         kind: dto.kind,
+        type: dto.type,
+        deleted: false,
       ));
       await db.into(db.members).insert(MembersCompanion.insert(
           id: memberId, groupId: id, name: _me.text.trim(), userId: Value(ref.read(sessionProvider).value?.userId)));
@@ -109,6 +114,11 @@ class _State extends ConsumerState<_CreateGroupDialog> {
               label: context.l.defaultCurrency,
               pinned: [ref.read(homeCurrencyProvider)],
               onChanged: (v) => setState(() => _currency = v),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: GroupTypeChips(value: _type, onChanged: (v) => setState(() => _type = v)),
             ),
           ],
         ),

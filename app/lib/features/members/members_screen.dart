@@ -11,10 +11,13 @@ import '../../core/l10n.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../core/text_limits.dart';
+import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
 import '../../data/sync/group_state_store.dart';
 import '../../domain/recurrence.dart';
 import '../../providers.dart';
+import '../auth/auth_service.dart' show infoProvider;
+import '../auth/email_code_form.dart' show emailValid, normalizeEmail;
 
 class MembersScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -35,6 +38,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final l = context.l;
+    final email = ref.watch(infoProvider).emailLogin;
     return Scaffold(
       appBar: AppBar(title: Text(l.membersInvite)),
       body: ListView(
@@ -114,6 +118,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
           for (final m in members)
             ListTile(
+              key: Key('member-${m.id}'),
               contentPadding: EdgeInsets.zero,
               leading: PersonAvatar(userId: m.userId, name: m.name),
               title: Text(m.id == group?.myMemberId ? l.youSuffix(m.name) : m.name),
@@ -123,11 +128,22 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               ),
               trailing: m.id == group?.myMemberId
                   ? null
-                  : IconButton(
-                      tooltip: l.remove,
-                      icon: const Icon(Icons.person_remove_outlined),
-                      onPressed: () => _remove(m),
-                    ),
+                  // A placeholder can get an email invite (Phase 10, when this server sends email).
+                  : email && m.userId == null
+                      ? PopupMenuButton<String>(
+                          key: Key('member-menu-${m.id}'),
+                          tooltip: l.more,
+                          onSelected: (v) => v == 'invite' ? _invite(m) : _remove(m),
+                          itemBuilder: (_) => [
+                            PopupMenuItem(value: 'invite', child: Text(l.inviteByEmail)),
+                            PopupMenuItem(value: 'remove', child: Text(l.remove)),
+                          ],
+                        )
+                      : IconButton(
+                          tooltip: l.remove,
+                          icon: const Icon(Icons.person_remove_outlined),
+                          onPressed: () => _remove(m),
+                        ),
             ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -156,36 +172,128 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     await ref.read(localWritesProvider).removeMember(widget.groupId, m.id);
   }
 
+  /// A placeholder, optionally invited by email (Phase 10, when this server sends email): added locally first, then
+  /// synced so the server knows the member, then invited. Offline, the member stays and the invite waits for the
+  /// member list.
   Future<void> _addMember() async {
-    final ctl = TextEditingController();
-    final name = await showDialog<String>(
+    final ctl = TextEditingController(), emailCtl = TextEditingController();
+    final withEmail = ref.read(infoProvider).emailLogin;
+    final picked = await showDialog<({String name, String? email})>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) {
-          final ok = ctl.text.trim().isNotEmpty && fitsLimit(ctl.text, maxMemberName);
+          final typed = emailCtl.text.trim();
+          final ok = ctl.text.trim().isNotEmpty && fitsLimit(ctl.text, maxMemberName) && (typed.isEmpty || emailValid(typed));
+          void done() => Navigator.pop(ctx, (name: ctl.text.trim(), email: typed.isEmpty ? null : normalizeEmail(typed)));
           return AlertDialog(
             title: Text(ctx.l.addMember),
-            content: TextField(
-              key: const Key('member-name'),
-              controller: ctl,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: limitedDecoration(ctx, InputDecoration(labelText: ctx.l.nameLabel), ctl.text, maxMemberName),
-              onChanged: (_) => setDialog(() {}),
-              onSubmitted: (v) {
-                if (ok) Navigator.pop(ctx, v.trim());
-              },
-            ),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                key: const Key('member-name'),
+                controller: ctl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: limitedDecoration(ctx, InputDecoration(labelText: ctx.l.nameLabel), ctl.text, maxMemberName),
+                onChanged: (_) => setDialog(() {}),
+                onSubmitted: (_) {
+                  if (ok) done();
+                },
+              ),
+              if (withEmail)
+                TextField(
+                  key: const Key('member-email'),
+                  controller: emailCtl,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  decoration: InputDecoration(
+                    labelText: ctx.l.inviteEmailField,
+                    helperText: ctx.l.inviteEmailHelp,
+                    helperMaxLines: 3,
+                    errorText: typed.isNotEmpty && !emailValid(typed) ? ctx.l.emailInvalid : null,
+                  ),
+                  onChanged: (_) => setDialog(() {}),
+                  onSubmitted: (_) {
+                    if (ok) done();
+                  },
+                ),
+            ]),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l.cancel)),
-              FilledButton(onPressed: ok ? () => Navigator.pop(ctx, ctl.text.trim()) : null, child: Text(ctx.l.add)),
+              FilledButton(key: const Key('add-member'), onPressed: ok ? done : null, child: Text(ctx.l.add)),
             ],
           );
         },
       ),
     );
-    if (name == null || name.isEmpty) return;
-    await ref.read(localWritesProvider).addMember(widget.groupId, name);
+    if (picked == null || picked.name.isEmpty) return;
+    final id = await ref.read(localWritesProvider).addMember(widget.groupId, picked.name);
+    if (picked.email != null) await _sendInvite(id, picked.email!, added: true);
+  }
+
+  /// Invite by email… on a placeholder's row.
+  Future<void> _invite(MemberRow m) async {
+    final ctl = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          final typed = ctl.text.trim();
+          final ok = emailValid(typed);
+          return AlertDialog(
+            title: Text(ctx.l.inviteByEmailTitle(m.name)),
+            content: TextField(
+              key: const Key('invite-email'),
+              controller: ctl,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: ctx.l.emailLabel,
+                helperText: ctx.l.inviteEmailHelp,
+                helperMaxLines: 3,
+                errorText: typed.isNotEmpty && !ok ? ctx.l.emailInvalid : null,
+              ),
+              onChanged: (_) => setDialog(() {}),
+              onSubmitted: (_) {
+                if (ok) Navigator.pop(ctx, normalizeEmail(typed));
+              },
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l.cancel)),
+              FilledButton(
+                key: const Key('send-invite'),
+                onPressed: ok ? () => Navigator.pop(ctx, normalizeEmail(typed)) : null,
+                child: Text(ctx.l.send),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (email != null) await _sendInvite(m.id, email);
+  }
+
+  /// Syncs first (the server must know the member), then `POST …/invite-email`. [added]: the member was just added
+  /// here, so an offline failure says it was kept.
+  Future<void> _sendInvite(String memberId, String email, {bool added = false}) async {
+    final l = context.l;
+    try {
+      await ref.read(syncProvider).sync(widget.groupId);
+      await ref.read(apiProvider).inviteByEmail(widget.groupId, memberId, email);
+      if (mounted) showInfo(context, l.inviteEmailSent(email));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      showError(
+          context,
+          switch (e) {
+            ApiException(code: 'NETWORK') => added ? l.inviteEmailOfflineAdded : l.inviteEmailOffline,
+            ApiException(status: 429) => l.inviteEmailLimit,
+            _ => e,
+          });
+    } catch (_) {
+      // The sync failed without an answer (offline).
+      if (mounted) showError(context, added ? l.inviteEmailOfflineAdded : l.inviteEmailOffline);
+    }
   }
 
   Future<void> _rotate() async {

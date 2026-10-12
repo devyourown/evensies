@@ -37,7 +37,7 @@ void main() {
     api = FakeApi(db);
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
-    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm2', groupId: 'g1', name: 'Ben', userId: const Value(null)));
   });

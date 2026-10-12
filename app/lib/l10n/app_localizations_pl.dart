@@ -2852,4 +2852,458 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get yourRate => 'twój kurs';
+
+  @override
+  String get loginEmail => 'Kontynuuj przez e-mail';
+
+  @override
+  String get emailLoginTitle => 'Zaloguj się e-mailem';
+
+  @override
+  String get emailLoginIntro => 'Wyślemy ci e-mailem 6-cyfrowy kod. Bez hasła.';
+
+  @override
+  String get emailLabel => 'E-mail';
+
+  @override
+  String get emailInvalid => 'Wpisz poprawny adres e-mail';
+
+  @override
+  String get sendCode => 'Wyślij kod';
+
+  @override
+  String codeSentTo(String email) {
+    return 'Wpisz 6-cyfrowy kod wysłany na $email. Wygaśnie za 10 minut.';
+  }
+
+  @override
+  String get codeLabel => '6-cyfrowy kod';
+
+  @override
+  String get verifyCode => 'Dalej';
+
+  @override
+  String get resendCode => 'Wyślij kod ponownie';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return 'Wyślij ponownie za $seconds s';
+  }
+
+  @override
+  String get codeResent => 'Wysłaliśmy nowy kod.';
+
+  @override
+  String get useDifferentEmail => 'Użyj innego adresu';
+
+  @override
+  String get codeCheckSpam => 'Nic nie przyszło? Sprawdź folder spam.';
+
+  @override
+  String get errorCodeInvalid => 'Kod jest błędny albo wygasł. Poproś o nowy.';
+
+  @override
+  String get errorEmailNotConfigured => 'Ten serwer nie wysyła e-maili.';
+
+  @override
+  String get errorEmailRejected =>
+      'Ten adres nie może odbierać e-maili. Sprawdź, czy nie ma literówki.';
+
+  @override
+  String get errorEmailTaken => 'Inne konto już używa tego adresu.';
+
+  @override
+  String get errorEmailRequired =>
+      'E-mail to twój jedyny sposób logowania, więc nie można go usunąć.';
+
+  @override
+  String get errorEmailUnavailable =>
+      'E-mail teraz nie działa. Spróbuj później.';
+
+  @override
+  String get emailSaved => 'E-mail zapisany';
+
+  @override
+  String removeEmailTitle(String email) {
+    return 'Usunąć $email?';
+  }
+
+  @override
+  String get removeEmailMessage =>
+      'Nie dostaniesz już podsumowań ani przypomnień e-mailem i nie zalogujesz się tym adresem.';
+
+  @override
+  String get emailRemoved => 'E-mail usunięty';
+
+  @override
+  String get emailNeedsConnection => 'Zmiana e-maila wymaga połączenia.';
+
+  @override
+  String get emailBouncedNote =>
+      'E-maile na ten adres wracają — zmień go albo potwierdź ponownie';
+
+  @override
+  String get emailVerifiedNote =>
+      'Potwierdzony · inni członkowie nigdy go nie widzą';
+
+  @override
+  String get changeEmail => 'Zmień e-mail';
+
+  @override
+  String get emailAccountHelp =>
+      'Do logowania i podsumowań e-mailem. Wysyłamy kod, żeby sprawdzić, że to twój adres. Inni członkowie nigdy go nie widzą.';
+
+  @override
+  String get removeEmail => 'Usuń e-mail';
+
+  @override
+  String get addEmail => 'Dodaj e-mail';
+
+  @override
+  String get addEmailHint => 'Loguj się nim i dostawaj podsumowania e-mailem';
+
+  @override
+  String unblockedName(String name) {
+    return 'Odblokowano: $name';
+  }
+
+  @override
+  String get blockNeedsConnection => 'Blokowanie wymaga połączenia.';
+
+  @override
+  String get blockedEmpty => 'Nikogo nie blokujesz.';
+
+  @override
+  String get blockedNeedsConnection => 'Lista zablokowanych wymaga połączenia';
+
+  @override
+  String get unblock => 'Odblokuj';
+
+  @override
+  String get blockedPeople => 'Zablokowane osoby';
+
+  @override
+  String get blockedHelp =>
+      'Zablokowane osoby nie mogą dodać cię do znajomych ani wysyłać przypomnień, a ich zmiany nie dają ci powiadomień ani e-maili. Wspólne grupy i salda zostają bez zmian.';
+
+  @override
+  String get deletedGroupsEmpty => 'Brak usuniętych grup';
+
+  @override
+  String get deletedGroupsHelp =>
+      'Przywrócenie oddaje grupę wszystkim, z całą zawartością.';
+
+  @override
+  String get deletedGroups => 'Usunięte grupy';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count grupy można przywrócić',
+      many: '$count grup można przywrócić',
+      few: '$count grupy można przywrócić',
+      one: '1 grupę można przywrócić',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection => 'Eksport wymaga połączenia.';
+
+  @override
+  String get exportEverything => 'Eksportuj wszystko (JSON)';
+
+  @override
+  String get exportEverythingHint =>
+      'Twój profil, sposoby otrzymywania płatności, ustawienia i każda grupa, także usunięte';
+
+  @override
+  String get emailSummary => 'Podsumowanie e-mailem';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': 'Automatycznie',
+      'daily': 'Codziennie',
+      'weekly': 'Co tydzień',
+      'monthly': 'Co miesiąc',
+      'off': 'Wyłączone',
+      'other': 'Automatycznie',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp =>
+      'Codziennie, gdy twoje urządzenia nie mogą pokazywać powiadomień, w przeciwnym razie co miesiąc';
+
+  @override
+  String get digestAutoDaily =>
+      'Automatycznie — codziennie, bo powiadomienia są wyłączone';
+
+  @override
+  String get digestAutoMonthly =>
+      'Automatycznie — co miesiąc, bo twoje urządzenia dostają powiadomienia';
+
+  @override
+  String get digestNoEmail =>
+      'Dodaj e-mail w sekcji Konto, żeby dostawać podsumowania';
+
+  @override
+  String get helpReportProblem => 'Zgłoś problem albo zaproponuj funkcję';
+
+  @override
+  String get helpReportProblemHint =>
+      'Na GitHubie, gdzie każdy może to zobaczyć';
+
+  @override
+  String get helpContact => 'Napisz do pomocy';
+
+  @override
+  String get privacyPolicy => 'Polityka prywatności';
+
+  @override
+  String get helpFeedback => 'Pomoc i opinie';
+
+  @override
+  String get signOutEverywhere => 'Wyloguj na wszystkich urządzeniach';
+
+  @override
+  String get signOutEverywhereTitle => 'Wylogować na wszystkich urządzeniach?';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'Każdy telefon i przeglądarka z twoim kontem zostanie wylogowany, to urządzenie też. Twoje grupy zostają na serwerze.';
+
+  @override
+  String get signOutEverywhereOffline =>
+      'Wylogowanie na wszystkich urządzeniach wymaga połączenia.';
+
+  @override
+  String get deleteAccountExportTip =>
+      'Wskazówka: najpierw wyeksportuj wszystko.';
+
+  @override
+  String get coverPhoto => 'Zdjęcie w tle';
+
+  @override
+  String get coverPhotoHint =>
+      'Widoczne u góry grupy i na liście. Widzą je tylko członkowie.';
+
+  @override
+  String get removeCover => 'Usuń zdjęcie w tle';
+
+  @override
+  String get coverNeedsConnection => 'Zmiana zdjęcia w tle wymaga połączenia.';
+
+  @override
+  String get coverTooMany => 'To dużo zmian zdjęcia w tle. Spróbuj za godzinę.';
+
+  @override
+  String get deleteGroup => 'Usuń grupę';
+
+  @override
+  String get deleteGroupHint =>
+      'Dla wszystkich · każdy członek może ją przywrócić';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return 'Usunąć „$name”?';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      'Usunięta dla wszystkich. Każdy członek może ją przywrócić w Ustawienia → Usunięte grupy.';
+
+  @override
+  String groupDeletedName(String name) {
+    return 'Usunięto „$name”';
+  }
+
+  @override
+  String get groupDeletedBanner => 'Ta grupa jest usunięta';
+
+  @override
+  String get groupRestored => 'Grupa przywrócona';
+
+  @override
+  String get deleteFriend => 'Usuń znajomego';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return 'Usunąć: $name?';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return 'Twoje wydatki poza grupą z osobą $name zostaną usunięte dla was obojga. Wspólne grupy zostają. Możesz je przywrócić w Ustawienia → Usunięte grupy albo dodając znowu: $name.';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return 'Usunięto: $name';
+  }
+
+  @override
+  String get block => 'Zablokuj';
+
+  @override
+  String blockTitle(String name) {
+    return 'Zablokować: $name?';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name nie będzie mógł dodać cię do znajomych ani wysyłać przypomnień, a jego zmiany nie dadzą ci powiadomień ani e-maili. Wspólne grupy i salda zostają.';
+  }
+
+  @override
+  String blockedName(String name) {
+    return 'Zablokowano: $name';
+  }
+
+  @override
+  String get report => 'Zgłoś…';
+
+  @override
+  String get reportSubject => 'Zgłoszenie w Evensies';
+
+  @override
+  String reportBody(String userId) {
+    return 'ID użytkownika: $userId\n\nCo się stało:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'Zaproś e-mailem…';
+
+  @override
+  String get inviteEmailField => 'E-mail (opcjonalnie)';
+
+  @override
+  String get inviteEmailHelp =>
+      'Wyślemy e-mailem link z zaproszeniem. Użyty tylko do tego zaproszenia.';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return 'Zaproś e-mailem: $name';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return 'Wysłano zaproszenie na $email';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'Dodano członka. Zaproszenie e-mailem wymaga połączenia — spróbuj ponownie z listy członków.';
+
+  @override
+  String get inviteEmailOffline => 'Zaproszenie e-mailem wymaga połączenia.';
+
+  @override
+  String get inviteEmailLimit =>
+      'Osiągnięto dzisiejszy limit e-maili — udostępnij link zamiast tego.';
+
+  @override
+  String emailReminder(String choice) {
+    return 'Przypomnienie e-mailem: $choice';
+  }
+
+  @override
+  String get remindNever => 'Nigdy';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count dni wcześniej',
+      one: '1 dzień wcześniej',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi =>
+      'Indie: Paytm, PhonePe, Google Pay i inne aplikacje UPI';
+
+  @override
+  String get fieldUpi => 'Identyfikator UPI';
+
+  @override
+  String get fieldUpiHint => 'Na przykład imie@okicici';
+
+  @override
+  String get fieldUpiName => 'Imię (opcjonalnie)';
+
+  @override
+  String get fieldUpiNameHint => 'Widzi je osoba, która ci płaci';
+
+  @override
+  String get methodErrorUpi => 'Wpisz identyfikator UPI, np. imie@bank';
+
+  @override
+  String get noUpiApp =>
+      'Nie znaleziono aplikacji UPI. Skopiuj zamiast tego identyfikator UPI i kwotę.';
+
+  @override
+  String get upiIdLabel => 'Identyfikator UPI';
+
+  @override
+  String get copyUpiId => 'Kopiuj identyfikator UPI';
+
+  @override
+  String get upiIdCopied => 'Skopiowano identyfikator UPI';
+
+  @override
+  String get dashboard => 'Pulpit';
+
+  @override
+  String get allExpenses => 'Wszystkie wydatki';
+
+  @override
+  String get groupBalances => 'Salda grupy';
+
+  @override
+  String get yourBalance => 'Twoje saldo';
+
+  @override
+  String get dashboardOwesYou => 'Winni tobie';
+
+  @override
+  String get dashboardYouOwe => 'Jesteś winien';
+
+  @override
+  String get historyAndComments => 'Historia i komentarze';
+
+  @override
+  String get showEarlier => 'Pokaż wcześniejsze';
+
+  @override
+  String get settleUpFirst => 'Najpierw się rozlicz';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'Możesz usunąć znajomego ($name), gdy wydatki poza grupami będą rozliczone.';
+  }
+
+  @override
+  String get noMailApp =>
+      'Nie znaleziono aplikacji pocztowej. Skopiuj poniższe dane i napisz z dowolnej aplikacji pocztowej.';
+
+  @override
+  String get copyAddress => 'Kopiuj adres';
+
+  @override
+  String get copyMessage => 'Kopiuj wiadomość';
+
+  @override
+  String get browserNoStorage =>
+      'Ta przeglądarka nie może przechowywać danych Evensies. Spróbuj innej przeglądarki lub okna, które nie jest prywatne.';
+
+  @override
+  String get browserOtherTab =>
+      'Aplikacja Evensies jest już otwarta w innej karcie tej przeglądarki. Użyj tamtej karty albo zamknij ją i odśwież tę.';
 }

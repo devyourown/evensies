@@ -42,14 +42,14 @@ class FakeApi extends ApiClient {
   Future<({GroupDto group, GroupState state, int latestSeq})> snapshot(String groupId) async => snap ?? (throw offline);
 
   /// Server-side notification prefs; null = unreachable. PUT bodies land in [putPrefs].
-  Map<String, bool>? prefs;
-  final putPrefs = <Map<String, bool>>[];
+  Map<String, Object>? prefs;
+  final putPrefs = <Map<String, Object>>[];
 
   @override
-  Future<Map<String, bool>> getNotificationPrefs() async => prefs ?? (throw offline);
+  Future<Map<String, Object>> getNotificationPrefs() async => prefs ?? (throw offline);
 
   @override
-  Future<Map<String, bool>> putNotificationPrefs(Map<String, bool> p) async {
+  Future<Map<String, Object>> putNotificationPrefs(Map<String, Object> p) async {
     putPrefs.add(p);
     if (prefs == null) throw offline;
     return prefs = p;
@@ -76,6 +76,11 @@ class FakeApi extends ApiClient {
 
   @override
   Future<Uint8List> avatar(String userId) async => throw offline;
+
+  /// GET /info as received; null = unreachable.
+  Map<String, dynamic>? info;
+  @override
+  Future<Map<String, dynamic>> infoJson() async => info ?? (throw offline);
   @override
   Future<ActivityUnread> activityUnread() async => throw offline;
   @override
@@ -167,18 +172,105 @@ class FakeApi extends ApiClient {
   /// POST /devices (deviceId, fcmToken) and DELETE /devices ids; [devicesOffline] makes both unreachable.
   final registered = <(String, String)>[];
   final unregistered = <String>[];
+
+  /// The `notificationsAllowed` of each registration, in order (null = not sent).
+  final allowedSent = <bool?>[];
   bool devicesOffline = false;
 
   @override
-  Future<void> registerDevice(String deviceId, String fcmToken) async {
+  Future<void> registerDevice(String deviceId, String fcmToken, {bool? notificationsAllowed}) async {
     if (devicesOffline) throw offline;
     registered.add((deviceId, fcmToken));
+    allowedSent.add(notificationsAllowed);
   }
 
   @override
   Future<void> unregisterDevice(String deviceId) async {
     if (devicesOffline) throw offline;
     unregistered.add(deviceId);
+  }
+}
+
+/// Phase 10 endpoints: each records its calls and answers from its field, or throws like an unreachable server when
+/// it is null.
+class FakeApi10 extends FakeApi6 {
+  FakeApi10(super.db);
+
+  /// POST /groups bodies' `type`; [created] answers (null = unreachable).
+  final createdTypes = <String?>[];
+  GroupDto? created;
+  @override
+  Future<GroupDto> createGroup(
+      {required String id,
+      required String name,
+      required String defaultCurrency,
+      required String memberId,
+      required String memberName,
+      String? type}) async {
+    createdTypes.add(type);
+    return created ??
+        GroupDto(
+            id: id,
+            name: name,
+            defaultCurrency: defaultCurrency,
+            inviteCode: 'ABCDEF',
+            latestSeq: 2,
+            myMemberId: memberId,
+            type: type ?? 'other');
+  }
+
+  /// GET /me/blocks; null = unreachable. PUT and DELETE land in [blockCalls] as ('block'|'unblock', userId).
+  List<({String userId, String displayName})>? blockList;
+  final blockCalls = <(String, String)>[];
+  @override
+  Future<List<({String userId, String displayName})>> blocks() async => blockList ?? (throw FakeApi.offline);
+  @override
+  Future<void> block(String userId) async {
+    blockCalls.add(('block', userId));
+    if (blockList == null) throw FakeApi.offline;
+    blockList = [...blockList!, (userId: userId, displayName: userId)];
+  }
+
+  @override
+  Future<void> unblock(String userId) async {
+    blockCalls.add(('unblock', userId));
+    if (blockList == null) throw FakeApi.offline;
+    blockList = [for (final b in blockList!) if (b.userId != userId) b];
+  }
+
+  /// POST …/invite-email: (groupId, memberId, email); [inviteOffline] makes it unreachable.
+  final invites10 = <(String, String, String)>[];
+  bool inviteOffline = false;
+  @override
+  Future<void> inviteByEmail(String groupId, String memberId, String email) async {
+    if (inviteOffline) throw FakeApi.offline;
+    invites10.add((groupId, memberId, email));
+  }
+
+  /// POST /me/email and /verify: the addresses asked for, and the account it answers ([emailOffline]: unreachable).
+  final emailCodes = <String>[];
+  bool emailOffline = false;
+  @override
+  Future<void> addEmail(String email) async {
+    if (emailOffline) throw FakeApi.offline;
+    emailCodes.add(email);
+  }
+
+  @override
+  Future<UserDto> verifyEmail(String email, String code) async {
+    if (code != '123456') throw const ApiException(status: 400, code: 'CODE_INVALID', message: 'no');
+    return UserDto(id: 'u1', displayName: 'Anna', email: email);
+  }
+
+  int emailRemovals = 0;
+  @override
+  Future<void> removeEmail() async => emailRemovals++;
+
+  int logoutAlls = 0;
+  @override
+  Future<void> logoutAll() async {
+    if (emailOffline) throw FakeApi.offline;
+    logoutAlls++;
   }
 }
 

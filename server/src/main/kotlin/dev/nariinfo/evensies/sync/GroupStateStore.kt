@@ -19,12 +19,13 @@ import java.util.UUID
 @Repository
 class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMapper) {
     fun load(groupId: UUID): GroupState {
-        val group = jdbc.sql("SELECT name, default_currency, simplify_debts, default_split, kind FROM groups WHERE id = :id").param("id", groupId)
-            .query { rs, _ ->
+        val group = jdbc.sql("SELECT name, default_currency, simplify_debts, default_split, kind, type, cover_image_id, deleted_at FROM groups WHERE id = :id")
+            .param("id", groupId).query { rs, _ ->
                 GroupState(
                     name = rs.getString("name"), defaultCurrency = rs.getString("default_currency"),
                     simplifyDebts = rs.getBoolean("simplify_debts"), defaultSplit = json(rs.getString("default_split")),
-                    kind = rs.getString("kind"),
+                    kind = rs.getString("kind"), type = rs.getString("type"), coverImageId = rs.getString("cover_image_id"),
+                    deleted = rs.getObject("deleted_at") != null,
                 )
             }.optional().orElse(GroupState())
         val members = jdbc.sql("SELECT * FROM members WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -90,11 +91,12 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             "SELECT id, expense_id, deleted_at FROM attachments WHERE group_id = :id AND expense_id IS NOT NULL ORDER BY created_at, id"
         ).param("id", groupId).query { rs, _ -> AttachmentDto(rs.getString("id"), rs.getString("expense_id"), rs.getObject("deleted_at") != null) }.list()
         val recurrences = jdbc.sql(
-            "SELECT id, frequency, start_date, time_zone, template, deleted_at FROM recurrences WHERE group_id = :id ORDER BY created_at, id"
+            "SELECT id, frequency, start_date, time_zone, template, deleted_at, remind_days_before FROM recurrences WHERE group_id = :id ORDER BY created_at, id"
         ).param("id", groupId).query { rs, _ ->
             RecurrenceDto(
                 rs.getString("id"), rs.getString("frequency"), rs.getObject("start_date", LocalDate::class.java).toString(),
                 rs.getString("time_zone"), mapper.readTree(rs.getString("template")), rs.getObject("deleted_at") != null,
+                rs.getObject("remind_days_before", Int::class.javaObjectType),
             )
         }.list()
         return group.copy(
@@ -115,10 +117,20 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
      */
     fun persist(groupId: UUID, actorUserId: UUID?, state: GroupState, type: String, payload: JsonNode, createdAt: Instant) {
         when (type.substringBefore('.')) {
-            "group" -> jdbc.sql(
-                "UPDATE groups SET name = :name, default_currency = :cur, simplify_debts = :simplify, default_split = CAST(:split AS jsonb) WHERE id = :id"
-            ).param("name", state.name).param("cur", state.defaultCurrency).param("simplify", state.simplifyDebts)
-                .param("split", state.defaultSplit?.let(mapper::writeValueAsString)).param("id", groupId).update()
+            "group" -> {
+                val restored = type == "group.restored" &&
+                    jdbc.sql("SELECT deleted_at IS NOT NULL FROM groups WHERE id = :id").param("id", groupId).query(Boolean::class.java).single()
+                jdbc.sql(
+                    """
+                    UPDATE groups SET name = :name, default_currency = :cur, simplify_debts = :simplify, default_split = CAST(:split AS jsonb),
+                      type = :type, cover_image_id = :cover, deleted_at = CASE WHEN :deleted THEN COALESCE(deleted_at, now()) ELSE NULL END
+                    WHERE id = :id
+                    """
+                ).param("name", state.name).param("cur", state.defaultCurrency).param("simplify", state.simplifyDebts)
+                    .param("split", state.defaultSplit?.let(mapper::writeValueAsString)).param("type", state.type)
+                    .param("cover", state.coverImageId?.let(UUID::fromString)).param("deleted", state.deleted).param("id", groupId).update()
+                if (restored) restartSeries(groupId)
+            }
             "member" -> state.members[payload.text("memberId")]?.let { upsertMember(groupId, it) }
             "expense" -> state.expenses[payload.text("expenseId")]?.let { upsertExpense(groupId, actorUserId, it) }
             "payment" -> state.payments[payload.text("paymentId")]?.let { upsertPayment(groupId, actorUserId, it) }
@@ -150,16 +162,34 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
         val (n, date) = Schedule.firstOnOrAfter(r.frequency, start, LocalDate.ofInstant(created, ZoneId.of(r.timeZone)))
         jdbc.sql(
             """
-            INSERT INTO recurrences (id, group_id, frequency, start_date, time_zone, template, created_by, deleted_at, next_occurrence, next_due_at)
-            VALUES (:id, :groupId, :frequency, :startDate, :timeZone, CAST(:template AS jsonb), :actor, CASE WHEN :deleted THEN now() ELSE NULL END, :n, :due)
-            ON CONFLICT (id) DO UPDATE SET template = EXCLUDED.template,
+            INSERT INTO recurrences (id, group_id, frequency, start_date, time_zone, template, created_by, deleted_at, next_occurrence, next_due_at, remind_days_before)
+            VALUES (:id, :groupId, :frequency, :startDate, :timeZone, CAST(:template AS jsonb), :actor, CASE WHEN :deleted THEN now() ELSE NULL END, :n, :due, :remind)
+            ON CONFLICT (id) DO UPDATE SET template = EXCLUDED.template, remind_days_before = EXCLUDED.remind_days_before,
               deleted_at = CASE WHEN :deleted THEN COALESCE(recurrences.deleted_at, now()) ELSE NULL END
             WHERE recurrences.group_id = EXCLUDED.group_id
             """
         ).param("id", UUID.fromString(r.id)).param("groupId", groupId).param("frequency", r.frequency).param("startDate", start)
+            .param("remind", r.remindDaysBefore)
             .param("timeZone", r.timeZone).param("template", mapper.writeValueAsString(r.template)).param("actor", actorUserId)
             .param("deleted", r.deleted).param("n", n).param("due", Schedule.dueAt(date, r.timeZone).atOffset(ZoneOffset.UTC))
             .update().requireOwnRow()
+    }
+
+    /**
+     * A restored group's live series skip the deleted period (docs/API.md "그룹 삭제"): each moves on to its first
+     * occurrence on or after today in its zone (never back), so the days it was deleted are not posted in a burst.
+     */
+    private fun restartSeries(groupId: UUID) {
+        class Live(val id: UUID, val frequency: String, val start: LocalDate, val zone: String, val n: Int)
+        val rows = jdbc.sql("SELECT id, frequency, start_date, time_zone, next_occurrence FROM recurrences WHERE group_id = :g AND deleted_at IS NULL")
+            .param("g", groupId).query { rs, _ ->
+                Live(rs.getObject("id", UUID::class.java), rs.getString("frequency"), rs.getObject("start_date", LocalDate::class.java), rs.getString("time_zone"), rs.getInt("next_occurrence"))
+            }.list()
+        for (r in rows) {
+            val (n, date) = Schedule.firstOnOrAfter(r.frequency, r.start, LocalDate.now(ZoneId.of(r.zone)), minN = r.n)
+            jdbc.sql("UPDATE recurrences SET next_occurrence = :n, next_due_at = :due WHERE id = :id")
+                .param("n", n).param("due", Schedule.dueAt(date, r.zone).atOffset(ZoneOffset.UTC)).param("id", r.id).update()
+        }
     }
 
     private fun upsertMember(groupId: UUID, m: MemberDto) {

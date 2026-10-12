@@ -2814,4 +2814,463 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get yourRate => 'din kurs';
+
+  @override
+  String get loginEmail => 'Fortsätt med e-post';
+
+  @override
+  String get emailLoginTitle => 'Logga in med e-post';
+
+  @override
+  String get emailLoginIntro =>
+      'Vi mejlar dig en sexsiffrig kod. Inget lösenord behövs.';
+
+  @override
+  String get emailLabel => 'E-post';
+
+  @override
+  String get emailInvalid => 'Ange en giltig e-postadress';
+
+  @override
+  String get sendCode => 'Skicka kod';
+
+  @override
+  String codeSentTo(String email) {
+    return 'Ange den sexsiffriga koden vi skickade till $email. Den gäller i 10 minuter.';
+  }
+
+  @override
+  String get codeLabel => 'Sexsiffrig kod';
+
+  @override
+  String get verifyCode => 'Fortsätt';
+
+  @override
+  String get resendCode => 'Skicka koden igen';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return 'Skicka igen om $seconds s';
+  }
+
+  @override
+  String get codeResent => 'Vi har skickat en ny kod.';
+
+  @override
+  String get useDifferentEmail => 'Använd en annan e-postadress';
+
+  @override
+  String get codeCheckSpam => 'Kom inget? Titta i skräpposten.';
+
+  @override
+  String get errorCodeInvalid => 'Koden är fel eller har gått ut. Be om en ny.';
+
+  @override
+  String get errorEmailNotConfigured => 'Den här servern skickar inte e-post.';
+
+  @override
+  String get errorEmailRejected =>
+      'Den adressen kan inte ta emot e-post. Kolla att den är rätt stavad.';
+
+  @override
+  String get errorEmailTaken =>
+      'Ett annat konto använder redan den här adressen.';
+
+  @override
+  String get errorEmailRequired =>
+      'E-posten är ditt enda sätt att logga in, så den kan inte tas bort.';
+
+  @override
+  String get errorEmailUnavailable =>
+      'E-post fungerar inte just nu. Försök igen senare.';
+
+  @override
+  String get emailSaved => 'E-post sparad';
+
+  @override
+  String removeEmailTitle(String email) {
+    return 'Ta bort $email?';
+  }
+
+  @override
+  String get removeEmailMessage =>
+      'Du får inga sammanfattningar eller påminnelser via e-post längre och kan inte logga in med den.';
+
+  @override
+  String get emailRemoved => 'E-post borttagen';
+
+  @override
+  String get emailNeedsConnection =>
+      'Du behöver en anslutning för att byta e-post.';
+
+  @override
+  String get emailBouncedNote =>
+      'E-post till den här adressen studsar — byt den eller verifiera den igen';
+
+  @override
+  String get emailVerifiedNote => 'Verifierad · andra medlemmar ser den aldrig';
+
+  @override
+  String get changeEmail => 'Byt e-post';
+
+  @override
+  String get emailAccountHelp =>
+      'För inloggning och sammanfattningar via e-post. Vi skickar en kod för att kontrollera att den är din. Andra medlemmar ser den aldrig.';
+
+  @override
+  String get removeEmail => 'Ta bort e-post';
+
+  @override
+  String get addEmail => 'Lägg till e-post';
+
+  @override
+  String get addEmailHint =>
+      'Logga in med den och få sammanfattningar via e-post';
+
+  @override
+  String unblockedName(String name) {
+    return '$name är inte längre blockerad';
+  }
+
+  @override
+  String get blockNeedsConnection =>
+      'Du behöver en anslutning för att blockera.';
+
+  @override
+  String get blockedEmpty => 'Du har inte blockerat någon.';
+
+  @override
+  String get blockedNeedsConnection =>
+      'Blockerade personer kräver en anslutning';
+
+  @override
+  String get unblock => 'Avblockera';
+
+  @override
+  String get blockedPeople => 'Blockerade personer';
+
+  @override
+  String get blockedHelp =>
+      'Blockerade personer kan inte lägga till dig som vän eller skicka påminnelser, och deras ändringar ger dig inga aviseringar eller mejl. Gemensamma grupper och saldon är kvar som de är.';
+
+  @override
+  String get deletedGroupsEmpty => 'Inga raderade grupper';
+
+  @override
+  String get deletedGroupsHelp =>
+      'En återställd grupp kommer tillbaka för alla, med allt innehåll.';
+
+  @override
+  String get deletedGroups => 'Raderade grupper';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count grupper kan återställas',
+      one: '1 grupp kan återställas',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection =>
+      'Du behöver en anslutning för att exportera.';
+
+  @override
+  String get exportEverything => 'Exportera allt (JSON)';
+
+  @override
+  String get exportEverythingHint =>
+      'Din profil, sätt att få betalt, inställningar och alla grupper, även raderade';
+
+  @override
+  String get emailSummary => 'Sammanfattning via e-post';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': 'Automatisk',
+      'daily': 'Varje dag',
+      'weekly': 'Varje vecka',
+      'monthly': 'Varje månad',
+      'off': 'Av',
+      'other': 'Automatisk',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp =>
+      'Varje dag om dina enheter inte kan visa aviseringar, annars varje månad';
+
+  @override
+  String get digestAutoDaily =>
+      'Automatisk — varje dag, eftersom aviseringar är avstängda';
+
+  @override
+  String get digestAutoMonthly =>
+      'Automatisk — varje månad, eftersom dina enheter får aviseringar';
+
+  @override
+  String get digestNoEmail =>
+      'Lägg till e-post under Konto för att få sammanfattningar';
+
+  @override
+  String get helpReportProblem => 'Rapportera ett problem eller föreslå något';
+
+  @override
+  String get helpReportProblemHint => 'På GitHub, där alla kan se det';
+
+  @override
+  String get helpContact => 'Mejla supporten';
+
+  @override
+  String get privacyPolicy => 'Integritetspolicy';
+
+  @override
+  String get helpFeedback => 'Hjälp och feedback';
+
+  @override
+  String get signOutEverywhere => 'Logga ut på alla enheter';
+
+  @override
+  String get signOutEverywhereTitle => 'Logga ut på alla enheter?';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'Alla telefoner och webbläsare med ditt konto loggas ut, även den här. Dina grupper finns kvar på servern.';
+
+  @override
+  String get signOutEverywhereOffline =>
+      'Du behöver en anslutning för att logga ut på alla enheter.';
+
+  @override
+  String get deleteAccountExportTip => 'Tips: Exportera allt först.';
+
+  @override
+  String get coverPhoto => 'Omslagsbild';
+
+  @override
+  String get coverPhotoHint =>
+      'Visas överst i gruppen och i listan. Bara medlemmar ser den.';
+
+  @override
+  String get removeCover => 'Ta bort omslag';
+
+  @override
+  String get coverNeedsConnection =>
+      'Du behöver en anslutning för att byta omslag.';
+
+  @override
+  String get coverTooMany =>
+      'Det är många omslagsbyten. Försök igen om en timme.';
+
+  @override
+  String get deleteGroup => 'Radera gruppen';
+
+  @override
+  String get deleteGroupHint =>
+      'För alla · vilken medlem som helst kan återställa den';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return 'Radera ”$name”?';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      'Raderas för alla. Vilken medlem som helst kan återställa den under Inställningar → Raderade grupper.';
+
+  @override
+  String groupDeletedName(String name) {
+    return '”$name” raderad';
+  }
+
+  @override
+  String get groupDeletedBanner => 'Den här gruppen är raderad';
+
+  @override
+  String get groupRestored => 'Gruppen återställd';
+
+  @override
+  String get deleteFriend => 'Radera vän';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return 'Radera $name?';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return 'Era utgifter utan grupp med $name raderas för er båda. Gemensamma grupper finns kvar. Du kan återställa dem under Inställningar → Raderade grupper, eller genom att lägga till $name igen.';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return '$name raderad';
+  }
+
+  @override
+  String get block => 'Blockera';
+
+  @override
+  String blockTitle(String name) {
+    return 'Blockera $name?';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name kan inte lägga till dig som vän eller skicka påminnelser, och ändringar från $name ger dig inga aviseringar eller mejl. Gemensamma grupper och saldon finns kvar.';
+  }
+
+  @override
+  String blockedName(String name) {
+    return '$name blockerad';
+  }
+
+  @override
+  String get report => 'Anmäl…';
+
+  @override
+  String get reportSubject => 'Anmälan i Evensies';
+
+  @override
+  String reportBody(String userId) {
+    return 'Användar-ID: $userId\n\nVad som hände:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'Bjud in via e-post…';
+
+  @override
+  String get inviteEmailField => 'E-post (valfritt)';
+
+  @override
+  String get inviteEmailHelp =>
+      'Vi mejlar en inbjudningslänk. Används bara för den här inbjudan.';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return 'Bjud in $name via e-post';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return 'Inbjudan skickad till $email';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'Medlem tillagd. Att bjuda in via e-post kräver en anslutning — försök igen från medlemslistan.';
+
+  @override
+  String get inviteEmailOffline =>
+      'Du behöver en anslutning för att bjuda in via e-post.';
+
+  @override
+  String get inviteEmailLimit =>
+      'Dagens gräns för e-post är nådd — dela länken i stället.';
+
+  @override
+  String emailReminder(String choice) {
+    return 'Påminnelse via e-post: $choice';
+  }
+
+  @override
+  String get remindNever => 'Aldrig';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count dagar innan',
+      one: '1 dag innan',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi =>
+      'Indien: Paytm, PhonePe, Google Pay och andra UPI-appar';
+
+  @override
+  String get fieldUpi => 'UPI-ID';
+
+  @override
+  String get fieldUpiHint => 'Till exempel namn@okicici';
+
+  @override
+  String get fieldUpiName => 'Namn (valfritt)';
+
+  @override
+  String get fieldUpiNameHint => 'Visas för den som betalar dig';
+
+  @override
+  String get methodErrorUpi => 'Ange ett UPI-ID som namn@bank';
+
+  @override
+  String get noUpiApp =>
+      'Ingen UPI-app hittades. Kopiera UPI-ID och belopp i stället.';
+
+  @override
+  String get upiIdLabel => 'UPI-ID';
+
+  @override
+  String get copyUpiId => 'Kopiera UPI-ID';
+
+  @override
+  String get upiIdCopied => 'UPI-ID kopierat';
+
+  @override
+  String get dashboard => 'Översikt';
+
+  @override
+  String get allExpenses => 'Alla utgifter';
+
+  @override
+  String get groupBalances => 'Gruppens saldon';
+
+  @override
+  String get yourBalance => 'Ditt saldo';
+
+  @override
+  String get dashboardOwesYou => 'Är skyldiga dig';
+
+  @override
+  String get dashboardYouOwe => 'Du är skyldig';
+
+  @override
+  String get historyAndComments => 'Historik och kommentarer';
+
+  @override
+  String get showEarlier => 'Visa tidigare';
+
+  @override
+  String get settleUpFirst => 'Gör upp först';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'Du kan radera $name som vän när era utgifter utanför grupper är uppgjorda.';
+  }
+
+  @override
+  String get noMailApp =>
+      'Ingen e-postapp hittades. Kopiera uppgifterna nedan och skriv från valfri e-postapp.';
+
+  @override
+  String get copyAddress => 'Kopiera adress';
+
+  @override
+  String get copyMessage => 'Kopiera meddelande';
+
+  @override
+  String get browserNoStorage =>
+      'Den här webbläsaren kan inte spara Evensies data. Prova en annan webbläsare eller ett fönster som inte är privat.';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies är redan öppet i en annan flik i den här webbläsaren. Använd den fliken, eller stäng den och ladda om den här.';
 }

@@ -1,6 +1,7 @@
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,6 +43,13 @@ final homeCurrencyProvider = Provider<String>((ref) =>
     Money.currencyForLocale(PlatformDispatcher.instance.locale.toString()));
 
 final groupsProvider = StreamProvider<List<GroupRow>>((ref) => ref.watch(dbProvider).watchGroups());
+
+/// Groups a member deleted (docs/API.md 그룹 삭제): Settings → Deleted groups, where any member restores them.
+final deletedGroupsProvider = StreamProvider<List<GroupRow>>((ref) => ref.watch(dbProvider).watchDeletedGroups());
+
+/// The people I blocked (docs/API.md 차단), online only; invalidated after a change.
+final blocksProvider = FutureProvider.autoDispose<List<({String userId, String displayName})>>(
+    (ref) => ref.watch(apiProvider).blocks());
 final groupProvider = StreamProvider.family<GroupRow?, String>((ref, id) => ref.watch(dbProvider).watchGroup(id));
 final membersProvider =
     StreamProvider.family<List<MemberRow>, String>((ref, id) => ref.watch(dbProvider).watchMembers(id));
@@ -80,13 +88,17 @@ final movedAwayProvider = StreamProvider.family<bool, ({String groupId, String e
 });
 
 /// Offline chip state, mirrored from SyncService.
-final offlineProvider = Provider<bool>((ref) {
-  final n = ref.watch(syncProvider).offline;
+final offlineProvider = Provider<bool>((ref) => _mirror(ref, ref.watch(syncProvider).offline));
+
+/// A fresh sign-in's groups still loading ([SyncService.firstLoad]).
+final firstLoadProvider = Provider<bool>((ref) => _mirror(ref, ref.watch(syncProvider).firstLoad));
+
+bool _mirror(Ref ref, ValueNotifier<bool> n) {
   void listener() => ref.invalidateSelf();
   n.addListener(listener);
   ref.onDispose(() => n.removeListener(listener));
   return n.value;
-});
+}
 
 /// A user's profile photo through the API (token refresh included), kept until the app comes back to the front; null
 /// when there is none, it isn't visible to me, or the server can't be reached (initials then). Mine is invalidated

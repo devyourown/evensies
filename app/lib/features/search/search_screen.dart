@@ -14,6 +14,7 @@ import '../categories/category_ui.dart';
 import '../friends/home_data.dart';
 import '../group_detail/balances.dart';
 import '../group_detail/group_detail_screen.dart' show ExpenseTile;
+import '../groups/wide_layout.dart' show isWide;
 import '../insights/insights_screen.dart' show monthLabel;
 
 /// Every group on this device with its state: search runs over the local DB, so it works offline.
@@ -23,14 +24,16 @@ final searchIndexProvider = FutureProvider<List<({GroupRow group, GroupState sta
 });
 
 /// Search expenses (route `/search?group=&category=&month=`, docs/API.md 검색): descriptions, notes, comments,
-/// categories and amounts, across all groups or within one.
+/// categories and amounts, across all groups or within one. [all] (`&all=1`, the web sidebar's All expenses): with
+/// nothing typed, every expense, newest first.
 class SearchScreen extends ConsumerStatefulWidget {
   final String? groupId;
 
   /// A category key, or a parent key for the whole parent.
   final String? category;
   final String? month;
-  const SearchScreen({super.key, this.groupId, this.category, this.month});
+  final bool all;
+  const SearchScreen({super.key, this.groupId, this.category, this.month, this.all = false});
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
@@ -91,7 +94,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final docs = [for (final g in groups) ...SearchDoc.of(g.group.id, g.state)];
     final months = {for (final d in docs) ?monthOf(d.date)}.toList()
       ..sort((a, b) => b.compareTo(a));
-    final ids = searchDocs(docs, _query, category: _category, month: _month);
+    final ids = searchDocs(docs, _query, category: _category, month: _month, all: widget.all);
     final byId = {for (final d in docs) d.id: d};
     final groupName = index?.where((g) => g.group.id == _group).firstOrNull?.group.name;
 
@@ -113,8 +116,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       results = message(Icons.error_outline, l.searchUnavailable, errorText(l, indexAsync.error!));
     } else if (index == null) {
       results = const Center(child: CircularProgressIndicator());
-    } else if (searchTerms(_query).isEmpty && _category == null && _month == null) {
+    } else if (searchTerms(_query).isEmpty && _category == null && _month == null && !widget.all) {
       results = message(Icons.search, l.searchExpenses, l.searchHelp);
+    } else if (docs.isEmpty) {
+      results = message(Icons.receipt_long_outlined, l.noExpensesYet, '');
     } else if (ids.isEmpty) {
       results = message(Icons.search_off, l.noMatches, l.noMatchesHelp);
     } else {
@@ -149,10 +154,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        // All expenses is a sidebar page: the sidebar is the way back.
+        automaticallyImplyLeading: !(widget.all && isWide(context)),
         title: TextField(
           key: const Key('search-input'),
           controller: _ctl,
-          autofocus: widget.category == null && widget.month == null,
+          autofocus: widget.category == null && widget.month == null && !widget.all,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: _group == null

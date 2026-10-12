@@ -12,10 +12,13 @@ import tools.jackson.databind.JsonNode
 import java.time.Instant
 import java.util.UUID
 
-/** Defaults read meta stored before Phase 3. */
-data class GroupInfo(val name: String?, val defaultCurrency: String?, val simplifyDebts: Boolean = true, val defaultSplit: JsonNode? = null)
+/** Defaults read meta stored before Phase 3 (and before Phase 10: type, coverImageId). */
+data class GroupInfo(
+    val name: String?, val defaultCurrency: String?, val simplifyDebts: Boolean = true, val defaultSplit: JsonNode? = null,
+    val type: String = "other", val coverImageId: String? = null,
+)
 
-private fun GroupState.info() = GroupInfo(name, defaultCurrency, simplifyDebts, defaultSplit)
+private fun GroupState.info() = GroupInfo(name, defaultCurrency, simplifyDebts, defaultSplit, type, coverImageId)
 
 /**
  * Stored in `events.meta` (server-internal, never pulled): what the feed needs about one event, captured while it is
@@ -90,6 +93,7 @@ object Activity {
     private val GROUP_FIELDS = listOf<Pair<String, (GroupInfo) -> Any?>>(
         "name" to GroupInfo::name, "defaultCurrency" to GroupInfo::defaultCurrency,
         "simplifyDebts" to GroupInfo::simplifyDebts, "defaultSplit" to GroupInfo::defaultSplit,
+        "type" to GroupInfo::type, "coverImageId" to GroupInfo::coverImageId,
     )
     private val EXPENSE_FIELDS = listOf<Pair<String, (ExpenseDto) -> Any?>>(
         "description" to ExpenseDto::description, "amount" to ExpenseDto::amount, "currency" to ExpenseDto::currency,
@@ -98,7 +102,7 @@ object Activity {
         "shares" to ExpenseDto::shares, "split" to ExpenseDto::split, "notes" to ExpenseDto::notes,
     )
     /** Listed only by name: the values are not shown. */
-    private val OPAQUE = setOf("payers", "shares", "split", "notes", "defaultSplit")
+    private val OPAQUE = setOf("payers", "shares", "split", "notes", "defaultSplit", "coverImageId")
 
     /**
      * Meta for one event applied as [before] → [after]. The actor is looked up in [after]; callers fill a missing one
@@ -145,6 +149,8 @@ object Activity {
         return when (type) {
             "group.created" -> base.copy(kind = "group_created", name = meta.group?.name)
             "group.updated" -> base.copy(kind = "group_updated", changes = changes(meta.groupBefore, meta.group, GROUP_FIELDS))
+            "group.deleted" -> base.copy(kind = "group_deleted", name = meta.group?.name)
+            "group.restored" -> base.copy(kind = "group_restored", name = meta.group?.name)
             "member.added" -> base.copy(
                 kind = when {
                     meta.friend -> "friend_added"

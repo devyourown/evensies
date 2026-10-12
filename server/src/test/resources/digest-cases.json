@@ -1,0 +1,971 @@
+{
+  "_doc": "Email summary goldens (docs/API.md '요약 메일', server only). Each group's full event log is applied in order (meta per event as in shared/activity-cases.json); the window is the events with seq > windowAfterSeq whose actorUserId is not the recipient and not in 'blocked'. The recipient's member is the one linked to recipient.userId. groups are listed in the email's order (the job sorts by the newest event). 'month' (YYYY-MM) is the month a monthly summary is about. expected null = nothing to send. '{unsubscribeUrl}' stands for the link.",
+  "cases": [
+    {
+      "name": "daily: others' changes only, add-then-delete dropped, balances footer",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "daily",
+      "reason": "auto",
+      "groups": [
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Dinner",
+                "amount": 3000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1500
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1500
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 5,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x2",
+                "description": "Oops",
+                "amount": 100,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 50
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 50
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 6,
+              "actorUserId": "u2",
+              "type": "expense.deleted",
+              "payload": {
+                "expenseId": "x2"
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "1 update in Rome trip",
+        "text": "Hi Anna,\n\nRome trip\n• Ben added “Dinner” · €30.00 · you owe €15.00\n\nYour balances\n• Rome trip: you owe €15.00\n\nOpen the Evensies app to see details.\n\n—\nYou get this daily because notifications are off on your devices.\nUnsubscribe: {unsubscribeUrl}"
+      }
+    },
+    {
+      "name": "daily with no activity by others",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "daily",
+      "reason": "auto",
+      "groups": [
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u1",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Taxi",
+                "amount": 2000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m1",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1000
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1000
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "monthly with no activity but a non-zero balance",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "monthly",
+      "reason": "chosen",
+      "month": "2026-11",
+      "groups": [
+        {
+          "windowAfterSeq": 4,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u1",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Taxi",
+                "amount": 3000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m1",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1500
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1500
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "Your Evensies summary for November 2026",
+        "text": "Hi Anna,\n\nYour balances\n• Rome trip: you are owed €15.00\n\nOpen the Evensies app to see details.\n\n—\nYou get this monthly summary because you chose it in Settings → Notifications.\nUnsubscribe: {unsubscribeUrl}"
+      }
+    },
+    {
+      "name": "de recipient",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": "de"
+      },
+      "mode": "daily",
+      "reason": "auto",
+      "groups": [
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Dinner",
+                "amount": 3000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1500
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1500
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 5,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x2",
+                "description": "Oops",
+                "amount": 100,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 50
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 50
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 6,
+              "actorUserId": "u2",
+              "type": "expense.deleted",
+              "payload": {
+                "expenseId": "x2"
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "1 Neuigkeit in Rome trip",
+        "text": "Hallo Anna,\n\nRome trip\n• Ben hat „Dinner“ hinzugefügt · 30,00\u00a0€ · du schuldest 15,00\u00a0€\n\nDeine Salden\n• Rome trip: du schuldest 15,00\u00a0€\n\nÖffne die Evensies-App, um Details zu sehen.\n\n—\nDu bekommst diese E-Mail täglich, weil Mitteilungen auf deinen Geräten ausgeschaltet sind.\nAbbestellen: {unsubscribeUrl}"
+      }
+    },
+    {
+      "name": "blocked actor's lines are left out",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "weekly",
+      "reason": "chosen",
+      "blocked": [
+        "u3"
+      ],
+      "groups": [
+        {
+          "windowAfterSeq": 4,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u3",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m3",
+                "name": "Carla",
+                "userId": "u3"
+              }
+            },
+            {
+              "seq": 5,
+              "actorUserId": "u3",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Museum",
+                "amount": 3000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m3",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1000
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1000
+                  },
+                  {
+                    "memberId": "m3",
+                    "amount": 1000
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 6,
+              "actorUserId": "u2",
+              "type": "comment.added",
+              "payload": {
+                "commentId": "c1",
+                "expenseId": "x1",
+                "authorMemberId": "m2",
+                "text": "Thanks!",
+                "createdAt": "2026-11-01T10:00:00Z"
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "1 update in Rome trip",
+        "text": "Hi Anna,\n\nRome trip\n• Ben commented on “Museum”: Thanks!\n\nYour balances\n• Rome trip: you owe €10.00\n\nOpen the Evensies app to see details.\n\n—\nYou get this weekly summary because you chose it in Settings → Notifications.\nUnsubscribe: {unsubscribeUrl}"
+      }
+    },
+    {
+      "name": "two groups, newest first; a deleted group gives only its delete line and no balance",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "daily",
+      "reason": "chosen",
+      "groups": [
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Rome trip",
+                "defaultCurrency": "EUR",
+                "type": "trip"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Dinner",
+                "amount": 3000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 1500
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 1500
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Flat",
+                "defaultCurrency": "EUR",
+                "type": "home"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "f1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u2",
+              "type": "member.added",
+              "payload": {
+                "memberId": "f2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "y1",
+                "description": "Rent",
+                "amount": 90000,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "f2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "f1",
+                    "amount": 45000
+                  },
+                  {
+                    "memberId": "f2",
+                    "amount": 45000
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 5,
+              "actorUserId": "u2",
+              "type": "group.deleted",
+              "payload": {}
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "2 updates in Rome trip and 1 other group",
+        "text": "Hi Anna,\n\nRome trip\n• Ben added “Dinner” · €30.00 · you owe €15.00\n\nFlat\n• Ben deleted the group “Flat”\n\nYour balances\n• Rome trip: you owe €15.00\n\nOpen the Evensies app to see details.\n\n—\nYou get this daily summary because you chose it in Settings → Notifications.\nUnsubscribe: {unsubscribeUrl}"
+      }
+    },
+    {
+      "name": "more than 10 lines in a group: the newest 10 and a count; a friend group is named after the friend",
+      "recipient": {
+        "userId": "u1",
+        "name": "Anna",
+        "language": null
+      },
+      "mode": "daily",
+      "reason": "auto",
+      "groups": [
+        {
+          "windowAfterSeq": 3,
+          "events": [
+            {
+              "seq": 1,
+              "actorUserId": "u1",
+              "type": "group.created",
+              "payload": {
+                "name": "Anna & Ben",
+                "defaultCurrency": "EUR",
+                "kind": "friend"
+              }
+            },
+            {
+              "seq": 2,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m1",
+                "name": "Anna",
+                "userId": "u1"
+              }
+            },
+            {
+              "seq": 3,
+              "actorUserId": "u1",
+              "type": "member.added",
+              "payload": {
+                "memberId": "m2",
+                "name": "Ben",
+                "userId": "u2"
+              }
+            },
+            {
+              "seq": 4,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x1",
+                "description": "Coffee 1",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 5,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x2",
+                "description": "Coffee 2",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 6,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x3",
+                "description": "Coffee 3",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 7,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x4",
+                "description": "Coffee 4",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 8,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x5",
+                "description": "Coffee 5",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 9,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x6",
+                "description": "Coffee 6",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 10,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x7",
+                "description": "Coffee 7",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 11,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x8",
+                "description": "Coffee 8",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 12,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x9",
+                "description": "Coffee 9",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 13,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x10",
+                "description": "Coffee 10",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 14,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x11",
+                "description": "Coffee 11",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            },
+            {
+              "seq": 15,
+              "actorUserId": "u2",
+              "type": "expense.created",
+              "payload": {
+                "expenseId": "x12",
+                "description": "Coffee 12",
+                "amount": 200,
+                "currency": "EUR",
+                "fxRateToDefault": null,
+                "paidBy": "m2",
+                "date": "2026-11-01",
+                "category": null,
+                "shares": [
+                  {
+                    "memberId": "m1",
+                    "amount": 100
+                  },
+                  {
+                    "memberId": "m2",
+                    "amount": 100
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "subject": "12 updates in Ben",
+        "text": "Hi Anna,\n\nBen\n• Ben added “Coffee 12” · €2.00 · you owe €1.00\n• Ben added “Coffee 11” · €2.00 · you owe €1.00\n• Ben added “Coffee 10” · €2.00 · you owe €1.00\n• Ben added “Coffee 9” · €2.00 · you owe €1.00\n• Ben added “Coffee 8” · €2.00 · you owe €1.00\n• Ben added “Coffee 7” · €2.00 · you owe €1.00\n• Ben added “Coffee 6” · €2.00 · you owe €1.00\n• Ben added “Coffee 5” · €2.00 · you owe €1.00\n• Ben added “Coffee 4” · €2.00 · you owe €1.00\n• Ben added “Coffee 3” · €2.00 · you owe €1.00\n…and 2 more in Ben\n\nYour balances\n• Ben: you owe €12.00\n\nOpen the Evensies app to see details.\n\n—\nYou get this daily because notifications are off on your devices.\nUnsubscribe: {unsubscribeUrl}"
+      }
+    }
+  ]
+}

@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:evensies/core/money.dart';
 import 'package:evensies/domain/payment_methods.dart';
+import 'package:evensies/features/settle/pay_sheet.dart';
 import 'package:evensies/l10n/app_localizations_en.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -38,8 +40,50 @@ void main() {
           isNull);
     });
     test('prefillsAmount', () {
-      expect([for (final t in PaymentTypes.all) if (prefillsAmount(t)) t], ['paypal', 'wise', 'venmo']);
+      expect([for (final t in PaymentTypes.all) if (prefillsAmount(t, 'EUR')) t], ['paypal', 'wise', 'venmo']);
+      expect([for (final t in PaymentTypes.all) if (prefillsAmount(t, 'INR')) t], ['paypal', 'wise', 'venmo', 'upi']);
     });
+    test('UPI: the INR amount with currency, no amount in other currencies, name and note encoded (Phase 10)', () {
+      final upi = m('upi', 'anna.r@okicici', holder: 'Anna Rossi & Co');
+      expect(link(upi, 150050, 'INR', note: 'Evensies: Goa trip'),
+          'upi://pay?pa=anna.r@okicici&pn=Anna%20Rossi%20%26%20Co&tn=Evensies%3A%20Goa%20trip&am=1500.50&cu=INR');
+      expect(link(upi, 1500, 'EUR', note: 'Evensies: Goa'), 'upi://pay?pa=anna.r@okicici&pn=Anna%20Rossi%20%26%20Co&tn=Evensies%3A%20Goa');
+      // No name; a note cut at 50 characters.
+      final long = link(m('upi', 'ben@ybl'), 100, 'INR', note: 'n' * 80);
+      expect(long, 'upi://pay?pa=ben@ybl&tn=${'n' * 50}&am=1.00&cu=INR');
+    });
+    test('UPI ID check and one per user', () {
+      expect(methodError(m('upi', 'anna.r@okicici')), isNull);
+      expect(methodError(m('upi', 'anna.r@okicici', holder: 'Anna')), isNull);
+      expect(methodError(m('upi', 'a@okicici')), 'UPI'); // 2+ before @
+      expect(methodError(m('upi', 'anna@1bank')), 'UPI'); // the handle starts with a letter
+      expect(methodError(m('upi', 'anna rossi@ok')), 'UPI');
+      expect(methodError(m('upi', 'anna@ok', holder: 'x' * 71)), 'HOLDER');
+      expect(methodsError([m('upi', 'anna@ok'), m('upi', 'ben@ok')]), 'TOO_MANY');
+      expect(requestText(AppLocalizationsEn(),
+              formattedAmount: '₹15.00', group: 'Goa', methods: [m('upi', 'anna@ok')], amountMinor: 1500, currency: 'INR'),
+          contains('UPI anna@ok'));
+    });
+  });
+
+  testWidgets('UPI is offered on an INR card only (a UPI payment has no other currency)', (t) async {
+    Future<List<String>> chips(String currency) async {
+      await t.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: PayChips(
+            methods: [m('paypal', 'anna'), m('upi', 'anna@okicici')],
+            failed: false,
+            toName: 'Anna',
+            currency: currency,
+            onPay: (_) {},
+          ),
+        ),
+      ));
+      return [for (final c in t.widgetList<ActionChip>(find.byType(ActionChip))) (c.label as Text).data!];
+    }
+
+    expect(await chips('EUR'), ['PayPal']);
+    expect(await chips('INR'), ['PayPal', 'UPI']);
   });
 
   test('EPC payload exact text', () {

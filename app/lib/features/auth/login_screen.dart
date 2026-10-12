@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -36,18 +37,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final l = context.l;
-    // The web asks its server which sign-ins it has (GET /info); phones have both built in.
+    // The server says which sign-ins it has (GET /info); offline, phones show the ones built in.
     final info = ref.watch(serverInfoProvider);
-    final web = info.value;
+    final web = info.valueOrNull;
+    final server = ref.watch(infoProvider);
     if (kIsWeb && web?.googleWebClientId != null) {
+      loadGoogleSignIn();
       auth.initGoogleWeb(web!.googleWebClientId!, (e) {
         if (mounted) showError(context, e);
       });
     }
-    final apple = AuthService.appleAvailable && (!kIsWeb || web?.appleServicesId != null);
+    final apple = AuthService.appleAvailable && server.appleLogin && (!kIsWeb || web?.appleServicesId != null);
     // Apple's script ahead of the tap (a popup must open right away); no-op on phones.
     if (kIsWeb && apple) loadAppleSignIn().ignore();
-    final google = !kIsWeb || web?.googleWebClientId != null;
+    final google = server.googleLogin && (!kIsWeb || web?.googleWebClientId != null);
+    final email = server.emailLogin;
     final dev = Env.devLogin || (web?.devLogin ?? false);
     return Scaffold(
       body: SafeArea(
@@ -91,7 +95,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       icon: const Icon(Icons.g_mobiledata, size: 28),
                       label: Text(l.loginGoogle),
                     ),
-                  if (kIsWeb && !info.isLoading && !apple && !google && !dev)
+                  if (email) ...[
+                    if (apple || google) const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      key: const Key('login-email'),
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              // Keeps where the sign-in goes next (a join link).
+                              final next = GoRouterState.of(context).uri.queryParameters['next'];
+                              context.push(Uri(path: '/login/email', queryParameters: next == null ? null : {'next': next})
+                                  .toString());
+                            },
+                      icon: const Icon(Icons.mail_outline),
+                      label: Text(l.loginEmail),
+                    ),
+                  ],
+                  if (kIsWeb && !info.isLoading && !apple && !google && !dev && !email)
                     Text(l.loginWebUnavailable, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
                   if (dev) ...[
                     const SizedBox(height: 32),

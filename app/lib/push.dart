@@ -39,6 +39,10 @@ Future<void> initPush(WidgetRef ref) async {
   final fm = FirebaseMessaging.instance;
   await wirePush(
     ref,
+    notificationsAllowed: () async => switch ((await fm.getNotificationSettings()).authorizationStatus) {
+          AuthorizationStatus.authorized || AuthorizationStatus.provisional => true,
+          _ => false,
+        },
     getToken: fm.getToken,
     deleteToken: fm.deleteToken,
     requestPermission: fm.requestPermission,
@@ -60,8 +64,14 @@ Future<void> wirePush(
   required Stream<RemoteMessage> onMessage,
   required Stream<RemoteMessage> onMessageOpenedApp,
   required Future<RemoteMessage?> Function() getInitialMessage,
+  Future<bool> Function()? notificationsAllowed,
 }) async {
-  /// Sends this device's FCM token (or [token]) to the server for the signed-in user; errors are only logged.
+  /// What the last registration told the server (Phase 10: "auto" email summaries go to people whose devices can't
+  /// show notifications); null before one went through.
+  bool? sentAllowed;
+
+  /// Sends this device's FCM token (or [token]) to the server for the signed-in user, with whether the OS lets it show
+  /// notifications; errors are only logged.
   Future<void> register([String? token]) async {
     try {
       if (await ref.read(dbProvider).getSession() == null) return;
@@ -70,9 +80,21 @@ Future<void> wirePush(
       final prefs = ref.read(sharedPreferencesProvider);
       final deviceId = prefs.getString(deviceIdKey) ?? newId();
       await prefs.setString(deviceIdKey, deviceId);
-      await ref.read(apiProvider).registerDevice(deviceId, token);
+      final allowed = await notificationsAllowed?.call();
+      await ref.read(apiProvider).registerDevice(deviceId, token, notificationsAllowed: allowed);
+      sentAllowed = allowed;
     } catch (e) {
       debugPrint('Push token registration failed: $e');
+    }
+  }
+
+  /// On resume: registers again when notifications were turned on or off in the OS settings meanwhile.
+  Future<void> recheckAllowed() async {
+    try {
+      final now = await notificationsAllowed?.call();
+      if (now != null && sentAllowed != null && now != sentAllowed) await register();
+    } catch (e) {
+      debugPrint('Notification permission check failed: $e');
     }
   }
 
@@ -108,7 +130,10 @@ Future<void> wirePush(
   }, fireImmediately: true);
   // ponytail: retried only at launch and on resume; a phone that stays in the background keeps showing the
   // signed-out user's pushes until then. A server-side session link on devices if that ever matters.
-  AppLifecycleListener(onResume: retryForget);
+  AppLifecycleListener(onResume: () {
+    retryForget();
+    recheckAllowed();
+  });
   unawaited(retryForget());
   // From no groups to some (null while loading, so a launch with groups never prompts). The OS prompts only once;
   // register again after it, since some platforms hand out a usable token only once notifications are allowed.

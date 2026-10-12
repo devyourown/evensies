@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.HtmlUtils
 import java.nio.charset.StandardCharsets
@@ -49,15 +50,21 @@ class InviteController(private val groups: GroupService, private val limiter: Co
 
     /**
      * Invite landing page for people without the app. A friend group's name ("Anna & Ben") is for exports only, so a
-     * placeholder friend's link names the person who added them (docs/API.md "친구 그룹 규칙").
+     * placeholder friend's link names the person who added them (docs/API.md "친구 그룹 규칙"). [m] (Phase 10, an
+     * email invite's placeholder) is passed on to both links when it is UUID-shaped, else dropped.
      */
     @GetMapping("/j/{code}")
-    fun landing(@PathVariable code: String, request: HttpServletRequest): ResponseEntity<String> {
+    fun landing(@PathVariable code: String, @RequestParam(required = false) m: String?, request: HttpServletRequest): ResponseEntity<String> {
         limiter.throttle(request)
         val p = groups.preview(code)
-        val page = LandingPage(request, code, "evensies://join/$code", "/app/#/join/${InviteCodes.normalize(code)}")
+        val member = m?.takeIf { UUID_SHAPE.matches(it) }?.let { "?m=$it" } ?: ""
+        val page = LandingPage(request, code, "evensies://join/$code$member", "/app/#/join/${InviteCodes.normalize(code)}$member")
         if (p.kind == "friend") return page.person(p.members.firstOrNull { it.linked }?.name, "friendAdded")
         return page.render(page.text("title", "group" to p.name), p.name, page.text("invited"), page.text("members", "count" to p.memberCount.toString()))
+    }
+
+    companion object {
+        private val UUID_SHAPE = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
     }
 }
 

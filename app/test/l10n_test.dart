@@ -63,6 +63,13 @@ void main() {
       if (key.startsWith('@')) continue;
       expect(crutch.hasMatch(value as String), isFalse, reason: '$key: $value');
     }
+    // The shared table too (feed, push, emails, landing pages).
+    void leaves(Object? node, String path) => switch (node) {
+          Map() => node.forEach((k, v) => leaves(v, '$path.$k')),
+          String() => expect(crutch.hasMatch(node), isFalse, reason: '$path: $node'),
+          _ => null,
+        };
+    leaves((jsonDecode(File('../shared/strings.json').readAsStringSync()) as Map)['ko'], 'ko');
   });
 
   testWidgets('keepAll: Korean wraps at spaces only, never inside a word; other languages are left alone', (t) async {

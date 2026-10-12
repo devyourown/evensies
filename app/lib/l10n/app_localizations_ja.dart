@@ -2733,4 +2733,432 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get yourRate => '入力したレート';
+
+  @override
+  String get loginEmail => 'メールで続ける';
+
+  @override
+  String get emailLoginTitle => 'メールでログイン';
+
+  @override
+  String get emailLoginIntro => '6桁のコードをメールでお送りします。パスワードは不要です。';
+
+  @override
+  String get emailLabel => 'メール';
+
+  @override
+  String get emailInvalid => '有効なメールアドレスを入力してください';
+
+  @override
+  String get sendCode => 'コードを送信';
+
+  @override
+  String codeSentTo(String email) {
+    return '$email に送った6桁のコードを入力してください。有効期限は10分です。';
+  }
+
+  @override
+  String get codeLabel => '6桁のコード';
+
+  @override
+  String get verifyCode => '続ける';
+
+  @override
+  String get resendCode => 'コードを再送信';
+
+  @override
+  String resendCodeIn(int seconds) {
+    return '$seconds 秒後に再送信できます';
+  }
+
+  @override
+  String get codeResent => '新しいコードを送りました。';
+
+  @override
+  String get useDifferentEmail => '別のメールアドレスを使う';
+
+  @override
+  String get codeCheckSpam => '届きませんか？迷惑メールフォルダを確認してください。';
+
+  @override
+  String get errorCodeInvalid => 'コードが違うか期限切れです。新しいコードを受け取ってください。';
+
+  @override
+  String get errorEmailNotConfigured => 'このサーバーはメールを送信しません。';
+
+  @override
+  String get errorEmailRejected => 'このアドレスはメールを受信できません。入力ミスがないか確認してください。';
+
+  @override
+  String get errorEmailTaken => 'このアドレスは別のアカウントで使われています。';
+
+  @override
+  String get errorEmailRequired => 'メールが唯一のログイン方法なので削除できません。';
+
+  @override
+  String get errorEmailUnavailable => '現在メールを送信できません。しばらくしてからもう一度お試しください。';
+
+  @override
+  String get emailSaved => 'メールアドレスを保存しました';
+
+  @override
+  String removeEmailTitle(String email) {
+    return '$email を削除しますか？';
+  }
+
+  @override
+  String get removeEmailMessage => 'メールのまとめやリマインダーは届かなくなり、このアドレスでログインできなくなります。';
+
+  @override
+  String get emailRemoved => 'メールアドレスを削除しました';
+
+  @override
+  String get emailNeedsConnection => 'メールアドレスを変更するには接続が必要です。';
+
+  @override
+  String get emailBouncedNote => 'このアドレス宛てのメールが届きません — 変更するか、もう一度確認してください';
+
+  @override
+  String get emailVerifiedNote => '確認済み · ほかのメンバーには表示されません';
+
+  @override
+  String get changeEmail => 'メールアドレスを変更';
+
+  @override
+  String get emailAccountHelp =>
+      'ログインとメールのまとめに使います。ご本人のアドレスか確認するためにコードを送ります。ほかのメンバーには表示されません。';
+
+  @override
+  String get removeEmail => 'メールアドレスを削除';
+
+  @override
+  String get addEmail => 'メールアドレスを追加';
+
+  @override
+  String get addEmailHint => 'メールでログインし、まとめを受け取れます';
+
+  @override
+  String unblockedName(String name) {
+    return '$name のブロックを解除しました';
+  }
+
+  @override
+  String get blockNeedsConnection => 'ブロックするには接続が必要です。';
+
+  @override
+  String get blockedEmpty => 'ブロックしている人はいません。';
+
+  @override
+  String get blockedNeedsConnection => 'ブロックした人を表示するには接続が必要です';
+
+  @override
+  String get unblock => 'ブロックを解除';
+
+  @override
+  String get blockedPeople => 'ブロックした人';
+
+  @override
+  String get blockedHelp =>
+      'ブロックした人はあなたを友だちに追加したりリマインダーを送ったりできず、その人の変更は通知やメールで届きません。共有グループと残高はそのままです。';
+
+  @override
+  String get deletedGroupsEmpty => '削除したグループはありません';
+
+  @override
+  String get deletedGroupsHelp => '復元すると、グループは中身ごと全員のもとに戻ります。';
+
+  @override
+  String get deletedGroups => '削除したグループ';
+
+  @override
+  String deletedGroupsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '復元できるグループ $count 件',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get exportNeedsConnection => 'エクスポートするには接続が必要です。';
+
+  @override
+  String get exportEverything => 'すべてエクスポート (JSON)';
+
+  @override
+  String get exportEverythingHint => 'プロフィール、受け取り方法、設定、すべてのグループ（削除したものも含む）';
+
+  @override
+  String get emailSummary => 'メールのまとめ';
+
+  @override
+  String digestChoice(String choice) {
+    String _temp0 = intl.Intl.selectLogic(choice, {
+      'auto': '自動',
+      'daily': '毎日',
+      'weekly': '毎週',
+      'monthly': '毎月',
+      'off': 'オフ',
+      'other': '自動',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get digestAutoHelp => 'デバイスで通知を表示できないときは毎日、それ以外は毎月';
+
+  @override
+  String get digestAutoDaily => '自動 — 通知がオフなので毎日';
+
+  @override
+  String get digestAutoMonthly => '自動 — デバイスで通知を受け取れるので毎月';
+
+  @override
+  String get digestNoEmail => 'まとめを受け取るには、アカウントでメールアドレスを追加してください';
+
+  @override
+  String get helpReportProblem => '問題を報告・機能を提案';
+
+  @override
+  String get helpReportProblemHint => 'GitHub 上で、誰でも見られます';
+
+  @override
+  String get helpContact => 'メールで問い合わせる';
+
+  @override
+  String get privacyPolicy => 'プライバシーポリシー';
+
+  @override
+  String get helpFeedback => 'ヘルプとフィードバック';
+
+  @override
+  String get signOutEverywhere => 'すべてのデバイスでログアウト';
+
+  @override
+  String get signOutEverywhereTitle => 'すべてのデバイスでログアウトしますか？';
+
+  @override
+  String get signOutEverywhereMessage =>
+      'このアカウントでログインしているすべてのスマートフォンとブラウザがログアウトします。このデバイスも含みます。グループはサーバーに残ります。';
+
+  @override
+  String get signOutEverywhereOffline => 'すべてのデバイスでログアウトするには接続が必要です。';
+
+  @override
+  String get deleteAccountExportTip => 'ヒント: 先にすべてエクスポートしておきましょう。';
+
+  @override
+  String get coverPhoto => 'カバー写真';
+
+  @override
+  String get coverPhotoHint => 'グループのヘッダーと一覧に表示されます。メンバーだけが見られます。';
+
+  @override
+  String get removeCover => 'カバーを削除';
+
+  @override
+  String get coverNeedsConnection => 'カバーを変更するには接続が必要です。';
+
+  @override
+  String get coverTooMany => 'カバーの変更が多すぎます。1時間後にもう一度お試しください。';
+
+  @override
+  String get deleteGroup => 'グループを削除';
+
+  @override
+  String get deleteGroupHint => '全員から削除 · どのメンバーでも復元できます';
+
+  @override
+  String deleteGroupTitle(String name) {
+    return '「$name」を削除しますか？';
+  }
+
+  @override
+  String get deleteGroupMessage =>
+      '全員から削除されます。どのメンバーでも 設定 → 削除したグループ から復元できます。';
+
+  @override
+  String groupDeletedName(String name) {
+    return '「$name」を削除しました';
+  }
+
+  @override
+  String get groupDeletedBanner => 'このグループは削除されています';
+
+  @override
+  String get groupRestored => 'グループを復元しました';
+
+  @override
+  String get deleteFriend => '友だちを削除';
+
+  @override
+  String deleteFriendTitle(String name) {
+    return '$name を削除しますか？';
+  }
+
+  @override
+  String deleteFriendMessage(String name) {
+    return '$name とのグループ外の支出が、二人とも削除されます。共有グループはそのままです。設定 → 削除したグループ から復元するか、$name をもう一度追加すると元に戻ります。';
+  }
+
+  @override
+  String friendDeleted(String name) {
+    return '$name を削除しました';
+  }
+
+  @override
+  String get block => 'ブロック';
+
+  @override
+  String blockTitle(String name) {
+    return '$name をブロックしますか？';
+  }
+
+  @override
+  String blockMessage(String name) {
+    return '$name はあなたを友だちに追加したりリマインダーを送ったりできなくなり、その変更は通知やメールで届かなくなります。共有グループと残高はそのままです。';
+  }
+
+  @override
+  String blockedName(String name) {
+    return '$name をブロックしました';
+  }
+
+  @override
+  String get report => '報告…';
+
+  @override
+  String get reportSubject => 'Evensies への報告';
+
+  @override
+  String reportBody(String userId) {
+    return 'ユーザー ID: $userId\n\n何がありましたか:\n';
+  }
+
+  @override
+  String get inviteByEmail => 'メールで招待…';
+
+  @override
+  String get inviteEmailField => 'メール（任意）';
+
+  @override
+  String get inviteEmailHelp => '招待リンクをメールで送ります。この招待にだけ使います。';
+
+  @override
+  String inviteByEmailTitle(String name) {
+    return '$name をメールで招待';
+  }
+
+  @override
+  String inviteEmailSent(String email) {
+    return '$email に招待を送りました';
+  }
+
+  @override
+  String get inviteEmailOfflineAdded =>
+      'メンバーを追加しました。メールでの招待には接続が必要です — メンバー一覧からもう一度お試しください。';
+
+  @override
+  String get inviteEmailOffline => 'メールで招待するには接続が必要です。';
+
+  @override
+  String get inviteEmailLimit => '今日送れるメールの上限に達しました — 代わりにリンクを共有してください。';
+
+  @override
+  String emailReminder(String choice) {
+    return 'メールでリマインド: $choice';
+  }
+
+  @override
+  String get remindNever => 'しない';
+
+  @override
+  String remindDaysBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 日前',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get blurbUpi => 'インド: Paytm、PhonePe、Google Pay などの UPI アプリ';
+
+  @override
+  String get fieldUpi => 'UPI ID';
+
+  @override
+  String get fieldUpiHint => '例: name@okicici';
+
+  @override
+  String get fieldUpiName => '名前（任意）';
+
+  @override
+  String get fieldUpiNameHint => '支払う人に表示されます';
+
+  @override
+  String get methodErrorUpi => 'name@bank のような UPI ID を入力してください';
+
+  @override
+  String get noUpiApp => 'UPI アプリが見つかりません。代わりに UPI ID と金額をコピーしてください。';
+
+  @override
+  String get upiIdLabel => 'UPI ID';
+
+  @override
+  String get copyUpiId => 'UPI ID をコピー';
+
+  @override
+  String get upiIdCopied => 'UPI ID をコピーしました';
+
+  @override
+  String get dashboard => 'ダッシュボード';
+
+  @override
+  String get allExpenses => 'すべての支出';
+
+  @override
+  String get groupBalances => 'グループの残高';
+
+  @override
+  String get yourBalance => 'あなたの残高';
+
+  @override
+  String get dashboardOwesYou => 'あなたに支払う人';
+
+  @override
+  String get dashboardYouOwe => 'あなたが支払う人';
+
+  @override
+  String get historyAndComments => '履歴とコメント';
+
+  @override
+  String get showEarlier => '以前の履歴を表示';
+
+  @override
+  String get settleUpFirst => '先に精算してください';
+
+  @override
+  String deleteFriendSettleFirst(String name) {
+    return 'グループ外の支出を精算すると、$name を友達から削除できます。';
+  }
+
+  @override
+  String get noMailApp => 'メールアプリが見つかりません。下の内容をコピーして、お使いのメールアプリから送ってください。';
+
+  @override
+  String get copyAddress => 'アドレスをコピー';
+
+  @override
+  String get copyMessage => '本文をコピー';
+
+  @override
+  String get browserNoStorage =>
+      'このブラウザでは Evensies のデータを保存できません。別のブラウザか、プライベートではないウィンドウでお試しください。';
+
+  @override
+  String get browserOtherTab =>
+      'Evensies はこのブラウザの別のタブですでに開いています。そのタブを使うか、閉じてからこのタブを再読み込みしてください。';
 }

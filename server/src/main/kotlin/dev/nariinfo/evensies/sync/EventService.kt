@@ -8,6 +8,7 @@ import dev.nariinfo.evensies.group.GroupRepository
 import dev.nariinfo.evensies.group.MemberRepository
 import dev.nariinfo.evensies.push.PushNotifier
 import dev.nariinfo.evensies.storage.AttachmentController
+import dev.nariinfo.evensies.storage.CoverController
 import dev.nariinfo.evensies.storage.FileStore
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -37,6 +38,10 @@ class EventService(
         groups.find(groupId) ?: throw ApiException.notFound("Group")
         members.findByGroupAndUser(groupId, userId) ?: throw ApiException.forbidden()
         if (incoming.any { it.type == "group.created" }) throw ApiException.badRequest("VALIDATION", "group.created is server-generated")
+        // Rule 17: a cover id comes from PUT /groups/{id}/cover only; clients may clear it (null).
+        if (incoming.any { it.type == "group.updated" && it.payload.field("coverImageId") != null }) {
+            throw ApiException.badRequest("VALIDATION", "coverImageId can only be cleared (null); upload with PUT /groups/{id}/cover")
+        }
         if (!rateLimiter.tryConsume(userId, incoming.size)) {
             throw ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "Too many events, try again later")
         }
@@ -46,7 +51,7 @@ class EventService(
     /**
      * [push], then notifies other members about the newly stored events (a retry that stored nothing notifies nobody)
      * and, once committed, deletes the files of the receipts this push removed (Phase 7: an `attachment.deleted` that
-     * changed the state; the row stays with `deleted_at`).
+     * changed the state; the row stays with `deleted_at`) and of the covers it replaced or cleared (Phase 10).
      */
     fun pushValidated(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): PushResult {
         val group = groups.find(groupId) ?: throw ApiException.notFound("Group")
@@ -54,7 +59,11 @@ class EventService(
         val (result, stored) = push(groupId, userId, incoming)
         if (stored.isNotEmpty()) notifier.notify(groupId, userId, stored)
         val removed = stored.filter { it.type == "attachment.deleted" && it.meta?.noop == false }.mapNotNull { it.payload.text("attachmentId") }
-        if (removed.isNotEmpty()) afterCommit { removed.forEach { deleteReceiptFiles(groupId, UUID.fromString(it)) } }
+        val covers = stored.mapNotNull { e -> e.meta?.groupBefore?.coverImageId?.takeIf { it != e.meta.group?.coverImageId } }
+        if (removed.isNotEmpty() || covers.isNotEmpty()) afterCommit {
+            removed.forEach { deleteFiles(AttachmentController.keys(groupId, UUID.fromString(it)).toList()) }
+            deleteFiles(covers.map { CoverController.key(groupId, UUID.fromString(it)) })
+        }
         return result
     }
 
@@ -67,8 +76,8 @@ class EventService(
     }
 
     /** A failure leaves the file for the Phase 8 sweep: the push is already committed. */
-    private fun deleteReceiptFiles(groupId: UUID, attachmentId: UUID) {
-        for (key in AttachmentController.keys(groupId, attachmentId).toList()) {
+    private fun deleteFiles(keys: List<String>) {
+        for (key in keys) {
             try {
                 files.delete(key)
             } catch (e: Exception) {

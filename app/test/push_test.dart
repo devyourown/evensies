@@ -30,7 +30,7 @@ void main() {
   late bool fcmOffline;
 
   const session = SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna');
-  const rome = GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true);
+  const rome = GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true);
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -47,7 +47,7 @@ void main() {
   });
   tearDown(() => db.close());
 
-  Widget app({RemoteMessage? initial}) => ProviderScope(
+  Widget app({RemoteMessage? initial, Future<bool> Function()? allowed}) => ProviderScope(
         overrides: [
           dbProvider.overrideWithValue(db),
           apiProvider.overrideWithValue(api),
@@ -75,6 +75,7 @@ void main() {
               onMessage: foreground.stream,
               onMessageOpenedApp: opened.stream,
               getInitialMessage: () async => initial,
+              notificationsAllowed: allowed,
             )),
       );
 
@@ -102,6 +103,14 @@ void main() {
     tokenRefresh.add('tok-2');
     await settle(t);
     expect(api.registered.last, (deviceId, 'tok-2'));
+    await unmount(t);
+  });
+
+  testWidgets('tells the server whether this device may show notifications (Phase 10 email summaries)', (t) async {
+    await t.runAsync(() => db.saveSession(session));
+    await t.pumpWidget(app(allowed: () async => false));
+    await settle(t);
+    expect(api.allowedSent, [false]);
     await unmount(t);
   });
 

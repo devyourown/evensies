@@ -40,7 +40,7 @@ void main() {
     prefs = await SharedPreferences.getInstance();
     await db.saveSession(const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna'));
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 9, myMemberId: 'm1', simplifyDebts: true));
     await db.into(db.members).insert(MembersCompanion.insert(id: 'm1', groupId: 'g1', name: 'Anna'));
   });
   tearDown(() => db.close());

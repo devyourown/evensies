@@ -12,7 +12,10 @@ abstract final class PaymentTypes {
   static const kakaopay = 'kakaopay';
   static const iban = 'iban';
   static const krBank = 'kr_bank';
-  static const all = [paypal, wise, venmo, revolut, kakaopay, iban, krBank];
+
+  /// India's UPI (Paytm, PhonePe, Google Pay, BHIM…): a UPI ID (VPA) and an optional name (Phase 10).
+  static const upi = 'upi';
+  static const all = [paypal, wise, venmo, revolut, kakaopay, upi, iban, krBank];
 }
 
 class PaymentMethod {
@@ -41,6 +44,7 @@ String methodLabel(String type, AppLocalizations l) => switch (type) {
       PaymentTypes.revolut => 'Revolut',
       PaymentTypes.kakaopay => 'KakaoPay',
       PaymentTypes.iban => 'IBAN',
+      PaymentTypes.upi => 'UPI',
       PaymentTypes.krBank => l.koreanBank,
       _ => type,
     };
@@ -53,6 +57,7 @@ const maxMethods = 8;
 String normalizeIban(String s) => s.replaceAll(RegExp(r'\s'), '').toUpperCase();
 
 final _username = RegExp(r'^[A-Za-z0-9._-]{1,40}$');
+final _vpa = RegExp(r'^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$');
 
 bool ibanValid(String iban) {
   if (!RegExp(r'^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$').hasMatch(iban)) return false;
@@ -66,7 +71,7 @@ bool ibanValid(String iban) {
 }
 
 /// Error code for one field (`value`, `holder`, `bank`, `bic`) of a method of [type], or null if valid: `USERNAME`,
-/// `LINK_PREFIX`, `TOO_LONG`, `IBAN`, `HOLDER`, `BIC`, `KR_ACCOUNT`, `BANK`. Mirrors the validation table in
+/// `LINK_PREFIX`, `TOO_LONG`, `IBAN`, `HOLDER`, `BIC`, `KR_ACCOUNT`, `BANK`, `UPI`. Mirrors the validation table in
 /// docs/API.md; the server is the authority.
 String? methodFieldError(String type, String field, String? input) {
   final v = input?.trim() ?? '';
@@ -81,6 +86,10 @@ String? methodFieldError(String type, String field, String? input) {
       return ibanValid(normalizeIban(v)) ? null : 'IBAN';
     case (PaymentTypes.iban || PaymentTypes.krBank, 'holder'):
       return v.isEmpty || v.length > 70 ? 'HOLDER' : null;
+    case (PaymentTypes.upi, 'value'):
+      return _vpa.hasMatch(v) ? null : 'UPI';
+    case (PaymentTypes.upi, 'holder'):
+      return v.length > 70 ? 'HOLDER' : null; // optional
     case (PaymentTypes.iban, 'bic'):
       if (v.isEmpty) return null;
       return v.length == 8 || v.length == 11 ? null : 'BIC';
@@ -111,6 +120,7 @@ String methodErrorText(AppLocalizations l, String type, String code) => switch (
       'BIC' => l.methodErrorBic,
       'KR_ACCOUNT' => l.methodErrorKrAccount,
       'BANK' => l.methodErrorBank,
+      'UPI' => l.methodErrorUpi,
       'UNKNOWN_TYPE' => l.methodErrorUnknownType,
       'TOO_MANY' => l.methodErrorTooMany,
       _ => l.errorGeneric(code),
@@ -147,8 +157,12 @@ String plainAmount(int minor, String currency) {
   return '${minor < 0 ? '-' : ''}${s.substring(0, s.length - d)}.${s.substring(s.length - d)}';
 }
 
-bool prefillsAmount(String type) =>
-    type == PaymentTypes.paypal || type == PaymentTypes.wise || type == PaymentTypes.venmo;
+/// Whether [type]'s link carries the amount: a UPI link only in INR (it has no currency choice).
+bool prefillsAmount(String type, String currency) =>
+    type == PaymentTypes.paypal ||
+    type == PaymentTypes.wise ||
+    type == PaymentTypes.venmo ||
+    (type == PaymentTypes.upi && currency == 'INR');
 
 /// Link that opens the payment app, or null for bank types (shown in a sheet instead).
 Uri? payLink(PaymentMethod m, {required int amountMinor, required String currency, String? note}) {
@@ -175,6 +189,16 @@ Uri? payLink(PaymentMethod m, {required int amountMinor, required String currenc
       return Uri.parse('https://revolut.me/${m.value}');
     case PaymentTypes.kakaopay:
       return Uri.parse(m.value);
+    case PaymentTypes.upi:
+      // NPCI's deep link: payee address, name, note (≤ 50 characters); the amount only in INR.
+      final tn = note == null ? null : (note.length > 50 ? note.substring(0, 50) : note);
+      return Uri.parse('upi://pay?${[
+        'pa=${m.value}', // the validated ID needs no encoding; apps expect a plain @
+
+        if (m.holder != null) q('pn', m.holder!),
+        if (tn != null) q('tn', tn),
+        if (currency == 'INR') ...[q('am', a), q('cu', 'INR')],
+      ].join('&')}');
     default:
       return null;
   }
@@ -232,6 +256,8 @@ String requestText(
       switch (m.type) {
         PaymentTypes.iban => 'IBAN ${mask(m.value)}',
         PaymentTypes.krBank => '${m.bank} ${mask(m.value)}',
+        // A upi:// link isn't clickable in a message: the ID is what people type.
+        PaymentTypes.upi => 'UPI ${m.value}',
         _ => '${methodLabel(m.type, l)} ${payLink(m, amountMinor: amountMinor, currency: currency, note: 'Evensies: $group')}',
       },
   ];

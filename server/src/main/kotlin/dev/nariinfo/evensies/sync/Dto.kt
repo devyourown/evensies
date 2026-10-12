@@ -65,6 +65,8 @@ data class RecurrenceDto(
     val timeZone: String,
     val template: JsonNode,
     val deleted: Boolean = false,
+    /** Phase 10 (rule 18): days before a repeat when members on it get a reminder email, 1–7; null = none. */
+    val remindDaysBefore: Int? = null,
 )
 
 /**

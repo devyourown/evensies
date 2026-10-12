@@ -72,11 +72,13 @@ String? myDeltaText(ActivityItem item, {String? lang}) {
   return Strings.fill(Strings.text(l, ['suffix', key]), {'amount': formatMoney(d.abs(), item.currency ?? '', lang: l)});
 }
 
-/// Template key per kind (docs/API.md 문장 만들기 1): refunds, payment comments and several receipts have their own.
-String _templateKey(ActivityItem item, int count) {
+/// Template key per kind (docs/API.md 문장 만들기 1): refunds, payment comments, several receipts and a friend group's
+/// delete/restore ([friend]: `friend_deleted`, `friend_restored`, its name is internal) have their own.
+String _templateKey(ActivityItem item, int count, bool friend) {
   final k = switch (item.kind) {
     'expense_added' || 'expense_repeated' when item.refund => '${item.kind}_refund',
     'comment_added' when item.paymentId != null => 'comment_added_payment',
+    'group_deleted' || 'group_restored' when friend => item.kind.replaceFirst('group_', 'friend_'),
     'receipt_added' || 'receipt_removed' when count >= 2 => item.kind.replaceFirst('receipt_', 'receipts_'),
     _ => item.kind,
   };
@@ -85,9 +87,10 @@ String _templateKey(ActivityItem item, int count) {
 
 /// The sentence for [item] as seen by member [me] in [lang] (docs/API.md 문장 만들기), from shared/strings.json.
 /// [names] maps memberId → name. [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own
-/// colored line). [count]: the receipts one feed row stands for (app only: "added 3 receipts to …").
+/// colored line). [count]: the receipts one feed row stands for (app only: "added 3 receipts to …"). [friend]: the item's
+/// group is a friend group.
 String activityText(ActivityItem item, Map<String, String> names, String? me,
-    {bool withDelta = true, int count = 1, String? lang}) {
+    {bool withDelta = true, int count = 1, String? lang, bool friend = false}) {
   final l = lang ?? Money.lang;
   final you = Strings.text(l, const ['words', 'you']), someone = Strings.text(l, const ['words', 'someone']);
   final cap = <String>{};
@@ -116,6 +119,9 @@ String activityText(ActivityItem item, Map<String, String> names, String? me,
         ('group_updated', 'defaultCurrency') => change('currency', {'from': f, 'to': t}),
         ('group_updated', 'simplifyDebts') => change(c.to == true ? 'simplifyDebtsOn' : 'simplifyDebtsOff'),
         ('group_updated', 'defaultSplit') => change('defaultSplit'),
+        // Phase 10: an unknown type reads as Other, like the app shows it.
+        ('group_updated', 'type') => change('type', {'to': _groupType(c.to, l)}),
+        ('group_updated', 'coverImageId') => change('coverImageId'),
         ('group_updated', _) => '',
         (_, 'description') => change('description', {'from': f, 'to': t}),
         (_, 'amount') => change('amount', {'from': money(c.from, fromCurrency), 'to': money(c.to, item.currency)}),
@@ -143,7 +149,7 @@ String activityText(ActivityItem item, Map<String, String> names, String? me,
     return parts.join(Strings.text(l, const ['changes', 'joiner']));
   }
 
-  final key = _templateKey(item, count);
+  final key = _templateKey(item, count, friend);
   final subject = switch (item.kind) {
     'member_joined' || 'member_left' => item.memberId,
     'payment_added' => item.fromMember,
@@ -196,3 +202,7 @@ String _category(Object? from, Object? to, String lang, String Function(String, 
   final f = Categories.labelOf(from?.toString(), lang: lang), t = Categories.labelOf(to?.toString(), lang: lang);
   return f == t ? change('categorySame') : change('category', {'from': f, 'to': t});
 }
+
+/// `words.groupType`: Trip / Home / Couple / Other.
+String _groupType(Object? type, String lang) =>
+    Strings.lookup(lang, ['words', 'groupType', '$type']) as String? ?? Strings.text(lang, const ['words', 'groupType', 'other']);

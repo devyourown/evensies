@@ -25,7 +25,7 @@ class EventApplierTest {
             (groupKeys?.let { keys ->
                 val group = mapOf(
                     "name" to s.name, "defaultCurrency" to s.defaultCurrency, "simplifyDebts" to s.simplifyDebts, "defaultSplit" to s.defaultSplit,
-                    "kind" to s.kind,
+                    "kind" to s.kind, "type" to s.type, "coverImageId" to s.coverImageId, "deleted" to s.deleted,
                 )
                 mapOf("group" to group.filterKeys { it in keys })
             } ?: emptyMap())
@@ -34,7 +34,8 @@ class EventApplierTest {
     /**
      * Missing expected values are defaults (fixture _doc): removed=false, notes=null, comments=[],
      * payers=[{paidBy, amount}], refund=false, split=null, moved=false, comments[].paymentId=null, attachments=[],
-     * payments[].replaced=false, recurrences=[], expenses[].recurrenceId=null, expenses[].occurrence=null.
+     * payments[].replaced=false, recurrences=[], expenses[].recurrenceId=null, expenses[].occurrence=null,
+     * recurrences[].remindDaysBefore=null (Phase 10).
      */
     private fun expected(node: JsonNode): String {
         val copy = node.deepCopy() as ObjectNode
@@ -53,6 +54,7 @@ class EventApplierTest {
         if (!copy.has("attachments")) copy.putArray("attachments")
         if (!copy.has("recurrences")) copy.putArray("recurrences")
         for (c in copy["comments"]) if (!c.has("paymentId")) (c as ObjectNode).putNull("paymentId")
+        for (r in copy["recurrences"]) if (!r.has("remindDaysBefore")) (r as ObjectNode).putNull("remindDaysBefore")
         return SharedJson.canon(copy)
     }
 

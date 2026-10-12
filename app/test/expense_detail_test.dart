@@ -39,7 +39,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     api = FakeApi(db);
     await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     await GroupStateStore(db).save(
       'g1',
       GroupState(
@@ -132,7 +132,7 @@ void main() {
     expect(find.text('A'), findsOneWidget); // my avatar: Anna's initial, not the "Y" of "You"
     expect(find.text('Y'), findsNothing);
     expect(find.text('Breakfast included'), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('History and comments'), findsOneWidget);
 
     await t.tap(find.byTooltip('Edit'));
     await settle(t);
@@ -157,11 +157,52 @@ void main() {
     await t.pumpWidget(app());
     await settle(t);
     expect(api.activityExpenseIds, ['x1']);
-    expect(find.text('Ben commented'), findsOneWidget); // the text itself is only in Comments
+    // A comment's feed item isn't a line of its own: its bubble (from the local comments) is the line.
+    expect(find.text('Ben commented'), findsNothing);
     expect(find.textContaining('Nice'), findsNothing);
     expect(find.text('You added “Hotel” · €300.00'), findsOneWidget);
     expect(find.textContaining('Gelato'), findsNothing);
     expect((await t.runAsync(() => db.select(db.activity).get()))!.length, 3);
+    await unmount(t);
+  });
+
+  testWidgets('history and comments are one thread, oldest first: change lines between chat bubbles', (t) async {
+    tall(t);
+    await t.runAsync(() async {
+      Future<void> comment(String id, String author, String text, String at) => db.into(db.comments).insert(
+          CommentsCompanion.insert(
+              id: id, groupId: 'g1', expenseId: const Value('x1'), authorMemberId: author, body: text, createdAt: at));
+      await comment('c1', 'm2', 'Is breakfast included?', '2026-10-11T08:02:30Z');
+      await comment('c2', 'm1', 'Yes, until 10', '2026-10-11T08:05:00Z');
+    });
+    api.onActivity = (_, before) => (
+          items: [
+            ActivityItem.fromJson(item(4, 'expense_updated', {
+              'actorMemberId': 'm2',
+              'expenseId': 'x1',
+              'description': 'Hotel',
+              'currency': 'EUR',
+              'changes': [
+                {'field': 'amount', 'from': 28000, 'to': 30000},
+              ],
+            })),
+            ActivityItem.fromJson(item(3, 'comment_added',
+                {'actorMemberId': 'm2', 'expenseId': 'x1', 'commentId': 'c1', 'description': 'Hotel', 'text': 'Is breakfast included?'})),
+            ActivityItem.fromJson(item(1, 'expense_added',
+                {'actorMemberId': 'm1', 'expenseId': 'x1', 'description': 'Hotel', 'amount': 28000, 'currency': 'EUR'})),
+          ],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app());
+    await settle(t);
+    double y(String text) => t.getTopLeft(find.text(text)).dy;
+    // 08:01 added, 08:02:30 Ben asks, 08:04 Ben changes the amount, 08:05 I answer.
+    expect(y('You added “Hotel” · €280.00'), lessThan(y('Is breakfast included?')));
+    expect(y('Is breakfast included?'), lessThan(y('Ben changed “Hotel”: €280.00 → €300.00')));
+    expect(y('Ben changed “Hotel”: €280.00 → €300.00'), lessThan(y('Yes, until 10')));
+    expect(find.text('Is breakfast included?'), findsOneWidget); // once: its feed item is not a line too
+    // My bubble on the right, Ben's on the left.
+    expect(t.getCenter(find.text('Yes, until 10')).dx, greaterThan(t.getCenter(find.text('Is breakfast included?')).dx));
     await unmount(t);
   });
 

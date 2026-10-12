@@ -7,13 +7,15 @@ import java.util.UUID
 
 @Repository
 class DeviceRepository(private val jdbc: JdbcClient) {
-    fun upsert(deviceId: String, userId: UUID, fcmToken: String) {
+    fun upsert(deviceId: String, userId: UUID, fcmToken: String, notificationsAllowed: Boolean = true) {
         jdbc.sql(
             """
-            INSERT INTO devices (id, user_id, fcm_token, last_seen_at) VALUES (:id, :userId, :token, :now)
-            ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, fcm_token = EXCLUDED.fcm_token, last_seen_at = EXCLUDED.last_seen_at
+            INSERT INTO devices (id, user_id, fcm_token, last_seen_at, notifications_allowed) VALUES (:id, :userId, :token, :now, :allowed)
+            ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, fcm_token = EXCLUDED.fcm_token, last_seen_at = EXCLUDED.last_seen_at,
+              notifications_allowed = EXCLUDED.notifications_allowed
             """
-        ).param("id", deviceId).param("userId", userId).param("token", fcmToken).param("now", OffsetDateTime.now()).update()
+        ).param("id", deviceId).param("userId", userId).param("token", fcmToken).param("now", OffsetDateTime.now())
+            .param("allowed", notificationsAllowed).update()
         // A token belongs to one phone: after a sign-in as someone else (or a reinstall) the old row must stop receiving pushes.
         jdbc.sql("DELETE FROM devices WHERE fcm_token = :token AND id <> :id").param("token", fcmToken).param("id", deviceId).update()
         // Every reinstall registers a new device id: keep only the most recently seen ones, so no user fans out to unbounded tokens.
@@ -38,6 +40,14 @@ class DeviceRepository(private val jdbc: JdbcClient) {
     fun fcmTokensOfUser(userId: UUID): List<String> =
         jdbc.sql("SELECT DISTINCT fcm_token FROM devices WHERE user_id = :u AND fcm_token IS NOT NULL")
             .param("u", userId).query(String::class.java).list().filterNotNull()
+
+    /**
+     * Phase 10 "auto" digests: a device that can show this user's pushes (an FCM token, notifications allowed, seen in
+     * the last 60 days). FCM being configured and the push switches are checked by the caller.
+     */
+    fun hasPushCapable(userId: UUID, since: OffsetDateTime): Boolean = jdbc.sql(
+        "SELECT EXISTS (SELECT 1 FROM devices WHERE user_id = :u AND fcm_token IS NOT NULL AND notifications_allowed AND last_seen_at > :since)"
+    ).param("u", userId).param("since", since).query(Boolean::class.java).single()
 
     fun deleteByUser(userId: UUID) {
         jdbc.sql("DELETE FROM devices WHERE user_id = :userId").param("userId", userId).update()

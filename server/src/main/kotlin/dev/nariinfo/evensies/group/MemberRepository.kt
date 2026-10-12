@@ -27,9 +27,15 @@ class MemberRepository(private val jdbc: JdbcClient) {
     fun listByGroup(groupId: UUID): List<Member> =
         jdbc.sql("SELECT * FROM members WHERE group_id = :g ORDER BY created_at, id").param("g", groupId).query(mapper).list()
 
-    /** The abuse cap counts normal groups only: friend groups are unlimited (docs/API.md "그룹" 상한). */
+    /**
+     * The abuse cap counts normal groups only: friend groups are unlimited (docs/API.md "그룹" 상한), and so are deleted
+     * ones (Phase 10), so a restore is never blocked by the cap.
+     */
     fun countGroupsOfUser(userId: UUID): Int = jdbc.sql(
-        "SELECT count(DISTINCT m.group_id) FROM members m JOIN groups g ON g.id = m.group_id WHERE m.user_id = :u AND m.removed = false AND g.kind = 'group'"
+        """
+        SELECT count(DISTINCT m.group_id) FROM members m JOIN groups g ON g.id = m.group_id
+        WHERE m.user_id = :u AND m.removed = false AND g.kind = 'group' AND g.deleted_at IS NULL
+        """
     ).param("u", userId).query(Int::class.java).single()
 
     /**

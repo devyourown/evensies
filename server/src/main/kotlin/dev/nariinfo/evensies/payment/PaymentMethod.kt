@@ -20,7 +20,9 @@ object PaymentMethods {
     private val username = Regex("[A-Za-z0-9._-]{1,40}")
     private val ibanShape = Regex("[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}")
     private val krAccount = Regex("[0-9-]+")
-    val types = setOf("paypal", "revolut", "venmo", "wise", "kakaopay", "iban", "kr_bank")
+    /** Phase 10: a UPI ID (VPA), e.g. `anna@okicici`; Paytm users have one too. */
+    private val upi = Regex("^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9]{1,63}$")
+    val types = setOf("paypal", "revolut", "venmo", "wise", "kakaopay", "iban", "kr_bank", "upi")
 
     /** Validates the full list and returns it normalized (trimmed, IBAN upper case without spaces). 400 VALIDATION otherwise. */
     fun validate(list: List<PaymentMethod>): List<PaymentMethod> {
@@ -50,6 +52,10 @@ object PaymentMethods {
                 val bic = m.bic?.trim()?.takeIf { it.isNotEmpty() }
                 if (bic != null && bic.length != 8 && bic.length != 11) bad("$at.bic must be 8 or 11 characters")
                 PaymentMethod(type, iban, holder = text(at, "holder", m.holder, 70), bic = bic)
+            }
+            "upi" -> {
+                if (!upi.matches(value)) bad("$at.value must be a UPI ID like name@bank")
+                PaymentMethod(type, value, holder = m.holder?.trim()?.takeIf { it.isNotEmpty() }?.let { text(at, "holder", it, 70) })
             }
             else -> { // kr_bank
                 val digits = value.count { it.isDigit() }

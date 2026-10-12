@@ -21,6 +21,12 @@ data class GroupState(
     val attachments: Map<String, AttachmentDto> = emptyMap(),
     /** Repeating series in creation order, stopped ones included (rule 15). */
     val recurrences: Map<String, RecurrenceDto> = emptyMap(),
+    /** Rule 17: "trip", "home", "couple" or "other" (missing in group.created = "other"; the app shows an unknown one as Other). */
+    val type: String = "other",
+    /** Rule 17: the current cover photo (set by PUT /groups/{id}/cover only), null = none. */
+    val coverImageId: String? = null,
+    /** Rule 17: deleted for everyone by group.deleted until a group.restored; events still apply meanwhile. */
+    val deleted: Boolean = false,
 )
 
 /**
@@ -39,7 +45,11 @@ data class GroupState(
  * a known id (its payload expenseId is never read); expense deletes and moves leave receipts alone; 15. recurrence.created
  * appends a new series id (a known one, stopped or not, changes nothing), recurrence.updated replaces template keys one
  * by one (null stored as null) on a live series and is ignored otherwise, recurrence.deleted flags a known series; series
- * events never touch expenses; 16. expenses carry recurrenceId/occurrence (missing = null), an update sets the keys present.
+ * events never touch expenses; 16. expenses carry recurrenceId/occurrence (missing = null), an update sets the keys present;
+ * 17. group.created sets type (missing or not a string = "other"), a present group.updated.type replaces it, a present
+ * coverImageId replaces it (null clears), group.deleted / group.restored set deleted (last in seq order wins) and touch
+ * nothing else; 18. recurrence.created sets remindDaysBefore (missing = null), a present recurrence.updated.remindDaysBefore
+ * (a sibling of fields) replaces it on a live series (null clears).
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -47,13 +57,18 @@ object EventApplier {
         "group.created" -> state.copy(
             name = p.text("name"), defaultCurrency = p.text("defaultCurrency"),
             kind = p.field("kind")?.takeIf { it.isString }?.asString() ?: "group",
+            type = p.field("type")?.takeIf { it.isString }?.asString() ?: "other",
         )
         "group.updated" -> state.copy(
             name = p.text("name") ?: state.name,
             defaultCurrency = p.text("defaultCurrency")?.takeIf { state.expenses.isEmpty() && state.payments.isEmpty() } ?: state.defaultCurrency,
             simplifyDebts = p.bool("simplifyDebts") ?: state.simplifyDebts,
             defaultSplit = if (p.has("defaultSplit")) p.field("defaultSplit") else state.defaultSplit,
+            type = p.field("type")?.takeIf { it.isString }?.asString() ?: state.type,
+            coverImageId = if (p.has("coverImageId")) p.text("coverImageId") else state.coverImageId,
         )
+        "group.deleted" -> state.copy(deleted = true)
+        "group.restored" -> state.copy(deleted = false)
 
         "member.added" -> {
             val id = p.text("memberId") ?: ""
@@ -166,14 +181,20 @@ object EventApplier {
                     startDate = p.text("startDate") ?: "",
                     timeZone = p.text("timeZone") ?: "",
                     template = p.field("template") ?: JsonNodeFactory.instance.objectNode(),
+                    remindDaysBefore = p.int("remindDaysBefore"),
                 )
             )
         }
         "recurrence.updated" -> {
-            val r = state.recurrences[p.text("recurrenceId")]
+            val r = state.recurrences[p.text("recurrenceId")]?.takeUnless { it.deleted }
             val f = p.get("fields")
-            if (r == null || r.deleted || f !is ObjectNode || r.template !is ObjectNode) state
-            else state.withRecurrence(r.copy(template = r.template.deepCopy().setAll(f)))
+            if (r == null) state
+            else state.withRecurrence(
+                r.copy(
+                    template = if (f is ObjectNode && r.template is ObjectNode) r.template.deepCopy().setAll(f) else r.template,
+                    remindDaysBefore = if (p.has("remindDaysBefore")) p.int("remindDaysBefore") else r.remindDaysBefore,
+                )
+            )
         }
         "recurrence.deleted" -> state.recurrences[p.text("recurrenceId")]?.let { state.withRecurrence(it.copy(deleted = true)) } ?: state
 

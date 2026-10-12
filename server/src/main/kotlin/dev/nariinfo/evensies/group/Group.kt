@@ -16,8 +16,13 @@ data class Group(
     val defaultSplit: JsonNode? = null,
     /** "group" or "friend" (docs/API.md "친구"); fixed at creation. */
     val kind: String = "group",
+    /** Phase 10 (rule 17): trip, home, couple or other; the current cover; deleted for everyone (restorable). */
+    val type: String = "other",
+    val coverImageId: UUID? = null,
+    val deleted: Boolean = false,
 ) {
-    fun toDto(myMemberId: UUID?) = GroupDto(id, name, defaultCurrency, inviteCode, createdAt, latestSeq, myMemberId, simplifyDebts, defaultSplit, kind)
+    fun toDto(myMemberId: UUID?) =
+        GroupDto(id, name, defaultCurrency, inviteCode, createdAt, latestSeq, myMemberId, simplifyDebts, defaultSplit, kind, type, coverImageId, deleted)
 }
 
 data class GroupDto(
@@ -32,11 +37,19 @@ data class GroupDto(
     val simplifyDebts: Boolean,
     val defaultSplit: JsonNode?,
     val kind: String,
+    val type: String,
+    val coverImageId: UUID?,
+    val deleted: Boolean,
 )
 
-data class GroupSummaryDto(val id: UUID, val name: String, val defaultCurrency: String, val latestSeq: Long, val memberCount: Int, val kind: String)
+/** GET /groups lists deleted groups too (`deleted`), so the app can offer Restore. */
+data class GroupSummaryDto(
+    val id: UUID, val name: String, val defaultCurrency: String, val latestSeq: Long, val memberCount: Int, val kind: String,
+    val type: String, val coverImageId: UUID?, val deleted: Boolean,
+)
 
-data class CreateGroupRequest(val id: UUID, val name: String, val defaultCurrency: String, val memberId: UUID, val memberName: String)
+/** [type] (Phase 10): missing = "other". */
+data class CreateGroupRequest(val id: UUID, val name: String, val defaultCurrency: String, val memberId: UUID, val memberName: String, val type: String? = null)
 
 data class InviteCodeDto(val inviteCode: String)
 

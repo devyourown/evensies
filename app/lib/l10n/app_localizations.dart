@@ -4523,6 +4523,732 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'your rate'**
   String get yourRate;
+
+  /// Login button that signs in with a code sent by email.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with email'**
+  String get loginEmail;
+
+  /// Title of the email sign-in screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with email'**
+  String get emailLoginTitle;
+
+  /// Text above the email field on the sign-in screen.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll email you a 6-digit code. No password needed.'**
+  String get emailLoginIntro;
+
+  /// Label of an email address field.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get emailLabel;
+
+  /// Error under an email field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address'**
+  String get emailInvalid;
+
+  /// Button that emails a 6-digit code.
+  ///
+  /// In en, this message translates to:
+  /// **'Send code'**
+  String get sendCode;
+
+  /// Text above the code field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code we sent to {email}. It expires in 10 minutes.'**
+  String codeSentTo(String email);
+
+  /// Label of the code field.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get codeLabel;
+
+  /// Button that checks the typed code.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get verifyCode;
+
+  /// Button that emails a new code.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend code'**
+  String get resendCode;
+
+  /// Disabled resend button with the seconds left.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend code in {seconds} s'**
+  String resendCodeIn(int seconds);
+
+  /// Snackbar after Resend code.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a new code.'**
+  String get codeResent;
+
+  /// Button that goes back to the email field.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a different email'**
+  String get useDifferentEmail;
+
+  /// Hint under the code field.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing arrived? Check your spam folder.'**
+  String get codeCheckSpam;
+
+  /// Error when the typed code is refused.
+  ///
+  /// In en, this message translates to:
+  /// **'That code is wrong or has expired. Ask for a new one.'**
+  String get errorCodeInvalid;
+
+  /// Error when the server has email turned off.
+  ///
+  /// In en, this message translates to:
+  /// **'This server doesn\'t send email.'**
+  String get errorEmailNotConfigured;
+
+  /// Error when the mail server refused the address.
+  ///
+  /// In en, this message translates to:
+  /// **'That address can\'t receive email. Check it for typos.'**
+  String get errorEmailRejected;
+
+  /// Error when a new account email belongs to someone else.
+  ///
+  /// In en, this message translates to:
+  /// **'Another account already uses this address.'**
+  String get errorEmailTaken;
+
+  /// Error when removing the only way to sign in.
+  ///
+  /// In en, this message translates to:
+  /// **'Email is your only way to sign in, so it can\'t be removed.'**
+  String get errorEmailRequired;
+
+  /// Error when the server can't send email at the moment.
+  ///
+  /// In en, this message translates to:
+  /// **'Email isn\'t working right now. Try again later.'**
+  String get errorEmailUnavailable;
+
+  /// Snackbar after a new account email was verified.
+  ///
+  /// In en, this message translates to:
+  /// **'Email saved'**
+  String get emailSaved;
+
+  /// Confirm dialog title for removing the account email.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {email}?'**
+  String removeEmailTitle(String email);
+
+  /// Confirm dialog text for removing the account email.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll get no email summaries or reminders, and you can\'t sign in with it any more.'**
+  String get removeEmailMessage;
+
+  /// Snackbar after the account email was removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Email removed'**
+  String get emailRemoved;
+
+  /// Error when changing the account email offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing your email needs a connection.'**
+  String get emailNeedsConnection;
+
+  /// Warning under an account email that bounces.
+  ///
+  /// In en, this message translates to:
+  /// **'Emails to this address bounce — change it or verify it again'**
+  String get emailBouncedNote;
+
+  /// Note under the verified account email.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified · other members never see it'**
+  String get emailVerifiedNote;
+
+  /// Heading above the form that changes the account email.
+  ///
+  /// In en, this message translates to:
+  /// **'Change email'**
+  String get changeEmail;
+
+  /// Help text on the account email screen.
+  ///
+  /// In en, this message translates to:
+  /// **'For signing in and email summaries. We send a code to check it\'s yours. Other members never see it.'**
+  String get emailAccountHelp;
+
+  /// Button that removes the account email.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove email'**
+  String get removeEmail;
+
+  /// Settings row when the account has no email.
+  ///
+  /// In en, this message translates to:
+  /// **'Add email'**
+  String get addEmail;
+
+  /// Subtitle of the Add email row.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with it and get email summaries'**
+  String get addEmailHint;
+
+  /// Snackbar after unblocking someone.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblocked {name}'**
+  String unblockedName(String name);
+
+  /// Error when blocking or unblocking offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocking needs a connection.'**
+  String get blockNeedsConnection;
+
+  /// Empty state of Blocked people.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t blocked anyone.'**
+  String get blockedEmpty;
+
+  /// Error state of Blocked people when offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked people need a connection'**
+  String get blockedNeedsConnection;
+
+  /// Button that unblocks someone.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get unblock;
+
+  /// Settings row and screen title listing blocked people.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked people'**
+  String get blockedPeople;
+
+  /// Help text on Blocked people.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked people can\'t add you as a friend or send you reminders, and their changes don\'t notify or email you. Shared groups and balances stay as they are.'**
+  String get blockedHelp;
+
+  /// Empty state of Deleted groups.
+  ///
+  /// In en, this message translates to:
+  /// **'No deleted groups'**
+  String get deletedGroupsEmpty;
+
+  /// Help text on Deleted groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring brings a group back for everyone, with everything in it.'**
+  String get deletedGroupsHelp;
+
+  /// Settings row and screen title listing deleted groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted groups'**
+  String get deletedGroups;
+
+  /// Subtitle of the Deleted groups row.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 group can be restored} other{{count} groups can be restored}}'**
+  String deletedGroupsCount(int count);
+
+  /// Error when exporting offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Exporting needs a connection.'**
+  String get exportNeedsConnection;
+
+  /// Settings row that downloads the whole account.
+  ///
+  /// In en, this message translates to:
+  /// **'Export everything (JSON)'**
+  String get exportEverything;
+
+  /// Subtitle of Export everything.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profile, ways to get paid, settings and every group, deleted ones too'**
+  String get exportEverythingHint;
+
+  /// Settings row choosing how often an email summary comes.
+  ///
+  /// In en, this message translates to:
+  /// **'Email summary'**
+  String get emailSummary;
+
+  /// An email summary choice.
+  ///
+  /// In en, this message translates to:
+  /// **'{choice, select, auto{Auto} daily{Daily} weekly{Weekly} monthly{Monthly} off{Off} other{Auto}}'**
+  String digestChoice(String choice);
+
+  /// Explains the Auto email summary choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily when your devices can\'t show notifications, otherwise monthly'**
+  String get digestAutoHelp;
+
+  /// Current email summary when Auto means daily.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto — daily, because notifications are off'**
+  String get digestAutoDaily;
+
+  /// Current email summary when Auto means monthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto — monthly, because your devices get notifications'**
+  String get digestAutoMonthly;
+
+  /// Email summary row when the account has no email.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an email under Account to get summaries'**
+  String get digestNoEmail;
+
+  /// Help row that opens a new GitHub issue.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem or suggest a feature'**
+  String get helpReportProblem;
+
+  /// Subtitle of the GitHub help row.
+  ///
+  /// In en, this message translates to:
+  /// **'On GitHub, where everyone can see it'**
+  String get helpReportProblemHint;
+
+  /// Help row that writes to the server operator.
+  ///
+  /// In en, this message translates to:
+  /// **'Email support'**
+  String get helpContact;
+
+  /// Help row that opens the privacy policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get privacyPolicy;
+
+  /// Settings section and row for help.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & feedback'**
+  String get helpFeedback;
+
+  /// Settings row that signs out every phone and browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out on all devices'**
+  String get signOutEverywhere;
+
+  /// Confirm dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out on all devices?'**
+  String get signOutEverywhereTitle;
+
+  /// Confirm dialog text.
+  ///
+  /// In en, this message translates to:
+  /// **'Every phone and browser signed in to your account is signed out, this one too. Your groups stay on the server.'**
+  String get signOutEverywhereMessage;
+
+  /// Error when offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out on all devices needs a connection.'**
+  String get signOutEverywhereOffline;
+
+  /// Line added to the delete-account confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: Export everything first.'**
+  String get deleteAccountExportTip;
+
+  /// Group settings row that changes the group's cover photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover photo'**
+  String get coverPhoto;
+
+  /// Subtitle of the cover photo row.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown on the group\'s header and in the list. Only members see it.'**
+  String get coverPhotoHint;
+
+  /// Sheet item that removes the group's cover photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove cover'**
+  String get removeCover;
+
+  /// Error when uploading a cover offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing the cover needs a connection.'**
+  String get coverNeedsConnection;
+
+  /// Error when too many covers were uploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s a lot of cover changes. Try again in an hour.'**
+  String get coverTooMany;
+
+  /// Group settings row that deletes the group for everyone.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete group'**
+  String get deleteGroup;
+
+  /// Subtitle of Delete group.
+  ///
+  /// In en, this message translates to:
+  /// **'For everyone · any member can restore it'**
+  String get deleteGroupHint;
+
+  /// Confirm dialog title for deleting a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}”?'**
+  String deleteGroupTitle(String name);
+
+  /// Confirm dialog text for deleting a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted for everyone. Any member can restore it from Settings → Deleted groups.'**
+  String get deleteGroupMessage;
+
+  /// Snackbar with Undo after deleting a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted “{name}”'**
+  String groupDeletedName(String name);
+
+  /// Banner on a deleted group's page, next to Restore.
+  ///
+  /// In en, this message translates to:
+  /// **'This group is deleted'**
+  String get groupDeletedBanner;
+
+  /// Snackbar after restoring a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Group restored'**
+  String get groupRestored;
+
+  /// Friend page menu item.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete friend'**
+  String get deleteFriend;
+
+  /// Confirm dialog title for deleting a friend.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {name}?'**
+  String deleteFriendTitle(String name);
+
+  /// Confirm dialog text for deleting a friend.
+  ///
+  /// In en, this message translates to:
+  /// **'Your non-group expenses with {name} are deleted for both of you. Shared groups stay. You can restore them from Settings → Deleted groups, or by adding {name} again.'**
+  String deleteFriendMessage(String name);
+
+  /// Snackbar with Undo after deleting a friend.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted {name}'**
+  String friendDeleted(String name);
+
+  /// Friend page menu item and confirm button.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get block;
+
+  /// Confirm dialog title for blocking someone.
+  ///
+  /// In en, this message translates to:
+  /// **'Block {name}?'**
+  String blockTitle(String name);
+
+  /// Confirm dialog text for blocking someone.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} won\'t be able to add you as a friend or send you reminders, and their changes won\'t notify or email you. Shared groups and balances stay.'**
+  String blockMessage(String name);
+
+  /// Snackbar after blocking someone.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked {name}'**
+  String blockedName(String name);
+
+  /// Friend page menu item that emails the server's support address.
+  ///
+  /// In en, this message translates to:
+  /// **'Report…'**
+  String get report;
+
+  /// Subject of the report email.
+  ///
+  /// In en, this message translates to:
+  /// **'Evensies report'**
+  String get reportSubject;
+
+  /// Body of the report email; the user id identifies the reported person.
+  ///
+  /// In en, this message translates to:
+  /// **'User id: {userId}\n\nWhat happened:\n'**
+  String reportBody(String userId);
+
+  /// Menu item on a placeholder member.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite by email…'**
+  String get inviteByEmail;
+
+  /// Field in Add member.
+  ///
+  /// In en, this message translates to:
+  /// **'Email (optional)'**
+  String get inviteEmailField;
+
+  /// Help under the invite email field.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll email them an invite link. Only used for this invite.'**
+  String get inviteEmailHelp;
+
+  /// Dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite {name} by email'**
+  String inviteByEmailTitle(String name);
+
+  /// Snackbar after an email invite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite sent to {email}'**
+  String inviteEmailSent(String email);
+
+  /// Snackbar when the new member was added offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Member added. Inviting by email needs a connection — try again from the member list.'**
+  String get inviteEmailOfflineAdded;
+
+  /// Error when inviting by email offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Inviting by email needs a connection.'**
+  String get inviteEmailOffline;
+
+  /// Error when too many invite emails were sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Email limit reached for today — share the link instead.'**
+  String get inviteEmailLimit;
+
+  /// Button under Repeat; choice is Never or N days before.
+  ///
+  /// In en, this message translates to:
+  /// **'Email a reminder: {choice}'**
+  String emailReminder(String choice);
+
+  /// No email reminder before a repeating expense.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get remindNever;
+
+  /// Email reminder this many days before a repeat.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day before} other{{count} days before}}'**
+  String remindDaysBefore(int count);
+
+  /// What the UPI payment method is.
+  ///
+  /// In en, this message translates to:
+  /// **'India: Paytm, PhonePe, Google Pay and other UPI apps'**
+  String get blurbUpi;
+
+  /// Field for a UPI ID.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI ID'**
+  String get fieldUpi;
+
+  /// Hint under the UPI ID field.
+  ///
+  /// In en, this message translates to:
+  /// **'Like name@okicici'**
+  String get fieldUpiHint;
+
+  /// Field for the name shown to payers in UPI apps.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get fieldUpiName;
+
+  /// Hint under the UPI name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown to the person paying you'**
+  String get fieldUpiNameHint;
+
+  /// Error under an invalid UPI ID.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a UPI ID like name@bank'**
+  String get methodErrorUpi;
+
+  /// Note in the pay sheet when no UPI app opened.
+  ///
+  /// In en, this message translates to:
+  /// **'No UPI app found. Copy the UPI ID and amount instead.'**
+  String get noUpiApp;
+
+  /// Label in the pay sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI ID'**
+  String get upiIdLabel;
+
+  /// Button that copies a UPI ID.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy UPI ID'**
+  String get copyUpiId;
+
+  /// Snackbar after copying a UPI ID.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI ID copied'**
+  String get upiIdCopied;
+
+  /// The overview page in the web app's wide layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get dashboard;
+
+  /// Sidebar entry in the web app's wide layout: every expense of every group, newest first (the search page without a query).
+  ///
+  /// In en, this message translates to:
+  /// **'All expenses'**
+  String get allExpenses;
+
+  /// Heading of the balances column next to a group.
+  ///
+  /// In en, this message translates to:
+  /// **'Group balances'**
+  String get groupBalances;
+
+  /// Heading of the balance column next to a friend.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance'**
+  String get yourBalance;
+
+  /// Dashboard column of people who owe me.
+  ///
+  /// In en, this message translates to:
+  /// **'Owes you'**
+  String get dashboardOwesYou;
+
+  /// Dashboard column of people I owe.
+  ///
+  /// In en, this message translates to:
+  /// **'You owe'**
+  String get dashboardYouOwe;
+
+  /// Heading of the expense's thread of changes and comments.
+  ///
+  /// In en, this message translates to:
+  /// **'History and comments'**
+  String get historyAndComments;
+
+  /// Button that loads older history at the top of the thread.
+  ///
+  /// In en, this message translates to:
+  /// **'Show earlier'**
+  String get showEarlier;
+
+  /// Title of the dialog shown instead of deleting a friend while a non-group balance is open.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle up first'**
+  String get settleUpFirst;
+
+  /// Text under the non-group balance in that dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'You can delete {name} as a friend once your non-group expenses are settled up.'**
+  String deleteFriendSettleFirst(String name);
+
+  /// Sheet text when no email app opened (Report…, Email support).
+  ///
+  /// In en, this message translates to:
+  /// **'No email app found. Copy the details below and write from any email app.'**
+  String get noMailApp;
+
+  /// Button that copies an email address.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get copyAddress;
+
+  /// Button that copies the prepared email text.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy message'**
+  String get copyMessage;
+
+  /// Whole-page message when the browser cannot open the app database.
+  ///
+  /// In en, this message translates to:
+  /// **'This browser can\'t keep Evensies\' data. Try another browser, or a window that isn\'t private.'**
+  String get browserNoStorage;
+
+  /// Whole-page message in a browser that keeps a database copy per tab, when another tab already has it.
+  ///
+  /// In en, this message translates to:
+  /// **'Evensies is already open in another tab of this browser. Use that tab, or close it and reload this one.'**
+  String get browserOtherTab;
 }
 
 class _AppLocalizationsDelegate

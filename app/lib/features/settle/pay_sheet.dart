@@ -22,26 +22,40 @@ Future<void> payWith(BuildContext context, PaymentMethod m,
     {required String toName, required int amount, required String currency, required String note}) async {
   final uri = payLink(m, amountMinor: amount, currency: currency, note: note);
   if (uri == null) return _bankSheet(context, m, toName: toName, amount: amount, currency: currency, note: note);
-  if (!prefillsAmount(m.type)) {
+  if (!prefillsAmount(m.type, currency)) {
     await _copy(context, inputAmount(amount, currency), context.l.amountCopied(formatMoney(amount, currency)));
   }
   final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
-  if (!ok && context.mounted) showInfo(context, context.l.couldNotOpen('$uri'));
+  if (ok || !context.mounted) return;
+  // No UPI app on this device (or a browser): the ID and amount to copy instead.
+  if (m.type == PaymentTypes.upi) {
+    return _bankSheet(context, m, toName: toName, amount: amount, currency: currency, note: note);
+  }
+  showInfo(context, context.l.couldNotOpen('$uri'));
 }
 
-/// One chip per way to pay; nothing while loading, a muted line when offline or there is none.
+/// One chip per way to pay [currency]; nothing while loading, a muted line when offline or there is none. UPI only
+/// for INR: a UPI payment has no currency of its own.
 class PayChips extends StatelessWidget {
   /// Null while loading.
   final List<PaymentMethod>? methods;
   final bool failed;
   final String toName;
+  final String currency;
   final void Function(PaymentMethod m) onPay;
-  const PayChips({super.key, required this.methods, required this.failed, required this.toName, required this.onPay});
+  const PayChips({
+    super.key,
+    required this.methods,
+    required this.failed,
+    required this.toName,
+    required this.currency,
+    required this.onPay,
+  });
 
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
-    final ms = methods;
+    final ms = methods?.where((m) => m.type != PaymentTypes.upi || currency == 'INR').toList();
     final l = context.l;
     if (failed) return Text(l.payOffline, style: muted);
     if (ms == null) return Text(l.payLoading, style: muted);
@@ -61,6 +75,7 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
     {required String toName, required int amount, required String currency, required String note}) {
   final formatted = formatMoney(amount, currency);
   final iban = m.type == PaymentTypes.iban;
+  final upi = m.type == PaymentTypes.upi;
   final qr = iban && currency == 'EUR';
   final account = iban ? m.value.replaceAllMapped(RegExp(r'.{4}'), (x) => '${x[0]} ').trim() : m.value;
   return showModalBottomSheet<void>(
@@ -83,6 +98,10 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(l.payTitle(toName, formatted), style: text.titleLarge),
+            if (upi) ...[
+              const SizedBox(height: 4),
+              Text(l.noUpiApp, key: const Key('no-upi-app'), style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+            ],
             const SizedBox(height: 12),
             if (qr) ...[
               Center(
@@ -107,19 +126,19 @@ Future<void> _bankSheet(BuildContext context, PaymentMethod m,
               Text(l.payQrEurOnly, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 8),
             ],
-            if (!iban) line(l.bankLabel, m.bank ?? ''),
-            line(iban ? l.ibanLabel : l.accountLabel, account),
+            if (!iban && !upi) line(l.bankLabel, m.bank ?? ''),
+            line(iban ? l.ibanLabel : (upi ? l.upiIdLabel : l.accountLabel), account),
             if (iban && m.bic != null) line(l.bicLabel, m.bic!),
-            line(l.holderLabel, m.holder ?? ''),
+            if (!upi || m.holder != null) line(l.holderLabel, m.holder ?? ''),
             line(l.amountLabel, formatted),
             const SizedBox(height: 12),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.copy, size: 18),
-                  label: Text(iban ? l.copyIban : l.copyAccount),
-                  onPressed: () =>
-                      _copy(ctx, iban ? m.value : '${m.bank} ${m.value}', iban ? l.ibanCopied : l.accountCopied),
+                  label: Text(iban ? l.copyIban : (upi ? l.copyUpiId : l.copyAccount)),
+                  onPressed: () => _copy(ctx, iban || upi ? m.value : '${m.bank} ${m.value}',
+                      iban ? l.ibanCopied : (upi ? l.upiIdCopied : l.accountCopied)),
                 ),
               ),
               const SizedBox(width: 8),

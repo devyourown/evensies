@@ -32,7 +32,7 @@ void main() {
     api = FakeApi(db);
     sync = NoSync(db);
     await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Tokyo', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Tokyo', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     for (final (id, name) in [('m1', 'Anna'), ('m2', 'Ben')]) {
       await db.into(db.members).insert(MembersCompanion.insert(id: id, groupId: 'g1', name: name));
     }

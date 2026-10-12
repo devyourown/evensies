@@ -17,6 +17,13 @@ Widget googleWebButton(String lang) => web.renderButton(
       ),
     );
 
+@JS('evensiesLoadGoogle')
+external JSFunction? get _loadGoogle;
+
+/// Lets Google's sign-in script load (web/gsi_lazy.js holds it back): called only once this server offers Google
+/// sign-in (`GET /info`), so other pages and servers without it never contact Google.
+void loadGoogleSignIn() => _loadGoogle?.callAsFunction();
+
 Future<void>? _apple;
 
 /// Apple's sign-in script (allowed by the server's CSP), added only once this server says it offers Sign in with Apple

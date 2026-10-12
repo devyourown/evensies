@@ -1,5 +1,5 @@
 {
-  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null. 6단계: expected.group.kind 기본값 \"group\"(group.created에 kind가 없으면 \"group\", 그 뒤 어떤 이벤트도 바꾸지 않는다 — 적용 규칙 13). comments[].paymentId 기본값 null(comments 모양: {id, expenseId, paymentId, authorMemberId, text, createdAt, deleted}; 송금 댓글은 expenseId가 null). expenses[].moved 기본값 false: movedTo가 객체인 expense.deleted가 true로 만들고(그 뒤 지우지 않는다), moved인 지출에 오는 expense.restored는 무시한다(적용 규칙 13). 7단계: attachments 기본값 [] (모양: {id, expenseId, deleted}; 적용 규칙 14 — 이미 있는 id의 attachment.added는 무시(삭제 뒤 다시 와도 삭제된 채), 없는 지출이면 무시, 삭제된 지출에는 붙는다; attachment.deleted는 없는 id면 무시하고 payload의 expenseId는 읽지 않는다). payments[].replaced 기본값 false: replacedBy가 문자열인 payment.deleted(송금 편집)가 true로 만들고(그 뒤 지우지 않는다), replaced인 송금에 오는 payment.restored는 무시한다(적용 규칙 7). payment.restored는 expense.restored와 같다: 삭제된 송금을 되살리고(status는 그대로), 살아 있거나 없는 송금이면 무시. split은 받은 JSON 그대로 비교한다(Kotlin은 원문, Dart는 SplitSpec 왕복) — mode itemized 케이스는 bill의 모든 키(lines[].name·amount·memberIds, tax, tip, discount)를 넣어 두 쪽이 같은 JSON을 낸다. 8단계: recurrences 기본값 [] (모양: {id, frequency, startDate, timeZone, template, deleted}, 만든 순서; 적용 규칙 15 — 이미 있는 id의 recurrence.created는 무시(멈춘 것 포함, 첫 template·일정 그대로), recurrence.updated는 fields의 키마다 template의 그 키를 받은 값으로 바꾸고(null도 null로 저장하고 키를 지우지 않는다, fields에 없는 키는 그대로, shares·payers는 통째로) 없거나 멈춘(deleted) 시리즈면 무시, recurrence.deleted는 deleted=true(없으면 무시, 되돌리는 이벤트 없음)). template은 받은 JSON 그대로 비교한다(Kotlin JsonNode, Dart Map). expenses[].recurrenceId·occurrence 기본값 null(적용 규칙 16 — expense.created는 받은 값, expense.updated는 fields에 키가 있으면 그 값(null은 지움); 시리즈의 생성·수정·멈춤은 지출을 바꾸지 않고 적용기는 시리즈가 있는지 보지 않는다).",
+  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null. 6단계: expected.group.kind 기본값 \"group\"(group.created에 kind가 없으면 \"group\", 그 뒤 어떤 이벤트도 바꾸지 않는다 — 적용 규칙 13). comments[].paymentId 기본값 null(comments 모양: {id, expenseId, paymentId, authorMemberId, text, createdAt, deleted}; 송금 댓글은 expenseId가 null). expenses[].moved 기본값 false: movedTo가 객체인 expense.deleted가 true로 만들고(그 뒤 지우지 않는다), moved인 지출에 오는 expense.restored는 무시한다(적용 규칙 13). 7단계: attachments 기본값 [] (모양: {id, expenseId, deleted}; 적용 규칙 14 — 이미 있는 id의 attachment.added는 무시(삭제 뒤 다시 와도 삭제된 채), 없는 지출이면 무시, 삭제된 지출에는 붙는다; attachment.deleted는 없는 id면 무시하고 payload의 expenseId는 읽지 않는다). payments[].replaced 기본값 false: replacedBy가 문자열인 payment.deleted(송금 편집)가 true로 만들고(그 뒤 지우지 않는다), replaced인 송금에 오는 payment.restored는 무시한다(적용 규칙 7). payment.restored는 expense.restored와 같다: 삭제된 송금을 되살리고(status는 그대로), 살아 있거나 없는 송금이면 무시. split은 받은 JSON 그대로 비교한다(Kotlin은 원문, Dart는 SplitSpec 왕복) — mode itemized 케이스는 bill의 모든 키(lines[].name·amount·memberIds, tax, tip, discount)를 넣어 두 쪽이 같은 JSON을 낸다. 8단계: recurrences 기본값 [] (모양: {id, frequency, startDate, timeZone, template, deleted}, 만든 순서; 적용 규칙 15 — 이미 있는 id의 recurrence.created는 무시(멈춘 것 포함, 첫 template·일정 그대로), recurrence.updated는 fields의 키마다 template의 그 키를 받은 값으로 바꾸고(null도 null로 저장하고 키를 지우지 않는다, fields에 없는 키는 그대로, shares·payers는 통째로) 없거나 멈춘(deleted) 시리즈면 무시, recurrence.deleted는 deleted=true(없으면 무시, 되돌리는 이벤트 없음)). template은 받은 JSON 그대로 비교한다(Kotlin JsonNode, Dart Map). expenses[].recurrenceId·occurrence 기본값 null(적용 규칙 16 — expense.created는 받은 값, expense.updated는 fields에 키가 있으면 그 값(null은 지움); 시리즈의 생성·수정·멈춤은 지출을 바꾸지 않고 적용기는 시리즈가 있는지 보지 않는다). 10단계: expected.group 기본값 type=\"other\", coverImageId=null, deleted=false(Dart groupJson()·Kotlin actual()[\"group\"]에 세 키가 더해진다; 적용 규칙 17 — group.created의 type이 없거나 문자열이 아니면 \"other\", group.updated의 문자열 type은 바꾸고, coverImageId는 키가 있으면 그 값(null은 지움)·없으면 그대로; group.deleted는 deleted=true, group.restored는 false이고 seq 순서상 나중 것이 이긴다; 둘 다 멤버·지출·송금을 건드리지 않고, 삭제 뒤에 온 이벤트도 그대로 적용한다). recurrences[].remindDaysBefore 기본값 null(적용 규칙 18 — recurrence.created는 받은 값, recurrence.updated는 fields 옆에 remindDaysBefore 키가 있으면 그 값(null은 지움), 없거나 멈춘 시리즈면 무시).",
   "cases": [
     {
       "name": "create expense then update description only",
@@ -5592,6 +5592,517 @@
               ]
             },
             "deleted": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy group.created without type is other; name update keeps type",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "g1",
+          "type": "group.created",
+          "payload": {
+            "name": "Flat",
+            "defaultCurrency": "EUR"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "g2",
+          "type": "group.updated",
+          "payload": {
+            "name": "Flat 3B"
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Flat 3B",
+          "defaultCurrency": "EUR",
+          "type": "other",
+          "coverImageId": null,
+          "deleted": false
+        },
+        "members": [],
+        "expenses": [],
+        "payments": []
+      }
+    },
+    {
+      "name": "type set on create; cover kept when only type changes",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "g1",
+          "type": "group.created",
+          "payload": {
+            "name": "Rome",
+            "defaultCurrency": "EUR",
+            "type": "trip"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "g2",
+          "type": "group.updated",
+          "payload": {
+            "coverImageId": "c1"
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "g3",
+          "type": "group.updated",
+          "payload": {
+            "type": "home"
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Rome",
+          "defaultCurrency": "EUR",
+          "type": "home",
+          "coverImageId": "c1",
+          "deleted": false
+        },
+        "members": [],
+        "expenses": [],
+        "payments": []
+      }
+    },
+    {
+      "name": "deleted group still takes offline edits; restore shows them",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "g1",
+          "type": "group.created",
+          "payload": {
+            "name": "Rome",
+            "defaultCurrency": "EUR",
+            "type": "trip"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "g2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "g3",
+          "type": "group.deleted",
+          "payload": {}
+        },
+        {
+          "seq": 4,
+          "clientId": "g4",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Taxi",
+            "amount": 1200,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-11-02",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1200
+              }
+            ]
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "g5",
+          "type": "group.restored",
+          "payload": {}
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Rome",
+          "defaultCurrency": "EUR",
+          "type": "trip",
+          "coverImageId": null,
+          "deleted": false
+        },
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Taxi",
+            "amount": 1200,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-11-02",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1200
+              }
+            ]
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "deleting twice stays deleted; null coverImageId clears the cover",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "g1",
+          "type": "group.created",
+          "payload": {
+            "name": "Flat",
+            "defaultCurrency": "EUR",
+            "type": "home"
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "g2",
+          "type": "group.updated",
+          "payload": {
+            "coverImageId": "c1"
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "g3",
+          "type": "group.deleted",
+          "payload": {}
+        },
+        {
+          "seq": 4,
+          "clientId": "g4",
+          "type": "group.deleted",
+          "payload": {}
+        },
+        {
+          "seq": 5,
+          "clientId": "g5",
+          "type": "group.updated",
+          "payload": {
+            "coverImageId": null
+          }
+        }
+      ],
+      "expected": {
+        "group": {
+          "name": "Flat",
+          "defaultCurrency": "EUR",
+          "type": "home",
+          "coverImageId": null,
+          "deleted": true
+        },
+        "members": [],
+        "expenses": [],
+        "payments": []
+      }
+    },
+    {
+      "name": "remindDaysBefore set on create, changed by update, ignored after stop",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "g1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "g2",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r1",
+            "frequency": "monthly",
+            "startDate": "2026-11-01",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Rent",
+              "amount": 90000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 90000
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 90000
+                }
+              ]
+            },
+            "remindDaysBefore": 3
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "g3",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r2",
+            "frequency": "weekly",
+            "startDate": "2026-11-02",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Gym",
+              "amount": 2500,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 2500
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 2500
+                }
+              ]
+            }
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "g4",
+          "type": "recurrence.created",
+          "payload": {
+            "recurrenceId": "r3",
+            "frequency": "yearly",
+            "startDate": "2026-12-01",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Insurance",
+              "amount": 30000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 30000
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 30000
+                }
+              ]
+            },
+            "remindDaysBefore": 1
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "g5",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r1",
+            "fields": {},
+            "remindDaysBefore": 7
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "g6",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r2",
+            "fields": {
+              "description": "Gym club"
+            }
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "g7",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r3",
+            "fields": {},
+            "remindDaysBefore": null
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "g8",
+          "type": "recurrence.deleted",
+          "payload": {
+            "recurrenceId": "r1"
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "g9",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r1",
+            "fields": {},
+            "remindDaysBefore": 1
+          }
+        },
+        {
+          "seq": 10,
+          "clientId": "g10",
+          "type": "recurrence.updated",
+          "payload": {
+            "recurrenceId": "r9",
+            "fields": {},
+            "remindDaysBefore": 2
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": [],
+        "recurrences": [
+          {
+            "id": "r1",
+            "frequency": "monthly",
+            "startDate": "2026-11-01",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Rent",
+              "amount": 90000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 90000
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 90000
+                }
+              ]
+            },
+            "deleted": true,
+            "remindDaysBefore": 7
+          },
+          {
+            "id": "r2",
+            "frequency": "weekly",
+            "startDate": "2026-11-02",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Gym club",
+              "amount": 2500,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 2500
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 2500
+                }
+              ]
+            },
+            "deleted": false
+          },
+          {
+            "id": "r3",
+            "frequency": "yearly",
+            "startDate": "2026-12-01",
+            "timeZone": "Europe/Rome",
+            "template": {
+              "description": "Insurance",
+              "amount": 30000,
+              "currency": "EUR",
+              "fxRateToDefault": null,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 30000
+                }
+              ],
+              "refund": false,
+              "split": null,
+              "category": null,
+              "notes": null,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 30000
+                }
+              ]
+            },
+            "deleted": false,
+            "remindDaysBefore": null
           }
         ]
       }

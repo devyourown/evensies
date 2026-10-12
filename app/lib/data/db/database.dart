@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../core/browser_stub.dart' if (dart.library.js_interop) '../../core/browser_web.dart' show hasSharedWorkers, holdTabLock, tabDatabase;
 import '../sync/event_types.dart';
 
 part 'database.g.dart';
@@ -21,6 +22,10 @@ class Groups extends Table {
   TextColumn get defaultSplitJson => text().nullable()();
   /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
   TextColumn get kind => text().withDefault(const Constant('group'))();
+  /// Phase 10 (docs/API.md 적용 규칙 17): the group type as sent, the cover photo id, and deleted for everyone.
+  TextColumn get type => text().withDefault(const Constant('other'))();
+  TextColumn get coverImageId => text().nullable()();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -134,6 +139,8 @@ class Recurrences extends Table {
   /// The `expense.created` payload the server repeats, as JSON.
   TextColumn get templateJson => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  /// Days before each repeat the server emails a reminder (rule 18), null for none.
+  IntColumn get remindDaysBefore => integer().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -193,6 +200,9 @@ class Session extends Table {
   TextColumn get displayName => text()();
   /// UserDto.homeCurrency (docs/API.md); null until the user picks one (the app then uses the region's currency).
   TextColumn get homeCurrency => text().nullable()();
+  /// UserDto.email / emailBounced (Phase 10): the verified account address, shown only in Settings.
+  TextColumn get email => text().nullable()();
+  BoolColumn get emailBounced => boolean().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -205,6 +215,11 @@ class FxDays extends Table {
   TextColumn get fetchedAt => text()();
   @override
   Set<Column> get primaryKey => {day};
+}
+
+/// [AppDatabase.openChecked]: another tab of this browser has the database (the one-tab fallback).
+class TabInUse implements Exception {
+  const TabInUse();
 }
 
 @DriftDatabase(tables: [
@@ -233,14 +248,43 @@ class AppDatabase extends _$AppDatabase {
           // (web_assets_test.dart). No COOP/COEP, so IndexedDB in a shared worker: every tab shares one database.
           // ponytail: OPFS needs cross-origin isolation, which breaks the sign-in popups.
           web: DriftWebOptions(
-            sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'),
-            driftWorker: Uri.parse('drift_worker-2.34.4.js'),
+            sqlite3Wasm: _wasm,
+            driftWorker: _worker,
             onResult: (r) => debugPrint('drift on the web: ${r.chosenImplementation}, missing ${r.missingFeatures}'),
           ),
         ));
 
+  static final _wasm = Uri.parse('sqlite3-3.5.2.wasm'), _worker = Uri.parse('drift_worker-2.34.4.js');
+
+  /// [AppDatabase.open], in the browser checked with one query before the app starts. When drift's pick can't start
+  /// (a shared worker that may not fetch the wasm file, as in some embedded browsers), IndexedDB on this tab instead;
+  /// null when that fails too (the app then says this browser can't keep its data, instead of a dead sign-in).
+  /// That fallback keeps its own copy of the database, so it is one tab at a time: [TabInUse] while another tab has it.
+  /// A browser with no shared workers at all gets the same from drift itself (`unsafeIndexedDb`), so the same lock,
+  /// taken before the database opens.
+  static Future<AppDatabase?> openChecked() async {
+    if (!kIsWeb) return AppDatabase.open();
+    Future<AppDatabase?> check(AppDatabase db) async {
+      try {
+        await db.customSelect('SELECT 1').get();
+        return db;
+      } catch (e) {
+        debugPrint('drift on the web: $e');
+        db.close().ignore();
+        return null;
+      }
+    }
+
+    final perTab = !hasSharedWorkers;
+    if (perTab && !await holdTabLock('evensies-db')) throw const TabInUse();
+    final shared = await check(AppDatabase.open());
+    if (shared != null) return shared;
+    if (!perTab && !await holdTabLock('evensies-db')) throw const TabInUse();
+    return check(AppDatabase(tabDatabase('evensies', _wasm, _worker)));
+  }
+
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -300,6 +344,18 @@ class AppDatabase extends _$AppDatabase {
             // (docs/API.md 호환 8단계).
             await delete(syncState).go();
           }
+          if (from < 10) {
+            await m.addColumn(groups, groups.type);
+            await m.addColumn(groups, groups.coverImageId);
+            await m.addColumn(groups, groups.deleted);
+            // A database from before v9 got today's recurrences table above.
+            if (from >= 9) await m.addColumn(recurrences, recurrences.remindDaysBefore);
+            await m.addColumn(session, session.email);
+            await m.addColumn(session, session.emailBounced);
+            // Older code skipped group.deleted / group.restored, the group type and cover, and remindDaysBefore:
+            // replay every group (docs/API.md 호환 10단계).
+            await delete(syncState).go();
+          }
         },
       );
 
@@ -317,6 +373,11 @@ class AppDatabase extends _$AppDatabase {
         homeCurrency: homeCurrency == null ? const Value.absent() : Value(homeCurrency),
       ));
 
+  /// The account email of [userId]'s session (GET /me, a verified change or a removal), like [updateProfile].
+  Future<void> updateEmail(String userId, String? email, {bool bounced = false}) =>
+      (update(session)..where((s) => s.userId.equals(userId)))
+          .write(SessionCompanion(email: Value(email), emailBounced: Value(bounced)));
+
   /// Only the token columns of [userId]'s session: a name saved meanwhile stays, and a session signed out meanwhile
   /// stays gone.
   Future<void> saveTokens(String userId, String accessToken, String refreshToken) =>
@@ -324,8 +385,16 @@ class AppDatabase extends _$AppDatabase {
           .write(SessionCompanion(accessToken: Value(accessToken), refreshToken: Value(refreshToken)));
 
   // --- groups
-  /// Every group on this device, friend groups included (the Groups tab filters `kind == 'group'`).
-  Stream<List<GroupRow>> watchGroups() => (select(groups)..orderBy([(g) => OrderingTerm.asc(g.name)])).watch();
+  /// Every live group on this device, friend groups included (the Groups tab filters `kind == 'group'`). Deleted ones
+  /// (docs/API.md rule 17) are left out of every list, total, search and the widget; [watchDeletedGroups] has them.
+  Stream<List<GroupRow>> watchGroups() => (select(groups)
+        ..where((g) => g.deleted.equals(false))
+        ..orderBy([(g) => OrderingTerm.asc(g.name)]))
+      .watch();
+  Stream<List<GroupRow>> watchDeletedGroups() => (select(groups)
+        ..where((g) => g.deleted.equals(true))
+        ..orderBy([(g) => OrderingTerm.asc(g.name)]))
+      .watch();
   Stream<GroupRow?> watchGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).watchSingleOrNull();
   Future<GroupRow?> getGroup(String id) => (select(groups)..where((g) => g.id.equals(id))).getSingleOrNull();
   /// Writes the whole row: an upsert of a data class would skip null columns, so a cleared default split would stay.

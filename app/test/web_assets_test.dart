@@ -21,6 +21,13 @@ void main() {
     expect(File('web/$wasm').readAsBytesSync().take(4), [0, 0x61, 0x73, 0x6d]); // "\0asm"
   });
 
+  test("Google's sign-in script is held back before the app starts (web/gsi_lazy.js)", () {
+    final index = File('web/index.html').readAsStringSync();
+    expect(File('web/gsi_lazy.js').existsSync(), isTrue);
+    final holder = index.indexOf('<script src="gsi_lazy.js"></script>');
+    expect(holder, allOf(isNot(-1), lessThan(index.indexOf('flutter_bootstrap.js'))));
+  });
+
   test('no stale copies', () {
     final names = Directory('web').listSync().map((e) => e.uri.pathSegments.last);
     expect(names.where((n) => n.startsWith('drift_worker')), hasLength(1));

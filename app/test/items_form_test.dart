@@ -47,7 +47,7 @@ void main() {
     pickError = null;
     scanned = null;
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Trip', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true));
     for (final (id, name) in [('m1', 'Anna'), ('m2', 'Ben'), ('m3', 'Cara')]) {
       await db.into(db.members).insert(MembersCompanion.insert(id: id, groupId: 'g1', name: name));
     }

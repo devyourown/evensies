@@ -79,6 +79,44 @@ void main() {
       '"expense_id" TEXT NOT NULL, "author_member_id" TEXT NOT NULL, "text" TEXT NOT NULL, "created_at" TEXT NOT NULL, '
       '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
 
+  test('schema 9 → 10 adds the group type, cover and deleted flag, the reminder and the account email; replays',
+      () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      v4Expenses(raw);
+      v3Comments(raw);
+      raw.execute('ALTER TABLE groups ADD COLUMN "simplify_debts" INTEGER NOT NULL DEFAULT 1 CHECK ("simplify_debts" IN (0, 1))');
+      raw.execute('ALTER TABLE groups ADD COLUMN "default_split_json" TEXT NULL');
+      raw.execute('ALTER TABLE groups ADD COLUMN "kind" TEXT NOT NULL DEFAULT \'group\'');
+      raw.execute('ALTER TABLE expenses ADD COLUMN "moved" INTEGER NOT NULL DEFAULT 0 CHECK ("moved" IN (0, 1))');
+      raw.execute('ALTER TABLE expenses ADD COLUMN "recurrence_id" TEXT NULL');
+      raw.execute('ALTER TABLE expenses ADD COLUMN "occurrence" INTEGER NULL');
+      raw.execute('ALTER TABLE payments ADD COLUMN "replaced" INTEGER NOT NULL DEFAULT 0 CHECK ("replaced" IN (0, 1))');
+      raw.execute('ALTER TABLE session ADD COLUMN "home_currency" TEXT NULL');
+      raw.execute('CREATE TABLE "attachments" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "expense_id" TEXT NOT NULL, '
+          '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
+      raw.execute('CREATE TABLE "pending_uploads" ("attachment_id" TEXT NOT NULL, "group_id" TEXT NOT NULL, '
+          '"created_at" TEXT NOT NULL, PRIMARY KEY ("attachment_id"))');
+      raw.execute('CREATE TABLE "recurrences" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "frequency" TEXT NOT NULL, '
+          '"start_date" TEXT NOT NULL, "time_zone" TEXT NOT NULL, "template_json" TEXT NOT NULL, '
+          '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
+      raw.execute("INSERT INTO recurrences (id, group_id, frequency, start_date, time_zone, template_json) "
+          "VALUES ('r1', 'g1', 'monthly', '2026-10-01', '+02:00', '{}')");
+      raw.execute('PRAGMA user_version = 9');
+    }));
+    addTearDown(db.close);
+
+    final g = (await db.getGroup('g1'))!;
+    expect((g.name, g.type, g.coverImageId, g.deleted), ('Rome', 'other', null, false));
+    expect(await db.watchGroups().first, hasLength(1));
+    final r = await db.select(db.recurrences).getSingle();
+    expect((r.id, r.remindDaysBefore), ('r1', null));
+    final s = (await db.getSession())!;
+    expect((s.displayName, s.email, s.emailBounced), ('Anna', null, null));
+    expect((await db.getExpense('x1'))!.description, 'Dinner');
+    expect(await db.lastSeq('g1'), 0); // older code skipped group.deleted / restored, type, cover, reminders: replay
+  });
+
   test('schema 8 → 9 adds repeating series and the expense series columns, keeps rows, replays', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
       v1Tables(raw);
@@ -218,7 +256,7 @@ void main() {
       db = AppDatabase(NativeDatabase.memory());
       api = FakeApi(db)..events = _log;
       sync = SyncService(db: db, api: api);
-      await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1', simplifyDebts: true));
+      await db.upsertGroup(const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 3, myMemberId: 'm1', simplifyDebts: true));
       // What release 1 stored for that log: no notes, no comment.
       await sync.store.save(
         'g1',
@@ -357,7 +395,7 @@ void main() {
   test('store round-trips notes and comment tombstones', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
-    await db.upsertGroup(const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
+    await db.upsertGroup(const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
     final sync = SyncService(db: db, api: FakeApi(db));
     final s = GroupState(
       expenses: [Expense.fromJson({..._log[1].payload, 'id': 'x1'})],
@@ -376,7 +414,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     await db.upsertGroup(
-        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
+        const GroupRow(kind: 'group', type: 'other', deleted: false, id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, simplifyDebts: true));
     final api = FakeApi(db);
     final sync = SyncService(db: db, api: api);
     final s = GroupState(

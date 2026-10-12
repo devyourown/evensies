@@ -67,7 +67,7 @@ void main() {
     sync = NoSync(db, api, files);
     w = LocalWrites(db, sync);
     await db.upsertGroup(const GroupRow(
-        kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 2, myMemberId: 'm1', simplifyDebts: true));
+        type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 2, myMemberId: 'm1', simplifyDebts: true));
     await GroupStateStore(db).save(
         'g1',
         GroupState(members: const [Member(id: 'm1', name: 'Anna')], expenses: [Expense.fromJson({...dinner, 'id': 'x1'})]),

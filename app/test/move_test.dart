@@ -84,7 +84,7 @@ void main() {
       api = FakeApi(db);
       sync = NoSync(db, api);
       await db.upsertGroup(const GroupRow(
-          kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'a1', simplifyDebts: true));
+          type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'a1', simplifyDebts: true));
       await GroupStateStore(db).save('g1', GroupState(members: source, expenses: [e]), 0);
     });
     tearDown(() => db.close());
@@ -127,13 +127,13 @@ void main() {
     await t.runAsync(() async {
       await db.saveSession(const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u-anna', displayName: 'Anna'));
       await db.upsertGroup(const GroupRow(
-          kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'a1', simplifyDebts: true));
+          type: 'other', deleted: false, kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'a1', simplifyDebts: true));
       await GroupStateStore(db).save('g1', GroupState(name: 'Rome', defaultCurrency: 'EUR', members: source, expenses: [
         Expense(id: 'x1', description: 'Taxi', amount: 2000, currency: 'EUR', paidBy: 'a1', date: '2026-10-11',
             shares: [s('a1', 1000), s('a2', 1000)]),
       ]), 0);
       await db.upsertGroup(GroupRow(
-          kind: 'friend', id: 'gf', name: 'Anna & Ben', defaultCurrency: friendCurrency, latestSeq: 3, myMemberId: 'f1',
+          type: 'other', deleted: false, kind: 'friend', id: 'gf', name: 'Anna & Ben', defaultCurrency: friendCurrency, latestSeq: 3, myMemberId: 'f1',
           simplifyDebts: true));
       await GroupStateStore(db).save('gf', GroupState(name: 'Anna & Ben', defaultCurrency: friendCurrency, kind: 'friend', members: const [
         Member(id: 'f1', name: 'Anna', userId: 'u-anna'),
