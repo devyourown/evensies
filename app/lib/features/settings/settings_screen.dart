@@ -451,8 +451,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   : ref.read(appLockProvider.notifier).disable(),
             ),
           ],
-          // The web app talks to the server that serves it (docs/API.md 서버 주소).
-          if (!kIsWeb) ...[
+          // The web app talks to the server that serves it, a release build to the one it was built for (docs/API.md
+          // 서버 주소, 공식 서버만).
+          if (!kIsWeb && ref.watch(allowCustomServerProvider)) ...[
             header(l.server),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

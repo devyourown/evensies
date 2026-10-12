@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,16 +12,27 @@ abstract final class Env {
   static const googleServerClientId =
       String.fromEnvironment('EVENSIES_GOOGLE_SERVER_CLIENT_ID', defaultValue: '735984614718-p2ga7bem68i1tbs6se9tmfrcrepfnggt.apps.googleusercontent.com');
   static const devLogin = bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
+
+  /// Phase 11: the store app talks only to the official server; the Settings → Server field is for debug builds and
+  /// builds made with `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true` (docs/API.md 공식 서버만).
+  static const allowCustomServer = kDebugMode || bool.fromEnvironment('EVENSIES_ALLOW_CUSTOM_SERVER');
 }
+
+/// [Env.allowCustomServer]; tests (always debug) override it to see a release build.
+final allowCustomServerProvider = Provider<bool>((_) => Env.allowCustomServer);
 
 /// Overridden in main() with the real instance.
 final sharedPreferencesProvider = Provider<SharedPreferences>((_) => throw UnimplementedError());
 
-/// Server base URL: Settings override (persisted; not on the web, where the field is hidden) or the default.
+/// Server base URL: the Settings override (persisted; only where the field is shown: not on the web, not in a
+/// release build, see [allowCustomServerProvider]) or the default. A stored override is kept, never deleted.
 class ServerUrl extends Notifier<String> {
   static const _key = 'serverUrl';
   @override
-  String build() => (kIsWeb ? null : ref.read(sharedPreferencesProvider).getString(_key)) ?? Env.defaultServerUrl;
+  String build() => (!kIsWeb && ref.read(allowCustomServerProvider)
+          ? ref.read(sharedPreferencesProvider).getString(_key)
+          : null) ??
+      Env.defaultServerUrl;
 
   Future<void> set(String url) async {
     final u = url.trim().replaceAll(RegExp(r'/+$'), '');

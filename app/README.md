@@ -12,8 +12,14 @@ Offline-first expense splitting client for the Evensies server. Contract: `../do
 
 | dart-define | default | effect |
 |---|---|---|
-| `EVENSIES_SERVER_URL` | `https://evensies.nariinfo.dev` | server base URL (overridable at runtime in Settings; Android emulator: `http://10.0.2.2:8080`) |
+| `EVENSIES_SERVER_URL` | `https://evensies.nariinfo.dev` (web: its own origin) | server base URL (Android emulator: `http://10.0.2.2:8080`); applies in every build mode |
+| `EVENSIES_ALLOW_CUSTOM_SERVER` | `false` | `true` keeps the Settings → Server field and the stored URL in a release build; debug builds always have them, the web never |
 | `DEV_LOGIN` | `false` | shows a "Dev login" button that calls `POST /auth/dev {name}` |
+| `EVENSIES_GOOGLE_SERVER_CLIENT_ID` | the official server's Google web client id | `google_sign_in`'s `serverClientId`; must be in the server's `EVENSIES_GOOGLE_CLIENT_IDS` |
+
+Store builds pass none of these. A release build without them always talks to the official server (`Env.allowCustomServer`).
+To build an app for another server, give it its own name, icon and bundle id (`../TRADEMARKS.md`) and follow the
+빌드 변수 table in `../docs/API.md`.
 
 ## Web (`/app/` on the server, same origin)
 
@@ -52,12 +58,12 @@ The domain logic lives in three small, pure files, each checked against the JSON
 |---|---|---|
 | `lib/domain/split.dart` | equal / exact / percent split, remainder by memberId ascending | `shared/split-cases.json` |
 | `lib/domain/settlement.dart` | balances and greedy debt simplification | `shared/settlement-cases.json` |
-| `lib/data/sync/apply_event.dart` | event applier (API.md rules 1–5) | `shared/sync-cases.json` |
+| `lib/data/sync/apply_event.dart` | event applier (API.md applier rules) | `shared/sync-cases.json` |
 
 ## Layout
 
 ```
-lib/core/        env.dart money.dart ids.dart core_guard.dart snack.dart l10n.dart strings.dart appearance.dart
+lib/core/        env.dart money.dart ids.dart snack.dart l10n.dart strings.dart appearance.dart …
 lib/l10n/        app_<lang>.arb (+ generated app_localizations*.dart)
 lib/data/db/     database.dart (+ .g.dart)      drift tables
 lib/data/api/    api_client.dart dto.dart        every endpoint in API.md, 401 → refresh once → retry

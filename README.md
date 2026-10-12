@@ -1,6 +1,6 @@
 # Evensies
 
-Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**, funded by optional tips. iOS, Android and web app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
+Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**. iOS, Android and web app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
 
 > Status: pre-release. The product name is Evensies.
 
@@ -12,16 +12,19 @@ These are commitments, written down so they can't quietly change later:
 1. **No input limits, ever.** Not per day, not per group.
 2. **No ads and no tracking.**
 3. **Export is always available** (JSON and CSV). Your data leaves whenever you do.
-4. **No paywall.** Every feature is free. Evensies is funded by optional in-app tips, and a tip never unlocks anything.
+4. **No paywall.** Every feature is free.
 5. **The source stays public**, and each version becomes Apache-2.0 two years after its release.
 
-## Features (release 1)
-- Groups with invite links; placeholder members for friends who haven't installed the app yet
-- Expenses with equal / exact / percentage splits, per-expense currency
-- Balances and simplified settlement (minimum transfers), "mark as paid"
-- Offline-first: add expenses without signal, sync later, conflicts resolved per field
-- Sign in with Apple / Google; account deletion
-- Export JSON/CSV, import a Splitwise CSV
+## Features
+- Groups (trip, home, couple, other) with invite links, codes and QR; placeholder members claimed later; cover photos; delete and restore a group
+- Friends: 1:1 expenses outside groups, balances across everything, reminders, block and report
+- Six ways to split (equal with tick boxes, exact, percent, shares, adjustment, items from a receipt), several payers, refunds, a default split per group
+- 155 currencies with automatic daily exchange rates and a home currency
+- Categories, search, charts, edit history, comments, activity feed and push notifications
+- Settle up with the fewest transfers and pay links (PayPal, Wise, Venmo, Revolut, KakaoPay, UPI, EPC QR / IBAN, Korean bank account); sent → confirmed payments
+- Receipt photos with on-device scanning, repeating expenses, email sign-in codes and a summary email
+- Offline-first sync, 13 languages, web app, home-screen widget, app lock
+- Export a group (JSON, CSV, ZIP with receipts) or everything (JSON); import a Splitwise CSV
 
 ## Repository layout
 ```
@@ -33,7 +36,7 @@ docs/     API contract (docs/API.md), design spec, plans
 ```
 
 ## Running the server yourself
-The license allows running Evensies for your own internal use, education and research, but not offering it to others as a competing product or service. The App Store and Play Store app connects only to the official server; a build that talks to another server must use its own name and icon (see [TRADEMARKS.md](TRADEMARKS.md)).
+The license allows running Evensies for your own internal use, education and research, but not offering it to others as a competing product or service. The App Store and Play Store app connects only to the official server; a build that talks to another server must use its own name and icon (see [TRADEMARKS.md](TRADEMARKS.md)); the build variables and the steps are in [docs/API.md](docs/API.md#빌드-변수-앱---dart-define) (빌드 변수).
 ```bash
 git clone https://github.com/devyourown/evensies && cd evensies/deploy
 cp .env.example .env     # set EVENSIES_DOMAIN, EVENSIES_JWT_SECRET, DB password, Apple/Google client ids
@@ -78,6 +81,8 @@ cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER
 # web app (Chrome) against the same server
 cd app && flutter run -d chrome --web-port 7357 --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
+Phone debug builds (`flutter run`) have a Settings → Server field; phone release builds always use `EVENSIES_SERVER_URL` (default: the official server) unless built with `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true` ([app/README.md](app/README.md)).
+
 Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
 
 ## Design

@@ -802,7 +802,7 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
   토큰이 IndexedDB(drift)에 있으므로 우리 origin에서는 로그인 스크립트(Google·Apple) 말고 제3자 스크립트가 돌지 않는다. `connect-src`의 `blob:`은 고른 사진·파일을 그 blob: URL에서 읽기 위해서다(`'self'`는 blob:을 포함하지 않고, blob: URL은 이 origin만 만든다. 9단계 브라우저 확인에서 빠진 것을 찾음). 브라우저 확인에서 위반이 나오면 같은 커밋에서 이 문자열과 함께 고친다. Flutter 웹은 Roboto·Noto를 `fonts.gstatic.com`에서 받는다(`docs/privacy.md`). 사진(프로필, 영수증, 10단계 표지)은 언제나 `ApiClient`로 받아 `Image.memory`로 보인다(같은 origin, CORS·CSP 변경 없음).
 - **CORS**(개발 전용): `EVENSIES_CORS_ORIGINS`의 정확한 origin만(`CorsConfigurationSource`, `/**`). 메서드 `GET, POST, PUT, PATCH, DELETE`, 헤더 `Authorization, Content-Type`, max age 3600, credentials 없음(토큰은 헤더). 목록에 없는 origin의 preflight는 403(Spring 본문, 우리 오류 JSON이 아니다), 목록이 비면 CORS 헤더를 내지 않는다.
 - **로그인**(웹은 `GET /info`를 읽는다): Apple(`appleServicesId`가 있을 때) `getAppleIDCredential(…, webAuthenticationOptions: WebAuthenticationOptions(clientId: servicesId, redirectUri: Uri.parse('${Uri.base.origin}/app/')))`(Apple은 localhost를 받지 않으므로 출시 때 확인). Google(`googleWebClientId`가 있을 때) `GoogleSignIn.instance.initialize(clientId: …)` + `package:google_sign_in_web/web_only.dart`의 `renderButton()`(조건부 import `dart.library.js_interop`, `google_sign_in_web` 1.1.3을 직접 의존성으로). `google_sign_in_web`은 앱이 시작할 때(플러그인 등록, `main()` 전) 모든 페이지에 Google 스크립트(`accounts.google.com/gsi/client`)를 넣으므로, `web/gsi_lazy.js`(`index.html`에서 Flutter보다 먼저)가 그 `<script>`를 붙잡아 두었다가 로그인 화면이 `googleWebClientId`를 받았을 때(`loadGoogleSignIn()`)에만 붙인다. Google 로그인이 없는 서버와 로그인 뒤의 페이지는 Google에 요청하지 않는다(`docs/privacy.md`). 받은 id 토큰은 폰과 같은 `/auth/apple`·`/auth/google`로 간다. Dev login은 `devLogin`이나 `--dart-define=DEV_LOGIN`일 때. `appleAvailable` = `kIsWeb || iOS || macOS`.
-- **서버 주소**: 웹은 `Uri.base.origin`(개발은 `--dart-define=EVENSIES_SERVER_URL`). Settings → Server 칸은 웹에서 숨긴다.
+- **서버 주소**: 웹은 `Uri.base.origin`(개발은 `--dart-define=EVENSIES_SERVER_URL`). Settings → Server 칸은 웹에서 숨긴다(11단계: 폰도 릴리스 빌드에서는 숨기고 저장된 주소를 쓰지 않는다. "공식 서버").
 - **로그인 뒤 돌아가기**: 로그인이 필요한 경로는 `/login?next=<원래 위치(경로+질의), URL 인코딩>`으로 보내고, 로그인 뒤 `next`가 `/`로 시작하고 `//`로 시작하지 않을 때만 그리로 간다(아니면 `/`). 랜딩의 `/app/#/join/{CODE}`가 로그인을 거쳐 참여 화면으로 간다.
 - **데이터**: drift `DriftWebOptions(sqlite3Wasm: Uri.parse('sqlite3-3.5.2.wasm'), driftWorker: Uri.parse('drift_worker-2.34.4.js'), onResult: …)`. 두 파일은 `app/web/`에 커밋하고 버전은 `pubspec.lock`의 `sqlite3`(3.5.2)·`drift`(2.34.4)와 같아야 한다(`web_assets_test.dart`). COOP/COEP가 없으므로 IndexedDB + shared worker이고 탭들이 DB 하나를 함께 쓴다. shared worker가 아예 없는 브라우저(drift가 탭마다 IndexedDB `unsafeIndexedDb`를 고른다)와 shared worker가 시작하지 못하는 브라우저(앱이 탭의 IndexedDB로 다시 연다)는 탭마다 DB 사본을 가지므로 Web Lock `evensies-db`로 한 번에 한 탭(`AppDatabase.openChecked`, 두 번째 탭은 `browserOtherTab`). `ponytail:` OPFS는 cross-origin isolation이 필요해 로그인 팝업이 깨진다.
 - **새로 고침**: 웹 푸시는 없다. 탭이 앞에 올 때와 보이는 동안 60초마다 `syncAll()`(지금의 resume과 같이 `GET /me`·`GET /activity/unread`도).
@@ -822,7 +822,6 @@ ALTER TABLE users ADD COLUMN language text CHECK (language ~ '^[a-z]{2,3}$');
 | 홈 화면 위젯, 앱 잠금 | 없음(브라우저에 해당 기능이 없다). 화면 모양은 된다 |
 | 반복 지출의 시간대 | 브라우저의 지금 오프셋(8단계 `deviceTimeZone()` 그대로) |
 | 인쇄용 요약(parity #38) | Insights의 **Print summary**(웹만)가 5단계 요약 글만 담은 새 탭(`<pre>`, 이름이 들어 있으므로 HTML이 아닌 `textContent`)을 열고 브라우저 인쇄 창을 띄운다. 앱 화면 자체는 캔버스라 그대로 인쇄하지 않는다. 팝업이 막히면 아무 일도 없고 공유 버튼(클립보드)은 그대로 |
-| 11단계 팁 | 숨긴다(웹에는 앱 내 결제가 없다) |
 | 화면 배치 | 1024px 미만 창과 로그인·이름 화면: 640px 가운데 열, 바깥은 `surfaceContainerLow`. 1024px 이상(10단계, Splitwise 웹처럼 세 열): 왼쪽 300px에 Dashboard·Activity·All expenses(위 "검색"의 `all=1`)·그룹·친구(각자 내 잔액, 고른 것 강조)와 그 아래 **Add expense**(열린 그룹·친구와 함께), 가운데에 그 페이지(`/`는 Dashboard: 전체 카드와 나에게 줄 사람·내가 줄 사람. 그룹·친구 페이지에는 뒤로 화살표와 FAB가 없다), 오른쪽 340px에 그룹이면 멤버별 잔액과 Settle up, 친구면 통화·그룹별 잔액, Dashboard 옆이면 최근 활동, 그 밖에는 전체 카드. 새로 로그인한 첫 동기화 동안은 스피너. 가운데 열은 따로 semantics 컨테이너라 페이지의 modal barrier가 사이드바를 화면 읽기 프로그램에서 숨기지 않는다. 데스크톱 앱은 없다 |
 
 ### 홈 화면 위젯 (앱만: iOS small/medium, Android 2×2)
@@ -1026,6 +1025,28 @@ AccountExport     {"exportedAt","user":{"id","displayName","email","homeCurrency
 ### 운영(출시 때, 효준님)
 Resend 계정(EU) → 도메인 `evensies.nariinfo.dev`에 SPF·DKIM·DMARC `p=none` → API 키를 `deploy/.env`에 → 웹훅을 `/webhooks/email`로 → `no-reply@evensies.nariinfo.dev`를 Apple(Sign in with Apple → Email Communication)에 등록(`@privaterelay.appleid.com` 주소에도 간다) → `EVENSIES_SUPPORT_EMAIL`. Resend는 SMTP 끝점일 뿐이고 다른 SMTP 서버도 환경 변수만 바꾸면 된다. 로컬은 `deploy/docker-compose.dev.yml`의 Mailpit(SMTP 1025, 받은 편지함 http://localhost:8025, `dev` 프로필의 기본값).
 
+## 공식 서버 (11단계, 앱만)
+스토어의 Evensies 앱은 공식 서버하고만 이야기한다. **서버는 바뀌지 않는다**: 새 이벤트 종류·필드·적용 규칙(18까지 그대로, 다음 번호 19)·snapshot·pull·엔드포인트·오류 코드·서버 환경 변수가 없고, Flyway는 **V13 그대로**(다음 V14), drift `schemaVersion`은 **10 그대로**(다음 11). `shared/*.json`도 그대로다. 효준님 함수는 없다.
+
+### 공식 서버만 (서버 주소)
+- `Env.allowCustomServer = kDebugMode || bool.fromEnvironment('EVENSIES_ALLOW_CUSTOM_SERVER')`(const). `allowCustomServerProvider = Provider<bool>((_) => Env.allowCustomServer)`: `flutter test`는 언제나 debug라서 테스트는 이 provider를 `false`로 override한다.
+- `ServerUrl.build()`: `!kIsWeb && ref.read(allowCustomServerProvider)`일 때만 prefs `serverUrl`을 읽고, 그 밖에는 `Env.defaultServerUrl`. 저장된 값은 지우지 않는다(나중의 debug 빌드는 다시 쓴다). `set()`은 그대로.
+- Settings → Server 머리글과 칸은 `!kIsWeb && ref.watch(allowCustomServerProvider)`일 때만 보인다.
+- `Env.defaultServerUrl`은 그대로다: `EVENSIES_SERVER_URL`(빌드 변수), 없으면 웹은 자기 origin, 폰은 `https://evensies.nariinfo.dev`. 그래서 릴리스 빌드는 빌드할 때 정한 서버 하나와만 이야기한다. 스토어 빌드는 `EVENSIES_SERVER_URL`·`EVENSIES_ALLOW_CUSTOM_SERVER`·`DEV_LOGIN` 없이 만든다(아래 "빌드 변수 (앱)").
+- 개발 흐름은 그대로다: `flutter run`(debug)은 Server 칸과 저장된 주소를 쓰고, `--dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080`은 빌드 모드와 상관없이 그 서버로 간다. 릴리스 모드에서 Server 칸이 필요하면 `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true`.
+- 이전 빌드에서 다른 서버 주소를 저장한 폰: 릴리스 빌드는 공식 서버로 간다. 다른 서버의 토큰은 401 → 갱신도 401 → 세션을 지운다(지금의 `ApiClient` 규칙) → 로그인 화면. 로그인 뒤 `syncAll`이 공식 서버의 `GET /groups`에 없는 그룹의 로컬 데이터를 지운다. 따로 옮기는 코드는 없다.
+- 웹은 그대로다(언제나 origin, 칸 없음).
+
+### 호환(11단계)
+- 이벤트·snapshot·DB가 그대로이므로 lastSeq를 되돌리지 않고 서버를 먼저 올릴 필요도 없다. 이전 앱은 영향이 없다.
+- 첫 릴리스 빌드부터 폰의 Server 칸이 사라진다(위 "공식 서버만").
+
+### 11단계 오류 코드
+없다(서버가 바뀌지 않는다).
+
+### 운영(출시 때, 효준님)
+스토어 빌드는 dart-define 없이 만든다(위).
+
 ## 내보내기·가져오기
 - `GET /groups/{id}/export?format=json` → snapshot과 같은 JSON(`payers`·`refund`·`split`·`simplifyDebts`·`defaultSplit` 포함). `format=csv` → 지출 CSV (`date,description,category,amount,currency,fxRateToDefault,paidBy,<멤버이름별 share>...`). `category` 칸(5단계)은 key면 그 영어 label(`Categories.label`, 예 `Dining out`, `*.other`는 `Entertainment - Other`), `null`이거나 공백뿐이면 `General`, 그 밖(이전 자유 입력)은 원문 그대로다. `fxRateToDefault` 칸(4단계)은 저장된 값을 지수 표기와 끝의 0 없는 십진수로(`BigDecimal.valueOf(r).stripTrailingZeros().toPlainString()`: `0.00616`, `0.0000007`, `1.0` → `1`, `0` → `0`) 쓰고, `null`이면 빈 칸이다(0이나 D 지출의 남은 값도 저장된 그대로). 금액은 지금처럼 지출 통화 그대로다(환산하지 않음). `paidBy` 칸은 결제자가 한 명이면 그 이름, 여럿이면 `Anna 60.00; Ben 40.00`(`payers` 순서, 주 단위 금액). 환불 행은 `amount`와 share 칸이 음수(`-60.00`)이고 `paidBy` 칸의 금액은 양수 그대로다. 글자 칸(멤버 이름 머리글, `description`, `category`, `paidBy`)이 `=`·`+`·`-`·`@`·탭·CR로 시작하면 앞에 `'`를 붙인다(스프레드시트 수식 실행 방지, CSV injection). 금액 칸은 그대로다.
 - `GET /groups/{id}/export?format=zip`(7단계, Settings → Export의 `ZIP with receipts`) → 200 `application/zip`, `Content-Disposition: attachment; filename="evensies-{id}.zip"`. 항목: `group.json`(= `format=json`의 본문, `attachments` 포함)과 삭제 안 된 영수증마다 `receipts/{attachmentId}.jpg`(큰 사진. 붙은 지출이 삭제됐어도 넣는다. 파일이 없으면 건너뛴다). 요청 스레드에서 응답 스트림에 바로 쓰는 `ZipOutputStream`이고(`StreamingResponseBody`의 비동기 디스패치는 상태 없는 JWT 필터가 다시 인증하지 않아 403으로 끊긴다) 멤버 검사(404·403)는 쓰기 전에 해서 보통 오류 본문으로 답한다. `format`이 `json`·`csv`·`zip`이 아니면 400 `VALIDATION`. CSV와 JSON은 바뀌지 않는다(JSON에 `attachments`·`replaced`가 더해질 뿐). 8단계: JSON(그래서 ZIP의 `group.json`도)에 `recurrences`와 지출의 `recurrenceId`·`occurrence`가 더해진다(= snapshot). CSV는 그대로다(반복도 보통 지출 행).
@@ -1215,3 +1236,13 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminde
 | `EVENSIES_EMAIL_DAILY_LIMIT` | `0` | 지난 24시간 메일 수 상한, 0 = 없음. Resend Free는 `100` |
 | `EVENSIES_EMAIL_WEBHOOK_SECRET` | | Resend `whsec_…`(비밀값). 비면 `/webhooks/email`이 404 |
 | `EVENSIES_SUPPORT_EMAIL` | | 도움말·신고에 보이는 운영자 주소(`GET /info`의 `supportEmail`). 비면 GitHub만 보이고 Report가 없다 |
+
+## 빌드 변수 (앱, `--dart-define`)
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `EVENSIES_SERVER_URL` | (빈 값) → 웹은 자기 origin, 폰은 `https://evensies.nariinfo.dev` | 앱이 이야기하는 서버(`Env.defaultServerUrl`). 로컬 서버는 `http://localhost:8080`(Android 에뮬레이터 `http://10.0.2.2:8080`) |
+| `EVENSIES_ALLOW_CUSTOM_SERVER` | `false` | 11단계: `true`면 릴리스 빌드에도 Settings → Server 칸이 있고 저장된 주소를 쓴다. debug 빌드는 언제나 그렇다. 웹에는 칸이 없다 |
+| `DEV_LOGIN` | `false` | 로그인 화면의 Dev login(`POST /auth/dev`, 서버의 `EVENSIES_AUTH_DEV_LOGIN`도 필요) |
+| `EVENSIES_GOOGLE_SERVER_CLIENT_ID` | 공식 서버의 Google 웹 클라이언트 id | `google_sign_in`의 `serverClientId`. 서버의 `EVENSIES_GOOGLE_CLIENT_IDS`에 있어야 한다 |
+
+다른 서버용 앱 만들기(11단계): 스토어의 Evensies 앱은 공식 서버하고만 이야기한다. 다른 서버를 쓰려면 이름·아이콘·번들 ID를 바꾼 앱(`TRADEMARKS.md`)을 `--dart-define=EVENSIES_SERVER_URL=https://<서버>`로 빌드하고, 그 서버의 `EVENSIES_APPLE_CLIENT_ID`(새 번들 ID)·`EVENSIES_GOOGLE_CLIENT_IDS`와 앱의 `EVENSIES_GOOGLE_SERVER_CLIENT_ID`, Firebase 파일을 자기 것으로 맞춘다.

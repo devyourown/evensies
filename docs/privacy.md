@@ -22,6 +22,8 @@ permalink: /privacy
 
 **Group cover photo (optional):** a cover photo is re-encoded like a receipt (location and other metadata removed) and only the group's members can see it.
 
+**Ways to get paid (optional):** if you add a PayPal, Wise, Venmo, Revolut or KakaoPay link or username, a UPI ID, an IBAN or a bank account in Settings → Ways to get paid, we store it and show it to the people you share a group with (friends included) so they can pay you; account numbers and IBANs are masked in lists. Evensies never moves money: paying opens the payment app or shows the details to copy. You can change or remove them at any time; deleting your account deletes them.
+
 **Blocking:** if you block someone, we store that you blocked them so their changes, reminders and friend requests stop reaching you. They are not told. Unblocking or deleting your account removes it.
 
 **Friends and reminders:** your friend code lets someone add you as a friend; you can get a new code on the Friends tab → Add a friend at any time, and the old one stops working. A friend you share expenses with can send you a reminder notification at most once a day; you can turn reminders off in Settings → Notifications.
