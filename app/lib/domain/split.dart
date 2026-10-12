@@ -15,8 +15,9 @@ class SplitException implements Exception {
 /// - equal: amount ~/ n 씩 주고, 나머지(amount % n)는 memberId **오름차순**으로 앞에서부터 1씩 더한다
 ///   (members 입력 순서가 아님: ["c","a","b"], 1001 → a 334, b 334, c 333).
 /// - exact: input[memberId]를 정수 몫으로 그대로 쓴다. 합이 amount와 다르면 'SUM_MISMATCH'.
-/// - percent: input[memberId]는 퍼센트(double). 합이 100(±0.001)이 아니면 'SUM_MISMATCH'.
-///   각 몫 = (amount * pct / 100).floor(), 남는 최소 단위는 percent > 0인 멤버에게만 memberId 오름차순 +1씩
+/// - percent: input[memberId]는 퍼센트(double). 가중치 w = (pct × 10⁶).round(), W = Σ w.
+///   |W − 10⁸| >= 1000(±0.001%)이면 'SUM_MISMATCH'. 각 몫 = amount × w ~/ W (BigInt, 실제 합으로 나누므로
+///   허용 오차 안에서 100을 넘어도 합이 금액을 넘지 않음), 남는 최소 단위는 percent > 0인 멤버에게만 memberId 오름차순 +1씩
 ///   (0% 멤버는 항상 0). (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
 /// - shares: input[memberId]는 몫 개수(>= 0, 소수 가능, 없으면 0). 음수·NaN·무한 → 'INVALID_INPUT'.
 ///   가중치 w = (개수 × 100).round(), W = Σ w. W == 0 → 'NO_MEMBERS'. 각 몫 = amount × w ~/ W (정수 계산),
@@ -46,9 +47,13 @@ Map<String, int> computeSplit({
       return result;
 
     case SplitMode.percent:
-      final totalPercent = sorted.fold(0.0, (total, member) => total + valueOf(member));
-      if ((totalPercent - 100).abs() >= 0.001) throw SplitException('SUM_MISMATCH');
-      final result = {for (final member in sorted) member: (amount * valueOf(member) / 100).floor()};
+      final weights = <String, BigInt>{};
+      final totalPercent = sorted.fold(BigInt.from(0), (total, member) {
+        weights[member] = BigInt.from((valueOf(member) * 1000000).round());
+        return total + weights[member]!;
+      });
+      if (((totalPercent - BigInt.from(100000000)).abs() >= BigInt.from(1000)) ) throw SplitException('SUM_MISMATCH');
+      final result = {for (final member in sorted) member: ((BigInt.from(amount) * weights[member]! ~/ totalPercent)).toInt()};
       _addOneEach(result, sorted.where((member) => valueOf(member) > 0), amount - _sum(result));
       return result;
 

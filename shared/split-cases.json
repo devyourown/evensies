@@ -25,7 +25,7 @@
     {"name": "adjustment larger than the bill rejected", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"a": 1200}, "error": "NEGATIVE_SHARE"},
     {"name": "adjustment pushing someone below zero rejected", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"b": -1200}, "error": "NEGATIVE_SHARE"},
     {"name": "adjustment must be whole minor units", "amount": 1000, "mode": "adjustment", "members": ["a", "b"], "input": {"a": 10.5}, "error": "INVALID_INPUT"},
-    {"name": "percent within tolerance but over 100 still adds up (divide by the total, not by 100)", "amount": 10000000, "mode": "percent", "members": ["a", "b"], "input": {"a": 50.0009, "b": 50}, "expected": {"a": 5000045, "b": 4999955}, "pending": "hyojun"},
+    {"name": "percent within tolerance but over 100 still adds up (divide by the total, not by 100)", "amount": 10000000, "mode": "percent", "members": ["a", "b"], "input": {"a": 50.0009, "b": 50}, "expected": {"a": 5000045, "b": 4999955}},
     {"name": "percent leftover skips 0% members", "amount": 100, "mode": "percent", "members": ["a", "b", "c"], "input": {"a": 0, "b": 33.33, "c": 66.67}, "expected": {"a": 0, "b": 34, "c": 66}}
   ]
 }
