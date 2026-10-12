@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/core_guard.dart';
+import '../../core/confirm.dart';
 import '../../core/currency_picker.dart';
 import '../../core/env.dart';
 import '../../core/ids.dart';
@@ -15,11 +15,15 @@ import '../../core/snack.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
 import '../../data/fx_rates.dart';
+import '../../data/images.dart';
+import '../../data/receipts.dart';
 import '../../data/sync/group_state_store.dart';
 import '../../domain/balances.dart' show tryFx;
 import '../../domain/categories.dart';
 import '../../domain/fx.dart';
+import '../../domain/itemized.dart';
 import '../../domain/models.dart';
+import '../../domain/receipt_parser.dart';
 import '../../domain/split.dart';
 import '../../providers.dart';
 import '../../data/local_writes.dart' show MoveException;
@@ -28,6 +32,9 @@ import '../expense_detail/expense_detail_screen.dart' show DeletedExpenseCard;
 import '../friends/friend_screen.dart' show groupForExpenseWith;
 import '../friends/home_data.dart';
 import '../friends/with_picker.dart';
+import '../group_detail/balances.dart' show groupStateProvider;
+import '../itemize/itemize_screen.dart';
+import '../receipts/receipt_widgets.dart';
 import 'split_editor.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -76,8 +83,25 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// Editing only: the friend or group picked under *With* (docs/API.md 지출 옮기기); Save then moves the expense.
   WithChoice? _moveTo;
 
-  /// The moved expense's id and its push's clientId, made once per [_moveTo] (docs/API.md 지출 옮기기).
-  ({String expenseId, String clientId})? _moveIds;
+  /// The moved expense's id, its push's clientId and its receipts' new ids and clientIds, made once per [_moveTo]
+  /// (docs/API.md 지출 옮기기).
+  ({String expenseId, String clientId, Map<String, ({String id, String clientId})> receipts})? _moveIds;
+
+  /// A new expense's id, made when the form opens (its receipts are prepared under it).
+  late final String _newId = newId();
+
+  /// Photos added in this form (prepared files, attached on Save; deleted if the form is left without saving).
+  final _newReceipts = <String>[];
+  bool _saved = false;
+  bool _scanning = false;
+
+  /// The scanned photo and what it says the bill comes to (a mismatch is only a warning on the Itemize screen).
+  String? _scanId;
+  int? _printedTotal;
+
+  /// The last scan's items: Items opens with them while the form has no bill yet (after a Cancel on the scan).
+  ItemizedBill? _scanBill;
+  late final ReceiptFiles _files;
 
   /// The rate field was typed in this session (or holds a stored rate): kept when the date changes.
   bool _fxTyped = false;
@@ -92,6 +116,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   @override
   void initState() {
     super.initState();
+    _files = ref.read(receiptFilesProvider);
     _split.addListener(_changed);
   }
 
@@ -99,6 +124,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   @override
   void dispose() {
+    // Cancel deletes the photos prepared here (an attached one belongs to the expense now).
+    if (!_saved && _newReceipts.isNotEmpty) _files.delete([..._newReceipts]);
     _split.dispose();
     _guessTimer?.cancel();
     for (final c in [_amount, _description, _fx, _notes, ..._payerFields.values]) {
@@ -174,6 +201,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   double? _autoRate(String currency, String d) => _fxTable == null ? null : crossRate(_fxTable!.rates, currency, d);
 
+  /// ponytail: Items keep their minor units when the currency changes (EUR 12.50 → JPY ¥1,250); convert the bill if
+  /// people scan in one currency and then switch to one with other decimals.
   void _setCurrency(String c, String d) {
     _fxAsk++; // an answer for the old currency is stale
     setState(() {
@@ -182,13 +211,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _fxTable = null;
       _fxLoading = false;
       _fx.clear();
+      if (_split.items && _split.bill != null) _amount.text = minorToText(itemizedTotal(_split.bill!), c);
     });
     if (c != d) _lookupRate(apply: true);
   }
 
-  /// The stored mode with the typed numbers when they still give the stored shares (zeros aside); otherwise, or
-  /// while computeSplit is a stub for that mode, the amounts as exact (docs/API.md SplitSpec). No split (exact, or saved
-  /// before Phase 3) whose shares are an equal split of the people in it opens as equal.
+  /// The stored mode with the typed numbers (or the items) when they still give the stored shares (zeros aside);
+  /// otherwise the amounts as exact (docs/API.md SplitSpec). No split (exact, or saved before Phase 3) whose shares are
+  /// an equal split of the people in it opens as equal.
   void _openSplit(Expense e, List<String> shown) {
     final ids = [for (final s in e.shares) s.memberId];
     Map<String, int> nonZero(Map<String, int> m) => {
@@ -201,7 +231,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _keptSplit = null;
     if (spec != null && ids.isNotEmpty) {
       try {
-        again = tryCore(() => computeSplit(amount: e.amount, mode: spec.mode, members: ids, input: spec.input));
+        again = switch (spec.bill) {
+          final b? => itemizedTotal(b) == e.amount ? computeItemizedSplit(b) : null,
+          null => computeSplit(amount: e.amount, mode: spec.mode!, members: ids, input: spec.input),
+        };
       } on SplitException {
         again = null;
       }
@@ -226,15 +259,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// otherwise equal with everyone ticked.
   Future<void> _startFromDefault(AppDatabase db) async {
     final spec = splitFromJson((await db.getGroup(widget.groupId))?.defaultSplitJson);
-    if (spec == null || spec.mode == SplitMode.equal) return;
+    final mode = spec?.mode;
+    if (spec == null || mode == null || mode == SplitMode.equal) return;
     final ids = [
       for (final m in await (db.select(db.members)..where((m) => m.groupId.equals(widget.groupId))).get())
         if (!m.removed) m.id
     ];
-    final fits = splitFits(spec, ids); // null: computeSplit is a stub for this mode, quietly equal
-    if (!mounted || fits == null) return;
-    if (!fits) return setState(() => _defaultNote = "The group's default split no longer adds up, so this starts equal");
-    _split.load(SplitSpec(spec.mode, {for (final id in ids) id: spec.input?[id] ?? 0.0}), ''); // joined later: 0
+    if (!mounted) return;
+    if (!splitFits(spec, ids)) {
+      return setState(() => _defaultNote = "The group's default split no longer adds up, so this starts equal");
+    }
+    _split.load(SplitSpec(mode, {for (final id in ids) id: spec.input?[id] ?? 0.0}), ''); // joined later: 0
   }
 
   @override
@@ -291,6 +326,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   bool _isFull(String? paidBy, String payer, String owes, List<String> shown) =>
       !_several &&
       paidBy == payer &&
+      !_split.items &&
       _split.mode == SplitMode.equal &&
       shown.where((id) => !_split.unticked.contains(id)).toList().join() == owes;
 
@@ -316,7 +352,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final fxBad = foreign && fxText.isNotEmpty && (fxValue == null || !fxValue.isFinite || fxValue <= 0);
     final autoRate = foreign ? _autoRate(currency, d) : null;
     final paidBy = _paidBy ?? group.myMemberId ?? members.firstOrNull?.id;
-    final amount = parseMoney(_amount.text, currency);
+    final items = _split.items ? _split.bill : null;
+    // Items: the amount is the bill's total (read-only).
+    final amount = items != null ? itemizedTotal(items) : parseMoney(_amount.text, currency);
     final deleted = _editing?.deleted ?? false;
     final notesLength = _notes.text.trim().length;
     final descriptionLength = _description.text.trim().length;
@@ -344,9 +382,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       key: const Key('amount'),
       controller: _amount,
       autofocus: widget.expenseId == null,
+      readOnly: items != null,
       style: text.displaySmall?.copyWith(fontWeight: FontWeight.w600),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(hintText: minorToText(0, currency), border: InputBorder.none, isDense: true),
+      decoration: InputDecoration(
+        hintText: minorToText(0, currency),
+        border: InputBorder.none,
+        isDense: true,
+        helperText: items != null ? 'The total of the items' : null,
+      ),
+      onTap: items != null ? _openItems : null,
       onChanged: (_) => setState(() {}),
     );
     final picker = CurrencyPicker(
@@ -377,10 +422,27 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           ]),
         );
 
+    final stored = _editing == null
+        ? const <String>[]
+        : [
+            for (final a in ref.watch(groupStateProvider(widget.groupId)).value?.receiptsOf(_editing!.id) ??
+                const <Attachment>[])
+              a.id
+          ];
+    final receiptRoom = stored.length + _newReceipts.length < maxReceipts;
     return Scaffold(
       appBar: AppBar(
         title: Text(_editing == null ? 'New expense' : (deleted ? 'Deleted expense' : 'Edit expense')),
         actions: [
+          if (canScanReceipts && !deleted && receiptRoom)
+            IconButton(
+              key: const Key('scan-receipt'),
+              tooltip: 'Scan receipt',
+              onPressed: _scanning ? null : _scan,
+              icon: _scanning
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.document_scanner_outlined),
+            ),
         ],
       ),
       body: ListView(
@@ -552,12 +614,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ]),
                   const SizedBox(height: 12),
                 ],
-                if (_defaultNote != null && _split.mode == SplitMode.equal)
+                if (_defaultNote != null && !_split.items && _split.mode == SplitMode.equal)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(_defaultNote!, key: const Key('default-note'), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                   ),
-                SplitEditor(controller: _split, members: members, amount: amount, currency: currency),
+                SplitEditor(
+                    controller: _split, members: members, amount: amount, currency: currency, onItems: _openItems),
+                sectionLabel('Receipts'),
+                _receiptsSection(group.id, stored, receiptRoom),
                 const SizedBox(height: 16),
                 TextField(
                   key: const Key('notes'),
@@ -587,6 +652,173 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ],
       ),
     );
+  }
+
+  /// The receipts already on the expense (tap: full screen, remove) and the ones added here (attached on Save; the
+  /// cross takes one back), with Scan and Add while there is room.
+  Widget _receiptsSection(String groupId, List<String> stored, bool room) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (stored.isNotEmpty || _newReceipts.isNotEmpty)
+        SizedBox(
+          height: 80,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            for (final (i, id) in stored.indexed)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ReceiptThumb(
+                  key: Key('receipt-$id'),
+                  groupId: groupId,
+                  attachmentId: id,
+                  onTap: () => openReceiptViewer(context, groupId: groupId, ids: stored, initial: i),
+                ),
+              ),
+            for (final id in _newReceipts)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  ReceiptThumb(key: Key('new-receipt-$id'), groupId: groupId, attachmentId: id),
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: IconButton.filledTonal(
+                      key: Key('new-receipt-remove-$id'),
+                      tooltip: 'Remove photo',
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 16,
+                      onPressed: () {
+                        setState(() => _newReceipts.remove(id));
+                        _files.delete([id]);
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+                  ),
+                ]),
+              ),
+          ]),
+        ),
+      if (room)
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          if (canScanReceipts)
+            OutlinedButton.icon(
+              key: const Key('scan-receipt-button'),
+              onPressed: _scanning ? null : _scan,
+              icon: const Icon(Icons.document_scanner_outlined),
+              label: const Text('Scan receipt'),
+            ),
+          OutlinedButton.icon(
+            key: const Key('add-receipt'),
+            onPressed: _scanning ? null : _addPhoto,
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: const Text('Add photo'),
+          ),
+        ])
+      else
+        Text('$maxReceipts receipts is the most for one expense',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+    ]);
+  }
+
+  Future<void> _addPhoto() async {
+    final source = await pickImageSource(context);
+    if (source == null || !mounted) return;
+    setState(() => _scanning = true);
+    try {
+      final photo = await ref.read(pickReceiptProvider)(source, scan: false);
+      if (photo != null && mounted) setState(() => _newReceipts.add(photo.id));
+    } catch (e) {
+      if (mounted) showError(context, photoErrorText(e, source));
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  /// Scan: the photo's text (on the phone) → the Itemize screen with its lines, tax, tip and discount; the shop's name
+  /// fills an empty description, and on a Cancel the printed total an empty amount. Nothing read, and the receipt names
+  /// another currency: offers to switch to it. The photo is attached on Save either way.
+  Future<void> _scan() async {
+    final source = await pickImageSource(context, title: 'Scan a receipt');
+    if (source == null || !mounted) return;
+    setState(() => _scanning = true);
+    ReceiptPhoto? photo;
+    try {
+      photo = await ref.read(pickReceiptProvider)(source, scan: true);
+    } catch (e) {
+      if (mounted) showError(context, photoErrorText(e, source));
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+    if (photo == null || !mounted) return;
+    final scanned = photo;
+    setState(() {
+      _newReceipts.add(scanned.id);
+      _scanId = scanned.id;
+    });
+    final d = ref.read(groupProvider(widget.groupId)).value?.defaultCurrency ?? '';
+    var currency = _currency ?? d;
+    final lines = scanned.lines ?? const <OcrLine>[];
+    var draft = parseReceipt(lines, decimals: Money.digits(currency));
+    final other = draft.lines.isEmpty ? receiptCurrency(lines, known: Money.decimals.keys.toSet()) : null;
+    if (other != null && other != currency) {
+      final again = parseReceipt(lines, decimals: Money.digits(other));
+      if (again.lines.isNotEmpty &&
+          await confirm(context,
+              title: 'This receipt looks like $other',
+              message: 'Switch the expense to $other to read its items?',
+              confirmLabel: 'Switch to $other',
+              destructive: false) &&
+          mounted) {
+        _setCurrency(other, d);
+        currency = other;
+        draft = again;
+      }
+    }
+    if (!mounted) return;
+    if (draft.lines.isEmpty) showInfo(context, "Couldn't read the items. Type them in.");
+    final bill = ItemizedBill(
+      lines: [for (final l in draft.lines) ItemLine(name: l.name, amount: l.amount, memberIds: const [])],
+      tax: draft.tax,
+      tip: draft.tip,
+      discount: draft.discount,
+    );
+    setState(() {
+      _printedTotal = draft.total;
+      _scanBill = bill;
+    });
+    final done = await _openItems(start: bill);
+    if (!mounted) return;
+    if (draft.merchant case final merchant? when _description.text.trim().isEmpty) {
+      setState(() => _description.text = merchant);
+      _scheduleGuess();
+    }
+    if (draft.total case final total? when !done && !_split.items && (parseMoney(_amount.text, currency) ?? 0) == 0) {
+      setState(() => _amount.text = minorToText(total, currency));
+    }
+  }
+
+  /// The Itemize screen for the items (or [start], a scanned draft), with the scanned photo on top while it is still
+  /// here; Done switches the split to Items and the amount to the bill's total. False when the user went back.
+  Future<bool> _openItems({ItemizedBill? start}) async {
+    final group = ref.read(groupProvider(widget.groupId)).value;
+    final currency = _currency ?? group?.defaultCurrency ?? '';
+    final all = ref.read(membersProvider(widget.groupId)).value ?? const <MemberRow>[];
+    final scan = _scanId != null && _newReceipts.contains(_scanId) ? _scanId : null;
+    final image = scan == null ? null : await _files.pending(scan);
+    if (!mounted) return false;
+    final bill = await showItemize(context,
+        members: all,
+        currency: currency,
+        bill: start ?? _split.bill ?? _scanBill,
+        me: group?.myMemberId,
+        image: image,
+        printedTotal: scan == null ? null : _printedTotal,
+        printedTip: (_scanBill?.tip ?? 0) != 0);
+    if (bill == null || !mounted) return false;
+    setState(() {
+      _split.setItems(bill);
+      _amount.text = minorToText(itemizedTotal(bill), currency);
+    });
+    return true;
   }
 
   /// *With*: the friend or group of this expense. While editing, picking another one moves the expense on Save.
@@ -650,7 +882,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       // One id pair per picked target: a retry after a lost answer is the same event, deduped by the server, plus an
       // update with today's values (moveExpense).
       final retry = _moveIds != null;
-      final ids = _moveIds ??= (expenseId: newId(), clientId: newId());
+      final ids = _moveIds ??= (
+        expenseId: newId(),
+        clientId: newId(),
+        receipts: {for (final a in source.receiptsOf(old.id)) a.id: (id: newId(), clientId: newId())},
+      );
       var moved = remapForMove(e, source.members, dest.members,
           id: ids.expenseId, sameCurrency: source.defaultCurrency == dest.defaultCurrency);
       if (moved == null) throw const MoveException('Only people on Evensies who are in both can be moved');
@@ -661,7 +897,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         final rate = table == null ? null : crossRate(table.rates, moved.currency, to);
         if (rate != null) moved = moved.copyWith(fxRateToDefault: rate);
       }
-      await ref.read(localWritesProvider).moveExpense(widget.groupId, old, target, moved, clientId: ids.clientId, retry: retry);
+      await ref
+          .read(localWritesProvider)
+          .moveExpense(widget.groupId, old, target, moved, clientId: ids.clientId, retry: retry, receipts: ids.receipts);
       if (mounted) context.go('/groups/$target');
     } on ApiException catch (x) {
       if (mounted) {
@@ -731,8 +969,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ),
       );
 
-  /// "≈ €69.55" under the amount; null without a usable rate or while convertAmount is a stub.
-  int? _approx(int? amount, String currency, String d, double? rate) => amount == null || rate == null || !fxReady
+  /// "≈ €69.55" under the amount; null without a usable rate.
+  int? _approx(int? amount, String currency, String d, double? rate) => amount == null || rate == null
       ? null
       : tryFx(() => convertAmount(
           amount: amount, fromDecimals: Money.digits(currency), toDecimals: Money.digits(d), rate: rate));
@@ -772,7 +1010,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final cat = _cat; // a legacy value stays as it was unless the picker changed it
     final notes = _notes.text.trim().isEmpty ? null : _notes.text.trim();
     var e = Expense(
-      id: old?.id ?? newId(),
+      id: old?.id ?? _newId,
       description: _description.text.trim(),
       amount: amount,
       currency: currency,
@@ -783,19 +1021,22 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       notes: notes,
       refund: _refund,
       split: _split.spec(ids, currency),
-      // Equal: only the ticked people; the other modes: everyone shown, zeros included (docs/API.md SplitSpec).
-      shares: [
-        for (final id in ids)
-          if (_split.mode != SplitMode.equal || split.containsKey(id)) Share(memberId: id, amount: split[id] ?? 0)
-      ],
+      // Equal: only the ticked people; items: everyone on a line; the other modes: everyone shown, zeros included
+      // (docs/API.md SplitSpec).
+      shares: _split.items
+          ? [for (final MapEntry(:key, :value) in split.entries) Share(memberId: key, amount: value)]
+          : [
+              for (final id in ids)
+                if (_split.mode != SplitMode.equal || split.containsKey(id)) Share(memberId: id, amount: split[id] ?? 0)
+            ],
     );
     // Opened as exact only because the stored split couldn't be rebuilt, and the shares are what they were: the
     // split didn't change, so keep it (no `split: null`, no money fields for a description edit).
-    if (old != null && _keptSplit != null && _split.mode == SplitMode.exact && _same(e.shares, old.shares)) {
+    if (old != null && _keptSplit != null && !_split.items && _split.mode == SplitMode.exact && _same(e.shares, old.shares)) {
       e = e.copyWith(split: _keptSplit, shares: old.shares);
     }
     // No stored split that opened as equal (see _openSplit), same shares: still no split, so no money fields.
-    if (old != null && old.split == null && _split.mode == SplitMode.equal && _same(e.shares, old.shares)) {
+    if (old != null && old.split == null && !_split.items && _split.mode == SplitMode.equal && _same(e.shares, old.shares)) {
       e = e.copyWith(clearSplit: true, shares: old.shares);
     }
     setState(() => _busy = true);
@@ -803,6 +1044,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final w = ref.read(localWritesProvider);
       await ref.read(sharedPreferencesProvider).setString(lastCurrencyKey(group.id), currency);
       if (old != null && _moveTo != null) {
+        await _attachNew(old.id); // they move with the rest
         await _move(group, old, e);
         return;
       } else if (old == null) {
@@ -835,12 +1077,23 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           },
         });
       }
+      await _attachNew(e.id);
       if (mounted) context.pop();
     } catch (err) {
       if (mounted) showError(context, err);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// The photos added here, after the expense's own event (docs/API.md 영수증 로컬 쓰기).
+  Future<void> _attachNew(String expenseId) async {
+    final w = ref.read(localWritesProvider);
+    for (final id in [..._newReceipts]) {
+      await w.attachReceipt(widget.groupId, expenseId, id);
+      _newReceipts.remove(id);
+    }
+    _saved = true;
   }
 
   /// Zero entries aside: they don't change any balance.

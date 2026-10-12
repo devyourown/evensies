@@ -70,8 +70,9 @@ String _category(Object? from, Object? to) {
 }
 
 /// The sentence for [item] as seen by member [me] (docs/API.md "문장"). [names] maps memberId → name.
-/// [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own colored line).
-String activityText(ActivityItem item, Map<String, String> names, String? me, {bool withDelta = true}) {
+/// [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own colored line). [count]: the
+/// receipts one feed row stands for (app only: "added 3 receipts to …").
+String activityText(ActivityItem item, Map<String, String> names, String? me, {bool withDelta = true, int count = 1}) {
   String who(String? id, {bool start = false}) {
     if (id != null && id == me) return start ? 'You' : 'you';
     return (id == null ? null : names[id]) ?? (start ? 'Someone' : 'someone');
@@ -81,6 +82,7 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
   final a = who(item.actorMemberId, start: true);
   final desc = '“${item.description ?? ''}”';
   final amount = item.amount == null ? '' : money(item.amount, item.currency);
+  final receipts = count == 1 ? 'a receipt' : '$count receipts';
 
   switch (item.kind) {
     case 'group_created':
@@ -153,6 +155,14 @@ String activityText(ActivityItem item, Map<String, String> names, String? me, {b
       return '$a confirmed receiving $amount from ${who(item.fromMember)}';
     case 'payment_deleted':
       return '$a deleted a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
+    case 'payment_edited':
+      return '$a edited a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
+    case 'payment_restored':
+      return '$a restored a payment of $amount from ${who(item.fromMember)} to ${who(item.toMember)}';
+    case 'receipt_added':
+      return '$a added $receipts to $desc';
+    case 'receipt_removed':
+      return '$a removed $receipts from $desc';
     default:
       return '$a made a change';
   }

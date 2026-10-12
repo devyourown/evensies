@@ -11,6 +11,7 @@ void main() {
   test('EUR 1234 formats with two decimals', () => expect(digitsOf(formatMoney(1234, 'EUR')), '12.34'));
   test('KRW 1234 formats with no decimals', () => expect(digitsOf(formatMoney(1234, 'KRW')), '1234'));
   test('USD 5 formats as 0.05', () => expect(digitsOf(formatMoney(5, 'USD')), '0.05'));
+  test('a negative amount starts with a minus sign, not a hyphen', () => expect(formatMoney(-4800, 'EUR'), '−€48.00'));
   test('parse "12.34" EUR → 1234', () => expect(parseMoney('12.34', 'EUR'), 1234));
   test('parse "12" EUR → 1200', () => expect(parseMoney('12', 'EUR'), 1200));
   test('parse "12.5" EUR → 1250', () => expect(parseMoney('12.5', 'EUR'), 1250));

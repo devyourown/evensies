@@ -8,7 +8,6 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import tools.jackson.databind.JsonNode
 import dev.nariinfo.evensies.money.Split
 import dev.nariinfo.evensies.money.SplitMode
@@ -31,13 +30,11 @@ class SettlementTest {
             val expectedBalances = amounts(case["expectedBalances"])
             val expectedTransfers = case["expectedTransfers"].values().map { Transfer(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
 
-            // Transfers come from the expected balances, so they are checked even while the balances are pending.
             assertEquals(expectedTransfers, Settlement.simplify(expectedBalances))
             case["expectedPairwise"]?.let { want ->
                 val pairwise = want.values().map { Transfer(it["from"].asString(), it["to"].asString(), it["amount"].asLong()) }
                 assertEquals(pairwise, Settlement.pairwiseDebts(members, expenses, payments), "pairwise (simplify debts off)")
             }
-            assumeTrue(case["pending"] == null, "pending: hyojun (multi-payer / refund balances land with his Dart computeBalances)")
             assertEquals(expectedBalances, Settlement.balances(members, expenses, payments))
         }
     }

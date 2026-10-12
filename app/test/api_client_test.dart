@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -38,6 +39,11 @@ class _Server implements HttpClientAdapter {
     return switch (o.path) {
       '/groups' => json([]),
       '/fx' => json({'date': '2026-10-10', 'base': 'EUR', 'rates': {'EUR': 1}}),
+      '/groups/g1/attachments/a1' => json({'code': 'NOT_FOUND', 'message': 'No such receipt'}, 404),
+      '/groups/g1/export' => ResponseBody.fromBytes([80, 75, 3, 4], 200, headers: {
+          Headers.contentTypeHeader: ['application/zip'],
+        }),
+      '/groups/g2/export' => json({'code': 'FORBIDDEN', 'message': 'Not a member'}, 403),
       _ => json(null, 404),
     };
   }
@@ -84,6 +90,18 @@ void main() {
     await api.listGroups();
     final s = await db.getSession();
     expect((s?.displayName, s?.accessToken, s?.refreshToken), ('Anna B', 'a2', 'r2'));
+  });
+
+  test('byte answers (a receipt, the ZIP) keep the server error code; the ZIP streams into a file', () async {
+    final dir = Directory.systemTemp.createTempSync('zip');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await api.exportZip('g1', '${dir.path}/g1.zip'); // after a refresh: the retried download is written too
+    expect(File('${dir.path}/g1.zip').readAsBytesSync(), [80, 75, 3, 4]);
+    Matcher error(int status, String code) =>
+        throwsA(isA<ApiException>().having((e) => (e.status, e.code), 'status, code', (status, code)));
+    await expectLater(api.attachment('g1', 'a1'), error(404, 'NOT_FOUND'));
+    await expectLater(api.exportZip('g2', '${dir.path}/g2.zip'), error(403, 'FORBIDDEN'));
+    expect(File('${dir.path}/g2.zip').existsSync(), isFalse);
   });
 
   test('a refused refresh token signs out; an offline refresh does not', () async {

@@ -15,7 +15,13 @@ void main() {
     final expected = GroupState.fromJson(c['expected'] as Map<String, dynamic>).toJson();
     // Optional: only the keys it has are compared (sync-cases _doc).
     final expectedGroup = (c['expected'] as Map)['group'] as Map<String, dynamic>?;
+    // GroupState.fromJson reads a split it can't parse as null, which would also equal a null result: compare each
+    // expense's split with the raw expected JSON too.
+    final expectedSplits = {
+      for (final x in ((c['expected'] as Map)['expenses'] as List).cast<Map<String, dynamic>>()) x['id']: x['split'],
+    };
     void expectGroup(GroupState s) {
+      expect({for (final x in s.expenses) x.id: x.split?.toJson()}, expectedSplits);
       if (expectedGroup == null) return;
       final g = s.groupJson();
       expect({for (final k in expectedGroup.keys) k: g[k]}, expectedGroup);

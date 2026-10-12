@@ -12,12 +12,19 @@ import 'package:evensies/data/sync/group_state_store.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/domain/split.dart';
 import 'package:evensies/features/expense_form/expense_form_screen.dart';
-import 'package:evensies/features/expense_form/split_editor.dart';
 import 'package:evensies/core/env.dart';
 import 'package:evensies/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
+
+/// The split mode whose chip is selected ('itemized' for Items).
+String selectedMode(WidgetTester t) => [
+      for (final m in [...SplitMode.values.map((m) => m.name), 'itemized'])
+        if (find.byKey(Key('mode-$m')).evaluate().isNotEmpty &&
+            t.widget<ChoiceChip>(find.ancestor(of: find.byKey(Key('mode-$m')), matching: find.byType(ChoiceChip))).selected)
+          m,
+    ].single;
 
 void main() {
   late AppDatabase db;
@@ -237,23 +244,7 @@ void main() {
     await unmount(t);
   });
 
-  testWidgets('Shares and ± are enabled only once computeSplit supports them', (t) async {
-    await open(t);
-    final seg = t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>));
-    for (final m in [SplitMode.shares, SplitMode.adjustment]) {
-      expect(seg.segments.firstWhere((x) => x.value == m).enabled, splitModeReady(m), reason: m.name);
-    }
-    await fill(t, '10', 'Taxi');
-    await t.tap(find.text('Shares'));
-    await t.pump();
-    if (!splitModeReady(SplitMode.shares)) {
-      expect(find.byKey(const Key('tick-m1')), findsOneWidget); // still equal
-      expect(saveEnabled(t), isTrue);
-    }
-    await unmount(t);
-  });
-
-  testWidgets('percent works today, with the live amount per row', (t) async {
+  testWidgets('percent, with the live amount per row', (t) async {
     await open(t);
     await fill(t, '10', 'Taxi');
     await t.tap(find.text('%'));
@@ -290,8 +281,7 @@ void main() {
       ),
     );
     await open(t, expenseId: 'x1');
-    final seg = t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>));
-    expect(seg.selected, {SplitMode.percent});
+    expect(selectedMode(t), 'percent');
     expect(t.widget<TextField>(find.byKey(const Key('share-m1'))).controller!.text, '60');
     expect(t.widget<TextField>(find.byKey(const Key('share-m2'))).controller!.text, '40');
     expect(t.widget<ChoiceChip>(find.byKey(const Key('several-payers'))).selected, isTrue);
@@ -317,8 +307,7 @@ void main() {
       ),
     );
     await open(t, expenseId: 'x1');
-    final seg = t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>));
-    expect(seg.selected, {SplitMode.exact});
+    expect(selectedMode(t), 'exact');
     expect(t.widget<TextField>(find.byKey(const Key('share-m1'))).controller!.text, '5.00');
     await unmount(t);
   });
@@ -332,7 +321,7 @@ void main() {
       ),
     );
     await open(t);
-    expect(t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>)).selected, {SplitMode.percent});
+    expect(selectedMode(t), 'percent');
     expect(t.widget<TextField>(find.byKey(const Key('share-m2'))).controller!.text, '30');
     await unmount(t);
 
@@ -342,7 +331,7 @@ void main() {
           (db.update(db.members)..where((m) => m.id.equals('m3'))).write(const MembersCompanion(removed: Value(true))),
     );
     await open(t);
-    expect(t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>)).selected, {SplitMode.equal});
+    expect(selectedMode(t), 'equal');
     expect(find.byKey(const Key('default-note')), findsOneWidget);
     await unmount(t);
   });
@@ -369,7 +358,7 @@ void main() {
       ),
     );
     await open(t, expenseId: 'x1');
-    expect(t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>)).selected, {SplitMode.exact});
+    expect(selectedMode(t), 'exact');
     await t.enterText(find.byKey(const Key('description')), 'Hotel Roma');
     await t.pump();
     await save(t);
@@ -450,7 +439,7 @@ void main() {
   testWidgets('an exact expense without a share for someone shown still sends only the description', (t) async {
     await seed(t, hotel(shares: [s('m1', 600), s('m2', 400)])); // split null, Cara not in shares
     await open(t, expenseId: 'x1');
-    expect(t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>)).selected, {SplitMode.exact});
+    expect(selectedMode(t), 'exact');
     await t.enterText(find.byKey(const Key('description')), 'Hotel Roma');
     await t.pump();
     await save(t);
@@ -463,7 +452,7 @@ void main() {
   ) async {
     await seed(t, hotel(shares: [s('m1', 500), s('m2', 500), s('m3', 0)])); // split null
     await open(t, expenseId: 'x1');
-    expect(t.widget<SegmentedButton<SplitMode>>(find.byType(SegmentedButton<SplitMode>)).selected, {SplitMode.equal});
+    expect(selectedMode(t), 'equal');
     expect(t.widget<CheckboxListTile>(find.byKey(const Key('tick-m2'))).value, isTrue);
     expect(t.widget<CheckboxListTile>(find.byKey(const Key('tick-m3'))).value, isFalse);
     await t.enterText(find.byKey(const Key('description')), 'Hotel Roma');

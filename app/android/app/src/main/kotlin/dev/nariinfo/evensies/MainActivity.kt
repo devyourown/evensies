@@ -1,5 +1,47 @@
 package dev.nariinfo.evensies
 
+import android.net.Uri
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        // Receipt scan (docs/API.md 영수증): the photo's text lines, read on the phone with ML Kit (Latin). `recognize`
+        // {path} → [{text, left, top, right, bottom}] in pixels of the upright image, origin top left.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "evensies/ocr").setMethodCallHandler { call, result ->
+            val path = call.argument<String>("path")
+            if (call.method != "recognize" || path == null) {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            val image = try {
+                InputImage.fromFilePath(this, Uri.fromFile(File(path))) // applies the EXIF rotation
+            } catch (e: Exception) {
+                result.error("OCR", e.message, null)
+                return@setMethodCallHandler
+            }
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            recognizer.process(image)
+                .addOnSuccessListener { text ->
+                    result.success(text.textBlocks.flatMap { it.lines }.mapNotNull { line ->
+                        val b = line.boundingBox ?: return@mapNotNull null
+                        mapOf(
+                            "text" to line.text,
+                            "left" to b.left.toDouble(),
+                            "top" to b.top.toDouble(),
+                            "right" to b.right.toDouble(),
+                            "bottom" to b.bottom.toDouble(),
+                        )
+                    })
+                }
+                .addOnFailureListener { e -> result.error("OCR", e.message, null) }
+                .addOnCompleteListener { recognizer.close() }
+        }
+    }
+}

@@ -31,8 +31,7 @@ void main() {
         Transfer(from: t['from'] as String, to: t['to'] as String, amount: t['amount'] as int),
     ];
 
-    // "pending": "hyojun" = needs the TODO(효준) part of computeBalances; reported as skipped until it lands.
-    test('balances: ${c['name']}', skip: c['pending'] == null ? null : 'pending: hyojun', () {
+    test('balances: ${c['name']}', () {
       final balances = computeBalances(members, expenses, payments);
       expect(balances, expectedBalances);
     });

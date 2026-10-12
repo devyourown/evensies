@@ -12,7 +12,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 
-/** Loads a group's state from the member/expense/payment/comment tables and writes back what an event touched. */
+/** Loads a group's state from the member/expense/payment/comment/attachment tables and writes back what an event touched. */
 @Repository
 class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMapper) {
     fun load(groupId: UUID): GroupState {
@@ -65,6 +65,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                     date = rs.getObject("date", LocalDate::class.java).toString(),
                     deleted = rs.getObject("deleted_at") != null,
                     status = rs.getString("status"),
+                    replaced = rs.getBoolean("replaced"),
                 )
             }.list()
         val comments = jdbc.sql("SELECT * FROM comments WHERE group_id = :id ORDER BY created_at, id").param("id", groupId)
@@ -79,11 +80,16 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
                     deleted = rs.getObject("deleted_at") != null,
                 )
             }.list()
+        // Attached receipts only; upload order, which can differ from a replay's attach order (docs/API.md "snapshot").
+        val attachments = jdbc.sql(
+            "SELECT id, expense_id, deleted_at FROM attachments WHERE group_id = :id AND expense_id IS NOT NULL ORDER BY created_at, id"
+        ).param("id", groupId).query { rs, _ -> AttachmentDto(rs.getString("id"), rs.getString("expense_id"), rs.getObject("deleted_at") != null) }.list()
         return group.copy(
             members = members.associateBy { it.id },
             expenses = expenses.associateBy { it.id },
             payments = payments.associateBy { it.id },
             comments = comments.associateBy { it.id },
+            attachments = attachments.associateBy { it.id },
         )
     }
 
@@ -102,6 +108,17 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             "expense" -> state.expenses[payload.text("expenseId")]?.let { upsertExpense(groupId, actorUserId, it) }
             "payment" -> state.payments[payload.text("paymentId")]?.let { upsertPayment(groupId, actorUserId, it) }
             "comment" -> state.comments[payload.text("commentId")]?.let { upsertComment(groupId, it) }
+            // The upload made the row (validated for attachment.added); the group check keeps other groups' rows out.
+            "attachment" -> state.attachments[payload.text("attachmentId")]?.let { a ->
+                jdbc.sql(
+                    """
+                    UPDATE attachments SET expense_id = :expenseId,
+                      deleted_at = CASE WHEN :deleted THEN COALESCE(deleted_at, now()) ELSE NULL END
+                    WHERE id = :id AND group_id = :groupId
+                    """
+                ).param("expenseId", UUID.fromString(a.expenseId)).param("deleted", a.deleted).param("id", UUID.fromString(a.id))
+                    .param("groupId", groupId).update()
+            }
         }
     }
 
@@ -154,18 +171,18 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     private fun upsertPayment(groupId: UUID, actorUserId: UUID, p: PaymentDto) {
         jdbc.sql(
             """
-            INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, created_by, status, deleted_at)
-            VALUES (:id, :groupId, :from, :to, :amount, :currency, :date, :actor, :status, CASE WHEN :deleted THEN :now ELSE NULL END)
+            INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, created_by, status, replaced, deleted_at)
+            VALUES (:id, :groupId, :from, :to, :amount, :currency, :date, :actor, :status, :replaced, CASE WHEN :deleted THEN :now ELSE NULL END)
             ON CONFLICT (id) DO UPDATE SET
               from_member = EXCLUDED.from_member, to_member = EXCLUDED.to_member, amount = EXCLUDED.amount,
-              currency = EXCLUDED.currency, date = EXCLUDED.date, status = EXCLUDED.status,
+              currency = EXCLUDED.currency, date = EXCLUDED.date, status = EXCLUDED.status, replaced = EXCLUDED.replaced,
               deleted_at = CASE WHEN :deleted THEN COALESCE(payments.deleted_at, :now) ELSE NULL END
             WHERE payments.group_id = EXCLUDED.group_id
             """
         ).param("id", UUID.fromString(p.id)).param("groupId", groupId).param("from", UUID.fromString(p.fromMember))
             .param("to", UUID.fromString(p.toMember)).param("amount", p.amount).param("currency", p.currency)
             .param("date", LocalDate.parse(p.date)).param("actor", actorUserId).param("deleted", p.deleted)
-            .param("status", p.status).param("now", OffsetDateTime.now()).update().requireOwnRow()
+            .param("status", p.status).param("replaced", p.replaced).param("now", OffsetDateTime.now()).update().requireOwnRow()
     }
 
     /** Only the tombstone changes after creation (a deleted comment's text becomes ""). */
@@ -197,7 +214,22 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
             .param("ids", ids.map(UUID::fromString)).query(String::class.java).list().filterNotNull().toSet()
     }
 
-    /** Who created a stored payment (null if unknown); used for payment.deleted permission. */
+    /** The group an attachment id was uploaded to (null if never), deleted or not. */
+    fun uploadGroup(attachmentId: UUID): UUID? =
+        jdbc.sql("SELECT group_id FROM attachments WHERE id = :id").param("id", attachmentId).query(UUID::class.java).optional().orElse(null)
+
+    /** This group's non-deleted upload row exists (attached or not): what a download may serve. */
+    fun isLiveUpload(groupId: UUID, attachmentId: UUID): Boolean =
+        jdbc.sql("SELECT count(*) FROM attachments WHERE id = :id AND group_id = :g AND deleted_at IS NULL")
+            .param("id", attachmentId).param("g", groupId).query(Long::class.java).single() > 0
+
+    /** A new upload, not on any expense yet; a DuplicateKeyException when the id is taken. */
+    fun insertUpload(groupId: UUID, attachmentId: UUID, userId: UUID) {
+        jdbc.sql("INSERT INTO attachments (id, group_id, uploaded_by) VALUES (:id, :g, :u)")
+            .param("id", attachmentId).param("g", groupId).param("u", userId).update()
+    }
+
+    /** Who created a stored payment (null if unknown); used for payment.deleted / payment.restored permission. */
     fun paymentCreator(paymentId: String): String? =
         jdbc.sql("SELECT created_by FROM payments WHERE id = :id").param("id", UUID.fromString(paymentId))
             .query { rs, _ -> rs.getString("created_by") }.optional().orElse(null)

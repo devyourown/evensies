@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/confirm.dart';
-import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/person_avatar.dart';
+import '../../core/snack.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 import '../expense_form/comment_thread.dart';
@@ -57,7 +57,7 @@ class PaymentDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(p.deleted ? 'Deleted payment' : 'Payment'),
+        title: Text(p.replaced ? 'Edited payment' : p.deleted ? 'Deleted payment' : 'Payment'),
         actions: [
           if (mine && !p.deleted) ...[
             IconButton(
@@ -86,14 +86,35 @@ class PaymentDetailScreen extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                if (p.deleted)
+                // An edited payment was replaced by the new one, so it can't come back (docs/API.md 적용 규칙 7).
+                if (p.deleted && p.replaced)
                   Card(
+                    key: const Key('payment-edited'),
+                    color: cs.secondaryContainer,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: ListTile(
+                      leading: Icon(Icons.edit_outlined, color: cs.onSecondaryContainer),
+                      title: Text('This payment was edited', style: TextStyle(color: cs.onSecondaryContainer)),
+                      subtitle: Text('The edited payment counts instead. Its comments stay here.',
+                          style: TextStyle(color: cs.onSecondaryContainer)),
+                    ),
+                  )
+                else if (p.deleted)
+                  Card(
+                    key: const Key('payment-deleted'),
                     color: cs.errorContainer,
                     margin: const EdgeInsets.only(bottom: 16),
                     child: ListTile(
                       leading: Icon(Icons.delete_outline, color: cs.onErrorContainer),
                       title: Text('This payment was deleted', style: TextStyle(color: cs.onErrorContainer)),
                       subtitle: Text("It doesn't count in balances.", style: TextStyle(color: cs.onErrorContainer)),
+                      trailing: mine
+                          ? FilledButton(
+                              key: const Key('restore-payment'),
+                              onPressed: () => ref.read(localWritesProvider).restorePayment(groupId, p.id),
+                              child: const Text('Restore'),
+                            )
+                          : null,
                     ),
                   ),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -164,24 +185,7 @@ class PaymentDetailScreen extends ConsumerWidget {
     await writes.deletePayment(groupId, p.id);
     if (!context.mounted) return;
     context.pop();
-    messenger.showSnackBar(SnackBar(
-      content: const Text('Payment deleted'),
-      duration: const Duration(seconds: 10),
-      persist: false, // Undo is only offered for 10 s
-      // No payment.restored: the same payment again under a new id, like an edit; its comments stay on this one.
-      action: SnackBarAction(
-          label: 'Undo',
-          onPressed: () => writes.createPayment(
-              groupId,
-              Payment(
-                  id: newId(),
-                  fromMember: p.fromMember,
-                  toMember: p.toMember,
-                  amount: p.amount,
-                  currency: p.currency,
-                  date: p.date,
-                  status: p.status))),
-    ));
+    showUndo(messenger, 'Payment deleted', () => writes.restorePayment(groupId, p.id));
   }
 
   Future<void> _notReceived(BuildContext context, WidgetRef ref, Payment p, String from) async {
@@ -189,6 +193,10 @@ class PaymentDetailScreen extends ConsumerWidget {
         title: 'Not received?',
         message: 'The payment from $from is removed and the debt comes back.',
         confirmLabel: 'Not received');
-    if (ok) await ref.read(localWritesProvider).deletePayment(groupId, p.id);
+    if (!ok || !context.mounted) return;
+    final writes = ref.read(localWritesProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    await writes.deletePayment(groupId, p.id);
+    showUndo(messenger, 'Payment removed', () => writes.restorePayment(groupId, p.id));
   }
 }

@@ -1,4 +1,3 @@
-import '../core/core_guard.dart';
 import '../core/money.dart';
 import 'fx.dart';
 import 'models.dart';
@@ -13,10 +12,10 @@ typedef ConvertFn = ConvertedExpense Function({
   required double rate,
 });
 
-/// Runs a conversion; null while Hyojun's function is a stub (UnimplementedError) or when it refuses (FxException).
+/// Runs a conversion; null when it refuses (FxException, e.g. a bad rate): the expense stays in its own currency.
 T? tryFx<T>(T Function() f) {
   try {
-    return tryCore(f);
+    return f();
   } on FxException {
     return null;
   }
@@ -38,12 +37,8 @@ class BalanceResult {
   final Map<String, int> unconverted;
 
   /// currency → how many of those have no rate (null or 0): what Convert fills in. The rest have a rate that can't be
-  /// used (convertExpense refused, or is a stub again).
+  /// used (convertExpense refused it).
   final Map<String, int> unrated;
-
-  /// Expenses with several payers or a refund that computeBalances refused as unimplemented; left out (0 since it
-  /// counts them).
-  final int unsupported;
   final List<String> members;
   const BalanceResult({
     required this.currency,
@@ -52,7 +47,6 @@ class BalanceResult {
     this.payments = const {},
     this.unconverted = const {},
     this.unrated = const {},
-    this.unsupported = 0,
     this.members = const [],
   });
 
@@ -69,11 +63,9 @@ class BalanceResult {
       };
 
   /// What Settle up shows, per bucket: fewest payments, or debts as recorded when the group turned simplifying off.
-  /// A bucket whose transfers can't be computed (a stub that throws UnimplementedError) is left out.
   Map<String, List<Transfer>> transfers({required bool simplify}) => {
         for (final MapEntry(key: cur, value: b) in byCurrency.entries)
-          cur: ?tryCore(() =>
-              simplify ? simplifyDebts(b) : pairwiseDebts(members, lines[cur] ?? const [], payments[cur] ?? const [])),
+          cur: simplify ? simplifyDebts(b) : pairwiseDebts(members, lines[cur] ?? const [], payments[cur] ?? const []),
       };
 }
 
@@ -123,9 +115,8 @@ Expense? _convert(Expense e, String d, ConvertFn convert) {
 }
 
 /// computeBalances per bucket (rules in docs/API.md 통화별 잔액). Payments go to the bucket of their own currency
-/// (Settle up records each bucket's payments in that bucket's currency since Phase 6). While [compute] can't handle several payers or refunds, those lines are left
-/// out and counted as unsupported. Null only if [compute] throws UnimplementedError even for single-payer lines.
-BalanceResult? balancesOf(GroupState s, {BalanceFn compute = computeBalances, ConvertFn convert = convertExpense}) {
+/// (Settle up records each bucket's payments in that bucket's currency since Phase 6).
+BalanceResult balancesOf(GroupState s, {BalanceFn compute = computeBalances, ConvertFn convert = convertExpense}) {
   final d = s.defaultCurrency ?? '';
   final (:converted, :unconverted) = convertToDefault(s, convert: convert);
   final expensesBy = <String, List<Expense>>{d: converted, ...unconverted};
@@ -137,7 +128,6 @@ BalanceResult? balancesOf(GroupState s, {BalanceFn compute = computeBalances, Co
   final byCurrency = <String, Map<String, int>>{};
   final lines = <String, List<ExpenseLine>>{};
   final payments = <String, List<PaymentLine>>{};
-  var unsupported = 0;
   for (final cur in {d, ...expensesBy.keys, ...paymentsBy.keys}) {
     final all = [
       for (final e in expensesBy[cur] ?? const <Expense>[])
@@ -149,17 +139,10 @@ BalanceResult? balancesOf(GroupState s, {BalanceFn compute = computeBalances, Co
         ),
     ];
     final pays = paymentsBy[cur] ?? const <PaymentLine>[];
-    var used = all;
-    var b = tryCore(() => compute(ids, all, pays));
-    if (b == null) {
-      used = [for (final l in all) if (l.payers.length == 1 && !l.refund) l];
-      b = tryCore(() => compute(ids, used, pays));
-      if (b == null) return null;
-      unsupported += all.length - used.length;
-    }
+    final b = compute(ids, all, pays);
     if (cur != d && b.values.every((v) => v == 0)) continue; // rule 5
     byCurrency[cur] = b;
-    lines[cur] = used;
+    lines[cur] = all;
     payments[cur] = pays;
   }
   return BalanceResult(
@@ -172,22 +155,18 @@ BalanceResult? balancesOf(GroupState s, {BalanceFn compute = computeBalances, Co
       for (final e in unconverted.entries)
         if (e.value.where((x) => !((x.fxRateToDefault ?? 0) > 0)).length case final n when n > 0) e.key: n,
     },
-    unsupported: unsupported,
     members: ids,
   );
 }
 
 /// What Settle up shows, per currency: simplifyDebts(bucket) or, with simplify off, pairwiseDebts(bucket lines,
 /// payments). Settle up, the Phase 6 overview and the Phase 9 widget all read this one function.
-Map<String, List<Transfer>> groupTransfers(GroupState s) =>
-    balancesOf(s)?.transfers(simplify: s.simplifyDebts) ?? const {};
+Map<String, List<Transfer>> groupTransfers(GroupState s) => balancesOf(s).transfers(simplify: s.simplifyDebts);
 
-/// Why [me] can't leave yet, or null when my balance is zero in every bucket and every expense is counted. Only the
-/// app checks it (docs/API.md 그룹 나가기): the settings screen before the tap, LocalWrites.leaveGroup after its sync.
-/// Unconverted expenses alone don't block leaving.
-String? leaveBlocker(BalanceResult? res, String? me) {
-  if (res == null) return "Balances can't be computed yet";
-  if (res.unsupported > 0) return "Some expenses aren't counted in balances yet";
+/// Why [me] can't leave yet, or null when my balance is zero in every bucket. Only the app checks it (docs/API.md
+/// 그룹 나가기): the settings screen before the tap, LocalWrites.leaveGroup after its sync. Unconverted expenses alone
+/// don't block leaving.
+String? leaveBlocker(BalanceResult res, String? me) {
   for (final MapEntry(key: cur, value: mine) in res.mine(me).entries) {
     final m = formatMoney(mine.abs(), cur);
     // Phase 6: every bucket can be settled in its own currency, so leaving never waits for a conversion.

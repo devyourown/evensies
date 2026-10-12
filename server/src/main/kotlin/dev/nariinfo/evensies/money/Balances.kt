@@ -50,7 +50,7 @@ object Balances {
 
     /**
      * Shares and payers each through Fx.convertExpense (their totals are the same); null when there is no usable rate
-     * or the conversion refuses (FxException) or is a stub again (NotImplementedError), like Dart `tryFx`.
+     * or the conversion refuses (FxException), like Dart `tryFx`.
      */
     private fun convert(e: ExpenseDto, d: String): ExpenseDto? {
         val rate = e.fxRateToDefault?.takeIf { it > 0 } ?: return null
@@ -63,8 +63,6 @@ object Balances {
                 shares = e.shares.map { it.copy(amount = shares.parts[it.memberId] ?: 0) },
                 payers = e.payers.map { it.copy(amount = payers.parts[it.memberId] ?: 0) },
             )
-        } catch (_: NotImplementedError) {
-            null
         } catch (_: FxException) {
             null
         }

@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:evensies/core/core_guard.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/sync/group_state_store.dart';
-import 'package:evensies/domain/fx.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/features/group_detail/group_detail_screen.dart';
 import 'package:evensies/providers.dart';
@@ -200,23 +198,14 @@ void main() {
     expect(find.text('Nothing owed in EUR'), findsOneWidget);
     // Not hidden any more: its own section, in its own currency (docs/API.md 통화별 잔액).
     expect(find.text('Not converted · USD'), findsOneWidget);
-    expect(
-        find.text(fxReady
-            ? '1 expense without a rate to EUR'
-            : '1 expense without a rate to EUR · 1 expense with a rate, counted in EUR once conversion is ready'),
-        findsOneWidget);
+    expect(find.text('1 expense without a rate to EUR'), findsOneWidget);
     expect(find.text('gets back'), findsOneWidget);
     expect(find.text(r'$10.00'), findsNWidgets(2));
-    if (fxReady) {
-      expect(find.byKey(const Key('convert-USD')), findsOneWidget);
-    } else {
-      expect(find.text('Converting to EUR: $notImplementedLabel'), findsOneWidget);
-      expect(find.byType(Chip), findsNothing); // looked like a button but did nothing
-    }
+    expect(find.byKey(const Key('convert-USD')), findsOneWidget);
     await unmount(t);
   });
 
-  testWidgets('a foreign expense tile: warning without a rate, the code (or ≈ once convertAmount lands) with one',
+  testWidgets('a foreign expense tile: warning and the code without a rate, ≈ with one',
       (t) async {
     await t.runAsync(() async {
       await db.upsertGroup(
@@ -239,7 +228,33 @@ void main() {
     });
     await open(t);
     expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
-    expect(find.text('USD'), findsNWidgets(fxReady ? 1 : 2));
+    expect(find.text('USD'), findsOneWidget);
+    await unmount(t);
+  });
+
+  testWidgets('an expense with a receipt shows a receipt mark; a removed receipt does not count', (t) async {
+    await t.runAsync(() async {
+      await db.upsertGroup(
+        const GroupRow(kind: 'group', id: 'g1', name: 'Rome', defaultCurrency: 'EUR', latestSeq: 0, myMemberId: 'm1', simplifyDebts: true),
+      );
+      await GroupStateStore(db).save(
+        'g1',
+        GroupState(
+          name: 'Rome',
+          defaultCurrency: 'EUR',
+          members: const [Member(id: 'm1', name: 'Anna')],
+          expenses: [
+            for (final id in ['x1', 'x2'])
+              Expense(id: id, description: id, amount: 1000, currency: 'EUR', paidBy: 'm1', date: '2026-10-11',
+                  shares: [s('m1', 1000)]),
+          ],
+          attachments: const [Attachment(id: 'a1', expenseId: 'x1'), Attachment(id: 'a2', expenseId: 'x2', deleted: true)],
+        ),
+        0,
+      );
+    });
+    await open(t);
+    expect(find.byKey(const Key('receipt-mark')), findsOneWidget);
     await unmount(t);
   });
 

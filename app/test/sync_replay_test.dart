@@ -51,6 +51,13 @@ void main() {
         'PRIMARY KEY ("group_id"))');
     raw.execute('CREATE TABLE "session" ("id" INTEGER NOT NULL DEFAULT 1, "access_token" TEXT NOT NULL, '
         '"refresh_token" TEXT NOT NULL, "user_id" TEXT NOT NULL, "display_name" TEXT NOT NULL, PRIMARY KEY ("id"))');
+    // Payments as schema 2 left them (status added; unchanged until schema 8).
+    raw.execute('CREATE TABLE "payments" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, "from_member" TEXT NOT NULL, '
+        '"to_member" TEXT NOT NULL, "amount" INTEGER NOT NULL, "currency" TEXT NOT NULL, "date" TEXT NOT NULL, '
+        '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), '
+        '"status" TEXT NOT NULL DEFAULT \'confirmed\', PRIMARY KEY ("id"))');
+    raw.execute("INSERT INTO payments (id, group_id, from_member, to_member, amount, currency, date, deleted) "
+        "VALUES ('p1', 'g1', 'm2', 'm1', 1500, 'EUR', '2026-10-11', 1)");
     raw.execute("INSERT INTO groups (id, name, default_currency) VALUES ('g1', 'Rome', 'EUR')");
     raw.execute("INSERT INTO sync_state VALUES ('g1', 57)");
     raw.execute("INSERT INTO session VALUES (1, 'a', 'r', 'u1', 'Anna')");
@@ -71,6 +78,27 @@ void main() {
   void v3Comments(dynamic raw) => raw.execute('CREATE TABLE "comments" ("id" TEXT NOT NULL, "group_id" TEXT NOT NULL, '
       '"expense_id" TEXT NOT NULL, "author_member_id" TEXT NOT NULL, "text" TEXT NOT NULL, "created_at" TEXT NOT NULL, '
       '"deleted" INTEGER NOT NULL DEFAULT 0 CHECK ("deleted" IN (0, 1)), PRIMARY KEY ("id"))');
+
+  test('schema 7 → 8 adds receipts and the replaced flag, keeps payments, replays', () async {
+    final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
+      v1Tables(raw);
+      v4Expenses(raw);
+      v3Comments(raw);
+      raw.execute('ALTER TABLE groups ADD COLUMN "simplify_debts" INTEGER NOT NULL DEFAULT 1 CHECK ("simplify_debts" IN (0, 1))');
+      raw.execute('ALTER TABLE groups ADD COLUMN "default_split_json" TEXT NULL');
+      raw.execute('ALTER TABLE groups ADD COLUMN "kind" TEXT NOT NULL DEFAULT \'group\'');
+      raw.execute('ALTER TABLE expenses ADD COLUMN "moved" INTEGER NOT NULL DEFAULT 0 CHECK ("moved" IN (0, 1))');
+      raw.execute('PRAGMA user_version = 7');
+    }));
+    addTearDown(db.close);
+
+    final p = await db.select(db.payments).getSingle();
+    expect((p.id, p.deleted, p.status, p.replaced), ('p1', true, 'confirmed', false));
+    expect(await db.select(db.attachments).get(), isEmpty);
+    expect(await db.pendingUploadsOf('g1'), isEmpty);
+    expect((await db.getExpense('x1'))!.description, 'Dinner');
+    expect(await db.lastSeq('g1'), 0); // older code skipped attachment.* and payment.restored: replay
+  });
 
   test('schema 5 → 7 adds the group kind, payment comments and the moved flag, keeps comments, replays', () async {
     final db = AppDatabase(NativeDatabase.memory(setup: (raw) {
@@ -213,6 +241,36 @@ void main() {
       expect(x.deleted, isFalse);
       expect(x.amount, 2000);
       expect(await db.lastSeq('g1'), 6);
+    });
+
+    test('a pulled payment restore takes the server state: a confirm my local delete hid comes back', () async {
+      // Ben confirmed p1 (seq 5) while my delete of it (seq 6) was still local, so my fold ignored the confirm
+      // (rule 6); then I restored it (seq 7).
+      const members = [Member(id: 'm1', name: 'Anna'), Member(id: 'm2', name: 'Ben')];
+      Payment p1({required String status, bool deleted = false}) => Payment(
+          id: 'p1', fromMember: 'm2', toMember: 'm1', amount: 500, currency: 'EUR', date: '2026-10-11',
+          status: status, deleted: deleted);
+      await sync.store.save('g1', GroupState(members: members, payments: [p1(status: 'sent', deleted: true)]), 4);
+      api
+        ..events = [
+          ..._log,
+          ev(4, 'payment.created', {
+            'paymentId': 'p1', 'fromMember': 'm2', 'toMember': 'm1', 'amount': 500, 'currency': 'EUR', //
+            'date': '2026-10-11', 'status': 'sent',
+          }),
+          ev(5, 'payment.confirmed', {'paymentId': 'p1'}),
+          ev(6, 'payment.deleted', {'paymentId': 'p1'}),
+          ev(7, 'payment.restored', {'paymentId': 'p1'}),
+        ]
+        ..snap = (
+          group: const GroupDto(
+              id: 'g1', name: 'Rome', defaultCurrency: 'EUR', inviteCode: 'ABC', latestSeq: 7, myMemberId: 'm1', simplifyDebts: true),
+          state: GroupState(members: members, payments: [p1(status: 'confirmed')]),
+          latestSeq: 7,
+        );
+      await sync.sync('g1');
+      final p = (await sync.store.load('g1')).payment('p1')!;
+      expect((p.deleted, p.status), (false, 'confirmed'));
     });
 
     test('a restore whose snapshot fails falls back to a full replay next time', () async {

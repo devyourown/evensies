@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:evensies/data/api/api_client.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
+import 'package:evensies/data/receipts.dart';
 import 'package:evensies/data/sync/sync_service.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/domain/payment_methods.dart';
@@ -92,6 +93,24 @@ class FakeApi extends ApiClient {
     if (f == null) throw offline;
     return f(date);
   }
+
+  /// POST /groups/{id}/attachments/{aid}: (groupId, attachmentId) calls; [onUpload] answers (null = unreachable,
+  /// throw an ApiException to refuse).
+  final uploads = <(String, String)>[];
+  void Function(String groupId, String attachmentId)? onUpload;
+
+  @override
+  Future<void> uploadAttachment(String groupId, String attachmentId, File image, File thumb) async {
+    uploads.add((groupId, attachmentId));
+    (onUpload ?? (throw offline))(groupId, attachmentId);
+  }
+
+  /// GET …/attachments/{aid}(/thumb): attachmentId → bytes; a missing one is unreachable.
+  final downloads = <String, Uint8List>{};
+
+  @override
+  Future<Uint8List> attachment(String groupId, String attachmentId, {bool thumb = false}) async =>
+      downloads[attachmentId] ?? (throw offline);
 
   /// The account POST /auth/dev signs in as.
   UserDto signInAs = const UserDto(id: 'u1', displayName: 'Anna');
@@ -241,7 +260,8 @@ class FakeApi6 extends FakeApi {
 
 /// SyncService that never touches the network from local writes; [later] records syncLater calls.
 class NoSync extends SyncService {
-  NoSync(AppDatabase db, [ApiClient? api]) : super(db: db, api: api ?? FakeApi(db));
+  NoSync(AppDatabase db, [ApiClient? api, ReceiptFiles? receipts])
+      : super(db: db, api: api ?? FakeApi(db), receipts: receipts);
   final later = <String>[];
   @override
   void syncLater(String groupId) => later.add(groupId);

@@ -1,0 +1,200 @@
+{
+ "_doc": "Hand-made OCR lines (no real receipt, no card numbers) for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels; lines are listed out of order on purpose.",
+ "name": "US diner: tax line, card slip and tip lines below the total",
+ "decimals": 2,
+ "lines": [
+  {
+   "text": "_______",
+   "left": 296,
+   "top": 537,
+   "right": 380,
+   "bottom": 567
+  },
+  {
+   "text": "_______",
+   "left": 296,
+   "top": 497,
+   "right": 380,
+   "bottom": 527
+  },
+  {
+   "text": "38.61",
+   "left": 320,
+   "top": 457,
+   "right": 380,
+   "bottom": 487
+  },
+  {
+   "text": "$38.61",
+   "left": 308,
+   "top": 417,
+   "right": 380,
+   "bottom": 447
+  },
+  {
+   "text": "3.11",
+   "left": 332,
+   "top": 377,
+   "right": 380,
+   "bottom": 407
+  },
+  {
+   "text": "35.50",
+   "left": 320,
+   "top": 337,
+   "right": 380,
+   "bottom": 367
+  },
+  {
+   "text": "3.00",
+   "left": 332,
+   "top": 297,
+   "right": 380,
+   "bottom": 327
+  },
+  {
+   "text": "7.00",
+   "left": 332,
+   "top": 257,
+   "right": 380,
+   "bottom": 287
+  },
+  {
+   "text": "11.00",
+   "left": 320,
+   "top": 217,
+   "right": 380,
+   "bottom": 247
+  },
+  {
+   "text": "14.50",
+   "left": 320,
+   "top": 177,
+   "right": 380,
+   "bottom": 207
+  },
+  {
+   "text": "Thank you!",
+   "left": 20,
+   "top": 580,
+   "right": 140,
+   "bottom": 610
+  },
+  {
+   "text": "Total",
+   "left": 20,
+   "top": 542,
+   "right": 80,
+   "bottom": 572
+  },
+  {
+   "text": "Tip",
+   "left": 20,
+   "top": 502,
+   "right": 56,
+   "bottom": 532
+  },
+  {
+   "text": "VISA ****1234",
+   "left": 20,
+   "top": 462,
+   "right": 176,
+   "bottom": 492
+  },
+  {
+   "text": "TOTAL",
+   "left": 20,
+   "top": 422,
+   "right": 80,
+   "bottom": 452
+  },
+  {
+   "text": "Sales Tax 8.75%",
+   "left": 20,
+   "top": 382,
+   "right": 200,
+   "bottom": 412
+  },
+  {
+   "text": "Subtotal",
+   "left": 20,
+   "top": 342,
+   "right": 116,
+   "bottom": 372
+  },
+  {
+   "text": "Soda",
+   "left": 20,
+   "top": 302,
+   "right": 68,
+   "bottom": 332
+  },
+  {
+   "text": "2x Fries",
+   "left": 20,
+   "top": 262,
+   "right": 116,
+   "bottom": 292
+  },
+  {
+   "text": "Caesar Salad",
+   "left": 20,
+   "top": 222,
+   "right": 164,
+   "bottom": 252
+  },
+  {
+   "text": "Cheeseburger",
+   "left": 20,
+   "top": 182,
+   "right": 164,
+   "bottom": 212
+  },
+  {
+   "text": "Server: Kim  Table 4",
+   "left": 20,
+   "top": 140,
+   "right": 260,
+   "bottom": 170
+  },
+  {
+   "text": "123 Main St, Springfield",
+   "left": 20,
+   "top": 100,
+   "right": 308,
+   "bottom": 130
+  },
+  {
+   "text": "JOE'S DINER",
+   "left": 20,
+   "top": 60,
+   "right": 152,
+   "bottom": 90
+  }
+ ],
+ "expected": {
+  "lines": [
+   {
+    "name": "Cheeseburger",
+    "amount": 1450
+   },
+   {
+    "name": "Caesar Salad",
+    "amount": 1100
+   },
+   {
+    "name": "2x Fries",
+    "amount": 700
+   },
+   {
+    "name": "Soda",
+    "amount": 300
+   }
+  ],
+  "tax": 311,
+  "tip": 0,
+  "discount": 0,
+  "total": 3861,
+  "merchant": "JOE'S DINER"
+ }
+}

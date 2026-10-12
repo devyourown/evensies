@@ -114,7 +114,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               : _spread(Text(s, style: text.titleMedium), trailing),
         );
 
-    final unsupported = res?.unsupported ?? 0;
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -169,19 +168,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             ]),
           ),
-          if (unsupported > 0)
-            Card(
-              color: cs.tertiaryContainer,
-              child: ListTile(
-                leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
-                title: Text(
-                    '$unsupported expense${unsupported == 1 ? '' : 's'} with several payers or refunds '
-                    "${unsupported == 1 ? "isn't" : "aren't"} counted in Balances yet",
-                    style: TextStyle(color: cs.onTertiaryContainer)),
-                subtitle: Text('They are in these totals, so the change in your balance can differ from Balances.',
-                    style: TextStyle(color: cs.onTertiaryContainer)),
-              ),
-            ),
           const SizedBox(height: 8),
           _TotalsCard(totals: t, currency: d),
           header('By month',
@@ -344,9 +330,10 @@ class _MonthBars extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(monthLabel(m, pattern: 'MMM'),
-                        style: text.labelMedium?.copyWith(fontWeight: m == selected ? FontWeight.w700 : null)),
-                    Text(monthLabel(m, pattern: 'yy'), style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                    _word(Text(monthLabel(m, pattern: 'MMM'),
+                        style: text.labelMedium?.copyWith(fontWeight: m == selected ? FontWeight.w700 : null))),
+                    _word(Text(monthLabel(m, pattern: 'yy'),
+                        style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant))),
                   ]),
                 ),
               ),
@@ -356,6 +343,12 @@ class _MonthBars extends StatelessWidget {
     );
   }
 }
+
+/// One word that shrinks to fit at the largest text sizes instead of breaking mid-word ("Oc" / "t").
+Widget _word(Text t) => FittedBox(fit: BoxFit.scaleDown, child: t);
+
+/// A category label: a single word shrinks like [_word] ("Uncategorized"), several wrap between words.
+Widget _label(String s) => s.trim().contains(' ') ? Text(s) : _word(Text(s));
 
 Widget _bar(BuildContext context, int v, int top, Color color) => ClipRRect(
       borderRadius: BorderRadius.circular(3),
@@ -382,6 +375,8 @@ class _Categories extends StatelessWidget {
       byParent.putIfAbsent(e.key.split('.').first, () => {})[e.key] = e.value;
     }
     int sum(Map<String, int> m) => m.values.fold(0, (a, b) => a + b);
+    // Accessibility text sizes: no icon, so a label like "Uncategorized" keeps its whole words.
+    final ax = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
     final parents = byParent.entries.toList()..sort((a, b) => sum(b.value).compareTo(sum(a.value)));
     final top = parents.fold(0, (a, p) => math.max(a, sum(p.value)));
     return Column(children: [
@@ -390,9 +385,9 @@ class _Categories extends StatelessWidget {
           key: PageStorageKey('cat-${p.key}'),
           tilePadding: EdgeInsets.zero,
           shape: const Border(),
-          leading: CategoryAvatar.parent(p.key),
+          leading: ax ? null : CategoryAvatar.parent(p.key),
           // The amount in the title, not trailing, so it wraps under the label at the largest text sizes.
-          title: _spread(Text(Categories.parent(p.key)?.label ?? Categories.labelOf(p.key)),
+          title: _spread(_label(Categories.parent(p.key)?.label ?? Categories.labelOf(p.key)),
               Text(formatMoney(sum(p.value), currency), style: Theme.of(context).textTheme.titleSmall)),
           subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: _bar(context, sum(p.value), top, cs.primary)),
           children: [
@@ -400,8 +395,8 @@ class _Categories extends StatelessWidget {
               ListTile(
                 key: Key('cat-row-${c.key}'),
                 contentPadding: const EdgeInsets.only(left: 16),
-                leading: CategoryAvatar(c.key, size: 32),
-                title: _spread(Text(Categories.labelOf(c.key)), Text(formatMoney(c.value, currency))),
+                leading: ax ? null : CategoryAvatar(c.key, size: 32),
+                title: _spread(_label(Categories.labelOf(c.key)), Text(formatMoney(c.value, currency))),
                 subtitle: Padding(
                     padding: const EdgeInsets.only(top: 6), child: _bar(context, c.value, top, cs.secondary)),
                 trailing: Icon(Icons.chevron_right, color: cs.onSurfaceVariant),

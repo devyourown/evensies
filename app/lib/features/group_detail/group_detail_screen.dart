@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/core_guard.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../data/db/database.dart';
@@ -141,9 +140,20 @@ class _Gone extends StatelessWidget {
   }
 }
 
-String _dateHeader(String iso) {
-  final d = DateTime.tryParse(iso);
-  return d == null ? iso : DateFormat('EEE, d MMM').format(d);
+/// "Sun, 11 Oct" above an expense date's rows (the group list, a friend's page).
+class DateHeader extends StatelessWidget {
+  final String date;
+  const DateHeader(this.date, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final d = DateTime.tryParse(date);
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Text(d == null ? date : DateFormat('EEE, d MMM').format(d),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
+    );
+  }
 }
 
 class _ExpensesTab extends ConsumerWidget {
@@ -191,11 +201,7 @@ class _ExpensesTab extends ConsumerWidget {
     for (final r in rows) {
       if (r.date != lastDate) {
         lastDate = r.date;
-        items.add(Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Text(_dateHeader(r.date),
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.onSurfaceVariant)),
-        ));
+        items.add(DateHeader(r.date));
       }
       items.add(r.tile);
     }
@@ -206,8 +212,9 @@ class _ExpensesTab extends ConsumerWidget {
   }
 }
 
-/// One expense row: category, description, who paid, my part, the amount (Search and later phases reuse it).
-class ExpenseTile extends StatelessWidget {
+/// One expense row: category, description, who paid, my part, the amount, a receipt mark (Search and later phases
+/// reuse it).
+class ExpenseTile extends ConsumerWidget {
   final Expense expense;
   final GroupRow group;
 
@@ -219,16 +226,17 @@ class ExpenseTile extends StatelessWidget {
   const ExpenseTile({super.key, required this.expense, required this.group, required this.names, this.extra});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final e = expense;
+    final receipts = ref.watch(attachmentCountsProvider(group.id)).value?[e.id] ?? 0;
     final myMemberId = group.myMemberId;
     final cs = Theme.of(context).colorScheme;
     final d = group.defaultCurrency;
     final foreign = e.currency != d;
     final rate = e.fxRateToDefault ?? 0;
     final fxMissing = foreign && !(rate > 0); // null or 0: not converted
-    // "≈ €69.55" under a converted foreign amount (hidden while convertAmount is a stub).
-    final approx = !foreign || fxMissing || !fxReady
+    // "≈ €69.55" under a converted foreign amount.
+    final approx = !foreign || fxMissing
         ? null
         : tryFx(() => convertAmount(
             amount: e.amount, fromDecimals: Money.digits(e.currency), toDecimals: Money.digits(d), rate: rate));
@@ -272,6 +280,14 @@ class ExpenseTile extends StatelessWidget {
       crossAxisAlignment: large ? CrossAxisAlignment.start : CrossAxisAlignment.end,
       children: [
         Row(mainAxisSize: MainAxisSize.min, children: [
+          if (receipts > 0) ...[
+            Icon(Icons.receipt_outlined,
+                key: const Key('receipt-mark'),
+                size: 16,
+                color: cs.onSurfaceVariant,
+                semanticLabel: receipts == 1 ? 'Has a receipt' : 'Has $receipts receipts'),
+            const SizedBox(width: 4),
+          ],
           if (e.refund) ...[
             Icon(Icons.undo, size: 16, color: cs.onSurfaceVariant, semanticLabel: 'Refund'),
             const SizedBox(width: 4),
@@ -385,11 +401,8 @@ class _BalancesTab extends ConsumerWidget {
             children: children,
           ),
         );
-    if (!async.hasValue) return const Center(child: CircularProgressIndicator());
     final res = async.value;
-    if (res == null) {
-      return list([const ListTile(leading: Icon(Icons.construction), title: Text(notImplementedLabel))]);
-    }
+    if (res == null) return const Center(child: CircularProgressIndicator());
     final d = group.defaultCurrency;
     final b = res.balances;
     final others = res.others;
@@ -416,45 +429,15 @@ class _BalancesTab extends ConsumerWidget {
                 style: TextStyle(color: cs.onSecondaryContainer)),
           ),
         ),
-      if (res.unsupported > 0)
-        Card(
-          color: cs.tertiaryContainer,
-          child: ListTile(
-            leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
-            title: Text(
-                '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
-                "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
-                style: TextStyle(color: cs.onTertiaryContainer)),
-            subtitle: Text(notImplementedLabel, style: TextStyle(color: cs.onTertiaryContainer)),
-          ),
-        ),
       if (!unsettled)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 48),
           child: Column(children: [
-            Icon(
-                res.unsupported > 0
-                    ? Icons.hourglass_empty
-                    : others.isNotEmpty
-                        ? Icons.currency_exchange
-                        : Icons.check_circle_outline,
-                size: 64,
-                color: res.unsupported > 0 ? cs.onSurfaceVariant : cs.primary),
+            Icon(others.isNotEmpty ? Icons.currency_exchange : Icons.check_circle_outline, size: 64, color: cs.primary),
             const SizedBox(height: 16),
-            // Never "All settled" next to the cards above or the sections below.
-            Text(
-                res.unsupported > 0
-                    ? 'Balances are incomplete'
-                    : others.isNotEmpty
-                        ? 'Nothing owed in $d'
-                        : 'All settled',
-                style: text.titleMedium),
-            Text(
-                res.unsupported > 0
-                    ? 'Nothing to settle among the expenses counted so far.'
-                    : others.isNotEmpty
-                        ? 'Expenses in other currencies are below.'
-                        : 'Nobody owes anything.',
+            // Never "All settled" next to the sections below.
+            Text(others.isNotEmpty ? 'Nothing owed in $d' : 'All settled', style: text.titleMedium),
+            Text(others.isNotEmpty ? 'Expenses in other currencies are below.' : 'Nobody owes anything.',
                 style: TextStyle(color: cs.onSurfaceVariant)),
           ]),
         ),
@@ -516,8 +499,7 @@ class _NotConverted extends StatelessWidget {
     final maxAbs = rows.fold(0, (acc, m) => (b[m.id] ?? 0).abs() > acc ? (b[m.id] ?? 0).abs() : acc);
     final n = res.unconverted[currency] ?? 0;
     final unrated = res.unrated[currency] ?? 0; // what Convert fills in
-    final rated = n - unrated; // has a rate that can't be used yet
-    final ready = fxReady;
+    final rated = n - unrated; // has a rate that can't be used (convertExpense refused it)
     String count(int k) => '$k expense${k == 1 ? '' : 's'}';
     return Padding(
       key: Key('not-converted-$currency'),
@@ -532,10 +514,7 @@ class _NotConverted extends StatelessWidget {
         Text(
           [
             if (unrated > 0) '${count(unrated)} without a rate to $d',
-            if (rated > 0)
-              ready
-                  ? "${count(rated)} with a rate that can't be converted"
-                  : '${count(rated)} with a rate, counted in $d once conversion is ready',
+            if (rated > 0) "${count(rated)} with a rate that can't be converted",
             if (n == 0) 'Payments in $currency',
             if (rows.isEmpty) 'everyone is even in $currency',
           ].join(' · '),
@@ -543,17 +522,7 @@ class _NotConverted extends StatelessWidget {
         ),
         for (final m in rows) _BalanceRow(name: _name(m), amount: b[m.id] ?? 0, maxAbs: maxAbs, currency: currency),
         const SizedBox(height: 8),
-        if (!ready && n > 0)
-          // Not a button: there is nothing to tap yet.
-          Row(children: [
-            Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text('Converting to $d: $notImplementedLabel',
-                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-            ),
-          ])
-        else if (ready && unrated > 0)
+        if (unrated > 0)
           OutlinedButton.icon(
             key: Key('convert-$currency'),
             onPressed: () => showConvertSheet(context, groupId: group.id, currencies: [currency]),

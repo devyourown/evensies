@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -17,7 +16,6 @@ class SplitTest {
     @TestFactory
     fun sharedSplitCases(): List<DynamicTest> = SharedJson.load("split-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
-            assumeTrue(case["pending"] == null, "pending: hyojun (shares/adjustment and the percent fix land with his Dart computeSplit)")
             val amount = case["amount"].asLong()
             val mode = SplitMode.valueOf(case["mode"].asString().uppercase())
             val members = case["members"].values().map { it.asString() }

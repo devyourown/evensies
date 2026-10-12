@@ -7,7 +7,6 @@ import 'package:evensies/core/env.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
-import 'package:evensies/domain/fx.dart';
 import 'package:evensies/features/auth/auth_service.dart';
 import 'package:evensies/features/settings/settings_screen.dart';
 import 'package:evensies/providers.dart';
@@ -95,9 +94,7 @@ void main() {
     String shown() => t.widget<CurrencyPicker>(find.descendant(
         of: find.byKey(const Key('home-currency')), matching: find.byType(CurrencyPicker))).value;
     expect(shown(), 'USD'); // en_US in tests
-    expect(
-        find.text('From your region · ${fxReady ? 'balances also show ≈ in it' : 'totals in it are coming soon'}'),
-        findsOneWidget);
+    expect(find.text('From your region · balances also show ≈ in it'), findsOneWidget);
 
     await t.tap(find.descendant(of: find.byKey(const Key('home-currency')), matching: find.byType(TextField)));
     await t.pumpAndSettle();
@@ -106,7 +103,7 @@ void main() {
     expect(api.meUpdates, [(displayName: null, homeCurrency: 'JPY')]);
     expect((await t.runAsync(db.getSession))!.homeCurrency, 'JPY');
     expect(shown(), 'JPY');
-    expect(find.text(fxReady ? 'Balances also show ≈ in it' : 'Totals in it are coming soon'), findsOneWidget);
+    expect(find.text('Balances also show ≈ in it'), findsOneWidget);
 
     api.meOffline = true;
     await t.tap(find.descendant(of: find.byKey(const Key('home-currency')), matching: find.byType(TextField)));

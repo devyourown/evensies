@@ -5,7 +5,6 @@ import dev.nariinfo.evensies.money.GroupLedger
 import dev.nariinfo.evensies.money.Overview
 import dev.nariinfo.evensies.sync.EventApplier
 import dev.nariinfo.evensies.sync.GroupState
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.TestFactory
@@ -43,7 +42,6 @@ class OverviewTest {
     @TestFactory
     fun sharedOverviewCases(): List<DynamicTest> = SharedJson.load("overview-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
-            assumeTrue(case["pending"] == null, "pending: hyojun")
             val me = case["me"].asString()
             val states = case["groups"].values().associate { it["id"].asString() to state(it) }
             val overview = Overview.compute(states.mapNotNull { (id, s) -> GroupLedger.of(id, s, me) }, me)

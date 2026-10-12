@@ -18,7 +18,10 @@ class EventApplierTest {
 
     /** `group` (optional in the fixture) holds only the keys the expected object names. */
     private fun actual(s: GroupState, groupKeys: Set<String>?) = SharedJson.canon(
-        mapOf("members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values, "comments" to s.comments.values) +
+        mapOf(
+            "members" to s.members.values, "expenses" to s.expenses.values, "payments" to s.payments.values, "comments" to s.comments.values,
+            "attachments" to s.attachments.values,
+        ) +
             (groupKeys?.let { keys ->
                 val group = mapOf(
                     "name" to s.name, "defaultCurrency" to s.defaultCurrency, "simplifyDebts" to s.simplifyDebts, "defaultSplit" to s.defaultSplit,
@@ -30,7 +33,8 @@ class EventApplierTest {
 
     /**
      * Missing expected values are defaults (fixture _doc): removed=false, notes=null, comments=[],
-     * payers=[{paidBy, amount}], refund=false, split=null, moved=false, comments[].paymentId=null.
+     * payers=[{paidBy, amount}], refund=false, split=null, moved=false, comments[].paymentId=null, attachments=[],
+     * payments[].replaced=false.
      */
     private fun expected(node: JsonNode): String {
         val copy = node.deepCopy() as ObjectNode
@@ -42,7 +46,9 @@ class EventApplierTest {
             if (!e.has("split")) e.putNull("split")
             if (!e.has("moved")) e.put("moved", false)
         }
+        for (p in copy["payments"]) if (!p.has("replaced")) (p as ObjectNode).put("replaced", false)
         if (!copy.has("comments")) copy.putArray("comments")
+        if (!copy.has("attachments")) copy.putArray("attachments")
         for (c in copy["comments"]) if (!c.has("paymentId")) (c as ObjectNode).putNull("paymentId")
         return SharedJson.canon(copy)
     }

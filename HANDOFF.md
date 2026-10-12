@@ -1,9 +1,9 @@
 # HANDOFF — 효준님이 돌아와서 읽을 파일 (2026-10-10)
 
 
-## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 6단계 몫 없음. 새 몫이 생기면 이 표에 추가)
+## 효준님 차례 — Splitwise parity (HEAD 기준, 3·4단계 몫 전부 완료, 5·6·7단계 몫 없음. 새 몫이 생기면 이 표에 추가)
 규칙은 각 함수 바로 위 doc comment에 다 적혀 있습니다. 테스트: `cd app && flutter test test/hyojun/ test/balances_test.dart test/overview_test.dart`
-5단계(분류·검색·인사이트·상세 화면)와 6단계(친구·전체 잔액·사진·알림·송금 기록)는 효준님 몫이 없습니다. 코드에 남은 `TODO(효준)` stub은 0개입니다(`grep -rn "TODO(효준)" app server`에 남는 것은 `core_guard.dart`의 안전장치 설명과 `test/hyojun/*`의 `"pending"` 설명뿐).
+5단계(분류·검색·인사이트·상세 화면), 6단계(친구·전체 잔액·사진·알림·송금 기록), 7단계(영수증·스캔·항목별 분할·친구 화면의 그룹 거래·송금 복원)는 효준님 몫이 없습니다. 항목별 분할 `computeItemizedSplit`(`app/lib/domain/itemized.dart`)은 Claude 몫이고 줄마다 `computeSplit`의 equal 모드(1단계부터 있던 부분)만 쓰고 효준님이 3·4단계에 쓴 부분은 부르지 않습니다. `grep -rn "TODO(효준)" app server` 결과는 0줄입니다. 7단계에서 stub 시절의 안전장치(`core_guard.dart`의 `tryCore`, `fxReady`, `notImplementedLabel`, fixture의 `"pending": "hyojun"` 건너뛰기)도 전부 지웠습니다.
 
 | # | 파일:줄 | 함수 | 쓸 것 | 통과시킬 것 |
 |---|---|---|---|---|
@@ -11,13 +11,13 @@
 | 2 | `app/lib/domain/split.dart:28` | `computeSplit` (shares) | ✅ 완료 (커밋됨) | 통과 (`shared/split-cases.json` 25케이스, Kotlin `money/Split.kt`) |
 | 3 | `app/lib/domain/split.dart:28` | `computeSplit` (adjustment) | ✅ 완료 (커밋됨) | 통과 |
 | 4 | `app/lib/domain/settlement.dart:46` | `computeBalances` (여러 명이 낸 지출·환불) | ✅ 완료 (커밋됨) | 통과 (`shared/settlement-cases.json` 13케이스, `shared/totals-cases.json` 4케이스, Kotlin `money/Settlement.kt`). 6단계 `Balances.ofGroup`(서버 알림)·`computeOverview`(친구 탭·전체 카드)도 이 함수로 돌아갑니다 |
-| 5 | `app/test/hyojun/settlement_test.dart:35` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
-| 6 | `app/lib/domain/fx.dart:27` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
-| 7 | `app/lib/domain/fx.dart:46` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
+| 5 | `app/test/hyojun/settlement_test.dart:34` | 테스트 (`balances: …` fixture 루프) | ✅ 완료 | 통과 |
+| 6 | `app/lib/domain/fx.dart:25` | `convertAmount` (Phase 4) | ✅ 완료 (커밋됨, Kotlin `money/Fx.kt` 이식) | `shared/fx-cases.json` 1–10 통과 |
+| 7 | `app/lib/domain/fx.dart:44` | `convertExpense` (Phase 4) | ✅ 완료 (커밋됨, Kotlin 이식) | `shared/fx-cases.json` 11–20 통과. 6단계 `shared/overview-cases.json`의 환산 케이스(EUR로 합쳐지는 USD 지출)도 이 함수로 통과 |
 | 8 | `split.dart`, `settlement.dart`, `fx.dart` | 정리 | ✅ 효준님 요청으로 이름·중복 정리(동작 동일, 테스트로 확인), 끝난 TODO 문구 삭제 | 전부 통과 |
-| 9 | — | 6단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin 통과 |
+| 9 | — | 6·7단계 | 없음 (집계 `app/lib/domain/overview.dart`·`server/.../money/Overview.kt`·`Balances.kt`, 항목별 분할 `app/lib/domain/itemized.dart`는 Claude가 효준님 함수를 입력으로 씀) | `shared/overview-cases.json` 7케이스 Dart·Kotlin, `app/test/fixtures/itemized-cases.json` 14케이스(Dart만) 통과 |
 
-`"pending": "hyojun"`인 fixture 케이스는 이제 하나도 없고 서버 테스트도 skip 0개입니다. 6단계 마지막 확인에서 남은 stale 주석(`settings_screen.dart`·`balances.dart`·`insights.dart`의 "TODO(효준) stub")을 지웠습니다.
+`"pending": "hyojun"`인 fixture 케이스는 하나도 없고(그 건너뛰기 코드와 `_doc` 설명도 7단계에서 삭제), 서버 테스트도 skip 0개입니다.
 
 ## 지금 상태 (전부 확인됨)
 - **서버**(Spring Boot 4.1.1 + Kotlin): 인증(dev/Apple/Google/refresh), 그룹·초대, 이벤트 push/pull/snapshot, Kotlin 적용기, 내보내기·Splitwise 가져오기, FCM(자격 증명 없으면 no-op). `./gradlew test` **28개 통과**.
@@ -56,7 +56,7 @@ dev 프로필은 `/auth/dev`(이름만으로 로그인)를 켭니다. 운영에�
 2. **Apple**: App ID `dev.nariinfo.evensies`에 Sign in with Apple 활성화, Xcode에서 capability 추가. 서버 `EVENSIES_APPLE_CLIENT_ID`.
 3. **Google**: Firebase 프로젝트 → iOS/Android 앱 등록 → `GoogleService-Info.plist`·`google-services.json` 넣기(둘 다 .gitignore 대상으로 두세요). OAuth 클라이언트 ID → 서버 `EVENSIES_GOOGLE_CLIENT_IDS`. FCM 서비스 계정 JSON → `deploy/secrets/fcm.json`.
 4. **도메인·호스팅**: Hetzner CX22 생성 → `deploy/.env` 채우기 → `docker compose up -d`. 딥링크용 `apple-app-site-association`·`assetlinks.json`은 출시 직전에(앱 `README.md` 참고).
-5. **제품명·스토어**: 이름 결정 → 번들 ID 유지 가능. 개인정보 처리방침 `docs/privacy.md`를 웹에 올리고 스토어에 링크.
+5. **제품명·스토어**: 이름 결정 → 번들 ID 유지 가능. 개인정보 처리방침 `docs/privacy.md`를 웹에 올리고 스토어에 링크. App Store 개인정보 라벨·Play 데이터 보안 양식은 `docs/privacy.md` 기준으로 채우기(7단계: 영수증 사진은 그룹 멤버만, Android ML Kit은 익명 SDK 진단 정보만 Google로).
 
 ## 알려진 단순화 (출시 1에서 의도한 것)
 - 송금(Payment)은 그룹 기본 통화로만 기록. 외화 지출은 환율 없으면 잔액에서 제외되고 경고 행으로 표시.

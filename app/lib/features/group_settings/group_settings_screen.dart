@@ -130,11 +130,11 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
     );
   }
 
-  /// Leaving needs a zero balance in every currency and every expense counted (leaveGroup checks again after its
-  /// sync).
-  (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult?> res) {
-    if (!res.hasValue) return (false, null);
-    final why = leaveBlocker(res.value, group.myMemberId);
+  /// Leaving needs a zero balance in every currency (leaveGroup checks again after its sync).
+  (bool, String?) _leaveState(GroupRow group, AsyncValue<BalanceResult> res) {
+    final value = res.value;
+    if (value == null) return (false, null);
+    final why = leaveBlocker(value, group.myMemberId);
     return (why == null, why ?? 'Your balance is settled');
   }
 

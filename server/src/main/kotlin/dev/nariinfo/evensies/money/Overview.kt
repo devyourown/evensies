@@ -8,14 +8,10 @@ import dev.nariinfo.evensies.sync.GroupState
  */
 data class GroupLedger(val groupId: String, val personOf: Map<String, String>, val transfers: Map<String, List<Transfer>>) {
     companion object {
-        /** null when no member is [myUserId]'s, or the balances can't be computed (a Hyojun port that is a TODO() stub). */
+        /** null when no member is [myUserId]'s. */
         fun of(groupId: String, state: GroupState, myUserId: String): GroupLedger? {
             if (state.members.values.none { it.userId == myUserId }) return null
-            val transfers = try {
-                Balances.transfers(Balances.ofGroup(state), state.simplifyDebts)
-            } catch (_: NotImplementedError) {
-                return null
-            }
+            val transfers = Balances.transfers(Balances.ofGroup(state), state.simplifyDebts)
             val personOf = state.members.values.associate { m ->
                 m.id to (m.userId ?: if (state.kind == "friend") "g:$groupId" else "m:${m.id}")
             }

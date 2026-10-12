@@ -29,10 +29,14 @@ class Http(port: Int, private val mapper: ObjectMapper) {
         return exchange(spec)
     }
 
-    fun upload(path: String, field: String, filename: String, bytes: ByteArray, token: String, method: HttpMethod = HttpMethod.POST): Resp {
+    fun upload(path: String, field: String, filename: String, bytes: ByteArray, token: String, method: HttpMethod = HttpMethod.POST): Resp =
+        multipart(path, mapOf(field to bytes), token, method, filename)
+
+    /** One file part per entry of [parts] (receipts: `image` + `thumb`). */
+    fun multipart(path: String, parts: Map<String, ByteArray>, token: String?, method: HttpMethod = HttpMethod.POST, filename: String = "photo.jpg"): Resp {
         val form = LinkedMultiValueMap<String, Any>()
-        form.add(field, object : ByteArrayResource(bytes) { override fun getFilename() = filename })
-        val spec = client.method(method).uri(path).headers { it.setBearerAuth(token) }.contentType(MediaType.MULTIPART_FORM_DATA).body(form)
+        for ((field, bytes) in parts) form.add(field, object : ByteArrayResource(bytes) { override fun getFilename() = filename })
+        val spec = client.method(method).uri(path).headers { h -> token?.let { h.setBearerAuth(it) } }.contentType(MediaType.MULTIPART_FORM_DATA).body(form)
         return exchange(spec)
     }
 

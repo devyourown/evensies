@@ -3,7 +3,7 @@ import 'event_types.dart';
 
 /// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
 ///
-/// docs/API.md 적용 규칙 1~13 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
+/// docs/API.md 적용 규칙 1~14 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
 /// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
 /// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
 /// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
@@ -14,6 +14,8 @@ import 'event_types.dart';
 /// 5. `member.removed`는 removed=true만 표시한다(목록에서 빼지 않는다).
 /// 6. `payment.confirmed`는 status를 confirmed로 바꾼다. 없거나 삭제된 송금이면 무시.
 /// 7. `expense.restored`는 deleted=false로 되돌린다(살아 있는 지출이면 그대로). 삭제·복원은 seq 순서상 나중 것이 이긴다.
+///    Phase 7: `payment.restored` does the same for a payment (status kept). `payment.deleted` with a string
+///    `replacedBy` (an edit) also sets replaced (never cleared), and a replaced payment ignores `payment.restored`.
 /// 8. `comment.added`는 commentId가 처음일 때만 뒤에 추가한다(삭제된 댓글 포함, 있으면 무시).
 ///    `comment.deleted`는 deleted=true로 표시하고 text를 ''로 비운다. 지출 존재 여부는 보지 않는다(서버 검증).
 ///    Phase 6: expenseId and paymentId are stored as sent (a payment comment has expenseId null).
@@ -32,6 +34,9 @@ import 'event_types.dart';
 /// 13. group.created sets kind ("group" when missing or not a string); nothing changes it afterwards (a `kind` in
 ///    group.updated is ignored). expense.deleted with a movedTo object also sets moved (never cleared), and
 ///    expense.restored on a moved expense is ignored: it counts in the other group now.
+/// 14. Receipts: attachment.added appends {id, expenseId, deleted: false} unless the id is already there (a re-add
+///    after a delete stays deleted) or the expense is unknown (a deleted expense still gets it). attachment.deleted
+///    sets deleted on a known id and never reads its expenseId. Deleting or moving an expense keeps its receipts.
 ///
 /// 이벤트별 payload(docs/API.md):
 ///   group.created {name, defaultCurrency, kind?} → state.name/defaultCurrency/kind
@@ -44,10 +49,13 @@ import 'event_types.dart';
 ///     → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
 ///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId, movedTo?}   expense.restored {expenseId}
 ///   comment.added {commentId, expenseId?, paymentId?, authorMemberId, text, createdAt}   comment.deleted {commentId}
-///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}   payment.deleted {paymentId}
-///   payment.confirmed {paymentId}
+///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}
+///   payment.deleted {paymentId, replacedBy?}   payment.confirmed {paymentId}   payment.restored {paymentId}
+///   attachment.added {attachmentId, expenseId}   attachment.deleted {attachmentId, expenseId?}
 ///   모르는 type → state 그대로.
-/// Created entities always start live: a `deleted` key in the payload is ignored (like Kotlin; the server does not validate it).
+/// Created entities always start live: a `deleted` key in the payload is ignored (like Kotlin; the server does not
+/// validate it), and so are `moved` on an expense and `replaced` on a payment (only expense.deleted / payment.deleted
+/// set those).
 GroupState applyEvent(GroupState s, SyncEvent e) {
   final p = e.payload;
   switch (e.type) {
@@ -130,10 +138,26 @@ GroupState applyEvent(GroupState s, SyncEvent e) {
     case EventTypes.paymentCreated:
       final id = p['paymentId'] as String;
       if (s.payment(id) != null) return s;
-      return s.copyWith(payments: [...s.payments, Payment.fromJson({...p, 'id': id, 'deleted': false})]);
+      return s.copyWith(
+          payments: [...s.payments, Payment.fromJson({...p, 'id': id, 'deleted': false, 'replaced': false})]);
     case EventTypes.paymentDeleted:
       final id = p['paymentId'] as String;
-      return s.copyWith(payments: [for (final x in s.payments) x.id == id ? x.copyWith(deleted: true) : x]);
+      return s.copyWith(payments: [
+        for (final x in s.payments)
+          x.id == id ? x.copyWith(deleted: true, replaced: x.replaced || p['replacedBy'] is String) : x,
+      ]);
+    case EventTypes.paymentRestored:
+      final id = p['paymentId'] as String;
+      return s.copyWith(payments: [for (final x in s.payments) x.id == id && !x.replaced ? x.copyWith(deleted: false) : x]);
+    case EventTypes.attachmentAdded:
+      final id = p['attachmentId'] as String, expenseId = p['expenseId'] as String;
+      if (s.attachment(id) != null || s.expense(expenseId) == null) return s;
+      return s.copyWith(attachments: [...s.attachments, Attachment(id: id, expenseId: expenseId)]);
+    case EventTypes.attachmentDeleted:
+      final id = p['attachmentId'] as String;
+      return s.copyWith(attachments: [
+        for (final a in s.attachments) a.id == id ? Attachment(id: a.id, expenseId: a.expenseId, deleted: true) : a,
+      ]);
     case EventTypes.paymentConfirmed:
       final id = p['paymentId'] as String;
       return s.copyWith(payments: [

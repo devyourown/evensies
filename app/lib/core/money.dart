@@ -37,14 +37,16 @@ abstract final class Money {
   }
 }
 
-/// `€30.00`, `₩15,000`; a code without a shared symbol (Phase 4's new codes) shows the code: `ZAR1,234.56`.
+/// `€30.00`, `₩15,000`; a code without a shared symbol (Phase 4's new codes) shows the code: `ZAR1,234.56`. A negative
+/// amount (a refund in Insights) starts with a minus sign `−€48.00`, as the rest of the app writes one, not a hyphen.
 String formatMoney(int minor, String currency) {
   final d = Money.digits(currency);
   final noSymbol = Money.symbols != null && !Money.symbols!.containsKey(currency);
   final f = noSymbol
       ? NumberFormat.currency(name: currency, symbol: currency, decimalDigits: d)
       : NumberFormat.simpleCurrency(name: currency, decimalDigits: d);
-  return f.format(minor / _pow10(d));
+  final s = f.format(minor.abs() / _pow10(d));
+  return minor < 0 ? '−$s' : s;
 }
 
 /// "12.34" EUR → 1234, "1,234" KRW → 1234. Comma is a grouping separator. Null if invalid.

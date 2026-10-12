@@ -7,8 +7,13 @@ import dev.nariinfo.evensies.common.RateLimiter
 import dev.nariinfo.evensies.group.GroupRepository
 import dev.nariinfo.evensies.group.MemberRepository
 import dev.nariinfo.evensies.push.PushNotifier
+import dev.nariinfo.evensies.storage.AttachmentController
+import dev.nariinfo.evensies.storage.FileStore
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.util.UUID
 
@@ -21,8 +26,10 @@ class EventService(
     private val validator: EventValidator,
     private val rateLimiter: RateLimiter,
     private val notifier: PushNotifier,
+    private val files: FileStore,
     txManager: PlatformTransactionManager,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     private val tx = TransactionTemplate(txManager)
 
     /** POST /groups/{id}/events: membership, rate limit, then the validated push. */
@@ -36,13 +43,38 @@ class EventService(
         return pushValidated(groupId, userId, incoming)
     }
 
-    /** [push], then notifies other members about the newly stored events (a retry that stored nothing notifies nobody). */
+    /**
+     * [push], then notifies other members about the newly stored events (a retry that stored nothing notifies nobody)
+     * and, once committed, deletes the files of the receipts this push removed (Phase 7: an `attachment.deleted` that
+     * changed the state; the row stays with `deleted_at`).
+     */
     fun pushValidated(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>): PushResult {
         val group = groups.find(groupId) ?: throw ApiException.notFound("Group")
         if (incoming.isEmpty()) return PushResult(emptyList(), group.latestSeq)
         val (result, stored) = push(groupId, userId, incoming)
         if (stored.isNotEmpty()) notifier.notify(groupId, userId, stored)
+        val removed = stored.filter { it.type == "attachment.deleted" && it.meta?.noop == false }.mapNotNull { it.payload.text("attachmentId") }
+        if (removed.isNotEmpty()) afterCommit { removed.forEach { deleteReceiptFiles(groupId, UUID.fromString(it)) } }
         return result
+    }
+
+    /** Now, or after the caller's transaction commits when the push joined one. */
+    private fun afterCommit(block: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return block()
+        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+            override fun afterCommit() = block()
+        })
+    }
+
+    /** A failure leaves the file for the Phase 8 sweep: the push is already committed. */
+    private fun deleteReceiptFiles(groupId: UUID, attachmentId: UUID) {
+        for (key in AttachmentController.keys(groupId, attachmentId).toList()) {
+            try {
+                files.delete(key)
+            } catch (e: Exception) {
+                log.warn("Couldn't delete {}: {}", key, e.toString())
+            }
+        }
     }
 
     /**
@@ -63,7 +95,9 @@ class EventService(
     private fun push(groupId: UUID, userId: UUID, incoming: List<IncomingEvent>, trusted: Boolean = false): Pair<PushResult, List<Event>> = tx.execute {
         val group = groups.lockForUpdate(groupId) ?: throw ApiException.notFound("Group")
         var state = stateStore.load(groupId)
-        val normalized = if (trusted) incoming else validator.validateAll(state, userId, incoming, stateStore::paymentCreator)
+        val normalized = if (trusted) incoming else validator.validateAll(
+            state, userId, incoming, stateStore::paymentCreator, uploaded = { stateStore.uploadGroup(UUID.fromString(it)) == groupId },
+        )
         val existing = events.findByGroupIdAndClientIdIn(groupId, normalized.map { it.clientId })
         val known = existing.associateTo(mutableMapOf()) { it.clientId to it.seq }
         var seq = group.latestSeq

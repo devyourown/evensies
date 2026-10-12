@@ -6,9 +6,11 @@ import 'package:drift/native.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/local_writes.dart';
+import 'package:evensies/data/receipts.dart';
 import 'package:evensies/data/sync/group_state_store.dart';
 import 'package:evensies/domain/activity.dart';
 import 'package:evensies/domain/categories.dart';
+import 'package:evensies/domain/itemized.dart';
 import 'package:evensies/domain/models.dart';
 import 'package:evensies/features/expense_detail/expense_detail_screen.dart';
 import 'package:evensies/providers.dart';
@@ -79,6 +81,7 @@ void main() {
           dbProvider.overrideWithValue(db),
           apiProvider.overrideWithValue(api),
           syncProvider.overrideWithValue(sync ?? NoSync(db)),
+          receiptFileProvider.overrideWith((ref, k) async => null), // not on this device, offline
         ],
         child: MaterialApp.router(
           // Nested: the group page is under the expense, so popping lands there.
@@ -290,6 +293,61 @@ void main() {
     expect(t.getRect(find.byTooltip('Send')).bottom, lessThanOrEqualTo(844 - keyboard));
     await unmount(t);
   });
+
+  testWidgets('receipts: thumbnails (offline: available when online), full screen, removed for everyone; the items',
+      (t) async {
+    final tmp = Directory.systemTemp.createTempSync('detail');
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    final files = ReceiptFiles(api, supportDir: () async => '${tmp.path}/s', cacheDir: () async => '${tmp.path}/c');
+    await t.runAsync(() async {
+      final store = GroupStateStore(db);
+      final st = await store.load('g1');
+      await store.save(
+          'g1',
+          st.copyWith(
+            expenses: [
+              for (final e in st.expenses)
+                e.id == 'x1'
+                    ? e.copyWith(
+                        split: const SplitSpec.itemized(ItemizedBill(lines: [
+                        ItemLine(name: 'Room', amount: 27000, memberIds: ['m1', 'm2', 'm3']),
+                      ], tax: 3000)))
+                    : e,
+            ],
+            attachments: const [
+              Attachment(id: 'a1', expenseId: 'x1'),
+              Attachment(id: 'a0', expenseId: 'x1', deleted: true),
+            ],
+          ),
+          0);
+    });
+    t.view.physicalSize = const Size(800, 2400);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(app(sync: NoSync(db, api, files)));
+    await settle(t);
+    expect(find.text('Items'), findsOneWidget);
+    expect(find.text('Room'), findsOneWidget);
+    expect(find.text('You, Ben, Cara'), findsOneWidget);
+    expect(find.text('Tax'), findsOneWidget);
+    expect(find.byKey(const Key('receipt-a1')), findsOneWidget);
+    expect(find.byKey(const Key('receipt-a0')), findsNothing); // removed
+    expect(find.text('Available when online'), findsOneWidget);
+    expect(find.byKey(const Key('receipt-add')), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('receipt-a1')));
+    await settle(t);
+    expect(find.text('Receipt'), findsOneWidget);
+    await t.tap(find.byKey(const Key('receipt-remove')));
+    await settle(t);
+    await t.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await settle(t);
+    expect(find.byKey(const Key('receipt-a1')), findsNothing);
+    final o = (await t.runAsync(() => db.select(db.outbox).get()))!.single;
+    expect(o.type, 'attachment.deleted');
+    expect(jsonDecode(o.payloadJson), {'attachmentId': 'a1', 'expenseId': 'x1'});
+    await unmount(t);
+  });
 }
 
 class _SyncSpy extends NoSync {
@@ -297,4 +355,5 @@ class _SyncSpy extends NoSync {
   final synced = <String>[];
   @override
   Future<void> sync(String groupId) async => synced.add(groupId);
+
 }

@@ -2386,6 +2386,21 @@ class $PaymentsTable extends Payments
     requiredDuringInsert: false,
     defaultValue: const Constant('confirmed'),
   );
+  static const VerificationMeta _replacedMeta = const VerificationMeta(
+    'replaced',
+  );
+  @override
+  late final GeneratedColumn<bool> replaced = GeneratedColumn<bool>(
+    'replaced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("replaced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2397,6 +2412,7 @@ class $PaymentsTable extends Payments
     date,
     deleted,
     status,
+    replaced,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2475,6 +2491,12 @@ class $PaymentsTable extends Payments
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
       );
     }
+    if (data.containsKey('replaced')) {
+      context.handle(
+        _replacedMeta,
+        replaced.isAcceptableOrUnknown(data['replaced']!, _replacedMeta),
+      );
+    }
     return context;
   }
 
@@ -2520,6 +2542,10 @@ class $PaymentsTable extends Payments
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      replaced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}replaced'],
+      )!,
     );
   }
 
@@ -2539,6 +2565,9 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
   final String date;
   final bool deleted;
   final String status;
+
+  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md 적용 규칙 7).
+  final bool replaced;
   const PaymentRow({
     required this.id,
     required this.groupId,
@@ -2549,6 +2578,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     required this.date,
     required this.deleted,
     required this.status,
+    required this.replaced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2562,6 +2592,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     map['date'] = Variable<String>(date);
     map['deleted'] = Variable<bool>(deleted);
     map['status'] = Variable<String>(status);
+    map['replaced'] = Variable<bool>(replaced);
     return map;
   }
 
@@ -2576,6 +2607,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       date: Value(date),
       deleted: Value(deleted),
       status: Value(status),
+      replaced: Value(replaced),
     );
   }
 
@@ -2594,6 +2626,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       date: serializer.fromJson<String>(json['date']),
       deleted: serializer.fromJson<bool>(json['deleted']),
       status: serializer.fromJson<String>(json['status']),
+      replaced: serializer.fromJson<bool>(json['replaced']),
     );
   }
   @override
@@ -2609,6 +2642,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       'date': serializer.toJson<String>(date),
       'deleted': serializer.toJson<bool>(deleted),
       'status': serializer.toJson<String>(status),
+      'replaced': serializer.toJson<bool>(replaced),
     };
   }
 
@@ -2622,6 +2656,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     String? date,
     bool? deleted,
     String? status,
+    bool? replaced,
   }) => PaymentRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -2632,6 +2667,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     date: date ?? this.date,
     deleted: deleted ?? this.deleted,
     status: status ?? this.status,
+    replaced: replaced ?? this.replaced,
   );
   PaymentRow copyWithCompanion(PaymentsCompanion data) {
     return PaymentRow(
@@ -2646,6 +2682,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
       date: data.date.present ? data.date.value : this.date,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
       status: data.status.present ? data.status.value : this.status,
+      replaced: data.replaced.present ? data.replaced.value : this.replaced,
     );
   }
 
@@ -2660,7 +2697,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           ..write('currency: $currency, ')
           ..write('date: $date, ')
           ..write('deleted: $deleted, ')
-          ..write('status: $status')
+          ..write('status: $status, ')
+          ..write('replaced: $replaced')
           ..write(')'))
         .toString();
   }
@@ -2676,6 +2714,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
     date,
     deleted,
     status,
+    replaced,
   );
   @override
   bool operator ==(Object other) =>
@@ -2689,7 +2728,8 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
           other.currency == this.currency &&
           other.date == this.date &&
           other.deleted == this.deleted &&
-          other.status == this.status);
+          other.status == this.status &&
+          other.replaced == this.replaced);
 }
 
 class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
@@ -2702,6 +2742,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
   final Value<String> date;
   final Value<bool> deleted;
   final Value<String> status;
+  final Value<bool> replaced;
   final Value<int> rowid;
   const PaymentsCompanion({
     this.id = const Value.absent(),
@@ -2713,6 +2754,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     this.date = const Value.absent(),
     this.deleted = const Value.absent(),
     this.status = const Value.absent(),
+    this.replaced = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PaymentsCompanion.insert({
@@ -2725,6 +2767,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     required String date,
     this.deleted = const Value.absent(),
     this.status = const Value.absent(),
+    this.replaced = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -2743,6 +2786,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Expression<String>? date,
     Expression<bool>? deleted,
     Expression<String>? status,
+    Expression<bool>? replaced,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2755,6 +2799,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       if (date != null) 'date': date,
       if (deleted != null) 'deleted': deleted,
       if (status != null) 'status': status,
+      if (replaced != null) 'replaced': replaced,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2769,6 +2814,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     Value<String>? date,
     Value<bool>? deleted,
     Value<String>? status,
+    Value<bool>? replaced,
     Value<int>? rowid,
   }) {
     return PaymentsCompanion(
@@ -2781,6 +2827,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
       date: date ?? this.date,
       deleted: deleted ?? this.deleted,
       status: status ?? this.status,
+      replaced: replaced ?? this.replaced,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2815,6 +2862,9 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (replaced.present) {
+      map['replaced'] = Variable<bool>(replaced.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2833,6 +2883,7 @@ class PaymentsCompanion extends UpdateCompanion<PaymentRow> {
           ..write('date: $date, ')
           ..write('deleted: $deleted, ')
           ..write('status: $status, ')
+          ..write('replaced: $replaced, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3353,6 +3404,592 @@ class CommentsCompanion extends UpdateCompanion<CommentRow> {
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
           ..write('deleted: $deleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AttachmentsTable extends Attachments
+    with TableInfo<$AttachmentsTable, AttachmentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AttachmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expenseIdMeta = const VerificationMeta(
+    'expenseId',
+  );
+  @override
+  late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
+    'expense_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedMeta = const VerificationMeta(
+    'deleted',
+  );
+  @override
+  late final GeneratedColumn<bool> deleted = GeneratedColumn<bool>(
+    'deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, groupId, expenseId, deleted];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'attachments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AttachmentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('expense_id')) {
+      context.handle(
+        _expenseIdMeta,
+        expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expenseIdMeta);
+    }
+    if (data.containsKey('deleted')) {
+      context.handle(
+        _deletedMeta,
+        deleted.isAcceptableOrUnknown(data['deleted']!, _deletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AttachmentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AttachmentRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      expenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_id'],
+      )!,
+      deleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $AttachmentsTable createAlias(String alias) {
+    return $AttachmentsTable(attachedDatabase, alias);
+  }
+}
+
+class AttachmentRow extends DataClass implements Insertable<AttachmentRow> {
+  final String id;
+  final String groupId;
+  final String expenseId;
+  final bool deleted;
+  const AttachmentRow({
+    required this.id,
+    required this.groupId,
+    required this.expenseId,
+    required this.deleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['group_id'] = Variable<String>(groupId);
+    map['expense_id'] = Variable<String>(expenseId);
+    map['deleted'] = Variable<bool>(deleted);
+    return map;
+  }
+
+  AttachmentsCompanion toCompanion(bool nullToAbsent) {
+    return AttachmentsCompanion(
+      id: Value(id),
+      groupId: Value(groupId),
+      expenseId: Value(expenseId),
+      deleted: Value(deleted),
+    );
+  }
+
+  factory AttachmentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AttachmentRow(
+      id: serializer.fromJson<String>(json['id']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      expenseId: serializer.fromJson<String>(json['expenseId']),
+      deleted: serializer.fromJson<bool>(json['deleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'groupId': serializer.toJson<String>(groupId),
+      'expenseId': serializer.toJson<String>(expenseId),
+      'deleted': serializer.toJson<bool>(deleted),
+    };
+  }
+
+  AttachmentRow copyWith({
+    String? id,
+    String? groupId,
+    String? expenseId,
+    bool? deleted,
+  }) => AttachmentRow(
+    id: id ?? this.id,
+    groupId: groupId ?? this.groupId,
+    expenseId: expenseId ?? this.expenseId,
+    deleted: deleted ?? this.deleted,
+  );
+  AttachmentRow copyWithCompanion(AttachmentsCompanion data) {
+    return AttachmentRow(
+      id: data.id.present ? data.id.value : this.id,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+      deleted: data.deleted.present ? data.deleted.value : this.deleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AttachmentRow(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('deleted: $deleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, groupId, expenseId, deleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AttachmentRow &&
+          other.id == this.id &&
+          other.groupId == this.groupId &&
+          other.expenseId == this.expenseId &&
+          other.deleted == this.deleted);
+}
+
+class AttachmentsCompanion extends UpdateCompanion<AttachmentRow> {
+  final Value<String> id;
+  final Value<String> groupId;
+  final Value<String> expenseId;
+  final Value<bool> deleted;
+  final Value<int> rowid;
+  const AttachmentsCompanion({
+    this.id = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.expenseId = const Value.absent(),
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AttachmentsCompanion.insert({
+    required String id,
+    required String groupId,
+    required String expenseId,
+    this.deleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       groupId = Value(groupId),
+       expenseId = Value(expenseId);
+  static Insertable<AttachmentRow> custom({
+    Expression<String>? id,
+    Expression<String>? groupId,
+    Expression<String>? expenseId,
+    Expression<bool>? deleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (groupId != null) 'group_id': groupId,
+      if (expenseId != null) 'expense_id': expenseId,
+      if (deleted != null) 'deleted': deleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AttachmentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? groupId,
+    Value<String>? expenseId,
+    Value<bool>? deleted,
+    Value<int>? rowid,
+  }) {
+    return AttachmentsCompanion(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      expenseId: expenseId ?? this.expenseId,
+      deleted: deleted ?? this.deleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (expenseId.present) {
+      map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (deleted.present) {
+      map['deleted'] = Variable<bool>(deleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AttachmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('expenseId: $expenseId, ')
+          ..write('deleted: $deleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PendingUploadsTable extends PendingUploads
+    with TableInfo<$PendingUploadsTable, PendingUploadRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingUploadsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _attachmentIdMeta = const VerificationMeta(
+    'attachmentId',
+  );
+  @override
+  late final GeneratedColumn<String> attachmentId = GeneratedColumn<String>(
+    'attachment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [attachmentId, groupId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_uploads';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingUploadRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('attachment_id')) {
+      context.handle(
+        _attachmentIdMeta,
+        attachmentId.isAcceptableOrUnknown(
+          data['attachment_id']!,
+          _attachmentIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_attachmentIdMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {attachmentId};
+  @override
+  PendingUploadRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingUploadRow(
+      attachmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}attachment_id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingUploadsTable createAlias(String alias) {
+    return $PendingUploadsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingUploadRow extends DataClass
+    implements Insertable<PendingUploadRow> {
+  final String attachmentId;
+  final String groupId;
+  final String createdAt;
+  const PendingUploadRow({
+    required this.attachmentId,
+    required this.groupId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['attachment_id'] = Variable<String>(attachmentId);
+    map['group_id'] = Variable<String>(groupId);
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  PendingUploadsCompanion toCompanion(bool nullToAbsent) {
+    return PendingUploadsCompanion(
+      attachmentId: Value(attachmentId),
+      groupId: Value(groupId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingUploadRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingUploadRow(
+      attachmentId: serializer.fromJson<String>(json['attachmentId']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'attachmentId': serializer.toJson<String>(attachmentId),
+      'groupId': serializer.toJson<String>(groupId),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  PendingUploadRow copyWith({
+    String? attachmentId,
+    String? groupId,
+    String? createdAt,
+  }) => PendingUploadRow(
+    attachmentId: attachmentId ?? this.attachmentId,
+    groupId: groupId ?? this.groupId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingUploadRow copyWithCompanion(PendingUploadsCompanion data) {
+    return PendingUploadRow(
+      attachmentId: data.attachmentId.present
+          ? data.attachmentId.value
+          : this.attachmentId,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingUploadRow(')
+          ..write('attachmentId: $attachmentId, ')
+          ..write('groupId: $groupId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(attachmentId, groupId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingUploadRow &&
+          other.attachmentId == this.attachmentId &&
+          other.groupId == this.groupId &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingUploadsCompanion extends UpdateCompanion<PendingUploadRow> {
+  final Value<String> attachmentId;
+  final Value<String> groupId;
+  final Value<String> createdAt;
+  final Value<int> rowid;
+  const PendingUploadsCompanion({
+    this.attachmentId = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingUploadsCompanion.insert({
+    required String attachmentId,
+    required String groupId,
+    required String createdAt,
+    this.rowid = const Value.absent(),
+  }) : attachmentId = Value(attachmentId),
+       groupId = Value(groupId),
+       createdAt = Value(createdAt);
+  static Insertable<PendingUploadRow> custom({
+    Expression<String>? attachmentId,
+    Expression<String>? groupId,
+    Expression<String>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (attachmentId != null) 'attachment_id': attachmentId,
+      if (groupId != null) 'group_id': groupId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingUploadsCompanion copyWith({
+    Value<String>? attachmentId,
+    Value<String>? groupId,
+    Value<String>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PendingUploadsCompanion(
+      attachmentId: attachmentId ?? this.attachmentId,
+      groupId: groupId ?? this.groupId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (attachmentId.present) {
+      map['attachment_id'] = Variable<String>(attachmentId.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingUploadsCompanion(')
+          ..write('attachmentId: $attachmentId, ')
+          ..write('groupId: $groupId, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5096,6 +5733,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExpensePayersTable expensePayers = $ExpensePayersTable(this);
   late final $PaymentsTable payments = $PaymentsTable(this);
   late final $CommentsTable comments = $CommentsTable(this);
+  late final $AttachmentsTable attachments = $AttachmentsTable(this);
+  late final $PendingUploadsTable pendingUploads = $PendingUploadsTable(this);
   late final $ActivityTable activity = $ActivityTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -5113,6 +5752,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     expensePayers,
     payments,
     comments,
+    attachments,
+    pendingUploads,
     activity,
     outbox,
     syncState,
@@ -6302,6 +6943,7 @@ typedef $$PaymentsTableCreateCompanionBuilder =
       required String date,
       Value<bool> deleted,
       Value<String> status,
+      Value<bool> replaced,
       Value<int> rowid,
     });
 typedef $$PaymentsTableUpdateCompanionBuilder =
@@ -6315,6 +6957,7 @@ typedef $$PaymentsTableUpdateCompanionBuilder =
       Value<String> date,
       Value<bool> deleted,
       Value<String> status,
+      Value<bool> replaced,
       Value<int> rowid,
     });
 
@@ -6369,6 +7012,11 @@ class $$PaymentsTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get replaced => $composableBuilder(
+    column: $table.replaced,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6426,6 +7074,11 @@ class $$PaymentsTableOrderingComposer
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get replaced => $composableBuilder(
+    column: $table.replaced,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PaymentsTableAnnotationComposer
@@ -6465,6 +7118,9 @@ class $$PaymentsTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<bool> get replaced =>
+      $composableBuilder(column: $table.replaced, builder: (column) => column);
 }
 
 class $$PaymentsTableTableManager
@@ -6507,6 +7163,7 @@ class $$PaymentsTableTableManager
                 Value<String> date = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<bool> replaced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion(
                 id: id,
@@ -6518,6 +7175,7 @@ class $$PaymentsTableTableManager
                 date: date,
                 deleted: deleted,
                 status: status,
+                replaced: replaced,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6531,6 +7189,7 @@ class $$PaymentsTableTableManager
                 required String date,
                 Value<bool> deleted = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<bool> replaced = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PaymentsCompanion.insert(
                 id: id,
@@ -6542,6 +7201,7 @@ class $$PaymentsTableTableManager
                 date: date,
                 deleted: deleted,
                 status: status,
+                replaced: replaced,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6820,6 +7480,357 @@ typedef $$CommentsTableProcessedTableManager =
       $$CommentsTableUpdateCompanionBuilder,
       (CommentRow, BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>),
       CommentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AttachmentsTableCreateCompanionBuilder =
+    AttachmentsCompanion Function({
+      required String id,
+      required String groupId,
+      required String expenseId,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+typedef $$AttachmentsTableUpdateCompanionBuilder =
+    AttachmentsCompanion Function({
+      Value<String> id,
+      Value<String> groupId,
+      Value<String> expenseId,
+      Value<bool> deleted,
+      Value<int> rowid,
+    });
+
+class $$AttachmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $AttachmentsTable> {
+  $$AttachmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AttachmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AttachmentsTable> {
+  $$AttachmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get deleted => $composableBuilder(
+    column: $table.deleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AttachmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AttachmentsTable> {
+  $$AttachmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get expenseId =>
+      $composableBuilder(column: $table.expenseId, builder: (column) => column);
+
+  GeneratedColumn<bool> get deleted =>
+      $composableBuilder(column: $table.deleted, builder: (column) => column);
+}
+
+class $$AttachmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AttachmentsTable,
+          AttachmentRow,
+          $$AttachmentsTableFilterComposer,
+          $$AttachmentsTableOrderingComposer,
+          $$AttachmentsTableAnnotationComposer,
+          $$AttachmentsTableCreateCompanionBuilder,
+          $$AttachmentsTableUpdateCompanionBuilder,
+          (
+            AttachmentRow,
+            BaseReferences<_$AppDatabase, $AttachmentsTable, AttachmentRow>,
+          ),
+          AttachmentRow,
+          PrefetchHooks Function()
+        > {
+  $$AttachmentsTableTableManager(_$AppDatabase db, $AttachmentsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AttachmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AttachmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AttachmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> expenseId = const Value.absent(),
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AttachmentsCompanion(
+                id: id,
+                groupId: groupId,
+                expenseId: expenseId,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String groupId,
+                required String expenseId,
+                Value<bool> deleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AttachmentsCompanion.insert(
+                id: id,
+                groupId: groupId,
+                expenseId: expenseId,
+                deleted: deleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AttachmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AttachmentsTable,
+      AttachmentRow,
+      $$AttachmentsTableFilterComposer,
+      $$AttachmentsTableOrderingComposer,
+      $$AttachmentsTableAnnotationComposer,
+      $$AttachmentsTableCreateCompanionBuilder,
+      $$AttachmentsTableUpdateCompanionBuilder,
+      (
+        AttachmentRow,
+        BaseReferences<_$AppDatabase, $AttachmentsTable, AttachmentRow>,
+      ),
+      AttachmentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PendingUploadsTableCreateCompanionBuilder =
+    PendingUploadsCompanion Function({
+      required String attachmentId,
+      required String groupId,
+      required String createdAt,
+      Value<int> rowid,
+    });
+typedef $$PendingUploadsTableUpdateCompanionBuilder =
+    PendingUploadsCompanion Function({
+      Value<String> attachmentId,
+      Value<String> groupId,
+      Value<String> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PendingUploadsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingUploadsTable> {
+  $$PendingUploadsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingUploadsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingUploadsTable> {
+  $$PendingUploadsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingUploadsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingUploadsTable> {
+  $$PendingUploadsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get attachmentId => $composableBuilder(
+    column: $table.attachmentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingUploadsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingUploadsTable,
+          PendingUploadRow,
+          $$PendingUploadsTableFilterComposer,
+          $$PendingUploadsTableOrderingComposer,
+          $$PendingUploadsTableAnnotationComposer,
+          $$PendingUploadsTableCreateCompanionBuilder,
+          $$PendingUploadsTableUpdateCompanionBuilder,
+          (
+            PendingUploadRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingUploadsTable,
+              PendingUploadRow
+            >,
+          ),
+          PendingUploadRow,
+          PrefetchHooks Function()
+        > {
+  $$PendingUploadsTableTableManager(
+    _$AppDatabase db,
+    $PendingUploadsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingUploadsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingUploadsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingUploadsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> attachmentId = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingUploadsCompanion(
+                attachmentId: attachmentId,
+                groupId: groupId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String attachmentId,
+                required String groupId,
+                required String createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingUploadsCompanion.insert(
+                attachmentId: attachmentId,
+                groupId: groupId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingUploadsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingUploadsTable,
+      PendingUploadRow,
+      $$PendingUploadsTableFilterComposer,
+      $$PendingUploadsTableOrderingComposer,
+      $$PendingUploadsTableAnnotationComposer,
+      $$PendingUploadsTableCreateCompanionBuilder,
+      $$PendingUploadsTableUpdateCompanionBuilder,
+      (
+        PendingUploadRow,
+        BaseReferences<_$AppDatabase, $PendingUploadsTable, PendingUploadRow>,
+      ),
+      PendingUploadRow,
       PrefetchHooks Function()
     >;
 typedef $$ActivityTableCreateCompanionBuilder =
@@ -7788,6 +8799,10 @@ class $AppDatabaseManager {
       $$PaymentsTableTableManager(_db, _db.payments);
   $$CommentsTableTableManager get comments =>
       $$CommentsTableTableManager(_db, _db.comments);
+  $$AttachmentsTableTableManager get attachments =>
+      $$AttachmentsTableTableManager(_db, _db.attachments);
+  $$PendingUploadsTableTableManager get pendingUploads =>
+      $$PendingUploadsTableTableManager(_db, _db.pendingUploads);
   $$ActivityTableTableManager get activity =>
       $$ActivityTableTableManager(_db, _db.activity);
   $$OutboxTableTableManager get outbox =>

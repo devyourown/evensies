@@ -1,5 +1,5 @@
 {
-  "_doc": "분할 계산 테스트 케이스. amount는 최소 단위 정수. mode: equal | exact | percent | shares | adjustment (input: percent = 퍼센트, shares = 몫 개수, adjustment = 최소 단위 조정액). members는 ID 오름차순이 아닐 수 있다 — 나머지 배분은 memberId 오름차순으로 앞에서부터 1씩(percent·shares는 0이 아닌 멤버에게만). expected 대신 error(SplitException 코드)가 있을 수 있다. \"pending\": \"hyojun\"인 케이스는 효준님 함수가 들어올 때까지 건너뛴다(실패 아님). 양쪽(Dart·Kotlin) 구현이 이 파일을 읽는다.",
+  "_doc": "분할 계산 테스트 케이스. amount는 최소 단위 정수. mode: equal | exact | percent | shares | adjustment (input: percent = 퍼센트, shares = 몫 개수, adjustment = 최소 단위 조정액). members는 ID 오름차순이 아닐 수 있다 — 나머지 배분은 memberId 오름차순으로 앞에서부터 1씩(percent·shares는 0이 아닌 멤버에게만). expected 대신 error(SplitException 코드)가 있을 수 있다. 양쪽(Dart·Kotlin) 구현이 이 파일을 읽는다.",
   "cases": [
     {"name": "equal 3 ways no remainder", "amount": 3000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 1000, "b": 1000, "c": 1000}},
     {"name": "equal 3 ways remainder 1", "amount": 1000, "mode": "equal", "members": ["a", "b", "c"], "expected": {"a": 334, "b": 333, "c": 333}},

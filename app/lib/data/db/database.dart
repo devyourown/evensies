@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+
+import '../sync/event_types.dart';
 
 part 'database.g.dart';
 
@@ -83,6 +87,8 @@ class Payments extends Table {
   TextColumn get date => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   TextColumn get status => text().withDefault(const Constant('confirmed'))();
+  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md 적용 규칙 7).
+  BoolColumn get replaced => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -100,6 +106,27 @@ class Comments extends Table {
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Receipt photos on expenses (docs/API.md 영수증, rule 14), in attach order (rowid). The files are in ReceiptFiles.
+@DataClassName('AttachmentRow')
+class Attachments extends Table {
+  TextColumn get id => text()();
+  TextColumn get groupId => text()();
+  TextColumn get expenseId => text()();
+  BoolColumn get deleted => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Receipts taken here and not uploaded yet: SyncService uploads them before it pushes their `attachment.added`.
+@DataClassName('PendingUploadRow')
+class PendingUploads extends Table {
+  TextColumn get attachmentId => text()();
+  TextColumn get groupId => text()();
+  TextColumn get createdAt => text()();
+  @override
+  Set<Column> get primaryKey => {attachmentId};
 }
 
 /// Offline cache of server activity items (docs/API.md 활동·알림); [json] is the ActivityItem as received.
@@ -169,6 +196,8 @@ class FxDays extends Table {
   ExpensePayers,
   Payments,
   Comments,
+  Attachments,
+  PendingUploads,
   Activity,
   Outbox,
   SyncState,
@@ -180,7 +209,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'evensies'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -222,6 +251,14 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.addColumn(expenses, expenses.moved);
             // Moves pulled by schema 6 left no flag: replay every group (docs/API.md 호환 6단계).
+            await delete(syncState).go();
+          }
+          if (from < 8) {
+            await m.createTable(attachments);
+            await m.createTable(pendingUploads);
+            await m.addColumn(payments, payments.replaced);
+            // Older code skipped attachment.* and payment.restored and read itemized splits as none: replay every
+            // group (docs/API.md 호환 7단계).
             await delete(syncState).go();
           }
         },
@@ -266,9 +303,10 @@ class AppDatabase extends _$AppDatabase {
       (select(expenseShares)..where((s) => s.expenseId.equals(expenseId))).get();
 
   // --- outbox / sync state
+  /// In the order written: rows of one transaction can share a timestamp (an expense and its receipts).
   Future<List<OutboxRow>> unsentOutbox(String groupId) => (select(outbox)
         ..where((o) => o.groupId.equals(groupId) & o.sentAt.isNull() & o.rejected.isNull())
-        ..orderBy([(o) => OrderingTerm.asc(o.createdAt)]))
+        ..orderBy([(o) => OrderingTerm.asc(o.createdAt), (o) => OrderingTerm.asc(o.rowId)]))
       .get();
   Future<List<OutboxRow>> rejectedOutbox(String groupId) =>
       (select(outbox)..where((o) => o.groupId.equals(groupId) & o.rejected.isNotNull())).get();
@@ -287,6 +325,45 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setLastSeq(String groupId, int seq) =>
       into(syncState).insertOnConflictUpdate(SyncStateRow(groupId: groupId, lastSeq: seq));
 
+  // --- receipts
+  /// expenseId → number of its receipts that aren't deleted (the list's receipt icon).
+  Stream<Map<String, int>> watchAttachmentCounts(String groupId) =>
+      (select(attachments)..where((a) => a.groupId.equals(groupId) & a.deleted.equals(false)))
+          .watch()
+          .map((rows) {
+        final n = <String, int>{};
+        for (final r in rows) {
+          n[r.expenseId] = (n[r.expenseId] ?? 0) + 1;
+        }
+        return n;
+      });
+  Future<AttachmentRow?> getAttachment(String id) =>
+      (select(attachments)..where((a) => a.id.equals(id))).getSingleOrNull();
+  Future<List<PendingUploadRow>> pendingUploadsOf(String groupId) => (select(pendingUploads)
+        ..where((p) => p.groupId.equals(groupId))
+        ..orderBy([(p) => OrderingTerm.asc(p.createdAt), (p) => OrderingTerm.asc(p.rowId)]))
+      .get();
+
+  /// Receipt [ids] gone for good (refused, never uploaded, removed while pending): their rows, their pending uploads
+  /// and their unsent `attachment.added`. Files are ReceiptFiles'.
+  Future<void> dropReceipts(List<String> ids) => transaction(() async {
+        if (ids.isEmpty) return;
+        await (delete(attachments)..where((a) => a.id.isIn(ids))).go();
+        await (delete(pendingUploads)..where((p) => p.attachmentId.isIn(ids))).go();
+        for (final o in await (select(outbox)..where((o) => o.type.equals(EventTypes.attachmentAdded) & o.sentAt.isNull())).get()) {
+          if (ids.contains((jsonDecode(o.payloadJson) as Map)['attachmentId'])) {
+            await (delete(outbox)..where((x) => x.clientId.equals(o.clientId))).go();
+          }
+        }
+      });
+
+  /// The group's receipt ids, deleted and pending ones included (their files go with the group).
+  Future<List<String>> receiptIds(String groupId) async => [
+        for (final a in await (select(attachments)..where((a) => a.groupId.equals(groupId))).get()) a.id,
+        for (final p in await (select(pendingUploads)..where((p) => p.groupId.equals(groupId))).get()) p.attachmentId,
+      ];
+
+  /// Callers delete the receipt files first ([receiptIds], ReceiptFiles.delete).
   Future<void> deleteGroupData(String groupId) => transaction(() async {
         final exps = await (select(expenses)..where((e) => e.groupId.equals(groupId))).get();
         await (delete(expenseShares)..where((s) => s.expenseId.isIn(exps.map((e) => e.id)))).go();
@@ -294,6 +371,8 @@ class AppDatabase extends _$AppDatabase {
         await (delete(expenses)..where((e) => e.groupId.equals(groupId))).go();
         await (delete(payments)..where((p) => p.groupId.equals(groupId))).go();
         await (delete(comments)..where((c) => c.groupId.equals(groupId))).go();
+        await (delete(attachments)..where((a) => a.groupId.equals(groupId))).go();
+        await (delete(pendingUploads)..where((p) => p.groupId.equals(groupId))).go();
         await (delete(activity)..where((a) => a.groupId.equals(groupId))).go();
         await (delete(members)..where((m) => m.groupId.equals(groupId))).go();
         await (delete(outbox)..where((o) => o.groupId.equals(groupId))).go();

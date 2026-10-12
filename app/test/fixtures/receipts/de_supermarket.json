@@ -1,0 +1,225 @@
+{
+ "_doc": "Hand-made OCR lines (no real receipt, no card numbers) for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels; lines are listed out of order on purpose.",
+ "name": "German supermarket: VAT letters, a quantity line, a negative Rabatt, 1.234,50",
+ "decimals": 2,
+ "lines": [
+  {
+   "text": "1.234,50",
+   "left": 284,
+   "top": 657,
+   "right": 380,
+   "bottom": 687
+  },
+  {
+   "text": "17,96",
+   "left": 320,
+   "top": 617,
+   "right": 380,
+   "bottom": 647
+  },
+  {
+   "text": "EUR 47,85",
+   "left": 272,
+   "top": 537,
+   "right": 380,
+   "bottom": 567
+  },
+  {
+   "text": "EUR 1.300,00",
+   "left": 236,
+   "top": 497,
+   "right": 380,
+   "bottom": 527
+  },
+  {
+   "text": "EUR 1.252,15",
+   "left": 236,
+   "top": 457,
+   "right": 380,
+   "bottom": 487
+  },
+  {
+   "text": "1.234,50 B",
+   "left": 260,
+   "top": 417,
+   "right": 380,
+   "bottom": 447
+  },
+  {
+   "text": "-1,00 A",
+   "left": 296,
+   "top": 377,
+   "right": 380,
+   "bottom": 407
+  },
+  {
+   "text": "12,99 A",
+   "left": 296,
+   "top": 337,
+   "right": 380,
+   "bottom": 367
+  },
+  {
+   "text": "1,98 A",
+   "left": 308,
+   "top": 297,
+   "right": 380,
+   "bottom": 327
+  },
+  {
+   "text": "2,49 A",
+   "left": 308,
+   "top": 217,
+   "right": 380,
+   "bottom": 247
+  },
+  {
+   "text": "1,19 A",
+   "left": 308,
+   "top": 177,
+   "right": 380,
+   "bottom": 207
+  },
+  {
+   "text": "B= 19,0%  1.037,39  197,11",
+   "left": 20,
+   "top": 662,
+   "right": 332,
+   "bottom": 692
+  },
+  {
+   "text": "A= 7,0%  16,79  1,17",
+   "left": 20,
+   "top": 622,
+   "right": 260,
+   "bottom": 652
+  },
+  {
+   "text": "Steuer %  Netto  Steuer  Brutto",
+   "left": 20,
+   "top": 580,
+   "right": 392,
+   "bottom": 610
+  },
+  {
+   "text": "Rückgeld Bar",
+   "left": 20,
+   "top": 542,
+   "right": 164,
+   "bottom": 572
+  },
+  {
+   "text": "Geg. Bar",
+   "left": 20,
+   "top": 502,
+   "right": 116,
+   "bottom": 532
+  },
+  {
+   "text": "SUMME",
+   "left": 20,
+   "top": 462,
+   "right": 80,
+   "bottom": 492
+  },
+  {
+   "text": "Weinkiste Barolo",
+   "left": 20,
+   "top": 422,
+   "right": 212,
+   "bottom": 452
+  },
+  {
+   "text": "Rabatt Kaffee",
+   "left": 20,
+   "top": 382,
+   "right": 176,
+   "bottom": 412
+  },
+  {
+   "text": "Kaffee Bohnen 1kg",
+   "left": 20,
+   "top": 342,
+   "right": 224,
+   "bottom": 372
+  },
+  {
+   "text": "Bananen",
+   "left": 20,
+   "top": 302,
+   "right": 104,
+   "bottom": 332
+  },
+  {
+   "text": "2 x 0,99",
+   "left": 20,
+   "top": 260,
+   "right": 116,
+   "bottom": 290
+  },
+  {
+   "text": "Bio Vollkornbrot",
+   "left": 20,
+   "top": 222,
+   "right": 212,
+   "bottom": 252
+  },
+  {
+   "text": "Milch 3,5%",
+   "left": 20,
+   "top": 182,
+   "right": 140,
+   "bottom": 212
+  },
+  {
+   "text": "EUR",
+   "left": 20,
+   "top": 140,
+   "right": 56,
+   "bottom": 170
+  },
+  {
+   "text": "Hauptstr. 5, 10115 Berlin",
+   "left": 20,
+   "top": 100,
+   "right": 320,
+   "bottom": 130
+  },
+  {
+   "text": "REWE Markt GmbH",
+   "left": 20,
+   "top": 60,
+   "right": 200,
+   "bottom": 90
+  }
+ ],
+ "expected": {
+  "lines": [
+   {
+    "name": "Milch 3,5%",
+    "amount": 119
+   },
+   {
+    "name": "Bio Vollkornbrot",
+    "amount": 249
+   },
+   {
+    "name": "Bananen",
+    "amount": 198
+   },
+   {
+    "name": "Kaffee Bohnen 1kg",
+    "amount": 1299
+   },
+   {
+    "name": "Weinkiste Barolo",
+    "amount": 123450
+   }
+  ],
+  "tax": 0,
+  "tip": 0,
+  "discount": 100,
+  "total": 125215,
+  "merchant": "REWE Markt GmbH"
+ }
+}

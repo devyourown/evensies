@@ -1,5 +1,3 @@
-import '../core/core_guard.dart';
-
 /// Codes: BAD_RATE, NEGATIVE_AMOUNT, SUM_MISMATCH.
 class FxException implements Exception {
   final String code;
@@ -91,6 +89,3 @@ void _checkRate(double rate) {
   final numerator = BigInt.from(amount) * digits;
   return scale >= 0 ? (numerator * BigInt.from(10).pow(scale), BigInt.one) : (numerator, BigInt.from(10).pow(-scale));
 }
-
-/// True now that convertAmount is implemented (it gated Convert and the "≈" lines while it was a stub).
-bool get fxReady => tryCore(() => convertAmount(amount: 0, fromDecimals: 2, toDecimals: 2, rate: 1)) != null;

@@ -7,8 +7,8 @@ import '../../domain/overview.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart' show groupStateProvider;
 
-/// One local group with its state and balances (null while they can't be computed).
-typedef HomeGroup = ({GroupRow row, GroupState state, BalanceResult? res});
+/// One local group with its state and balances.
+typedef HomeGroup = ({GroupRow row, GroupState state, BalanceResult res});
 
 /// Everything the Home tabs, the friend pages and the With picker read (docs/API.md 개요 화면).
 class HomeData {
@@ -16,16 +16,12 @@ class HomeData {
   final Overview overview;
   final List<Person> people;
   final Map<String, GroupLedger> ledgers;
-
-  /// Groups whose balances can't be computed yet: "{n} group(s) not included yet".
-  final int notIncluded;
   final String? myUserId;
   const HomeData({
     required this.groups,
     required this.overview,
     required this.people,
     required this.ledgers,
-    required this.notIncluded,
     required this.myUserId,
   });
 
@@ -67,18 +63,10 @@ final homeDataProvider = FutureProvider<HomeData>((ref) async {
     final state = await ref.watch(groupStateProvider(g.id).future);
     groups.add((row: g, state: state, res: balancesOf(state)));
   }
-  final ledgers = <String, GroupLedger>{};
-  var notIncluded = 0;
-  if (me != null) {
-    for (final g in groups) {
-      final l = GroupLedger.of(groupId: g.row.id, state: g.state, myUserId: me);
-      if (l != null) {
-        ledgers[g.row.id] = l;
-      } else if (g.state.members.any((m) => m.userId == me)) {
-        notIncluded++;
-      }
-    }
-  }
+  final ledgers = <String, GroupLedger>{
+    if (me != null)
+      for (final g in groups) g.row.id: ?GroupLedger.of(groupId: g.row.id, state: g.state, myUserId: me),
+  };
   final overview = computeOverview(ledgers.values.toList());
   return HomeData(
     groups: groups,
@@ -87,7 +75,6 @@ final homeDataProvider = FutureProvider<HomeData>((ref) async {
         ? const []
         : peopleOf([for (final g in groups) (id: g.row.id, name: g.row.name, state: g.state)], overview, me),
     ledgers: ledgers,
-    notIncluded: notIncluded,
     myUserId: me,
   );
 });

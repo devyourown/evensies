@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/foundation.dart' show mapEquals;
 
+import 'itemized.dart';
 import 'split.dart';
 
 class Member {
@@ -40,17 +41,31 @@ class Share {
 /// How an expense was split, so the editor reopens it the same way (docs/API.md "SplitSpec").
 /// A hint only: `Expense.shares` holds the amounts. An exact split has no SplitSpec.
 class SplitSpec {
-  final SplitMode mode;
+  /// Null for itemized: computeSplit has no such mode, the [bill] holds the items instead (docs/API.md 항목별 분할).
+  final SplitMode? mode;
 
-  /// percent: percent, shares: share count, adjustment: minor units. Null for equal.
+  /// percent: percent, shares: share count, adjustment: minor units. Null for equal and itemized.
   final Map<String, double>? input;
-  const SplitSpec(this.mode, [this.input]);
+
+  /// The receipt lines of an itemized split (Phase 7).
+  final ItemizedBill? bill;
+  const SplitSpec(SplitMode this.mode, [this.input]) : bill = null;
+  const SplitSpec.itemized(ItemizedBill this.bill)
+      : mode = null,
+        input = null;
+
+  bool get itemized => bill != null;
 
   static const _modes = {SplitMode.equal, SplitMode.percent, SplitMode.shares, SplitMode.adjustment};
 
-  /// Null for anything this app can't use: not an object, an unknown mode (Phase 7 adds `itemized`), bad input.
+  /// Null for anything this app can't use: not an object, an unknown mode, bad input or a bad bill.
   static SplitSpec? fromJson(Object? j) {
     if (j is! Map) return null;
+    if (j['mode'] == 'itemized') {
+      if (j['input'] != null) return null;
+      final bill = ItemizedBill.fromJson(j['bill']);
+      return bill == null ? null : SplitSpec.itemized(bill);
+    }
     final mode = SplitMode.values.where((m) => m.name == j['mode'] && _modes.contains(m)).firstOrNull;
     if (mode == null) return null;
     final raw = j['input'];
@@ -63,14 +78,19 @@ class SplitSpec {
     return SplitSpec(mode, mode == SplitMode.equal ? null : input);
   }
 
-  Map<String, dynamic> toJson() => {'mode': mode.name, if (input != null) 'input': input};
+  Map<String, dynamic> toJson() => bill != null
+      ? {'mode': 'itemized', 'bill': bill!.toJson()}
+      : {'mode': mode!.name, if (input != null) 'input': input};
 
-  /// Same mode and numbers; a member missing from [input] counts as 0 (docs/API.md SplitSpec).
+  /// Same mode and numbers (a member missing from [input] counts as 0, docs/API.md SplitSpec), or the same bill.
   @override
   bool operator ==(Object other) =>
-      other is SplitSpec && other.mode == mode && mapEquals(_nonZero(other.input), _nonZero(input));
+      other is SplitSpec &&
+      other.mode == mode &&
+      other.bill == bill &&
+      mapEquals(_nonZero(other.input), _nonZero(input));
   @override
-  int get hashCode => mode.hashCode;
+  int get hashCode => Object.hash(mode, bill);
 
   static Map<String, double> _nonZero(Map<String, double>? m) => {
         for (final e in (m ?? const <String, double>{}).entries)
@@ -213,6 +233,9 @@ class Payment {
   final bool deleted;
   /// 'sent' (waiting for the receiver to confirm) or 'confirmed'. Missing in JSON = confirmed.
   final String status;
+
+  /// Deleted by an edit (`payment.deleted` with `replacedBy`): the new payment counts, so it stays deleted (rule 7).
+  final bool replaced;
   const Payment({
     required this.id,
     required this.fromMember,
@@ -222,9 +245,10 @@ class Payment {
     required this.date,
     this.deleted = false,
     this.status = 'confirmed',
+    this.replaced = false,
   });
   bool get pending => status == 'sent';
-  Payment copyWith({bool? deleted, String? status}) => Payment(
+  Payment copyWith({bool? deleted, String? status, bool? replaced}) => Payment(
         id: id,
         fromMember: fromMember,
         toMember: toMember,
@@ -233,6 +257,7 @@ class Payment {
         date: date,
         deleted: deleted ?? this.deleted,
         status: status ?? this.status,
+        replaced: replaced ?? this.replaced,
       );
   factory Payment.fromJson(Map<String, dynamic> j) => Payment(
         id: j['id'] as String,
@@ -243,6 +268,7 @@ class Payment {
         date: j['date'] as String,
         deleted: j['deleted'] as bool? ?? false,
         status: j['status'] as String? ?? 'confirmed',
+        replaced: j['replaced'] == true,
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -253,6 +279,7 @@ class Payment {
         'date': date,
         'deleted': deleted,
         'status': status,
+        'replaced': replaced,
       };
 }
 
@@ -306,6 +333,17 @@ class Comment {
       };
 }
 
+/// A receipt photo on an expense (docs/API.md 영수증, rule 14); the files live on the server and in this device's cache.
+class Attachment {
+  final String id;
+  final String expenseId;
+  final bool deleted;
+  const Attachment({required this.id, required this.expenseId, this.deleted = false});
+  factory Attachment.fromJson(Map<String, dynamic> j) => Attachment(
+      id: j['id'] as String, expenseId: j['expenseId'] as String, deleted: j['deleted'] as bool? ?? false);
+  Map<String, dynamic> toJson() => {'id': id, 'expenseId': expenseId, 'deleted': deleted};
+}
+
 /// Immutable. Lists keep insertion order (same as the server snapshot).
 class GroupState {
   final String? name;
@@ -321,6 +359,9 @@ class GroupState {
   final List<Expense> expenses;
   final List<Payment> payments;
   final List<Comment> comments;
+
+  /// Receipts in attach order, deleted ones included (rule 14).
+  final List<Attachment> attachments;
   const GroupState({
     this.name,
     this.defaultCurrency,
@@ -331,6 +372,7 @@ class GroupState {
     this.expenses = const [],
     this.payments = const [],
     this.comments = const [],
+    this.attachments = const [],
   });
 
   static const empty = GroupState();
@@ -346,6 +388,7 @@ class GroupState {
     List<Expense>? expenses,
     List<Payment>? payments,
     List<Comment>? comments,
+    List<Attachment>? attachments,
   }) =>
       GroupState(
         name: name ?? this.name,
@@ -357,12 +400,18 @@ class GroupState {
         expenses: expenses ?? this.expenses,
         payments: payments ?? this.payments,
         comments: comments ?? this.comments,
+        attachments: attachments ?? this.attachments,
       );
 
   Member? member(String id) => members.where((m) => m.id == id).firstOrNull;
   Expense? expense(String id) => expenses.where((e) => e.id == id).firstOrNull;
   Payment? payment(String id) => payments.where((p) => p.id == id).firstOrNull;
   Comment? comment(String id) => comments.where((c) => c.id == id).firstOrNull;
+  Attachment? attachment(String id) => attachments.where((a) => a.id == id).firstOrNull;
+
+  /// [expenseId]'s receipts that aren't deleted, in attach order.
+  List<Attachment> receiptsOf(String expenseId) =>
+      [for (final a in attachments) if (a.expenseId == expenseId && !a.deleted) a];
   bool get isFriend => kind == 'friend';
 
   /// Parses a snapshot or a sync-cases `expected` (its `group` is optional there).
@@ -379,6 +428,9 @@ class GroupState {
       payments: (j['payments'] as List).cast<Map<String, dynamic>>().map(Payment.fromJson).toList(),
       // Missing in sync-cases `expected` and in pre-Phase-2 snapshots.
       comments: ((j['comments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Comment.fromJson).toList(),
+      // Missing before Phase 7 and in older sync-cases `expected`.
+      attachments:
+          ((j['attachments'] as List?) ?? const []).cast<Map<String, dynamic>>().map(Attachment.fromJson).toList(),
     );
   }
   Map<String, dynamic> toJson() => {
@@ -386,6 +438,7 @@ class GroupState {
         'expenses': expenses.map((e) => e.toJson()).toList(),
         'payments': payments.map((p) => p.toJson()).toList(),
         'comments': comments.map((c) => c.toJson()).toList(),
+        'attachments': attachments.map((a) => a.toJson()).toList(),
       };
 
   /// The `group` part (sync-cases `expected.group` compares the keys it has).
@@ -426,7 +479,8 @@ class SyncEvent {
 
 /// [e] for another group (docs/API.md 지출 옮기기), or null when it can't move: every member with a payer or share
 /// amount above 0 must be linked to a user who has an active member in [target]. Zero payers and shares are dropped,
-/// and `split.input` keeps only the keys that map. paidBy follows from the payers (rule 10). The rate stays only when
+/// and `split.input` keeps only the keys that map. An itemized bill's line people map like shares; if one can't, the
+/// split is dropped (the shares open as Exact). paidBy follows from the payers (rule 10). The rate stays only when
 /// both groups have the same default currency ([sameCurrency]); everything else is kept, with the new id [id].
 Expense? remapForMove(Expense e, List<Member> source, List<Member> target, {required String id, required bool sameCurrency}) {
   final userOf = {for (final m in source) m.id: m.userId};
@@ -447,7 +501,6 @@ Expense? remapForMove(Expense e, List<Member> source, List<Member> target, {requ
 
   final payers = remap(e.payers), shares = remap(e.shares);
   if (payers == null || shares == null || payers.isEmpty) return null;
-  final input = e.split?.input;
   return Expense(
     id: id,
     description: e.description,
@@ -459,12 +512,25 @@ Expense? remapForMove(Expense e, List<Member> source, List<Member> target, {requ
     category: e.category,
     notes: e.notes,
     refund: e.refund,
-    split: e.split == null
-        ? null
-        : SplitSpec(e.split!.mode, input == null ? null : {
-            for (final MapEntry(:key, :value) in input.entries)
-              ?map(key): value,
-          }),
+    split: _remapSplit(e.split, map),
     shares: shares,
   );
+}
+
+SplitSpec? _remapSplit(SplitSpec? s, String? Function(String) map) {
+  if (s == null) return null;
+  if (s.bill case final b?) {
+    final lines = <ItemLine>[];
+    for (final l in b.lines) {
+      final ids = [for (final m in l.memberIds) map(m)];
+      if (ids.contains(null)) return null;
+      lines.add(ItemLine(name: l.name, amount: l.amount, memberIds: ids.cast<String>()));
+    }
+    return SplitSpec.itemized(ItemizedBill(lines: lines, tax: b.tax, tip: b.tip, discount: b.discount));
+  }
+  final input = s.input;
+  return SplitSpec(s.mode!, input == null ? null : {
+    for (final MapEntry(:key, :value) in input.entries)
+      ?map(key): value,
+  });
 }

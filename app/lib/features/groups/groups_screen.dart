@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/core_guard.dart';
 import '../../core/money.dart';
 import '../../core/offline_banner.dart';
 import '../../core/person_avatar.dart';
@@ -250,7 +249,6 @@ class OverallCard extends ConsumerWidget {
     };
     final home = ref.watch(homeCurrencyProvider);
     final approx = net.isEmpty ? null : approxIn(home, net, ref.watch(latestFxProvider).value?.rates);
-    final n = data.notIncluded;
     return Card(
       key: const Key('overall-card'),
       margin: const EdgeInsets.only(bottom: 12),
@@ -272,12 +270,6 @@ class OverallCard extends ConsumerWidget {
           if (approx != null)
             Text('≈ ${approx < 0 ? '−' : ''}${formatMoney(approx.abs(), home)} overall',
                 key: const Key('overall-approx'), style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-          if (n > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('$n group${n == 1 ? '' : 's'} not included yet',
-                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-            ),
         ]),
       ),
     );
@@ -356,18 +348,15 @@ class _GroupCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final async = ref.watch(balancesProvider(group.id));
-    final res = async.value;
+    final res = ref.watch(balancesProvider(group.id)).value;
     final memberCount =
         (ref.watch(membersProvider(group.id)).value ?? const <MemberRow>[]).where((m) => !m.removed).length;
     final muted = TextStyle(color: cs.onSurfaceVariant);
     // One line per currency I have a balance in (group currency first), each in its own colour, then "≈" in my home
     // currency on its own line: nothing is cut off.
     final lines = <TextSpan>[];
-    if (!async.hasValue) {
+    if (res == null) {
       lines.add(TextSpan(text: '…', style: muted));
-    } else if (res == null) {
-      lines.add(TextSpan(text: notImplementedLabel, style: muted));
     } else {
       final mine = res.mine(group.myMemberId);
       if (mine.isEmpty) lines.add(TextSpan(text: 'Settled up', style: muted));
@@ -376,7 +365,6 @@ class _GroupCard extends ConsumerWidget {
             text: owedText(v, cur),
             style: TextStyle(color: v > 0 ? cs.primary : cs.error, fontWeight: FontWeight.w500)));
       }
-      if (res.unsupported > 0) lines.last = TextSpan(text: '${lines.last.text} so far', style: lines.last.style);
       final home = ref.watch(homeCurrencyProvider);
       final approx = mine.isEmpty ? null : approxIn(home, mine, ref.watch(latestFxProvider).value?.rates);
       if (approx != null) {

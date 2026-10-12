@@ -15,19 +15,22 @@ import kotlin.math.abs
  * Rejects a push batch before anything is stored. Validates each event against the state after the previous ones
  * and returns the batch to store: a `payment.created` with `status: "sent"` whose receiver is a placeholder or the
  * sender themselves is rewritten to `"confirmed"`, and an expense carrying `payers` gets `paidBy` = the primary payer
- * (applier rule 10), so every client pulls the same payload.
- * [paymentCreator] returns the user id that created an already-stored payment.
+ * (applier rule 10), and an `attachment.deleted` gets the `expenseId` its receipt is on (dropped for an unknown id), so
+ * every client pulls the same payload and the expense History filter finds it.
+ * [paymentCreator] returns the user id that created an already-stored payment; [uploaded] whether an attachment id was
+ * uploaded to this group (Phase 7, `POST /groups/{id}/attachments/{attachmentId}`).
  */
 @Component
 class EventValidator {
     fun validateAll(
         initial: GroupState, actorUserId: UUID, events: List<IncomingEvent>, paymentCreator: (String) -> String? = { null },
+        uploaded: (String) -> Boolean = { false },
     ): List<IncomingEvent> {
         var state = initial
         val createdHere = HashSet<String>()
         return events.map { raw ->
             val e = normalize(state, actorUserId, raw)
-            validate(state, actorUserId, e) { id -> if (id in createdHere) actorUserId.toString() else paymentCreator(id) }
+            validate(state, actorUserId, e, uploaded) { id -> if (id in createdHere) actorUserId.toString() else paymentCreator(id) }
             if (e.type == "payment.created") createdHere += e.payload.text("paymentId")!!
             state = EventApplier.apply(state, e.type, e.payload)
             e
@@ -44,6 +47,16 @@ class EventValidator {
                 val receiverUser = s.members[e.payload.text("toMember")]?.userId
                 if (receiverUser != null && receiverUser != actor.toString()) return e
                 e.copy(payload = (e.payload.deepCopy() as ObjectNode).put("status", "confirmed"))
+            }
+            "attachment.deleted" -> {
+                // The expense the receipt is on, so the History filter (payload->>'expenseId') finds the removal.
+                val on = s.attachments[e.payload.text("attachmentId")]?.expenseId
+                val sent = e.payload.get("expenseId")
+                if (on == null && sent == null) return e
+                if (on != null && sent?.isString == true && sent.asString() == on) return e
+                val copy = e.payload.deepCopy() as ObjectNode
+                if (on == null) copy.remove("expenseId") else copy.put("expenseId", on)
+                e.copy(payload = copy)
             }
             else -> e
         }
@@ -64,7 +77,7 @@ class EventValidator {
         return e.copy(payload = copy)
     }
 
-    private fun validate(s: GroupState, actor: UUID, e: IncomingEvent, paymentCreator: (String) -> String?) {
+    private fun validate(s: GroupState, actor: UUID, e: IncomingEvent, uploaded: (String) -> Boolean, paymentCreator: (String) -> String?) {
         val p = e.payload
         if (!p.isObject) bad("payload must be an object")
         when (e.type) {
@@ -155,14 +168,28 @@ class EventValidator {
                     throw ApiException.forbidden("Only the receiver can confirm a payment")
                 }
             }
-            "payment.deleted" -> {
+            "payment.deleted", "payment.restored" -> {
                 requireUuid(p, "paymentId")
+                // Phase 7 edit marker: only the shape is checked, the new payment is not looked up.
+                if (p.field("replacedBy") != null && e.type == "payment.deleted") requireUuid(p, "replacedBy")
                 val payment = s.payments[p.text("paymentId")] ?: return // rule 4: ignored by the applier
                 val me = actor.toString()
                 val allowed = paymentCreator(payment.id) == me ||
                     s.members[payment.fromMember]?.userId == me || s.members[payment.toMember]?.userId == me
-                if (!allowed) throw ApiException.forbidden("Only the payer or the receiver can delete a payment")
+                if (!allowed) throw ApiException.forbidden("Only the payer or the receiver can delete or restore a payment")
             }
+            "attachment.added" -> {
+                requireUuid(p, "attachmentId"); requireUuid(p, "expenseId")
+                val id = p.text("attachmentId")!!
+                val expenseId = p.text("expenseId")!!
+                s.attachments[id]?.let { if (it.expenseId == expenseId) return else bad("This receipt is on another expense") }
+                if (!uploaded(id)) throw ApiException.badRequest("ATTACHMENT_NOT_UPLOADED", "Upload the photo to this group first")
+                if (expenseId !in s.expenses) bad("expenseId refers to an unknown expense")
+                if (s.attachments.values.count { it.expenseId == expenseId && !it.deleted } >= MAX_RECEIPTS) {
+                    throw ApiException.limit("An expense can have at most $MAX_RECEIPTS receipts")
+                }
+            }
+            "attachment.deleted" -> requireUuid(p, "attachmentId") // an unknown id is ignored (rule 4); expenseId is normalized
             else -> throw ApiException.badRequest("UNKNOWN_TYPE", "Unknown event type ${e.type}")
         }
     }
@@ -182,6 +209,9 @@ class EventValidator {
             throw ApiException.badRequest("PAYERS_SUM_MISMATCH", "Payers sum to ${e.payers.sumOf { it.amount }} but amount is ${e.amount}")
         }
         e.split?.field("input")?.propertyNames()?.forEach { requireMember(s, it) }
+        if (e.split?.text("mode") == "itemized") {
+            e.split.field("bill")?.field("lines")?.values()?.forEach { line -> line.field("memberIds")?.values()?.forEach { requireMember(s, it.asString()) } }
+        }
         val seen = HashSet<String>()
         for (sh in e.shares) {
             requireMember(s, sh.memberId); requireAmount(sh.amount)
@@ -224,16 +254,18 @@ class EventValidator {
         n.isArray && n.values().all { it.isObject && it.field("memberId")?.isString == true && it.field("amount")?.let(::isMinorUnits) == true }
 
     /**
-     * SplitSpec shape (docs/API.md "SplitSpec"): `{mode, input?}`, other keys kept as sent. `input` values are finite
-     * numbers: percent and share counts >= 0, adjustments whole by value (Dart's jsonEncode sends `1000.0`).
+     * SplitSpec shape (docs/API.md "SplitSpec"): `{mode, input?, bill?}`, other keys kept as sent. `input` values are
+     * finite numbers: percent and share counts >= 0, adjustments whole by value (Dart's jsonEncode sends `1000.0`).
+     * `itemized` (Phase 7) has a `bill` instead; its member ids are checked on the applied expense ([validateExpense]).
      */
     private fun requireSplitSpec(spec: JsonNode, name: String, modes: Set<String>) {
         if (!spec.isObject) bad("$name must be an object or null")
         val mode = spec.field("mode")?.takeIf { it.isString }?.asString()
         if (mode !in modes) bad("$name.mode must be one of ${modes.joinToString()}")
         val input = spec.field("input")
-        if (mode == "equal") {
-            if (input != null) bad("$name.input is not used with equal")
+        if (mode == "equal" || mode == "itemized") {
+            if (input != null) bad("$name.input is not used with $mode")
+            if (mode == "itemized") requireBill(spec.field("bill"), "$name.bill")
             return
         }
         if (input == null || !input.isObject) bad("$name.input must be an object for $mode")
@@ -245,6 +277,26 @@ class EventValidator {
             } else if (d < 0) {
                 bad("$name.input values must be >= 0")
             }
+        }
+    }
+
+    /** ItemizedBill shape (docs/API.md "SplitSpec"): 1–200 lines, amounts 0..[MAX_AMOUNT]; missing or null tax/tip/discount = 0. */
+    private fun requireBill(bill: JsonNode?, name: String) {
+        fun minor(n: JsonNode?) = n != null && isMinorUnits(n) && n.asLong() in 0..MAX_AMOUNT
+        if (bill == null || !bill.isObject) bad("$name must be an object")
+        val lines = bill.field("lines")
+        if (lines == null || !lines.isArray || lines.size() !in 1..MAX_BILL_LINES) bad("$name.lines must have 1 to $MAX_BILL_LINES entries")
+        for (line in lines.values()) {
+            if (!line.isObject) bad("$name.lines entries must be objects")
+            val itemName = line.field("name")?.takeIf { it.isString }?.asString()?.trim()
+            if (itemName == null || itemName.length !in 1..MAX_ITEM_NAME) bad("$name.lines[].name must be 1 to $MAX_ITEM_NAME characters")
+            if (!minor(line.field("amount"))) bad("$name.lines[].amount must be an integer from 0 to $MAX_AMOUNT")
+            val ids = line.field("memberIds")
+            if (ids == null || !ids.isArray || ids.isEmpty || !ids.values().all { it.isString }) bad("$name.lines[].memberIds must be a non-empty array of member ids")
+            if (ids.values().map { it.asString() }.toSet().size != ids.size()) bad("$name.lines[].memberIds has a member twice")
+        }
+        for (k in listOf("tax", "tip", "discount")) {
+            bill.field(k)?.let { if (!minor(it)) bad("$name.$k must be an integer from 0 to $MAX_AMOUNT") }
         }
     }
 
@@ -288,9 +340,14 @@ class EventValidator {
         if (v.isNullOrBlank() || v.length > max) bad("$k must be a non-blank string" + if (max < Int.MAX_VALUE) " of at most $max characters" else "")
     }
 
+    /**
+     * Canonical lowercase form only (what the app and `UUID.toString` make): state keys are the raw strings while the
+     * tables parse them, so `"AAAA…"` or `"1-1-1-1-1"` would miss an existing entity in the state yet overwrite its row.
+     */
     private fun requireUuid(p: JsonNode, k: String) {
         val v = p.text(k) ?: bad("$k is required")
-        try { UUID.fromString(v) } catch (_: IllegalArgumentException) { bad("$k must be a UUID") }
+        val canonical = try { UUID.fromString(v).toString() } catch (_: IllegalArgumentException) { null }
+        if (canonical != v) bad("$k must be a lowercase UUID")
     }
 
     /**
@@ -324,7 +381,11 @@ class EventValidator {
         const val MAX_GROUP_NAME = 100
         const val MAX_MEMBER_NAME = 100
         const val MAX_AMOUNT = 10_000_000_000_000L
-        val EXPENSE_SPLIT_MODES = setOf("equal", "percent", "shares", "adjustment")
+        const val MAX_BILL_LINES = 200
+        const val MAX_ITEM_NAME = 100
+        /** Abuse cap: live receipts per expense (409). */
+        const val MAX_RECEIPTS = 10
+        val EXPENSE_SPLIT_MODES = setOf("equal", "percent", "shares", "adjustment", "itemized")
         val DEFAULT_SPLIT_MODES = setOf("percent", "shares")
     }
 }

@@ -15,19 +15,24 @@ data class GroupState(
     val defaultSplit: JsonNode? = null,
     /** "group" or "friend" (a hidden two-person group); set by group.created only (rule 13). */
     val kind: String = "group",
+    /** Receipts in attach order (rule 14). */
+    val attachments: Map<String, AttachmentDto> = emptyMap(),
 )
 
 /**
  * Kotlin twin of the Dart applier. Rules (docs/API.md "적용 규칙"):
  * 1. pure and idempotent; 2. field-level last-write-wins by applying in seq order;
  * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags;
- * 6. payment.confirmed sets status, ignored for unknown or deleted payments; 7. expense.restored is the only way back
- * from deleted; 8. comment.added only adds new ids, comment.deleted flags and blanks the text; 9. missing notes = null,
- * null clears notes/category/fxRateToDefault/split and is ignored elsewhere; 10. payers are the source of truth and
- * paidBy is the primary payer; 11. group settings keep absent keys; 12. the default currency is locked once the group
+ * 6. payment.confirmed sets status, ignored for unknown or deleted payments; 7. expense.restored / payment.restored are
+ * the only way back from deleted (the status is kept); payment.deleted with a replacedBy string (an edit) also sets
+ * replaced (never cleared), and payment.restored on a replaced payment is ignored; 8. comment.added only adds new ids,
+ * comment.deleted flags and blanks the text; 9. missing notes = null, null clears notes/category/fxRateToDefault/split
+ * and is ignored elsewhere; 10. payers are the source of truth and paidBy is the primary payer; 11. group settings keep absent keys; 12. the default currency is locked once the group
  * has an expense or a payment (deleted ones included); 13. group.created sets kind (missing or not a string = "group"),
  * nothing changes it afterwards; expense.deleted with a movedTo object also sets moved (never cleared), and
- * expense.restored on a moved expense is ignored (it counts in the other group now).
+ * expense.restored on a moved expense is ignored (it counts in the other group now); 14. attachment.added appends a new
+ * id for a known expense (deleted ones included) and ignores a known id or an unknown expense; attachment.deleted flags
+ * a known id (its payload expenseId is never read); expense deletes and moves leave receipts alone.
  * Payloads are assumed to be validated (EventValidator) — missing fields fall back to zero values.
  */
 object EventApplier {
@@ -148,7 +153,19 @@ object EventApplier {
         }
         "payment.confirmed" -> state.payments[p.text("paymentId")]?.takeUnless { it.deleted }
             ?.let { state.withPayment(it.copy(status = "confirmed")) } ?: state
-        "payment.deleted" -> state.payments[p.text("paymentId")]?.let { state.withPayment(it.copy(deleted = true)) } ?: state
+        "payment.deleted" -> state.payments[p.text("paymentId")]
+            ?.let { state.withPayment(it.copy(deleted = true, replaced = it.replaced || p.field("replacedBy")?.isString == true)) } ?: state
+        "payment.restored" -> state.payments[p.text("paymentId")]?.takeUnless { it.replaced }
+            ?.let { state.withPayment(it.copy(deleted = false)) } ?: state
+
+        "attachment.added" -> {
+            val id = p.text("attachmentId") ?: ""
+            val expenseId = p.text("expenseId")
+            if (id in state.attachments || expenseId !in state.expenses) state
+            else state.copy(attachments = state.attachments + (id to AttachmentDto(id, expenseId!!)))
+        }
+        "attachment.deleted" -> state.attachments[p.text("attachmentId")]
+            ?.let { state.copy(attachments = state.attachments + (it.id to it.copy(deleted = true))) } ?: state
 
         else -> state
     }

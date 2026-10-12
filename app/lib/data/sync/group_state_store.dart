@@ -26,6 +26,10 @@ class GroupStateStore {
         .get();
     final ps = await (db.select(db.payments)..where((p) => p.groupId.equals(groupId))).get();
     final cs = await (db.select(db.comments)..where((c) => c.groupId.equals(groupId))).get();
+    final atts = await (db.select(db.attachments)
+          ..where((a) => a.groupId.equals(groupId))
+          ..orderBy([(a) => OrderingTerm.asc(a.rowId)]))
+        .get();
     return GroupState(
       name: g?.name,
       defaultCurrency: g?.defaultCurrency,
@@ -68,8 +72,10 @@ class GroupStateStore {
             date: p.date,
             deleted: p.deleted,
             status: p.status,
+            replaced: p.replaced,
           ),
       ],
+      attachments: [for (final a in atts) Attachment(id: a.id, expenseId: a.expenseId, deleted: a.deleted)],
       comments: [
         for (final c in cs)
           Comment(
@@ -103,6 +109,7 @@ class GroupStateStore {
         await (db.delete(db.expenses)..where((e) => e.groupId.equals(groupId))).go();
         await (db.delete(db.payments)..where((p) => p.groupId.equals(groupId))).go();
         await (db.delete(db.comments)..where((c) => c.groupId.equals(groupId))).go();
+        await (db.delete(db.attachments)..where((a) => a.groupId.equals(groupId))).go();
         await (db.delete(db.members)..where((m) => m.groupId.equals(groupId))).go();
         await db.batch((b) {
           b.insertAll(db.members, [
@@ -133,7 +140,12 @@ class GroupStateStore {
                 date: p.date,
                 deleted: Value(p.deleted),
                 status: Value(p.status),
+                replaced: Value(p.replaced),
               ),
+          ]);
+          b.insertAll(db.attachments, [
+            for (final a in s.attachments)
+              AttachmentsCompanion.insert(id: a.id, groupId: groupId, expenseId: a.expenseId, deleted: Value(a.deleted)),
           ]);
           b.insertAll(db.comments, [
             for (final c in s.comments)

@@ -13,12 +13,14 @@ import '../../core/snack.dart';
 import '../../domain/activity.dart';
 import '../../domain/categories.dart';
 import '../../domain/insights.dart' show paidAmounts;
+import '../../domain/itemized.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 import '../activity/activity_screen.dart';
 import '../categories/category_ui.dart';
 import '../expense_form/comment_thread.dart';
 import '../group_detail/balances.dart';
+import '../receipts/receipt_widgets.dart';
 
 /// One expense, read-only (route `/groups/{id}/expenses/{eid}`): who paid, each person's share, notes, History and
 /// comments. Edit opens the form; a deleted expense offers Restore instead.
@@ -147,9 +149,22 @@ class ExpenseDetailScreen extends ConsumerWidget {
                       Expanded(child: Text(row.text)),
                     ]),
                   ),
+                if (e.split?.bill case final bill?) ...[
+                  section('Items'),
+                  _ItemsList(bill: bill, names: names, me: me, currency: e.currency),
+                ],
                 if (e.notes != null) ...[
                   section('Notes'),
                   Text(e.notes!, key: const Key('detail-notes')),
+                ],
+                if (!e.deleted || state.receiptsOf(e.id).isNotEmpty) ...[
+                  section('Receipts'),
+                  ReceiptStrip(
+                    groupId: groupId,
+                    expenseId: e.id,
+                    ids: [for (final a in state.receiptsOf(e.id)) a.id],
+                    editable: !e.deleted,
+                  ),
                 ],
                 section('History'),
                 ExpenseHistory(groupId: groupId, expenseId: e.id),
@@ -174,12 +189,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
     await writes.deleteExpense(groupId, e.id);
     if (!context.mounted) return;
     context.pop();
-    messenger.showSnackBar(SnackBar(
-      content: Text('Deleted “${e.description}”'),
-      duration: const Duration(seconds: 10),
-      persist: false, // actions persist by default; Undo is only offered for 10 s
-      action: SnackBarAction(label: 'Undo', onPressed: () => writes.restoreExpense(groupId, e.id)),
-    ));
+    showUndo(messenger, 'Deleted “${e.description}”', () => writes.restoreExpense(groupId, e.id));
   }
 }
 
@@ -221,6 +231,41 @@ class DeletedExpenseCard extends ConsumerWidget {
         trailing: moved == null ? null : FilledButton(onPressed: onRestore, child: const Text('Restore')),
       ),
     );
+  }
+}
+
+/// The bill of an itemized expense: each line with its price and people, then tax, tip and discount.
+class _ItemsList extends StatelessWidget {
+  final ItemizedBill bill;
+  final Map<String, String> names;
+  final String? me;
+  final String currency;
+  const _ItemsList({required this.bill, required this.names, required this.me, required this.currency});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    String who(String id) => id == me ? 'You' : names[id] ?? 'Someone';
+    Widget row(String label, int amount, {String? sub, bool minus = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label),
+                if (sub != null) Text(sub, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            Text('${minus ? '−' : ''}${formatMoney(amount, currency)}'),
+          ]),
+        );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      for (final l in bill.lines) row(l.name, l.amount, sub: l.memberIds.map(who).join(', ')),
+      if (bill.tax != 0) row('Tax', bill.tax),
+      if (bill.tip != 0) row('Tip or service', bill.tip),
+      if (bill.discount != 0) row('Discount', bill.discount, minus: true),
+    ]);
   }
 }
 
@@ -355,7 +400,7 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
     }
     final rows = <Widget>[];
     String? lastDay;
-    for (final i in _items) {
+    for (final (item: i, :count) in foldReceipts(_items)) {
       final day = dayLabel(i.createdAt);
       if (day != lastDay) {
         lastDay = day;
@@ -364,7 +409,7 @@ class _ExpenseHistoryState extends ConsumerState<ExpenseHistory> {
           child: Text(day, style: text.labelMedium?.copyWith(color: cs.onSurfaceVariant)),
         ));
       }
-      rows.add(ActivityTile(key: ValueKey(i.seq), item: i, groupId: widget.groupId, embedded: true));
+      rows.add(ActivityTile(key: ValueKey(i.seq), item: i, count: count, groupId: widget.groupId, embedded: true));
     }
     // An older server ignores the filter: a page can hold none of this expense's items yet more may follow.
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart' show ImageSource;
@@ -18,19 +17,23 @@ import '../../core/snack.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
 import '../../data/images.dart';
-import '../../domain/fx.dart';
 import '../../providers.dart';
 import '../auth/auth_service.dart';
 import '../friends/home_data.dart';
 
-/// Exports a group (a friend group: its non-group expenses) through the share sheet as `[name].[format]`.
+/// Exports a group (a friend group: its non-group expenses) through the share sheet as `[name].[format]`; `zip` is
+/// the JSON plus every receipt photo (Phase 7).
 Future<void> exportGroup(BuildContext context, WidgetRef ref, String groupId, String name, String format) async {
   try {
-    final data = await ref.read(apiProvider).export(groupId, format);
+    final api = ref.read(apiProvider);
     final dir = await getTemporaryDirectory();
     // A file name can't hold a slash.
     final file = File(p.join(dir.path, '${name.replaceAll('/', '-')}.$format'));
-    await file.writeAsString(data);
+    if (format == 'zip') {
+      await api.exportZip(groupId, file.path);
+    } else {
+      await file.writeAsString(await api.export(groupId, format));
+    }
     await SharePlus.instance.share(ShareParams(files: [XFile(file.path)]));
   } catch (e) {
     if (context.mounted) showError(context, e);
@@ -90,13 +93,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (choice == null || !mounted) return;
     final api = ref.read(apiProvider);
+    final source = choice == 'camera' ? ImageSource.camera : ImageSource.gallery;
     try {
       if (choice == 'remove') {
         setState(() => _savingPhoto = true);
         await api.deleteAvatar();
       } else {
         final file = await ref
-            .read(pickPhotoProvider)(choice == 'camera' ? ImageSource.camera : ImageSource.gallery, maxEdge: 512, quality: 85);
+            .read(pickPhotoProvider)(source, maxEdge: 512, quality: 85);
         if (file == null) return;
         if (mounted) setState(() => _savingPhoto = true);
         await api.putAvatar(file);
@@ -113,16 +117,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           },
         );
       }
-    } on PlatformException catch (e) {
-      if (mounted) {
-        showError(
-            context,
-            e.code.contains('access_denied')
-                ? 'Evensies has no access. Allow it in the Settings app.'
-                : "Couldn't open the ${choice == 'camera' ? 'camera' : 'photo library'}.");
-      }
     } catch (e) {
-      if (mounted) showError(context, "That photo couldn't be used. Try another one.");
+      if (mounted) showError(context, photoErrorText(e, source));
     } finally {
       if (mounted) setState(() => _savingPhoto = false);
     }
@@ -231,12 +227,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             key: const Key('home-currency'),
             leading: const Icon(Icons.public),
             title: const Text('Home currency'),
-            // The "≈" lines need convertAmount (fxReady); no promise before they show.
             subtitle: Text(session?.homeCurrency == null
-                ? 'From your region · ${fxReady ? 'balances also show ≈ in it' : 'totals in it are coming soon'}'
-                : fxReady
-                    ? 'Balances also show ≈ in it'
-                    : 'Totals in it are coming soon'),
+                ? 'From your region · balances also show ≈ in it'
+                : 'Balances also show ≈ in it'),
             trailing: _savingHome
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                 : CurrencyPicker(
@@ -286,6 +279,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'json', child: Text('Export JSON')),
                   const PopupMenuItem(value: 'csv', child: Text('Export CSV')),
+                  const PopupMenuItem(value: 'zip', child: Text('ZIP with receipts')),
                   // A friend group has exactly two members, so new names from a file can't be added (409).
                   if (g.kind != 'friend') const PopupMenuItem(value: 'import', child: Text('Import Splitwise CSV')),
                 ],

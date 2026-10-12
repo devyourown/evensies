@@ -99,6 +99,44 @@ void main() {
     await unmount(t);
   });
 
+  testWidgets("a deleted payment's newest delete row offers Restore to its people; an edited one none; receipts",
+      (t) async {
+    await t.runAsync(() async {
+      await db.saveSession(const SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u1', displayName: 'Anna'));
+      await (db.update(db.members)..where((m) => m.id.equals('m1'))).write(const MembersCompanion(userId: Value('u1')));
+      for (final (id, replaced) in [('p1', false), ('p2', true)]) {
+        await db.into(db.payments).insert(PaymentsCompanion.insert(
+            id: id, groupId: 'g1', fromMember: 'm2', toMember: 'm1', amount: 1500, currency: 'EUR', date: '2026-10-11',
+            deleted: const Value(true), replaced: Value(replaced)));
+      }
+    });
+    Map<String, dynamic> pay(String id) =>
+        {'actorMemberId': 'm2', 'paymentId': id, 'fromMember': 'm2', 'toMember': 'm1', 'amount': 1500, 'currency': 'EUR'};
+    api.onActivity = (_, _) => (
+          items: [
+            ActivityItem.fromJson(item(7, 'receipt_removed', {'actorMemberId': 'm1', 'expenseId': 'x1', 'description': 'Taxi'})),
+            ActivityItem.fromJson(item(6, 'receipt_added', {'actorMemberId': 'm2', 'expenseId': 'x1', 'description': 'Taxi'})),
+            ActivityItem.fromJson(item(5, 'payment_deleted', pay('p1'))),
+            ActivityItem.fromJson(item(4, 'payment_deleted', pay('p2'))),
+            ActivityItem.fromJson(item(3, 'payment_restored', pay('p1'))),
+            ActivityItem.fromJson(item(2, 'payment_deleted', pay('p1'))),
+          ],
+          nextBefore: null,
+        );
+    await t.pumpWidget(app());
+    await settle(t);
+    expect(find.text('You removed a receipt from “Taxi”'), findsOneWidget);
+    expect(find.text('Ben added a receipt to “Taxi”'), findsOneWidget);
+    expect(find.text('Ben restored a payment of €15.00 from Ben to you'), findsOneWidget);
+    expect(find.byKey(const Key('restore-payment')), findsOneWidget); // p1's newest delete only; p2 was edited
+    await t.tap(find.byKey(const Key('restore-payment')));
+    await settle(t);
+    final out = (await t.runAsync(() => db.select(db.outbox).get()))!.single;
+    expect((out.type, out.payloadJson), ('payment.restored', '{"paymentId":"p1"}'));
+    expect(find.byKey(const Key('restore-payment')), findsNothing);
+    await unmount(t);
+  });
+
   testWidgets('follows nextBefore until null, also across empty pages', (t) async {
     api.onActivity = (_, before) => switch (before) {
           null => (items: [ActivityItem.fromJson(item(9, 'member_joined', {'memberId': 'm2'}))], nextBefore: 9),
@@ -303,6 +341,26 @@ void main() {
     await settle(t);
     expect(find.text('payment g1 p1'), findsOneWidget);
     await unmount(t);
+  });
+
+  test("receipts fold: one person's run on one expense is one row; those added with the expense show none", () {
+    ActivityItem a(int seq, String kind, String actor, String expense, {String at = '2026-10-11T10:00:00Z'}) =>
+        ActivityItem.fromJson(
+            {'seq': seq, 'kind': kind, 'actorMemberId': actor, 'expenseId': expense, 'createdAt': at});
+    final rows = foldReceipts([
+      // Newest first.
+      a(9, 'receipt_added', 'm2', 'x2'),
+      a(8, 'receipt_added', 'm2', 'x2'),
+      a(7, 'receipt_added', 'm2', 'x2'),
+      a(6, 'receipt_removed', 'm2', 'x2'),
+      a(5, 'receipt_added', 'm1', 'x2'),
+      a(4, 'receipt_added', 'm1', 'x1'),
+      a(3, 'receipt_added', 'm1', 'x1'),
+      a(2, 'expense_added', 'm1', 'x1'),
+      a(1, 'receipt_added', 'm1', 'x1', at: '2026-10-09T10:00:00Z'), // another day
+    ]);
+    expect([for (final r in rows) (r.item.seq, r.count)], [(9, 3), (6, 1), (5, 1), (2, 1), (1, 1)]);
+    expect(activityText(rows.first.item, {'m2': 'Sam'}, 'm1', count: 3), 'Sam added 3 receipts to “”');
   });
 
   test('day labels count calendar days, also across a DST change', () {

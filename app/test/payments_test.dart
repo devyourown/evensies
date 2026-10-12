@@ -58,22 +58,24 @@ void main() {
     return [for (final o in r) (o.type, (jsonDecode(o.payloadJson) as Map).cast<String, dynamic>())];
   }
 
-  test('an edit is payment.deleted plus payment.created with a new id, in one local transaction', () async {
+  test('an edit is payment.deleted (replacedBy) plus payment.created with a new id, in one local transaction', () async {
     final w = LocalWrites(db, sync);
     await w.editPayment('g1', 'p1',
         const Payment(id: 'p2', fromMember: 'm1', toMember: 'm2', amount: 1200, currency: 'USD', date: '2026-10-11', status: 'sent'));
     final out = await outbox(null);
     expect(out.map((o) => o.$1), ['payment.deleted', 'payment.created']);
-    expect(out[0].$2, {'paymentId': 'p1'});
+    expect(out[0].$2, {'paymentId': 'p1', 'replacedBy': 'p2'});
     expect(out[1].$2, {
       'paymentId': 'p2', 'fromMember': 'm1', 'toMember': 'm2', 'amount': 1200, 'currency': 'USD',
       'date': '2026-10-11', 'status': 'sent',
     });
     final s = await GroupStateStore(db).load('g1');
-    expect(s.payment('p1')!.deleted, isTrue);
+    expect((s.payment('p1')!.deleted, s.payment('p1')!.replaced), (true, true)); // never restored
     expect(s.payment('p2')!.currency, 'USD');
     expect(s.comments.single.paymentId, 'p1'); // comments stay with the old payment
     expect(sync.later, ['g1']);
+    await w.restorePayment('g1', 'p1');
+    expect((await GroupStateStore(db).load('g1')).payment('p1')!.deleted, isTrue);
   });
 
   test('a recorded payment is sent only when I pay someone on Evensies', () {
@@ -221,7 +223,7 @@ void main() {
     await unmount(t);
   });
 
-  testWidgets('Delete goes back and offers Undo, which records the same payment again under a new id', (t) async {
+  testWidgets('Delete goes back and offers Undo, which restores the payment with its status', (t) async {
     tall(t);
     await t.pumpWidget(routed('p1'));
     await settle(t);
@@ -234,11 +236,53 @@ void main() {
     await t.tap(find.text('Undo'));
     await settle(t);
     final out = await outbox(t);
-    expect(out.map((o) => o.$1), ['payment.deleted', 'payment.created']);
-    final p = out.last.$2;
-    expect(p['paymentId'], isNot('p1'));
-    expect((p['fromMember'], p['toMember'], p['amount'], p['currency'], p['date'], p['status']),
-        ('m1', 'm2', 1000, 'EUR', '2026-10-10', 'sent'));
+    expect(out.map((o) => o.$1), ['payment.deleted', 'payment.restored']);
+    expect(out.last.$2, {'paymentId': 'p1'});
+    final p = (await t.runAsync(() => GroupStateStore(db).load('g1')))!.payment('p1')!;
+    expect((p.deleted, p.status), (false, 'sent')); // Ben confirms again
+    await unmount(t);
+  });
+
+  testWidgets('Not received offers Undo too, which brings the payment back', (t) async {
+    await t.runAsync(() => db.into(db.payments).insert(PaymentsCompanion.insert(
+        id: 'p3', groupId: 'g1', fromMember: 'm2', toMember: 'm1', amount: 500, currency: 'EUR', date: '2026-10-11',
+        status: const Value('sent'))));
+    tall(t);
+    await t.pumpWidget(routed('p3'));
+    await settle(t);
+    await t.tap(find.text('Not received'));
+    await settle(t);
+    await t.tap(find.widgetWithText(FilledButton, 'Not received'));
+    await settle(t);
+    expect(find.text('Payment removed'), findsOneWidget);
+    await t.tap(find.text('Undo'));
+    await settle(t);
+    expect((await outbox(t)).map((o) => o.$1), ['payment.deleted', 'payment.restored']);
+    await unmount(t);
+  });
+
+  testWidgets('a deleted payment offers Restore to its people; an edited one says so and offers none', (t) async {
+    await t.runAsync(() async {
+      await (db.update(db.payments)..where((p) => p.id.equals('p1'))).write(const PaymentsCompanion(deleted: Value(true)));
+      await db.into(db.payments).insert(PaymentsCompanion.insert(
+          id: 'p0', groupId: 'g1', fromMember: 'm1', toMember: 'm2', amount: 700, currency: 'EUR', date: '2026-10-09',
+          deleted: const Value(true), replaced: const Value(true)));
+    });
+    await t.pumpWidget(app(const PaymentDetailScreen(groupId: 'g1', paymentId: 'p1')));
+    await settle(t);
+    expect(find.text('This payment was deleted'), findsOneWidget);
+    await t.tap(find.byKey(const Key('restore-payment')));
+    await settle(t);
+    expect(find.text('This payment was deleted'), findsNothing);
+    final restored = (await outbox(t)).single;
+    expect(restored.$1, 'payment.restored');
+    expect(restored.$2, {'paymentId': 'p1'});
+
+    await t.pumpWidget(app(const PaymentDetailScreen(groupId: 'g1', paymentId: 'p0')));
+    await settle(t);
+    expect(find.text('This payment was edited'), findsOneWidget);
+    expect(find.text('Edited payment'), findsOneWidget);
+    expect(find.byKey(const Key('restore-payment')), findsNothing);
     await unmount(t);
   });
 

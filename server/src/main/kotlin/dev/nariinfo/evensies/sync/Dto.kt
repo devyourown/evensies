@@ -44,7 +44,12 @@ data class PaymentDto(
     val deleted: Boolean,
     /** "sent" (payer says it is paid) or "confirmed" (receiver confirmed, or no confirmation needed). */
     val status: String = "confirmed",
+    /** Deleted by an edit (`payment.deleted` with `replacedBy`): the new payment counts now, so it stays deleted (rule 7). */
+    val replaced: Boolean = false,
 )
+
+/** A receipt photo on an expense (Phase 7, rule 14). Only attached ones are in the state; deleted ones stay as tombstones. */
+data class AttachmentDto(val id: String, val expenseId: String, val deleted: Boolean = false)
 
 /**
  * Deleted comments stay as tombstones (deleted = true), like expenses and payments. Exactly one of [expenseId] and
@@ -66,6 +71,7 @@ data class SnapshotDto(
     val expenses: List<ExpenseDto>,
     val payments: List<PaymentDto>,
     val comments: List<CommentDto>,
+    val attachments: List<AttachmentDto>,
     val latestSeq: Long,
 )
 

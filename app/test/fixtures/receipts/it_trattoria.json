@@ -1,0 +1,197 @@
+{
+ "_doc": "Hand-made OCR lines (no real receipt, no card numbers) for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels; lines are listed out of order on purpose.",
+ "name": "Italian trattoria: IVA included (below the total), coperto as an item, TOTALE EURO",
+ "decimals": 2,
+ "lines": [
+  {
+   "text": "4,00",
+   "left": 332,
+   "top": 571,
+   "right": 380,
+   "bottom": 601
+  },
+  {
+   "text": "60,00",
+   "left": 320,
+   "top": 531,
+   "right": 380,
+   "bottom": 561
+  },
+  {
+   "text": "5,09",
+   "left": 332,
+   "top": 491,
+   "right": 380,
+   "bottom": 521
+  },
+  {
+   "text": "56,00",
+   "left": 320,
+   "top": 451,
+   "right": 380,
+   "bottom": 481
+  },
+  {
+   "text": "5,00",
+   "left": 332,
+   "top": 411,
+   "right": 380,
+   "bottom": 441
+  },
+  {
+   "text": "2,50",
+   "left": 332,
+   "top": 371,
+   "right": 380,
+   "bottom": 401
+  },
+  {
+   "text": "8,00",
+   "left": 332,
+   "top": 331,
+   "right": 380,
+   "bottom": 361
+  },
+  {
+   "text": "24,00",
+   "left": 320,
+   "top": 291,
+   "right": 380,
+   "bottom": 321
+  },
+  {
+   "text": "12,50",
+   "left": 320,
+   "top": 254,
+   "right": 380,
+   "bottom": 284
+  },
+  {
+   "text": "4,00",
+   "left": 332,
+   "top": 177,
+   "right": 380,
+   "bottom": 207
+  },
+  {
+   "text": "Resto",
+   "left": 20,
+   "top": 576,
+   "right": 80,
+   "bottom": 606
+  },
+  {
+   "text": "Contanti",
+   "left": 20,
+   "top": 536,
+   "right": 116,
+   "bottom": 566
+  },
+  {
+   "text": "di cui IVA 10%",
+   "left": 20,
+   "top": 496,
+   "right": 188,
+   "bottom": 526
+  },
+  {
+   "text": "TOTALE EURO",
+   "left": 20,
+   "top": 456,
+   "right": 152,
+   "bottom": 486
+  },
+  {
+   "text": "Servizio",
+   "left": 20,
+   "top": 416,
+   "right": 116,
+   "bottom": 446
+  },
+  {
+   "text": "Acqua naturale",
+   "left": 20,
+   "top": 376,
+   "right": 188,
+   "bottom": 406
+  },
+  {
+   "text": "Vino della casa 1/2 l",
+   "left": 20,
+   "top": 336,
+   "right": 272,
+   "bottom": 366
+  },
+  {
+   "text": "Bistecca alla fiorentina",
+   "left": 20,
+   "top": 296,
+   "right": 308,
+   "bottom": 326
+  },
+  {
+   "text": "Tagliatelle al ragù",
+   "left": 20,
+   "top": 220,
+   "right": 248,
+   "bottom": 250
+  },
+  {
+   "text": "Coperto x2",
+   "left": 20,
+   "top": 182,
+   "right": 140,
+   "bottom": 212
+  },
+  {
+   "text": "P.IVA 01234567890",
+   "left": 20,
+   "top": 140,
+   "right": 224,
+   "bottom": 170
+  },
+  {
+   "text": "Via Roma 12 - 50123 Firenze",
+   "left": 20,
+   "top": 100,
+   "right": 344,
+   "bottom": 130
+  },
+  {
+   "text": "Trattoria da Gino",
+   "left": 20,
+   "top": 60,
+   "right": 224,
+   "bottom": 90
+  }
+ ],
+ "expected": {
+  "lines": [
+   {
+    "name": "Coperto x2",
+    "amount": 400
+   },
+   {
+    "name": "Tagliatelle al ragù",
+    "amount": 1250
+   },
+   {
+    "name": "Bistecca alla fiorentina",
+    "amount": 2400
+   },
+   {
+    "name": "Vino della casa 1/2 l",
+    "amount": 800
+   },
+   {
+    "name": "Acqua naturale",
+    "amount": 250
+   }
+  ],
+  "tax": 0,
+  "tip": 500,
+  "discount": 0,
+  "total": 5600,
+  "merchant": "Trattoria da Gino"
+ }
+}

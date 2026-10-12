@@ -180,8 +180,8 @@ class _ActivityListState extends ConsumerState<ActivityList> {
           ),
       ];
       String? lastDay;
-      final restoreOffered = <String>{};
-      for (final i in _items) {
+      final restoreOffered = <String>{}; // expense and payment ids: only the newest delete row offers Restore
+      for (final (item: i, :count) in foldReceipts(_items)) {
         final day = dayLabel(i.createdAt);
         if (day != lastDay) {
           lastDay = day;
@@ -192,14 +192,17 @@ class _ActivityListState extends ConsumerState<ActivityList> {
         }
         rows.add(ActivityTile(
           item: i,
+          count: count,
           groupId: i.groupId ?? widget.groupId!,
           showGroup: widget.groupId == null,
-          // Newest first, so this is the expense's latest delete: the only row that offers Restore. A move counts as a
-          // delete with no Restore (it would count in both groups, docs/API.md 적용 규칙 13).
-          offerRestore: (i.kind == 'expense_deleted' || i.kind == 'expense_moved') &&
-              i.expenseId != null &&
-              restoreOffered.add(i.expenseId!) &&
-              i.kind == 'expense_deleted',
+          // Newest first, so this is the expense's (or payment's) latest delete: the only row that offers Restore. A
+          // move counts as a delete with no Restore (it would count in both groups, docs/API.md 적용 규칙 13).
+          offerRestore: switch (i.kind) {
+            'expense_deleted' || 'expense_moved' =>
+              i.expenseId != null && restoreOffered.add(i.expenseId!) && i.kind == 'expense_deleted',
+            'payment_deleted' => i.paymentId != null && restoreOffered.add(i.paymentId!),
+            _ => false,
+          },
         ));
       }
       final wantMore = _nextBefore != null && !_moreFailed;
@@ -243,6 +246,28 @@ Future<void> cacheActivity(AppDatabase db, List<ActivityItem> items, String? gro
               ),
         ]));
 
+/// The feed as rows, newest first: one person's receipt_added (or receipt_removed) in a row on one expense and day is
+/// one row with their [count], and receipts added right with an expense show no row (its expense_added says it).
+List<({ActivityItem item, int count})> foldReceipts(List<ActivityItem> items) {
+  final rows = <({ActivityItem item, int count})>[];
+  for (final i in items) {
+    final last = rows.lastOrNull?.item;
+    final same = last != null &&
+        last.actorMemberId == i.actorMemberId &&
+        last.expenseId == i.expenseId &&
+        last.groupId == i.groupId &&
+        dayLabel(last.createdAt) == dayLabel(i.createdAt);
+    if (same && i.kind.startsWith('receipt_') && last.kind == i.kind) {
+      rows.last = (item: last, count: rows.last.count + 1);
+    } else if (same && i.kind == 'expense_added' && last.kind == 'receipt_added') {
+      rows.last = (item: i, count: 1);
+    } else {
+      rows.add((item: i, count: 1));
+    }
+  }
+  return rows;
+}
+
 DateTime? _local(String? iso) => iso == null ? null : DateTime.tryParse(iso)?.toLocal();
 
 /// "Today", "Yesterday", "Mon, 5 Oct" or "5 Oct 2025" for a feed timestamp.
@@ -263,14 +288,18 @@ class ActivityTile extends ConsumerWidget {
   final String groupId;
   final bool showGroup;
 
-  /// Whether a deleted expense's row may show Restore (the list offers it on the newest delete only).
+  /// Whether a deleted expense's or payment's row may show Restore (the list offers it on the newest delete only).
   final bool offerRestore;
 
   /// In an expense's own History: no tap (that is where it would go) and no side inset (the screen has one).
   final bool embedded;
+
+  /// The receipts this row stands for ([foldReceipts]).
+  final int count;
   const ActivityTile({
     super.key,
     required this.item,
+    this.count = 1,
     required this.groupId,
     this.showGroup = false,
     this.offerRestore = false,
@@ -290,16 +319,27 @@ class ActivityTile extends ConsumerWidget {
         m.id: friend != null && m.id != group?.myMemberId && m.userId != home?.myUserId ? friend : m.name,
     };
     final expense = item.expenseId == null ? null : state?.expense(item.expenseId!);
+    final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final restorable = offerRestore && item.kind == 'expense_deleted' && expense != null && expense.deleted;
+    // A deleted payment: not an edited one, and only for the payer's or receiver's user (docs/API.md 송금 되살리기).
+    final me = ref.watch(sessionProvider).value?.userId;
+    final restorablePayment = offerRestore &&
+        item.kind == 'payment_deleted' &&
+        payment != null &&
+        payment.deleted &&
+        !payment.replaced &&
+        me != null &&
+        (state?.member(payment.fromMember)?.userId == me || state?.member(payment.toMember)?.userId == me);
     final (icon, bg, fg) = switch (item.kind) {
-      'expense_deleted' || 'payment_deleted' || 'member_removed' => (
+      'expense_deleted' || 'payment_deleted' || 'member_removed' || 'receipt_removed' => (
           Icons.delete_outline,
           cs.errorContainer,
           cs.onErrorContainer
         ),
       'expense_added' => (Icons.receipt_long_outlined, cs.primaryContainer, cs.onPrimaryContainer),
-      'expense_updated' => (Icons.edit_outlined, cs.primaryContainer, cs.onPrimaryContainer),
-      'expense_restored' => (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
+      'receipt_added' => (Icons.add_photo_alternate_outlined, cs.primaryContainer, cs.onPrimaryContainer),
+      'expense_updated' || 'payment_edited' => (Icons.edit_outlined, cs.primaryContainer, cs.onPrimaryContainer),
+      'expense_restored' || 'payment_restored' => (Icons.restore, cs.primaryContainer, cs.onPrimaryContainer),
       'comment_added' => (Icons.chat_bubble_outline, cs.secondaryContainer, cs.onSecondaryContainer),
       'payment_added' || 'payment_confirmed' => (Icons.payments_outlined, cs.tertiaryContainer, cs.onTertiaryContainer),
       'member_added' || 'member_joined' || 'friend_added' => (
@@ -319,7 +359,6 @@ class ActivityTile extends ConsumerWidget {
     ].where((s) => s.isNotEmpty).join(' · ');
 
     final kind = item.kind;
-    final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final String? target;
     if (expense != null) {
       target = '/groups/$groupId/expenses/${expense.id}';
@@ -349,7 +388,7 @@ class ActivityTile extends ConsumerWidget {
       title: Text(
           embedded && kind == 'comment_added'
               ? '${actor != null && actor == group?.myMemberId ? 'You' : names[actor] ?? 'Someone'} commented'
-              : activityText(item, names, group?.myMemberId, withDelta: false),
+              : activityText(item, names, group?.myMemberId, withDelta: false, count: count),
           maxLines: kind == 'comment_added' ? 3 : null,
           overflow: kind == 'comment_added' ? TextOverflow.ellipsis : null),
       subtitle: delta == null && meta.isEmpty
@@ -371,7 +410,16 @@ class ActivityTile extends ConsumerWidget {
               },
               child: const Text('Restore'),
             )
-          : null,
+          : restorablePayment
+              ? TextButton(
+                  key: const Key('restore-payment'),
+                  onPressed: () async {
+                    await ref.read(localWritesProvider).restorePayment(groupId, payment.id);
+                    if (context.mounted) showInfo(context, 'Payment restored');
+                  },
+                  child: const Text('Restore'),
+                )
+              : null,
       onTap: target == null || embedded ? null : () => context.push(target!),
     );
   }

@@ -4,14 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/confirm.dart';
-import '../../core/core_guard.dart';
 import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../data/fx_rates.dart';
-import '../../domain/fx.dart';
 import '../../domain/models.dart';
 import '../../domain/payment_methods.dart';
 import '../../domain/settlement.dart';
@@ -67,10 +65,8 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
         label: const Text('Record a payment'),
       ),
     );
-    if (group == null || !async.hasValue || state == null) {
+    if (group == null || res == null || state == null) {
       body = const Center(child: CircularProgressIndicator());
-    } else if (res == null) {
-      body = const Center(child: Text(notImplementedLabel));
     } else {
       // Every bucket settles in its own currency (docs/API.md 통화별 잔액, Phase 6): the group currency first, then
       // the others by code.
@@ -80,7 +76,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
       final transfers = all[d] ?? const <Transfer>[];
       final me = group.myMemberId;
       final pending = state.payments.where((p) => !p.deleted && p.pending && (p.fromMember == me || p.toMember == me)).toList();
-      if (transfers.isEmpty && pending.isEmpty && res.unsupported == 0 && others.isEmpty) {
+      if (transfers.isEmpty && pending.isEmpty && others.isEmpty) {
         body = ListView(padding: const EdgeInsets.all(16), children: [
           const SizedBox(height: 64),
           Icon(Icons.check_circle_outline, size: 64, color: cs.primary),
@@ -106,32 +102,18 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               for (final p in pending) _pendingCard(group, state, p),
               const SizedBox(height: 8),
             ],
-            if (res.unsupported > 0)
-              Card(
-                color: cs.tertiaryContainer,
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: Icon(Icons.construction, color: cs.onTertiaryContainer),
-                  title: Text(
-                      '${res.unsupported} expense${res.unsupported == 1 ? '' : 's'} with several payers or refunds '
-                      "${res.unsupported == 1 ? "isn't" : "aren't"} counted yet",
-                      style: TextStyle(color: cs.onTertiaryContainer)),
-                ),
-              ),
             if (transfers.isNotEmpty)
               header(!group.simplifyDebts
                   ? 'Debts as recorded · simplify debts is off'
-                  : res.unsupported > 0
-                      ? '${transfers.length} transfer${transfers.length == 1 ? '' : 's'} (some expenses not counted yet)'
-                      : '${transfers.length} transfer${transfers.length == 1 ? ' settles' : 's settle'} '
-                          '${others.isEmpty ? 'everything' : 'the $d balance'}'),
+                  : '${transfers.length} transfer${transfers.length == 1 ? ' settles' : 's settle'} '
+                      '${others.isEmpty ? 'everything' : 'the $d balance'}'),
             for (final t in transfers) _transferCard(group, state, t, d),
             for (final c in others) ...[
               Padding(
                 key: Key('bucket-$c'),
                 padding: const EdgeInsets.only(top: 16),
                 child: header('Not converted · $c · settles in $c',
-                    trailing: fxReady && (res.unrated[c] ?? 0) > 0
+                    trailing: (res.unrated[c] ?? 0) > 0
                         ? TextButton.icon(
                             onPressed: () => showConvertSheet(context, groupId: group.id, currencies: [c]),
                             icon: const Icon(Icons.currency_exchange, size: 18),
@@ -338,10 +320,13 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
         title: 'Not received?',
         message: 'The payment from ${_name(s, p.fromMember)} is removed and the debt comes back.',
         confirmLabel: 'Not received');
-    if (!ok) return;
+    if (!ok || !mounted) return;
     setState(() => _busy.add(p.id));
+    final writes = ref.read(localWritesProvider);
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(localWritesProvider).deletePayment(group.id, p.id);
+      await writes.deletePayment(group.id, p.id);
+      showUndo(messenger, 'Payment removed', () => writes.restorePayment(group.id, p.id));
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {

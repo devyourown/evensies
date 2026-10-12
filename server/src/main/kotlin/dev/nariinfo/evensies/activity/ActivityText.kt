@@ -90,6 +90,10 @@ object ActivityText {
                 if (item.status == "sent") "${DOT}waiting for ${who(item.toMember)} to confirm" else ""
             "payment_confirmed" -> "$a confirmed receiving ${money(item.amount)} from ${who(item.fromMember)}"
             "payment_deleted" -> "$a deleted a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
+            "payment_edited" -> "$a edited a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
+            "payment_restored" -> "$a restored a payment of ${money(item.amount)} from ${who(item.fromMember)} to ${who(item.toMember)}"
+            "receipt_added" -> "$a added a receipt to ${quote(item.description)}"
+            "receipt_removed" -> "$a removed a receipt from ${quote(item.description)}"
             else -> "$a made a change"
         }
     }
@@ -112,8 +116,13 @@ object ActivityText {
     /**
      * Visible push body: the sentence for one item, a batch sentence for more, clipped to [MAX_BODY] chars so a long
      * comment or description never pushes the message past FCM/APNs' 4096-byte limit (which would drop the sync data too).
+     * A `receipt_added` on an expense added in the same batch is left out first (Phase 7: saving a scanned expense is
+     * one sentence); the feed keeps both.
      */
-    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?): String = batch(items, names, me).clip(MAX_BODY)
+    fun body(items: List<ActivityItem>, names: Map<String, String>, me: String?): String {
+        val added = items.filter { it.kind == "expense_added" }.mapTo(HashSet()) { it.expenseId }
+        return batch(items.filterNot { it.kind == "receipt_added" && it.expenseId in added }, names, me).clip(MAX_BODY)
+    }
 
     private fun batch(items: List<ActivityItem>, names: Map<String, String>, me: String?): String {
         if (items.size == 1) return sentence(items[0], names, me)

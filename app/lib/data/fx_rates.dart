@@ -22,7 +22,7 @@ typedef AmountFn = int Function({required int amount, required int fromDecimals,
 
 /// "≈ H" (docs/API.md 통화별 잔액): Σ over [amounts] (currency → minor units) of convertAmount into [home] at
 /// crossRate(perEur, X, home). Null when it adds nothing (every non-zero amount is already in [home], or all are zero),
-/// when a rate is missing, or while convertAmount is a stub.
+/// or when a rate is missing.
 int? approxIn(String home, Map<String, int> amounts, Map<String, double>? perEur, {AmountFn convert = convertAmount}) {
   final nonZero = {for (final e in amounts.entries) if (e.value != 0) e.key: e.value};
   if (perEur == null || nonZero.keys.every((c) => c == home)) return null;

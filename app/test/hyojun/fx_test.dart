@@ -6,8 +6,7 @@ import '../shared_json.dart';
 // 실행: flutter test test/hyojun
 void main() {
   for (final c in sharedCases('fx-cases.json')) {
-    // "pending": "hyojun" = needs his convertAmount / convertExpense; reported as skipped until they land.
-    test(c['name'] as String, skip: c['pending'] == null ? null : 'pending: hyojun', () {
+    test(c['name'] as String, () {
       final rate = (c['rate'] as num).toDouble();
       final from = c['fromDecimals'] as int, to = c['toDecimals'] as int;
       Object run() => c['fn'] == 'amount'

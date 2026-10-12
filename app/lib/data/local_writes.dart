@@ -94,10 +94,24 @@ class LocalWrites {
   /// push that reached the server before its answer was lost isn't stored twice; a [retry] also carries an
   /// `expense.updated` with all of [moved]'s values, so an edit made between the tries isn't lost to that dedupe (a
   /// no-op, hidden in Activity, when the first try never landed).
+  /// [receipts] (source id → the new id and its `attachment.added` clientId, the same on a retry): each photo is
+  /// copied under its new id (downloaded if this device has no copy), uploaded to [toGroup] from that copy, and attached
+  /// in the same push; the originals stay on the old expense. One the server no longer has (404: removed meanwhile) is
+  /// left out.
   Future<void> moveExpense(String fromGroup, Expense e, String toGroup, Expense moved,
-      {String? clientId, bool retry = false}) async {
+      {String? clientId, bool retry = false, Map<String, ({String id, String clientId})> receipts = const {}}) async {
     final created = expenseCreatedPayload(moved);
     try {
+      final attached = <({String id, String clientId})>[];
+      for (final MapEntry(key: from, value: to) in receipts.entries) {
+        try {
+          final (image, thumb) = await sync.receipts.keepCopy(fromGroup, from, to.id);
+          await sync.api.uploadAttachment(toGroup, to.id, image, thumb); // a retry of a stored one answers 200
+          attached.add(to);
+        } on ApiException catch (x) {
+          if (x.status != 404 || x.code == 'NETWORK') rethrow;
+        }
+      }
       await sync.api.pushEvents(toGroup, [
         OutboundEvent(
             clientId: clientId ?? newId(), type: EventTypes.expenseCreated, payload: created, createdAt: nowIsoUtc()),
@@ -106,6 +120,12 @@ class LocalWrites {
               clientId: newId(),
               type: EventTypes.expenseUpdated,
               payload: {'expenseId': moved.id, 'fields': {...created}..remove('expenseId')},
+              createdAt: nowIsoUtc()),
+        for (final to in attached)
+          OutboundEvent(
+              clientId: to.clientId,
+              type: EventTypes.attachmentAdded,
+              payload: {'attachmentId': to.id, 'expenseId': moved.id},
               createdAt: nowIsoUtc()),
       ]);
     } on ApiException catch (x) {
@@ -167,13 +187,14 @@ class LocalWrites {
     sync.syncLater(groupId);
   }
 
-  /// An edit (docs/API.md 송금 기록·편집): `payment.deleted` of [oldId] plus `payment.created` of [p] (a new id) in one
-  /// local transaction, so they usually go in one push. Comments stay on the old payment.
+  /// An edit (docs/API.md 송금 기록·편집): `payment.deleted` of [oldId] with `replacedBy` plus `payment.created` of [p]
+  /// (a new id) in one local transaction, so they usually go in one push. The old one can't be restored (rule 7), and
+  /// its comments stay on it.
   Future<void> editPayment(String groupId, String oldId, Payment p) async {
     await db.transaction(() async {
       await (db.update(db.payments)..where((x) => x.id.equals(oldId)))
-          .write(const PaymentsCompanion(deleted: Value(true)));
-      await _outbox(groupId, EventTypes.paymentDeleted, {'paymentId': oldId});
+          .write(const PaymentsCompanion(deleted: Value(true), replaced: Value(true)));
+      await _outbox(groupId, EventTypes.paymentDeleted, {'paymentId': oldId, 'replacedBy': p.id});
       await _writePayment(groupId, p);
     });
     sync.syncLater(groupId);
@@ -211,6 +232,48 @@ class LocalWrites {
     await (db.update(db.payments)..where((p) => p.id.equals(paymentId)))
         .write(const PaymentsCompanion(deleted: Value(true)));
     await _enqueue(groupId, EventTypes.paymentDeleted, {'paymentId': paymentId});
+  }
+
+  /// Undo of a delete (docs/API.md 삭제한 송금 되살리기): live again with the status it had; an edited (replaced) one
+  /// stays deleted, like on the server.
+  Future<void> restorePayment(String groupId, String paymentId) async {
+    await (db.update(db.payments)..where((p) => p.id.equals(paymentId) & p.replaced.equals(false)))
+        .write(const PaymentsCompanion(deleted: Value(false)));
+    await _enqueue(groupId, EventTypes.paymentRestored, {'paymentId': paymentId});
+  }
+
+  /// A prepared receipt photo ([ReceiptFiles.prepare], id [attachmentId]) on [expenseId] (docs/API.md 영수증): the local
+  /// row, its pending upload and `attachment.added` (after the expense's `expense.created` when that is still queued),
+  /// in one transaction. Sync uploads the photo before it pushes the event.
+  Future<void> attachReceipt(String groupId, String expenseId, String attachmentId) async {
+    await db.transaction(() async {
+      await db.into(db.attachments)
+          .insert(AttachmentsCompanion.insert(id: attachmentId, groupId: groupId, expenseId: expenseId));
+      await db.into(db.pendingUploads)
+          .insert(PendingUploadsCompanion.insert(attachmentId: attachmentId, groupId: groupId, createdAt: nowIsoUtc()));
+      await _outbox(groupId, EventTypes.attachmentAdded, {'attachmentId': attachmentId, 'expenseId': expenseId});
+    });
+    sync.syncLater(groupId);
+  }
+
+  /// Removes a receipt for everyone. Not uploaded yet: its files, rows and unsent `attachment.added` go, and nothing
+  /// reaches the server. Uploaded: `attachment.deleted` (the server deletes the files after it commits), and this
+  /// device's copy goes.
+  Future<void> removeReceipt(String groupId, String attachmentId) async {
+    final pending = await (db.select(db.pendingUploads)..where((p) => p.attachmentId.equals(attachmentId))).get();
+    if (pending.isNotEmpty) {
+      await sync.receipts.delete([attachmentId]);
+      await db.dropReceipts([attachmentId]);
+      return;
+    }
+    final row = await db.getAttachment(attachmentId);
+    await (db.update(db.attachments)..where((a) => a.id.equals(attachmentId)))
+        .write(const AttachmentsCompanion(deleted: Value(true)));
+    await _enqueue(groupId, EventTypes.attachmentDeleted, {
+      'attachmentId': attachmentId,
+      'expenseId': ?row?.expenseId,
+    });
+    await sync.receipts.delete([attachmentId]);
   }
 
   Future<void> addMember(String groupId, String name) async {
@@ -319,7 +382,7 @@ class LocalWrites {
       if (e.code == 'NETWORK') throw const LeaveException('You need to be online to leave');
       rethrow;
     }
-    await db.deleteGroupData(groupId);
+    await sync.dropGroup(groupId);
   }
 }
 

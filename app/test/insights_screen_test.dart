@@ -177,15 +177,25 @@ void main() {
       expect(t.getSize(find.text('Total spent')).width, greaterThan(150)); // not one letter per line
       await t.tap(find.byKey(const Key('period-month')));
       await settle(t);
+      // One word shrinks instead of breaking mid-word ("Oc" / "t", "Transportatio" / "n"): a single line.
+      double lines(String s, double fontSize) => t.getSize(find.text(s)).height / (fontSize * 3.12);
       final list = find.byType(Scrollable).first;
+      await t.scrollUntilVisible(find.text('Oct'), 300, scrollable: list);
+      await settle(t);
+      expect(lines('Oct', 12), lessThan(2)); // labelMedium (line height 1.33)
+      await t.scrollUntilVisible(find.text('Transportation'), 300, scrollable: list);
+      await settle(t);
+      expect(lines('Transportation', 16), lessThan(2)); // bodyLarge (line height 1.5)
       await t.scrollUntilVisible(find.text('Food and drink'), 300, scrollable: list);
       await t.ensureVisible(find.text('Food and drink'));
       await settle(t);
       await t.tap(find.text('Food and drink'));
       await settle(t);
-      // The amount wraps under the label instead of squeezing it.
+      // The amount wraps under the label instead of squeezing it; no category icon at these sizes (whole words).
       expect(t.getSize(find.text('Food and drink')).width, greaterThan(150));
       expect(t.getSize(find.text('Groceries')).width, greaterThan(150));
+      expect(t.widget<ExpansionTile>(find.byKey(const PageStorageKey('cat-food'))).leading, isNull);
+      expect(t.widget<ListTile>(find.byKey(const Key('cat-row-food.groceries'))).leading, isNull);
       await t.scrollUntilVisible(find.text('By person'), 300, scrollable: list);
       await settle(t);
       await unmount(t);

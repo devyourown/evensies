@@ -11,6 +11,7 @@ import 'data/api/dto.dart';
 import 'data/db/database.dart';
 import 'data/fx_rates.dart';
 import 'data/local_writes.dart';
+import 'data/receipts.dart';
 import 'data/sync/sync_service.dart';
 
 /// Overridden in tests with `AppDatabase(NativeDatabase.memory())`.
@@ -23,7 +24,8 @@ final dbProvider = Provider<AppDatabase>((ref) {
 final apiProvider = Provider<ApiClient>(
     (ref) => ApiClient(db: ref.watch(dbProvider), baseUrl: () => ref.read(serverUrlProvider)));
 
-final syncProvider = Provider<SyncService>((ref) => SyncService(db: ref.watch(dbProvider), api: ref.watch(apiProvider)));
+final syncProvider = Provider<SyncService>((ref) =>
+    SyncService(db: ref.watch(dbProvider), api: ref.watch(apiProvider), receipts: ref.watch(receiptFilesProvider)));
 
 final localWritesProvider = Provider<LocalWrites>((ref) => LocalWrites(ref.watch(dbProvider), ref.watch(syncProvider)));
 
@@ -53,6 +55,10 @@ final commentsProvider = StreamProvider.family<List<CommentRow>, String>((ref, i
   final db = ref.watch(dbProvider);
   return (db.select(db.comments)..where((c) => c.groupId.equals(id))).watch();
 });
+
+/// expenseId → its receipts that aren't deleted (docs/API.md 영수증); also makes the group state re-read on a change.
+final attachmentCountsProvider =
+    StreamProvider.family<Map<String, int>, String>((ref, id) => ref.watch(dbProvider).watchAttachmentCounts(id));
 
 /// Whether the expense was deleted by a move (docs/API.md 지출 옮기기): restoring it would count it in both groups, so
 /// the app offers no Restore (and the appliers ignore one, rule 13).

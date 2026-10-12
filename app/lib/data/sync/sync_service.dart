@@ -8,16 +8,20 @@ import '../../domain/models.dart';
 import '../api/api_client.dart';
 import '../api/dto.dart';
 import '../db/database.dart';
+import '../receipts.dart';
 import 'apply_event.dart';
 import 'event_types.dart';
 import 'group_state_store.dart';
 
-/// push unsent outbox → pull after lastSeq → fold through applyEvent → save.
+/// upload pending receipts → push unsent outbox → pull after lastSeq → fold through applyEvent → save.
 class SyncService {
   final AppDatabase db;
   final ApiClient api;
   final GroupStateStore store;
-  SyncService({required this.db, required this.api}) : store = GroupStateStore(db);
+  final ReceiptFiles receipts;
+  SyncService({required this.db, required this.api, ReceiptFiles? receipts})
+      : store = GroupStateStore(db),
+        receipts = receipts ?? ReceiptFiles(api);
 
   /// True after the last sync attempt failed (network or server). Shown as a chip in the UI.
   final offline = ValueNotifier<bool>(false);
@@ -37,6 +41,7 @@ class SyncService {
   Future<void> _sync(String groupId) async {
     try {
       try {
+        await _upload(groupId);
         await _push(groupId);
       } on ApiException {
         await _settleRejected(groupId); // what was refused before the pass stopped
@@ -48,6 +53,7 @@ class SyncService {
       // stored rows would keep what older code dropped (notes, comments, restores, payers, group settings).
       final replay = last == 0;
       var state = replay ? GroupState.empty : await store.load(groupId);
+      final before = state;
       var rebuild = false;
       while (true) {
         final page = await _gone(groupId, () => api.pullEvents(groupId, after: last));
@@ -55,15 +61,27 @@ class SyncService {
         for (final e in page.events) {
           state = _apply(state, e);
           rebuild |= e.type == EventTypes.expenseRestored ||
+              e.type == EventTypes.paymentRestored ||
               (e.type == EventTypes.groupUpdated && e.payload['defaultCurrency'] != null);
         }
         last = page.events.last.seq;
         await store.save(groupId, state, last);
         if (page.events.length < 500) break;
       }
+      // A replay folds from empty: events still held back (behind a receipt upload) keep their local changes.
+      final held = replay && last > 0 ? await db.unsentOutbox(groupId) : const <OutboxRow>[];
+      if (held.isNotEmpty) {
+        for (final o in held) {
+          final e = _out(o);
+          state = _apply(state, SyncEvent(seq: 0, clientId: e.clientId, type: e.type, payload: e.payload));
+        }
+        await store.save(groupId, state, last);
+      }
+      await _dropRemoved(state, before);
       // The stored rows include my optimistic writes, so folding on them can differ from the server:
       // - a deleted row may hold values the server never applied (an update it ignored under rule 3, or one I ignored
-      //   because my delete was local first), and a restore makes that row live again;
+      //   because my delete was local first: an update, or someone's payment.confirmed), and a restore of an expense or
+      //   a payment makes that row live again;
       // - the currency lock (rule 12) looks at the state, which already holds my expenses and payments with later
       //   seqs (or my own currency change the server ignored).
       // Then take the server's state. The outbox was pushed above; what was queued since is re-applied.
@@ -80,7 +98,7 @@ class SyncService {
       offline.value = false;
     } on _Gone {
       // Left or removed (here or on another device): nothing to show or keep.
-      await db.deleteGroupData(groupId);
+      await dropGroup(groupId);
       offline.value = false;
     } catch (e) {
       offline.value = true;
@@ -96,14 +114,75 @@ class SyncService {
         createdAt: o.createdAt,
       );
 
+  /// The group's local rows and its receipt files (left, removed, or gone from `GET /groups`).
+  Future<void> dropGroup(String groupId) async {
+    await receipts.delete(await db.receiptIds(groupId));
+    await db.deleteGroupData(groupId);
+  }
+
+  /// Receipts removed for everyone in [state] (and not yet in [before]): this device's copies go too, whoever removed
+  /// them.
+  Future<void> _dropRemoved(GroupState state, [GroupState before = GroupState.empty]) => receipts.delete({
+        for (final a in state.attachments)
+          if (a.deleted) a.id,
+      }.difference({
+        for (final a in before.attachments)
+          if (a.deleted) a.id,
+      }));
+
+  /// Receipt [ids] gone for good: files, rows, pending uploads and unsent `attachment.added`.
+  Future<void> _dropReceipts(List<String> ids) async {
+    await receipts.delete(ids);
+    await db.dropReceipts(ids);
+  }
+
+  /// Uploads the group's pending receipts, oldest first (docs/API.md 영수증 sync 1). A missing file, or a refusal of
+  /// the photo itself (400, 409, 413), drops that receipt; a 403/404 checks the membership; anything else (401, 429,
+  /// 5xx, offline) stops this round, and the push below then holds back that receipt's `attachment.added`.
+  Future<void> _upload(String groupId) async {
+    for (final u in await db.pendingUploadsOf(groupId)) {
+      final id = u.attachmentId;
+      if (!await receipts.hasPending(id)) {
+        await _dropReceipts([id]);
+        continue;
+      }
+      try {
+        await api.uploadAttachment(groupId, id, await receipts.pending(id), await receipts.pending(id, thumb: true));
+      } on ApiException catch (e) {
+        if (e.code == 'NETWORK') return;
+        if (e.status == 400 || e.status == 409 || e.status == 413) {
+          final what = await _expenseName((await db.getAttachment(id))?.expenseId);
+          await _dropReceipts([id]);
+          _rejections.add("Couldn't save the receipt on $what: the server refused it");
+          continue;
+        }
+        if (e.status == 403 || e.status == 404) {
+          try {
+            await _gone(groupId, () => Future<void>.error(e)); // _Gone when I'm out of the group
+          } on ApiException {
+            return;
+          }
+        }
+        return;
+      }
+      await (db.delete(db.pendingUploads)..where((p) => p.attachmentId.equals(id))).go();
+      await receipts.uploaded(id);
+    }
+  }
+
   /// The server takes 120 events a minute per user (429 above), so a bigger batch could never be sent.
   static const _batch = 100;
 
-  /// Pushes the outbox in batches of [_batch]. A batch refused with 400/409 (or a 403 while I'm still a member) is
-  /// re-sent one event at a time; an event refused on its own is marked rejected. 401, 429, 5xx and network errors
-  /// stop and keep the rest.
+  /// Pushes the outbox in batches of [_batch], up to (not including) the first `attachment.added` whose photo is still
+  /// waiting to upload. A batch refused with 400/409 (or a 403 while I'm still a member) is re-sent one event at a
+  /// time; an event refused on its own is marked rejected. 401, 429, 5xx and network errors stop and keep the rest.
+  /// ponytail: one slow upload holds back the group's later events; add per-event dependencies if that hurts.
   Future<void> _push(String groupId) async {
-    final all = await db.unsentOutbox(groupId);
+    final pending = {for (final u in await db.pendingUploadsOf(groupId)) u.attachmentId};
+    var all = await db.unsentOutbox(groupId);
+    final held = all.indexWhere(
+        (o) => o.type == EventTypes.attachmentAdded && pending.contains(jsonDecode(o.payloadJson)['attachmentId']));
+    if (held >= 0) all = all.sublist(0, held);
     for (var i = 0; i < all.length; i += _batch) {
       await _pushBatch(groupId, all.sublist(i, min(i + _batch, all.length)));
     }
@@ -171,8 +250,13 @@ class SyncService {
     if (rejected.isEmpty) return;
     // Before the rebuild drops a refused new expense: its name is in the local rows.
     final messages = [
-      for (final o in rejected) "Couldn't save ${await _what(o)}: ${rejectionReason(o.rejected!)}",
+      for (final o in rejected) "Couldn't save ${await _what(o)}: ${rejectionReason(o.rejected!, o.type)}",
     ];
+    // A refused receipt goes from this device too (its upload stays on the server until the Phase 8 sweep).
+    await _dropReceipts([
+      for (final o in rejected)
+        if (o.type == EventTypes.attachmentAdded) (jsonDecode(o.payloadJson) as Map)['attachmentId'] as String,
+    ]);
     try {
       await _rebuild(groupId);
     } catch (e) {
@@ -195,6 +279,10 @@ class SyncService {
     await _adopt(snap.group, state, snap.latestSeq);
   }
 
+  /// “Hotel” for an expense id, or "an expense" when it isn't known here.
+  Future<String> _expenseName(String? id) async =>
+      switch (id == null ? null : (await db.getExpense(id))?.description) { final n? => '“$n”', null => 'an expense' };
+
   /// What a refused event was: "the new expense “Hotel”", "a change to “Hotel”", "a group settings change", …
   Future<String> _what(OutboxRow o) async {
     final p = (jsonDecode(o.payloadJson) as Map).cast<String, dynamic>();
@@ -204,6 +292,9 @@ class SyncService {
         (id == null ? null : (await db.getExpense(id))?.description);
     final x = name == null ? 'an expense' : '“$name”';
     return switch (o.type) {
+      EventTypes.attachmentAdded => 'the receipt on $x',
+      EventTypes.attachmentDeleted => 'removing a receipt from $x',
+      EventTypes.paymentRestored => 'restoring a payment',
       EventTypes.expenseCreated => name == null ? 'a new expense' : 'the new expense $x',
       EventTypes.expenseUpdated => 'a change to $x',
       EventTypes.expenseDeleted => 'deleting $x',
@@ -256,7 +347,7 @@ class SyncService {
       final remote = listed.map((g) => g.id).toSet();
       // Left or removed on another device, or removed by someone else.
       for (final id in local.difference(remote)) {
-        await db.deleteGroupData(id);
+        await dropGroup(id);
       }
       for (final g in listed) {
         final row = await db.getGroup(g.id);
@@ -297,6 +388,7 @@ class SyncService {
       kind: g.kind,
     ));
     await store.save(g.id, state, latestSeq);
+    await _dropRemoved(state);
   }
 }
 
@@ -304,8 +396,10 @@ class _Gone implements Exception {
   const _Gone();
 }
 
-/// {이유} in "Couldn't save {what}: {이유}" (docs/API.md 거부된 이벤트).
-String rejectionReason(String code) => switch (code) {
+/// {이유} in "Couldn't save {what}: {이유}" (docs/API.md 거부된 이벤트); [type] is the refused event's.
+String rejectionReason(String code, [String? type]) => switch (code) {
+      'LIMIT_EXCEEDED' when type == EventTypes.attachmentAdded => 'an expense can have at most 10 receipts',
+      'ATTACHMENT_NOT_UPLOADED' => "the photo didn't upload",
       'SUM_MISMATCH' => "the split doesn't add up",
       'PAYERS_SUM_MISMATCH' => "the payers don't add up",
       'NEGATIVE_AMOUNT' => 'an amount is below zero',

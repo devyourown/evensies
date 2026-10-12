@@ -14,12 +14,12 @@ final groupStateProvider = FutureProvider.family<GroupState, String>((ref, id) {
   ref.watch(expensesProvider(id));
   ref.watch(paymentsProvider(id));
   ref.watch(commentsProvider(id));
+  ref.watch(attachmentCountsProvider(id));
   ref.watch(groupProvider(id));
   return GroupStateStore(ref.watch(dbProvider)).load(id);
 });
 
-/// Null only while computeBalances can't count even single-payer lines (see balancesOf).
-final balancesProvider = FutureProvider.family<BalanceResult?, String>(
+final balancesProvider = FutureProvider.family<BalanceResult, String>(
     (ref, id) async => balancesOf(await ref.watch(groupStateProvider(id).future)));
 
 /// "You are owed €5.00" / "You owe €5.00"; [capital] false starts with "you".

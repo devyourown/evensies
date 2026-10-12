@@ -206,8 +206,11 @@ void main() {
     expect(await db.lastSeq('g1'), 6);
   });
 
-  test('unknown codes read "the server refused it"', () {
+  test('unknown codes read "the server refused it"; receipts have their own reasons', () {
     expect(rejectionReason('VALIDATION'), 'the server refused it');
+    expect(rejectionReason('ATTACHMENT_NOT_UPLOADED', 'attachment.added'), "the photo didn't upload");
+    expect(rejectionReason('LIMIT_EXCEEDED', 'attachment.added'), 'an expense can have at most 10 receipts');
+    expect(rejectionReason('LIMIT_EXCEEDED', 'member.added'), 'the group is full');
   });
 
   test('syncAll drops groups missing from GET /groups (left or removed elsewhere)', () async {

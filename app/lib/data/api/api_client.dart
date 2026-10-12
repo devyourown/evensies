@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -73,7 +74,13 @@ class ApiClient {
     try {
       return parse((await f()).data);
     } on DioException catch (e) {
-      final body = e.response?.data;
+      var body = e.response?.data;
+      if (body is List<int>) {
+        // A bytes endpoint (a photo, the ZIP): its error body is still the server's JSON.
+        try {
+          body = jsonDecode(utf8.decode(body));
+        } on FormatException catch (_) {}
+      }
       if (body is Map && body['code'] != null) {
         throw ApiException(
             status: e.response?.statusCode, code: body['code'] as String, message: body['message'] as String? ?? '');
@@ -252,11 +259,32 @@ class ApiClient {
         );
       });
 
+  // --- receipts (docs/API.md 영수증)
+  /// Uploads a prepared receipt under the id the app made; a retry of a stored one answers 200 and keeps the files.
+  Future<void> uploadAttachment(String groupId, String attachmentId, File image, File thumb) => _call(
+        () async => _dio.post('/groups/$groupId/attachments/$attachmentId',
+            data: FormData.fromMap({
+              'image': await MultipartFile.fromFile(image.path, filename: 'receipt.jpg'),
+              'thumb': await MultipartFile.fromFile(thumb.path, filename: 'thumb.jpg'),
+            })),
+        (_) {},
+      );
+
+  /// The receipt's JPEG, or its thumbnail.
+  Future<Uint8List> attachment(String groupId, String attachmentId, {bool thumb = false}) => _call(
+      () => _dio.get('/groups/$groupId/attachments/$attachmentId${thumb ? '/thumb' : ''}',
+          options: Options(responseType: ResponseType.bytes)),
+      (d) => Uint8List.fromList(d as List<int>));
+
   // --- export / import
   Future<String> export(String groupId, String format) => _call(
       () => _dio.get('/groups/$groupId/export',
           queryParameters: {'format': format}, options: Options(responseType: ResponseType.plain)),
       (d) => d as String);
+
+  /// `format=zip` (group.json plus every receipt, Phase 7), streamed into the file at [path] (it can be large).
+  Future<void> exportZip(String groupId, String path) => _call(
+      () => _dio.download('/groups/$groupId/export', path, queryParameters: {'format': 'zip'}), (_) {});
   Future<({int imported, int latestSeq})> importSplitwise(String groupId, File csv) => _call(
         () async => _dio.post('/groups/$groupId/import/splitwise',
             data: FormData.fromMap({'file': await MultipartFile.fromFile(csv.path, filename: 'splitwise.csv')})),

@@ -18,7 +18,8 @@ private fun GroupState.info() = GroupInfo(name, defaultCurrency, simplifyDebts, 
 /**
  * Stored in `events.meta` (server-internal, never pulled): what the feed needs about one event, captured while it is
  * applied. [noop] = the applier left the whole state unchanged. [expense] is the touched expense just after the event
- * (for `comment.*` the comment's expense), [expenseBefore] just before it; [group]/[groupBefore] likewise for `group.*`;
+ * (for `comment.*` the comment's expense, for `attachment.*` (Phase 7) the expense the receipt is on), [expenseBefore]
+ * just before it; [group]/[groupBefore] likewise for `group.*`;
  * [payment] the touched payment (for a payment comment, the payment it is on). [friend]: the group is a friend group
  * (Phase 6; false in older meta, when friend groups didn't exist).
  */
@@ -71,7 +72,9 @@ object Activity {
     )
     private val PAYMENT_KINDS = mapOf(
         "payment.created" to "payment_added", "payment.confirmed" to "payment_confirmed", "payment.deleted" to "payment_deleted",
+        "payment.restored" to "payment_restored",
     )
+    private val RECEIPT_KINDS = mapOf("attachment.added" to "receipt_added", "attachment.deleted" to "receipt_removed")
     private val GROUP_FIELDS = listOf<Pair<String, (GroupInfo) -> Any?>>(
         "name" to GroupInfo::name, "defaultCurrency" to GroupInfo::defaultCurrency,
         "simplifyDebts" to GroupInfo::simplifyDebts, "defaultSplit" to GroupInfo::defaultSplit,
@@ -104,6 +107,7 @@ object Activity {
             "expense" -> m.copy(expenseBefore = before.expenses[p.text("expenseId")], expense = after.expenses[p.text("expenseId")])
             "comment" -> m.copy(expense = p.text("expenseId")?.let { after.expenses[it] }, payment = p.text("paymentId")?.let { after.payments[it] })
             "payment" -> m.copy(payment = after.payments[p.text("paymentId")])
+            "attachment" -> m.copy(expense = after.attachments[p.text("attachmentId")]?.let { after.expenses[it.expenseId] })
             else -> m
         }
     }
@@ -156,9 +160,12 @@ object Activity {
                     description = meta.expense?.description, text = p.text("text"),
                 )
             }
+            in RECEIPT_KINDS -> meta.expense?.let { x -> base.copy(kind = RECEIPT_KINDS.getValue(type), expenseId = x.id, description = x.description) }
             in PAYMENT_KINDS -> meta.payment?.let { x ->
                 base.copy(
-                    kind = PAYMENT_KINDS.getValue(type), paymentId = x.id, fromMember = x.fromMember, toMember = x.toMember,
+                    // An edit is a delete with replacedBy + the new payment (Phase 7): it reads as an edit, not a delete.
+                    kind = if (type == "payment.deleted" && p.field("replacedBy")?.isString == true) "payment_edited" else PAYMENT_KINDS.getValue(type),
+                    paymentId = x.id, fromMember = x.fromMember, toMember = x.toMember,
                     amount = x.amount, currency = x.currency, status = x.status,
                 )
             }

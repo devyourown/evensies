@@ -21,7 +21,7 @@ void main() {
 
   group('shared/overview-cases.json', () {
     for (final c in sharedCases('overview-cases.json')) {
-      test(c['name'] as String, skip: c['pending'] == null ? null : 'pending: hyojun', () {
+      test(c['name'] as String, () {
         final me = c['me'] as String;
         final groups = (c['groups'] as List).cast<Map<String, dynamic>>();
         final states = {for (final g in groups) g['id'] as String: stateOf(g)};
@@ -38,7 +38,7 @@ void main() {
         // Invariant: per currency, owedToMe − iOwe = the sum of my members' balances over every group.
         final mine = <String, int>{};
         for (final s in states.values) {
-          final res = balancesOf(s)!;
+          final res = balancesOf(s);
           for (final MapEntry(key: cur, value: b) in res.byCurrency.entries) {
             for (final m in s.members.where((m) => m.userId == me)) {
               mine[cur] = (mine[cur] ?? 0) + (b[m.id] ?? 0);

@@ -1,0 +1,161 @@
+{
+ "_doc": "Hand-made OCR lines (no real receipt, no card numbers) for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels; lines are listed out of order on purpose.",
+ "name": "JPY café: no decimals, ¥1,200, a date and time row",
+ "decimals": 0,
+ "lines": [
+  {
+   "text": "¥360",
+   "left": 332,
+   "top": 457,
+   "right": 380,
+   "bottom": 487
+  },
+  {
+   "text": "¥3,000",
+   "left": 308,
+   "top": 417,
+   "right": 380,
+   "bottom": 447
+  },
+  {
+   "text": "¥2,640",
+   "left": 308,
+   "top": 377,
+   "right": 380,
+   "bottom": 407
+  },
+  {
+   "text": "¥240",
+   "left": 332,
+   "top": 337,
+   "right": 380,
+   "bottom": 367
+  },
+  {
+   "text": "¥2,400",
+   "left": 308,
+   "top": 297,
+   "right": 380,
+   "bottom": 327
+  },
+  {
+   "text": "¥1,200",
+   "left": 308,
+   "top": 257,
+   "right": 380,
+   "bottom": 287
+  },
+  {
+   "text": "¥550",
+   "left": 332,
+   "top": 217,
+   "right": 380,
+   "bottom": 247
+  },
+  {
+   "text": "¥650",
+   "left": 332,
+   "top": 177,
+   "right": 380,
+   "bottom": 207
+  },
+  {
+   "text": "Change",
+   "left": 20,
+   "top": 462,
+   "right": 92,
+   "bottom": 492
+  },
+  {
+   "text": "Cash",
+   "left": 20,
+   "top": 422,
+   "right": 68,
+   "bottom": 452
+  },
+  {
+   "text": "Total",
+   "left": 20,
+   "top": 382,
+   "right": 80,
+   "bottom": 412
+  },
+  {
+   "text": "Tax 10%",
+   "left": 20,
+   "top": 342,
+   "right": 104,
+   "bottom": 372
+  },
+  {
+   "text": "Subtotal",
+   "left": 20,
+   "top": 302,
+   "right": 116,
+   "bottom": 332
+  },
+  {
+   "text": "Sandwich",
+   "left": 20,
+   "top": 262,
+   "right": 116,
+   "bottom": 292
+  },
+  {
+   "text": "Matcha cake",
+   "left": 20,
+   "top": 222,
+   "right": 152,
+   "bottom": 252
+  },
+  {
+   "text": "Latte",
+   "left": 20,
+   "top": 182,
+   "right": 80,
+   "bottom": 212
+  },
+  {
+   "text": "2026/10/11 14:32",
+   "left": 20,
+   "top": 140,
+   "right": 212,
+   "bottom": 170
+  },
+  {
+   "text": "Tel 03-1234-5678",
+   "left": 20,
+   "top": 100,
+   "right": 212,
+   "bottom": 130
+  },
+  {
+   "text": "CAFE KOMOREBI",
+   "left": 20,
+   "top": 60,
+   "right": 176,
+   "bottom": 90
+  }
+ ],
+ "expected": {
+  "lines": [
+   {
+    "name": "Latte",
+    "amount": 650
+   },
+   {
+    "name": "Matcha cake",
+    "amount": 550
+   },
+   {
+    "name": "Sandwich",
+    "amount": 1200
+   }
+  ],
+  "tax": 240,
+  "tip": 0,
+  "discount": 0,
+  "total": 2640,
+  "merchant": "CAFE KOMOREBI"
+ }
+}

@@ -9,7 +9,7 @@ import 'shared_json.dart';
 void main() {
   group('shared/settlement-cases.json expectedPairwise', () {
     for (final c in sharedCases('settlement-cases.json').where((c) => c['expectedPairwise'] != null)) {
-      test(c['name'] as String, skip: c['pending'] == null ? null : 'pending: hyojun', () {
+      test(c['name'] as String, () {
         final lines = [
           for (final e in (c['expenses'] as List).cast<Map>())
             ExpenseLine(

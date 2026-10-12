@@ -7,6 +7,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../core/env.dart';
 import '../../data/api/dto.dart';
 import '../../data/db/database.dart';
+import '../../data/receipts.dart';
 import '../../providers.dart';
 import '../../push.dart' show deviceIdKey;
 
@@ -72,13 +73,21 @@ class AuthService {
         await ref.read(apiProvider).unregisterDevice(deviceId).timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
-    await ref.read(dbProvider).wipeAll();
+    await _wipe();
   }
 
   /// The server already dropped every device of the account.
   Future<void> deleteAccount() async {
     await ref.read(apiProvider).deleteMe();
+    await _wipe();
+  }
+
+  /// Every local row, and the receipt photos on this device.
+  Future<void> _wipe() async {
     await ref.read(dbProvider).wipeAll();
+    try {
+      await ref.read(receiptFilesProvider).deleteAll();
+    } catch (_) {} // no file system here (tests): nothing to delete
   }
 
   static bool get appleAvailable => Platform.isIOS || Platform.isMacOS;

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -66,3 +67,11 @@ Future<File?> pickPhoto(ImageSource source, {required int maxEdge, required int 
 }
 
 final pickPhotoProvider = Provider<PickPhoto>((_) => pickPhoto);
+
+/// What to tell the user when taking or picking a photo from [source] failed with [e] (never the raw error).
+String photoErrorText(Object e, ImageSource source) => switch (e) {
+      PlatformException(:final code) when code.contains('access_denied') =>
+        'Evensies has no access. Allow it in the Settings app.',
+      PlatformException() => "Couldn't open the ${source == ImageSource.camera ? 'camera' : 'photo library'}.",
+      _ => "That photo couldn't be used. Try another one.",
+    };

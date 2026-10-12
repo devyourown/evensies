@@ -58,3 +58,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Receipt scan on the phone (MainActivity, channel evensies/ocr): the Latin model only, bundled in the app.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+}

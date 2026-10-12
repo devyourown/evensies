@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/person_avatar.dart';
 import '../../domain/overview.dart';
-import 'friend_screen.dart' show addExpenseWith;
+import 'friend_screen.dart' show addExpenseWith, canAddExpenseWith, showNoSharedGroup;
 import 'home_data.dart';
 
 /// A friend (non-group) or a group: who an expense is *With* (docs Phase 6).
@@ -65,7 +65,10 @@ class _WithPickerState extends ConsumerState<WithPicker> {
             key: Key('with-${p.key}'),
             leading: PersonAvatar(userId: p.userId, name: p.name),
             title: Text(p.name),
-            onTap: () => widget.onPick((person: p, groupId: null)),
+            // No friend group and no group we are both still in: the friend link instead (docs/API.md 개요).
+            onTap: () => canAddExpenseWith(data, p)
+                ? widget.onPick((person: p, groupId: null))
+                : showNoSharedGroup(context, ref, p),
           ),
         if (groups.isNotEmpty) header('Groups'),
         for (final g in groups)

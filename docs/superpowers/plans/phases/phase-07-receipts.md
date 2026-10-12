@@ -56,9 +56,9 @@ It covers Splitwise rows #6 (itemized), #7 (scan; Pro there) and #16 (receipt ph
   - Either way, Dart sees `Future<List<OcrLine>> recognizeLines(String imagePath)`, where `OcrLine = {text, left, top, right, bottom}`.
 - **Taking a photo** (`data/receipts.dart`):
   1. `image_picker` returns the original.
-  2. When scanning, OCR runs on the original.
-  3. `prepareJpeg` (Phase 6) writes `{appSupport}/pending_attachments/{id}.jpg` (`maxEdge: 2048, quality: 80`, about 300–700 KB) and `{id}_thumb.jpg` (512, 70).
-  4. The original temp file is deleted.
+  2. `prepareJpeg` (Phase 6) writes `{appSupport}/pending_attachments/{id}.jpg` (`maxEdge: 2048, quality: 80`, about 300–700 KB) and `{id}_thumb.jpg` (512, 70).
+  3. The original temp file is deleted.
+  4. When scanning, OCR runs on the prepared 2048 px JPEG (a 50 MP original is too big to decode at once on Android).
 
   A new expense's id is made when the form opens. Cancel deletes the prepared files.
 - **Local writes.**

@@ -3,7 +3,6 @@ package dev.nariinfo.evensies
 import dev.nariinfo.evensies.money.ConvertedExpense
 import dev.nariinfo.evensies.money.Fx
 import dev.nariinfo.evensies.money.FxException
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.TestFactory
@@ -15,7 +14,6 @@ class FxCasesTest {
     @TestFactory
     fun sharedFxCases(): List<DynamicTest> = SharedJson.load("fx-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
-            assumeTrue(case["pending"] == null, "pending: hyojun (convertAmount/convertExpense land with his Dart fx.dart)")
             val amount = case["amount"].asLong()
             val from = case["fromDecimals"].asInt()
             val to = case["toDecimals"].asInt()

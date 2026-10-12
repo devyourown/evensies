@@ -10,11 +10,13 @@ import '../../core/offline_banner.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
 import '../../data/api/dto.dart';
+import '../../domain/models.dart' show GroupState;
 import '../../domain/overview.dart';
 import '../../domain/payment_methods.dart';
 import '../../providers.dart';
-import '../group_detail/group_detail_screen.dart' show ExpenseTile, PaymentTile;
+import '../group_detail/group_detail_screen.dart' show DateHeader, ExpenseTile, PaymentTile;
 import '../settings/settings_screen.dart' show exportGroup;
+import 'add_friend_screen.dart' show shareFriendLink;
 import 'home_data.dart';
 
 /// "Ben owes you €4.00" / "You owe Ben €3.00".
@@ -35,6 +37,39 @@ Future<String> groupForExpenseWith(WidgetRef ref, Person p) async {
   return dto.id;
 }
 
+/// Whether a new expense with [p] can be added (docs/API.md 개요 Add expense): always with a friend group; for a
+/// linked person without one, only while a normal group on this device has both of us as active, linked members (what
+/// `POST /friends {userId}` needs). A placeholder in a normal group (`m:`) gets expenses in that group.
+bool canAddExpenseWith(HomeData data, Person p) {
+  if (p.friendGroups.isNotEmpty) return true;
+  if (p.userId == null) return false;
+  bool active(GroupState s, String? user) => s.members.any((m) => !m.removed && m.userId == user);
+  return data.groups.any((g) => !g.state.isFriend && active(g.state, data.myUserId) && active(g.state, p.userId));
+}
+
+String noSharedGroupText(String name) =>
+    'You no longer share a group with $name. Send them your friend link to add expenses.';
+
+/// The same line as a dialog (the With picker, or a stale device that got a 403): Share friend link or Cancel.
+Future<void> showNoSharedGroup(BuildContext context, WidgetRef ref, Person p) async {
+  final share = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      key: const Key('no-shared-group'),
+      content: Text(noSharedGroupText(p.name)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton.icon(
+          onPressed: () => Navigator.pop(ctx, true),
+          icon: const Icon(Icons.share, size: 18),
+          label: const Text('Share friend link'),
+        ),
+      ],
+    ),
+  );
+  if (share == true && context.mounted) await shareFriendLink(context, ref);
+}
+
 /// Opens a new expense with [p]; tells the user when the friend group can't be created now.
 Future<void> addExpenseWith(BuildContext context, WidgetRef ref, Person p, {bool replace = false}) async {
   try {
@@ -42,10 +77,10 @@ Future<void> addExpenseWith(BuildContext context, WidgetRef ref, Person p, {bool
     if (!context.mounted) return;
     replace ? context.pushReplacement('/groups/$gid/expenses/new') : context.push('/groups/$gid/expenses/new');
   } on ApiException catch (e) {
-    if (context.mounted) {
-      showError(context,
-          e.code == 'NETWORK' ? 'The first expense with ${p.name} needs a connection.' : e.message);
-    }
+    if (!context.mounted) return;
+    // This device still thought we share a group: the same message as when it knows (docs/API.md 개요).
+    if (e.status == 403 && e.code != 'NETWORK') return showNoSharedGroup(context, ref, p);
+    showError(context, e.code == 'NETWORK' ? 'The first expense with ${p.name} needs a connection.' : e.message);
   }
 }
 
@@ -158,9 +193,9 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     final byGroup = data.overview.byGroup[p.key] ?? const <String, Map<String, int>>{};
     final lines = friendLines(data.ledgers.values, p.key);
     final owesMe = p.owesMe;
-    // Everything between the two of us in every shared group, like Splitwise's friend page: all of a friend group,
-    // and in another group what both of us paid or share, or a payment between us.
-    final rows = <({String date, String groupId, Widget Function(String? label) tile})>[];
+    // Everything between the two of us in every shared group, by group, like Splitwise's friend page (docs/API.md
+    // 함께한 기록): all of a friend group, and in another group what both of us paid or share, or a payment between us.
+    final sections = <String, List<({String date, int order, Widget tile})>>{}; // '' = Non-group (friend groups)
     for (final g in data.groups) {
       final keyOf = {for (final m in g.state.members) m.id: personKey(g.row.id, g.state, m)};
       final mine = {for (final e in keyOf.entries) if (e.value == data.myUserId) e.key};
@@ -169,28 +204,33 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
       bool both(Iterable<String> ids) => g.state.isFriend || (ids.any(mine.contains) && ids.any(theirs.contains));
       final gid = g.row.id;
       final names = {for (final m in g.state.members) m.id: m.name};
+      final rows = sections.putIfAbsent(g.state.isFriend ? '' : gid, () => []);
+      var order = rows.length;
       for (final e in g.state.expenses) {
         if (e.deleted || !both([for (final x in [...e.payers, ...e.shares]) if (x.amount != 0) x.memberId])) continue;
-        rows.add((
-          date: e.date,
-          groupId: gid,
-          tile: (l) => ExpenseTile(expense: e, group: g.row, names: names, extra: l),
-        ));
+        rows.add((date: e.date, order: order++, tile: ExpenseTile(expense: e, group: g.row, names: names)));
       }
       for (final x in g.state.payments) {
         if (x.deleted || !both([x.fromMember, x.toMember])) continue;
         rows.add((
           date: x.date,
-          groupId: gid,
-          tile: (l) => PaymentTile(groupId: gid, payment: x, names: names, myMemberId: g.row.myMemberId, extra: l),
+          order: order++,
+          tile: PaymentTile(groupId: gid, payment: x, names: names, myMemberId: g.row.myMemberId),
         ));
       }
     }
-    rows.sort((a, b) => b.date.compareTo(a.date));
-    // The group under each row; "Non-group" only when other groups are in the list too.
-    final mixed = rows.map((r) => r.groupId).toSet().length > 1;
-    String? groupLabel(String gid) =>
-        data.group(gid)?.state.isFriend == true ? (mixed ? 'Non-group' : null) : data.label(gid);
+    sections.removeWhere((_, rows) => rows.isEmpty);
+    for (final rows in sections.values) {
+      rows.sort((a, b) => a.date != b.date ? b.date.compareTo(a.date) : b.order.compareTo(a.order));
+    }
+    // Non-group first, then the groups by their newest row (same day: by name).
+    final order = sections.keys.toList()
+      ..sort((a, b) {
+        if (a.isEmpty || b.isEmpty) return a.isEmpty ? -1 : 1;
+        final d = sections[b]!.first.date.compareTo(sections[a]!.first.date);
+        return d != 0 ? d : data.label(a).toLowerCase().compareTo(data.label(b).toLowerCase());
+      });
+    final canAdd = canAddExpenseWith(data, p);
     // Two friend groups of one person (a claimed placeholder friend, docs/API.md 친구) are one Non-group line.
     final nonGroup = <String, int>{};
     final groupLines = <String, Map<String, int>>{};
@@ -221,6 +261,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'csv', child: Text('Export non-group expenses (CSV)')),
                 PopupMenuItem(value: 'json', child: Text('Export non-group expenses (JSON)')),
+                PopupMenuItem(value: 'zip', child: Text('Export non-group expenses (ZIP with receipts)')),
               ],
             ),
         ],
@@ -301,29 +342,87 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
                       onTap: () => context.push('/groups/$gid'),
                     ),
                 ],
-                if (rows.isNotEmpty || p.friendGroups.isNotEmpty) ...[
-                  section('Expenses and payments'),
-                  if (rows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Nothing together yet. Add an expense below.',
-                          style: TextStyle(color: cs.onSurfaceVariant)),
+                if (p.userId != null && !canAdd)
+                  Padding(
+                    key: const Key('no-shared-group'),
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: Card(
+                      color: cs.surfaceContainerHigh,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          Text(noSharedGroupText(p.name)),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              key: const Key('share-friend-link'),
+                              onPressed: () => shareFriendLink(context, ref),
+                              icon: const Icon(Icons.share, size: 18),
+                              label: const Text('Share friend link'),
+                            ),
+                          ),
+                        ]),
+                      ),
                     ),
-                  for (final r in rows) r.tile(groupLabel(r.groupId)),
+                  ),
+                if (sections.isEmpty && p.friendGroups.isNotEmpty) ...[
+                  section('Expenses and payments'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Nothing together yet. Add an expense below.',
+                        style: TextStyle(color: cs.onSurfaceVariant)),
+                  ),
+                ],
+                for (final key in order) ...[
+                  _SectionHeader(
+                    key: Key('together-${key.isEmpty ? 'non-group' : key}'),
+                    label: key.isEmpty ? 'Non-group' : data.label(key),
+                    onTap: key.isEmpty ? null : () => context.push('/groups/$key'),
+                  ),
+                  for (final (i, r) in sections[key]!.indexed) ...[
+                    if (i == 0 || sections[key]![i - 1].date != r.date) DateHeader(r.date),
+                    r.tile,
+                  ],
                 ],
               ],
             ),
           ),
         ),
       ]),
-      floatingActionButton: p.groupId != null && p.friendGroups.isEmpty
-          ? null // a placeholder in a normal group: add expenses there
+      // A placeholder in a normal group: add expenses there. No shared group any more: the friend link above.
+      floatingActionButton: !canAdd
+          ? null
           : FloatingActionButton.extended(
               key: const Key('friend-add-expense'),
               onPressed: () => addExpenseWith(context, ref, p),
               icon: const Icon(Icons.add),
               label: const Text('Add expense'),
             ),
+    );
+  }
+}
+
+/// A group's section on the friend page; tapping a normal group's opens it.
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const _SectionHeader({super.key, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+        child: Row(children: [
+          Icon(onTap == null ? Icons.person_outline : Icons.group_outlined, size: 18, color: cs.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, style: text.labelLarge?.copyWith(color: cs.onSurfaceVariant))),
+          if (onTap != null) Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+        ]),
+      ),
     );
   }
 }

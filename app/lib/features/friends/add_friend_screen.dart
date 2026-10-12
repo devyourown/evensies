@@ -28,6 +28,23 @@ Future<void> addFriendByCode(BuildContext context, WidgetRef ref, String code) a
   }
 }
 
+/// What "Share link" sends (the Add friend screen, and a friend page you no longer share a group with).
+String friendLinkText(FriendCode c) =>
+    'Add me on Evensies to split expenses: ${c.link}\nOr enter my code ${formatInviteCode(c.friendCode)}';
+
+/// My friend link through the share sheet; it needs the server for the code.
+Future<void> shareFriendLink(BuildContext context, WidgetRef ref) async {
+  try {
+    final c = await ref.read(apiProvider).friendCode();
+    await SharePlus.instance.share(ShareParams(text: friendLinkText(c)));
+  } catch (e) {
+    if (context.mounted) {
+      showError(context,
+          e is ApiException && e.code != 'NETWORK' ? e.message : 'Sharing your friend link needs a connection.');
+    }
+  }
+}
+
 String friendError(ApiException e) => switch (e) {
       ApiException(code: 'SELF_FRIEND') => "That's your own code",
       ApiException(status: 404) => 'No one found for this code',
@@ -208,9 +225,7 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
                       const SizedBox(height: 12),
                       Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
                         FilledButton.icon(
-                          onPressed: () => SharePlus.instance.share(ShareParams(
-                              text: 'Add me on Evensies to split expenses: ${mine.link}\n'
-                                  'Or enter my code ${formatInviteCode(mine.friendCode)}')),
+                          onPressed: () => SharePlus.instance.share(ShareParams(text: friendLinkText(mine))),
                           icon: const Icon(Icons.share, size: 18),
                           label: const Text('Share link'),
                         ),

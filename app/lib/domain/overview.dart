@@ -33,12 +33,11 @@ class GroupLedger {
   /// My person key (my userId).
   String get me => personOf[myMemberId]!;
 
-  /// Null if no member has [myUserId], or the balances can't be computed yet (balancesOf null).
+  /// Null if no member has [myUserId].
   static GroupLedger? of({required String groupId, required GroupState state, required String myUserId}) {
     final mine = state.members.where((m) => m.userId == myUserId).toList();
     if (mine.isEmpty) return null;
     final res = balancesOf(state);
-    if (res == null) return null;
     return GroupLedger(
       groupId: groupId,
       myMemberId: (mine.where((m) => !m.removed).firstOrNull ?? mine.first).id,

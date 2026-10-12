@@ -147,8 +147,8 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 3 | Split | Percent | Free | have (0% leftover fix by Hyojun) |
 | 4 | Split | Shares | Free | have (Phase 3, `computeSplit` by Hyojun) |
 | 5 | Split | Adjustment | Free | have (Phase 3, `computeSplit` by Hyojun) |
-| 6 | Split | Itemized, manual | Free web / Pro mobile | Phase 7 |
-| 7 | Split | Itemize by receipt scan | Pro | Phase 7 (on-device OCR, mobile only) |
+| 6 | Split | Itemized, manual | Free web / Pro mobile | have (Phase 7, free): Items is a sixth split; tax, tip and discount spread by subtotal |
+| 7 | Split | Itemize by receipt scan | Pro | have (Phase 7, free): on-device text recognition (Apple Vision on iOS, ML Kit on Android), lines start unassigned; hidden on web |
 | 8 | Split | Reimbursement / refund | Free | have (Phase 3, `computeBalances` by Hyojun) |
 | 9 | Split | "Full amount" shortcuts | Free | have (Phase 3) |
 | 10 | Split | Multiple payers | Free | have (Phase 3, `computeBalances` by Hyojun) |
@@ -157,7 +157,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 13 | Expense | Currency per expense, last one remembered | Free | have (per group since Phase 4) |
 | 14 | Expense | Category with icon, auto-guessed | Free | have (Phase 5): Splitwise's 43 subcategories with icons, guessed on the device from the description and the group's history ("auto" until picked); English labels until Phase 9 |
 | 15 | Expense | Notes | Free | have (Phase 2) |
-| 16 | Expense | Receipt photo | Free (Pro 10 GB) | Phase 7 |
+| 16 | Expense | Receipt photo | Free (Pro 10 GB) | have (Phase 7): up to 10 per expense, offline upload later, ZIP export with receipts |
 | 17 | Expense | Repeat | Free | Phase 8 |
 | 18 | Expense | Group or "no group" | Free | have (Phase 6) |
 | 19 | Expense | Move between groups / to a friend | Free | have (Phase 6) |
@@ -176,8 +176,8 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 32 | Groups | Leave group | Free | have (Phase 3) |
 | 33 | Groups | Delete / undelete group | Free | Phase 10 |
 | 34 | Groups | Remove member | Free | have |
-| 35 | Groups | Balances per member, per currency | Free | have (Phase 4): one "Not converted · JPY" section per currency on Balances, Settle up and the groups list; folding rated expenses into the group currency waits for Hyojun's `convertExpense` |
-| 36 | Groups | Totals screen | Free | have (Phase 5, Insights): per month or all time, per currency; rated foreign expenses join the group-currency totals once Hyojun's `convertExpense` lands (until then a "Not converted" card per currency) |
+| 35 | Groups | Balances per member, per currency | Free | have (Phase 4): rated expenses fold into the group currency (Hyojun's `convertExpense`); unrated ones keep a "Not converted · JPY" section per currency on Balances, Settle up and the groups list |
+| 36 | Groups | Totals screen | Free | have (Phase 5, Insights): per month or all time, per currency; rated foreign expenses join the group-currency totals (Hyojun's `convertExpense`), unrated ones keep a "Not converted" card per currency |
 | 37 | Groups | Charts | Pro | have (Phase 5, free): bars by month (group / mine), by category and by person; no pie chart, on purpose |
 | 38 | Groups | Printable summary | Free (web) | partly (Phase 5): share-sheet text with the totals, top categories and balances; browser printing in Phase 9 |
 | 39 | Groups | Whiteboard | legacy | n/a |
@@ -216,7 +216,7 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 72 | Settle | Paytm / UPI | Free | Phase 10 (UPI links; Paytm supports UPI) |
 | 73 | Settle | Splitwise Pay / Pay by Bank / Card | Free | out of scope (moves money, needs a licence) |
 | 74 | Currency | Any currency per expense | Free | have (Phase 4): 155 ISO codes, searchable picker, automatic daily rate via Frankfurter (ECB and other central banks; editable, cached offline); crypto out of scope |
-| 75 | Currency | Default (home) currency | Free | partly (Phase 4): set in Settings and stored on the account; the "≈" lines wait for Hyojun's `convertAmount` |
+| 75 | Currency | Default (home) currency | Free | have (Phase 4): set in Settings and stored on the account; "≈" lines in it on the groups list, Balances and Settle up |
 | 76 | Currency | Convert to one currency | Pro | have (Phase 4 conversion by Hyojun; Phase 6 records payments in any currency) |
 | 77 | Currency | Change an expense's currency label | Free | have |
 | 78 | Search | Search all expenses | Pro | have (Phase 5, free): all groups or one, offline, accents ignored, amounts, category and month filters; payments and member names are not searched |
@@ -245,10 +245,10 @@ Status: **have** = in the app today (including Phases 1–5); **partly** = in th
 | 101 | Privacy | Only people who share a group see it | Free | have |
 | 102 | Support | In-app help / contact | Free | Phase 10 |
 | 103 | Pro | Ad-free | Pro | have (never ads) |
-| 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free, open source) |
+| 104 | Pro | Early access, Trip Pass, Duo plan | Pro | n/a (everything free) |
 | 105 | Activity | Unread activity indicator and app-icon badge | Free | have (Phase 6) |
 | 106 | Settle | Comments on payments | Free | have (Phase 6) |
 | 107 | Expense | List row for an expense with several payers says how many paid (e.g. "2 people paid €300.00"), not "paid by Anna +1" | Free | have (Phase 5) |
 | 108 | Expense | Read-only expense detail: who paid how much, each person's share, then Edit | Free | have (Phase 5): with notes, History and comments; Edit opens the form |
-| 109 | Friends | Friend page lists shared-group transactions too | Free | Phase 7 (found in the Phase 6 check) |
-| 110 | Settle | Restore a deleted payment | Free | Phase 7 (found in the Phase 6 check) |
+| 109 | Friends | Friend page lists shared-group transactions too | Free | have (Phase 7): grouped by group, read-only rows |
+| 110 | Settle | Restore a deleted payment | Free | have (Phase 7): Undo after delete, Restore on its detail and in Activity |

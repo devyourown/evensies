@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:evensies/core/core_guard.dart';
 import 'package:evensies/core/money.dart';
 import 'package:evensies/domain/balances.dart';
 import 'package:evensies/domain/categories.dart';
@@ -66,7 +65,7 @@ void main() {
           for (final e in live) ...[...e.payers.map((p) => p.memberId), ...e.shares.map((s) => s.memberId)],
           for (final p in payments) ...[p.fromMember, p.toMember],
         }.toList();
-        final b = tryCore(() => computeBalances(
+        final b = computeBalances(
               ids,
               [
                 for (final e in live)
@@ -81,9 +80,9 @@ void main() {
                 for (final p in payments.where((p) => !p.deleted))
                   PaymentLine(from: p.fromMember, to: p.toMember, amount: p.amount),
               ],
-            ));
-        expect(b?[me], totals().allTime.netChange);
-      }, skip: c['pending'] == null ? null : 'pending: hyojun');
+            );
+        expect(b[me], totals().allTime.netChange);
+      });
     }
   });
 

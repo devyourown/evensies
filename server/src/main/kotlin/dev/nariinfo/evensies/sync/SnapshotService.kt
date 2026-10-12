@@ -15,6 +15,7 @@ class SnapshotService(private val groupService: GroupService, private val stateS
             expenses = state.expenses.values.toList(),
             payments = state.payments.values.toList(),
             comments = state.comments.values.toList(),
+            attachments = state.attachments.values.toList(),
             latestSeq = group.latestSeq,
         )
     }

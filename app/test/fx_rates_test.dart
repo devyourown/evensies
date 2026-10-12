@@ -4,7 +4,6 @@ import 'package:evensies/core/money.dart';
 import 'package:evensies/data/api/dto.dart';
 import 'package:evensies/data/db/database.dart';
 import 'package:evensies/data/fx_rates.dart';
-import 'package:evensies/domain/fx.dart';
 
 import 'fakes.dart';
 
@@ -67,7 +66,7 @@ void main() {
   });
 
   group('approxIn', () {
-    // Not Hyojun's rounding: a stand-in so the sum and the hiding rules can be checked before his convertAmount.
+    // Not Hyojun's rounding: a stand-in so the sum and the hiding rules are tested apart from convertAmount.
     int conv({required int amount, required int fromDecimals, required int toDecimals, required double rate}) =>
         (amount * rate * [1, 10, 100][toDecimals] / [1, 10, 100][fromDecimals]).round();
     const perEur = {'EUR': 1.0, 'USD': 1.25, 'JPY': 125.0};
@@ -85,8 +84,8 @@ void main() {
       expect(approxIn('USD', {'EUR': 500}, null, convert: conv), isNull);
     });
 
-    test('hidden while convertAmount is a stub', () {
-      expect(approxIn('USD', {'EUR': 500}, perEur), fxReady ? isNotNull : isNull);
+    test('with the real convertAmount', () {
+      expect(approxIn('USD', {'EUR': 500}, perEur), isNotNull);
     });
   });
 }

@@ -6,7 +6,6 @@ import '../../core/ids.dart';
 import '../../core/money.dart';
 import '../../core/person_avatar.dart';
 import '../../core/snack.dart';
-import '../../domain/fx.dart';
 import '../../domain/overview.dart';
 import '../../domain/payment_methods.dart';
 import '../../providers.dart';
@@ -108,7 +107,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
       final busy = _busy.contains(c);
       final unratedIn = {
         for (final l in mine)
-          if (data.group(l.groupId) case final g? when g.row.defaultCurrency != c && (g.res?.unrated[c] ?? 0) > 0) g.row.id,
+          if (data.group(l.groupId) case final g? when g.row.defaultCurrency != c && (g.res.unrated[c] ?? 0) > 0) g.row.id,
       };
       final Widget action;
       if (busy) {
@@ -174,8 +173,7 @@ class _FriendSettleScreenState extends ConsumerState<FriendSettleScreen> {
                 onPay: (m) => payWith(context, m, toName: p.name, amount: -v, currency: c, note: 'Evensies: ${p.name}'),
               ),
             ],
-            if (fxReady)
-              for (final gid in unratedIn)
+            for (final gid in unratedIn)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(

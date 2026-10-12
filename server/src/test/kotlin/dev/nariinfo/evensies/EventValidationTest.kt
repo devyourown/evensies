@@ -42,6 +42,9 @@ class EventValidationTest : IntegrationTestBase() {
         push(token, id, expenseCreated(me, 100, mapOf(me to 100), expenseId = x))
         val badUpdate = push(token, id, event("expense.updated", mapOf("expenseId" to x, "fields" to mapOf("amount" to 200))))
         assertEquals("SUM_MISMATCH", badUpdate.code())
+        // a non-canonical form of an existing id misses it in the state but would overwrite its row (no LWW, no delete-wins)
+        assertEquals("VALIDATION", push(token, id, expenseCreated(me, 300, mapOf(me to 300), expenseId = x.uppercase())).code())
+        assertEquals("VALIDATION", push(token, id, event("expense.deleted", mapOf("expenseId" to "1-1-1-1-1"))).code())
         assertEquals(3, snapshot(token, id)["latestSeq"].asLong())
     }
 

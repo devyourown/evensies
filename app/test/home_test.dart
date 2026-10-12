@@ -12,6 +12,7 @@ import 'package:evensies/features/group_detail/group_detail_screen.dart' show Ex
 import 'package:evensies/providers.dart';
 import 'package:evensies/router.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -161,7 +162,8 @@ void main() {
     await t.tap(find.text('Ben'));
     await settle(t);
     expect(find.text('You owe Ben €20.00'), findsOneWidget);
-    expect(find.text('Non-group'), findsOneWidget);
+    expect(find.byKey(const Key('breakdown-non-group')), findsOneWidget);
+    expect(find.byKey(const Key('together-non-group')), findsOneWidget); // the expenses' section
     expect(find.text('Ben owes you €10.00'), findsOneWidget); // the non-group row
     expect(find.text('you owe Ben €30.00'), findsOneWidget); // Rome
     expect(find.text('taxi'), findsOneWidget); // non-group expense list
@@ -183,8 +185,11 @@ void main() {
     await unmount(t);
   });
 
-  testWidgets("a friend's page lists what we share in every group, with its group; two friend groups are one line",
+  testWidgets("a friend's page lists what we share in every group, by group; two friend groups are one section",
       (t) async {
+    t.view.physicalSize = const Size(800, 3000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await t.runAsync(() async {
       // A claimed placeholder friend: a second friend group with Ben (docs/API.md 친구).
       await group('g-ben-old', 'Anna & Ben P.', 'friend', 'o1', const [
@@ -204,12 +209,77 @@ void main() {
     expect(find.text('You owe Ben €15.00'), findsOneWidget); // €10 + €5 non-group − €30 Rome
     expect(find.byKey(const Key('breakdown-non-group')), findsOneWidget);
     expect(find.text('Ben owes you €15.00'), findsOneWidget); // both friend groups in one line
-    String? label(String description) =>
-        t.widget<ExpenseTile>(find.ancestor(of: find.text(description), matching: find.byType(ExpenseTile))).extra;
-    expect(label('taxi'), 'Non-group');
-    expect(label('lunch'), 'Non-group');
-    expect(label('hotel'), 'Rome'); // Ben paid, I share
-    expect(find.text('fondue'), findsNothing); // Ben and Dana only
+    double y(Finder f) => t.getTopLeft(f).dy;
+    // Non-group first (both friend groups), then Rome; Ski has nothing of ours (Ben and Dana only).
+    final nonGroup = y(find.byKey(const Key('together-non-group'))), rome = y(find.byKey(const Key('together-g-rome')));
+    expect(nonGroup < rome, isTrue);
+    expect(find.byKey(const Key('together-g-ski')), findsNothing);
+    expect(find.text('fondue'), findsNothing);
+    for (final d in ['lunch', 'taxi']) {
+      expect(y(find.text(d)), allOf(greaterThan(nonGroup), lessThan(rome)), reason: d);
+    }
+    expect(y(find.text('lunch')) < y(find.text('taxi')), isTrue); // newest first
+    // Day headers in each section, like the group's list.
+    expect(y(find.text('Thu, 15 Oct').first), allOf(greaterThan(nonGroup), lessThan(y(find.text('lunch')))));
+    expect(y(find.text('Wed, 14 Oct').first),
+        allOf(greaterThan(y(find.text('lunch'))), lessThan(y(find.text('taxi')))));
+    expect(y(find.text('hotel')) > rome, isTrue); // Ben paid, I share
+    expect(t.widget<ExpenseTile>(find.ancestor(of: find.text('hotel'), matching: find.byType(ExpenseTile))).extra, isNull);
+    await t.tap(find.byKey(const Key('together-g-rome')));
+    await settle(t);
+    expect(find.text('Expenses'), findsOneWidget); // the group
+    await unmount(t);
+  });
+
+  testWidgets('no friend group and no group we are both still in: no Add expense, the friend link instead', (t) async {
+    final shared = <Object?>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/share'), (c) async {
+      shared.add(c.arguments);
+      return 'dev.fluttercommunity.plus/share/unavailable';
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/share'), null));
+    api.code = (friendCode: 'K7P4QX', link: 'https://e.test/f/K7P4QX');
+    // Dana left the Flat (her member is removed); I share nothing else with her.
+    await t.runAsync(() => group('g-flat', 'Flat', 'group', 'a1', const [
+          Member(id: 'a1', name: 'Anna', userId: 'u-anna'),
+          Member(id: 'a2', name: 'Dana', userId: 'u-dana', removed: true),
+        ]));
+    await open(t);
+    final router = ProviderScope.containerOf(t.element(find.byType(Navigator).first)).read(routerProvider);
+    router.push('/friends/u-dana');
+    await settle(t);
+    expect(find.byKey(const Key('friend-add-expense')), findsNothing);
+    expect(find.text('You no longer share a group with Dana. Send them your friend link to add expenses.'),
+        findsOneWidget);
+    await t.tap(find.byKey(const Key('share-friend-link')));
+    await settle(t);
+    expect(shared.toString(), contains('Add me on Evensies to split expenses: https://e.test/f/K7P4QX'));
+
+    // Home's Add expense: the same words as a dialog.
+    router.go('/expenses/new');
+    await settle(t);
+    await t.tap(find.text('Dana'));
+    await settle(t);
+    expect(find.byKey(const Key('no-shared-group')), findsOneWidget);
+    await t.tap(find.text('Cancel'));
+    await settle(t);
+    expect(api.friendCalls, isEmpty); // no POST /friends that would only answer 403
+    await unmount(t);
+  });
+
+  testWidgets('a stale device: POST /friends answers 403, the friend link dialog instead of the error', (t) async {
+    api.onAddFriend = (_) => throw const ApiException(status: 403, code: 'FORBIDDEN', message: 'Forbidden');
+    await open(t);
+    final router = ProviderScope.containerOf(t.element(find.byType(Navigator).first)).read(routerProvider);
+    router.push('/friends/u-dana'); // still in the Flat on this device
+    await settle(t);
+    await t.tap(find.byKey(const Key('friend-add-expense')));
+    await settle(t);
+    expect(find.text('You no longer share a group with Dana. Send them your friend link to add expenses.'),
+        findsOneWidget);
+    expect(find.text('Forbidden'), findsNothing);
     await unmount(t);
   });
 

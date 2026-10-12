@@ -1,5 +1,5 @@
 {
-  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null. 6단계: expected.group.kind 기본값 \"group\"(group.created에 kind가 없으면 \"group\", 그 뒤 어떤 이벤트도 바꾸지 않는다 — 적용 규칙 13). comments[].paymentId 기본값 null(comments 모양: {id, expenseId, paymentId, authorMemberId, text, createdAt, deleted}; 송금 댓글은 expenseId가 null). expenses[].moved 기본값 false: movedTo가 객체인 expense.deleted가 true로 만들고(그 뒤 지우지 않는다), moved인 지출에 오는 expense.restored는 무시한다(적용 규칙 13).",
+  "_doc": "이벤트 적용기 테스트 케이스. events를 seq 순서로 빈 상태에 적용하면 expected 상태가 되어야 한다. 같은 이벤트를 두 번 적용해도 결과가 같아야 하고(멱등), 'permute': true인 케이스는 이벤트를 어떤 순서로 적용해도(seq 기준 충돌 규칙 적용 후) 최종 상태가 같아야 한다. Dart·Kotlin 적용기가 이 파일을 읽는다. 날짜는 YYYY-MM-DD, 금액은 정수. expected에서 빠진 값은 기본값으로 비교한다: members[].removed=false, expenses[].notes=null, comments=[] (comments 모양: {id, expenseId, authorMemberId, text, createdAt, deleted}). 3단계 기본값: expenses[].payers=[{memberId: 그 expected의 paidBy, amount: 그 expected의 amount}], expenses[].refund=false, expenses[].split=null. expected.group은 선택: 있으면 그 안의 키만 비교한다(Dart GroupState.groupJson(), Kotlin actual()[\"group\"] = {name, defaultCurrency, simplifyDebts, defaultSplit}; 기본 simplifyDebts=true, defaultSplit=null). 적용 규칙 12(통화 잠금)는 상태를 보므로, 통화 변경이 적용된 뒤 지출·송금이 오는 케이스는 '로그 전체를 한 번 더 적용' 검사를 통과할 수 없다 — 그런 케이스는 넣지 않는다. 5단계: category는 받은 문자열 그대로 저장한다(키로 바꾸지 않음, docs/API.md '카테고리'). 없는 category = null. 6단계: expected.group.kind 기본값 \"group\"(group.created에 kind가 없으면 \"group\", 그 뒤 어떤 이벤트도 바꾸지 않는다 — 적용 규칙 13). comments[].paymentId 기본값 null(comments 모양: {id, expenseId, paymentId, authorMemberId, text, createdAt, deleted}; 송금 댓글은 expenseId가 null). expenses[].moved 기본값 false: movedTo가 객체인 expense.deleted가 true로 만들고(그 뒤 지우지 않는다), moved인 지출에 오는 expense.restored는 무시한다(적용 규칙 13). 7단계: attachments 기본값 [] (모양: {id, expenseId, deleted}; 적용 규칙 14 — 이미 있는 id의 attachment.added는 무시(삭제 뒤 다시 와도 삭제된 채), 없는 지출이면 무시, 삭제된 지출에는 붙는다; attachment.deleted는 없는 id면 무시하고 payload의 expenseId는 읽지 않는다). payments[].replaced 기본값 false: replacedBy가 문자열인 payment.deleted(송금 편집)가 true로 만들고(그 뒤 지우지 않는다), replaced인 송금에 오는 payment.restored는 무시한다(적용 규칙 7). payment.restored는 expense.restored와 같다: 삭제된 송금을 되살리고(status는 그대로), 살아 있거나 없는 송금이면 무시. split은 받은 JSON 그대로 비교한다(Kotlin은 원문, Dart는 SplitSpec 왕복) — mode itemized 케이스는 bill의 모든 키(lines[].name·amount·memberIds, tax, tip, discount)를 넣어 두 쪽이 같은 JSON을 낸다.",
   "cases": [
     {
       "name": "create expense then update description only",
@@ -3452,6 +3452,1213 @@
             "text": "",
             "createdAt": "2026-10-11T09:05:00Z",
             "deleted": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "attachment added then deleted; re-add of the same id and unknown expense are ignored",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a1",
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a2",
+            "expenseId": "x9"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "attachment.deleted",
+          "payload": {
+            "attachmentId": "a1"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a1",
+            "expenseId": "x1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "attachments": [
+          {
+            "id": "a1",
+            "expenseId": "x1",
+            "deleted": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "attachment.deleted for an unknown id is ignored; its expenseId (server-normalized) is never read",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a1",
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a2",
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "attachment.deleted",
+          "payload": {
+            "attachmentId": "a9"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "attachment.deleted",
+          "payload": {
+            "attachmentId": "a2",
+            "expenseId": "x7"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "attachments": [
+          {
+            "id": "a1",
+            "expenseId": "x1",
+            "deleted": false
+          },
+          {
+            "id": "a2",
+            "expenseId": "x1",
+            "deleted": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "attachment on a deleted expense is kept and comes back with a restore",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.deleted",
+          "payload": {
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "attachment.added",
+          "payload": {
+            "attachmentId": "a1",
+            "expenseId": "x1"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.restored",
+          "payload": {
+            "expenseId": "x1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 1000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1000
+              }
+            ]
+          }
+        ],
+        "payments": [],
+        "attachments": [
+          {
+            "id": "a1",
+            "expenseId": "x1",
+            "deleted": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "itemized split survives a description-only update",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3550,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1967
+              },
+              {
+                "memberId": "m2",
+                "amount": 1583
+              }
+            ],
+            "split": {
+              "mode": "itemized",
+              "bill": {
+                "lines": [
+                  {
+                    "name": "Burger",
+                    "amount": 1450,
+                    "memberIds": [
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Salad",
+                    "amount": 1100,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  },
+                  {
+                    "name": "Fries to share",
+                    "amount": 700,
+                    "memberIds": [
+                      "m1",
+                      "m2"
+                    ]
+                  }
+                ],
+                "tax": 0,
+                "tip": 300,
+                "discount": 0
+              }
+            }
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "description": "Dinner at Mario's"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner at Mario's",
+            "amount": 3550,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1967
+              },
+              {
+                "memberId": "m2",
+                "amount": 1583
+              }
+            ],
+            "split": {
+              "mode": "itemized",
+              "bill": {
+                "lines": [
+                  {
+                    "name": "Burger",
+                    "amount": 1450,
+                    "memberIds": [
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Salad",
+                    "amount": 1100,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  },
+                  {
+                    "name": "Fries to share",
+                    "amount": 700,
+                    "memberIds": [
+                      "m1",
+                      "m2"
+                    ]
+                  }
+                ],
+                "tax": 0,
+                "tip": 300,
+                "discount": 0
+              }
+            }
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "itemized replaced by a newer itemized update",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3550,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1967
+              },
+              {
+                "memberId": "m2",
+                "amount": 1583
+              }
+            ],
+            "split": {
+              "mode": "itemized",
+              "bill": {
+                "lines": [
+                  {
+                    "name": "Burger",
+                    "amount": 1450,
+                    "memberIds": [
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Salad",
+                    "amount": 1100,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  },
+                  {
+                    "name": "Fries to share",
+                    "amount": 700,
+                    "memberIds": [
+                      "m1",
+                      "m2"
+                    ]
+                  }
+                ],
+                "tax": 0,
+                "tip": 300,
+                "discount": 0
+              }
+            }
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "amount": 4000,
+              "paidBy": "m1",
+              "payers": [
+                {
+                  "memberId": "m1",
+                  "amount": 4000
+                }
+              ],
+              "refund": false,
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 1946
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 2054
+                }
+              ],
+              "split": {
+                "mode": "itemized",
+                "bill": {
+                  "lines": [
+                    {
+                      "name": "Burger",
+                      "amount": 1450,
+                      "memberIds": [
+                        "m1"
+                      ]
+                    },
+                    {
+                      "name": "Salad",
+                      "amount": 1100,
+                      "memberIds": [
+                        "m2"
+                      ]
+                    },
+                    {
+                      "name": "Fries to share",
+                      "amount": 700,
+                      "memberIds": [
+                        "m2",
+                        "m1"
+                      ]
+                    },
+                    {
+                      "name": "Tiramisu",
+                      "amount": 450,
+                      "memberIds": [
+                        "m2"
+                      ]
+                    }
+                  ],
+                  "tax": 0,
+                  "tip": 300,
+                  "discount": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "date": "2026-10-09"
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 4000,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-09",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1946
+              },
+              {
+                "memberId": "m2",
+                "amount": 2054
+              }
+            ],
+            "split": {
+              "mode": "itemized",
+              "bill": {
+                "lines": [
+                  {
+                    "name": "Burger",
+                    "amount": 1450,
+                    "memberIds": [
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Salad",
+                    "amount": 1100,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  },
+                  {
+                    "name": "Fries to share",
+                    "amount": 700,
+                    "memberIds": [
+                      "m2",
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Tiramisu",
+                    "amount": 450,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  }
+                ],
+                "tax": 0,
+                "tip": 300,
+                "discount": 0
+              }
+            }
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "an old client's shares edit (no split key) clears an itemized split",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "expense.created",
+          "payload": {
+            "expenseId": "x1",
+            "description": "Dinner",
+            "amount": 3550,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 1967
+              },
+              {
+                "memberId": "m2",
+                "amount": 1583
+              }
+            ],
+            "split": {
+              "mode": "itemized",
+              "bill": {
+                "lines": [
+                  {
+                    "name": "Burger",
+                    "amount": 1450,
+                    "memberIds": [
+                      "m1"
+                    ]
+                  },
+                  {
+                    "name": "Salad",
+                    "amount": 1100,
+                    "memberIds": [
+                      "m2"
+                    ]
+                  },
+                  {
+                    "name": "Fries to share",
+                    "amount": 700,
+                    "memberIds": [
+                      "m1",
+                      "m2"
+                    ]
+                  }
+                ],
+                "tax": 0,
+                "tip": 300,
+                "discount": 0
+              }
+            }
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "expense.updated",
+          "payload": {
+            "expenseId": "x1",
+            "fields": {
+              "shares": [
+                {
+                  "memberId": "m1",
+                  "amount": 2000
+                },
+                {
+                  "memberId": "m2",
+                  "amount": 1550
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [
+          {
+            "id": "x1",
+            "description": "Dinner",
+            "amount": 3550,
+            "currency": "EUR",
+            "fxRateToDefault": null,
+            "paidBy": "m1",
+            "date": "2026-10-10",
+            "category": null,
+            "deleted": false,
+            "shares": [
+              {
+                "memberId": "m1",
+                "amount": 2000
+              },
+              {
+                "memberId": "m2",
+                "amount": 1550
+              }
+            ]
+          }
+        ],
+        "payments": []
+      }
+    },
+    {
+      "name": "payment restored after a delete and confirmed later; restore of a live or unknown payment changes nothing; the later of delete and restore wins",
+      "permute": true,
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "sent"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p1"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "p1"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p2",
+            "fromMember": "m1",
+            "toMember": "m2",
+            "amount": 300,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "confirmed"
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "p2"
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "ghost"
+          }
+        },
+        {
+          "seq": 9,
+          "clientId": "e9",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p2"
+          }
+        },
+        {
+          "seq": 10,
+          "clientId": "e10",
+          "type": "payment.confirmed",
+          "payload": {
+            "paymentId": "p1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": [
+          {
+            "id": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": false,
+            "status": "confirmed"
+          },
+          {
+            "id": "p2",
+            "fromMember": "m1",
+            "toMember": "m2",
+            "amount": 300,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": true,
+            "status": "confirmed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "an edited payment (deleted with replacedBy) stays deleted: restores are ignored, a later plain delete keeps the flag",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "sent"
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p1",
+            "replacedBy": "p2"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p2",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1200,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "sent"
+          }
+        },
+        {
+          "seq": 6,
+          "clientId": "e6",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "p1"
+          }
+        },
+        {
+          "seq": 7,
+          "clientId": "e7",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p1",
+            "replacedBy": null
+          }
+        },
+        {
+          "seq": 8,
+          "clientId": "e8",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "p1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": [
+          {
+            "id": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": true,
+            "status": "sent",
+            "replaced": true
+          },
+          {
+            "id": "p2",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1200,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": false,
+            "status": "sent"
+          }
+        ]
+      }
+    },
+    {
+      "name": "payment.created with deleted and replaced keys starts live and not replaced, so a delete and a restore bring it back",
+      "events": [
+        {
+          "seq": 1,
+          "clientId": "e1",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m1",
+            "name": "Anna",
+            "userId": null
+          }
+        },
+        {
+          "seq": 2,
+          "clientId": "e2",
+          "type": "member.added",
+          "payload": {
+            "memberId": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        },
+        {
+          "seq": 3,
+          "clientId": "e3",
+          "type": "payment.created",
+          "payload": {
+            "paymentId": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "status": "sent",
+            "deleted": true,
+            "replaced": true
+          }
+        },
+        {
+          "seq": 4,
+          "clientId": "e4",
+          "type": "payment.deleted",
+          "payload": {
+            "paymentId": "p1"
+          }
+        },
+        {
+          "seq": 5,
+          "clientId": "e5",
+          "type": "payment.restored",
+          "payload": {
+            "paymentId": "p1"
+          }
+        }
+      ],
+      "expected": {
+        "members": [
+          {
+            "id": "m1",
+            "name": "Anna",
+            "userId": null
+          },
+          {
+            "id": "m2",
+            "name": "Ben",
+            "userId": null
+          }
+        ],
+        "expenses": [],
+        "payments": [
+          {
+            "id": "p1",
+            "fromMember": "m2",
+            "toMember": "m1",
+            "amount": 1500,
+            "currency": "EUR",
+            "date": "2026-10-11",
+            "deleted": false,
+            "status": "sent"
           }
         ]
       }
