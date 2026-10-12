@@ -22,7 +22,9 @@ import java.util.UUID
         "evensies.email.smtp-host=capture.invalid",
         "evensies.email.job-cron=-",
         "evensies.email.auth-rate-per-minute=100000",
-        "evensies.email.webhook-secret=whsec_dGVzdC13ZWJob29rLXNlY3JldC0wMTIzNDU2Nzg5",
+        // base64 of "test-webhook-secret-0123456789"; written without the optional whsec_ prefix so secret scanners
+        // don't mistake this test value for a real Stripe/Svix key (the server strips the prefix when present).
+        "evensies.email.webhook-secret=dGVzdC13ZWJob29rLXNlY3JldC0wMTIzNDU2Nzg5",
         "evensies.support-email=help@evensies.test",
     ],
 )
