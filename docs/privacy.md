@@ -36,7 +36,7 @@ permalink: /privacy
 
 **Where:** the server runs in the EU (Hetzner, Germany).
 
-**Your rights:** export everything from Settings → Export at any time ("Export everything" is one JSON file with your profile, payment methods, settings and every group, deleted groups included; receipt photos come with each group's ZIP); sign out on all devices from Settings; delete your account from Settings → Delete account (your name, email address, email settings and blocks are removed; expenses you entered stay in the group as a placeholder so other members' balances remain correct). Contact us to exercise any further rights under GDPR or Korean PIPA.
+**Your rights:** export everything from Settings → Export at any time ("Export everything" is one JSON file with your profile, payment methods, settings and every group, deleted groups included; receipt photos come with each group's ZIP); sign out on all devices from Settings; delete your account from Settings → Delete account, on the web app or by email ([how](delete-account.md)) (your name, email address, email settings and blocks are removed; expenses you entered stay in the group as a placeholder so other members' balances remain correct). Contact us to exercise any further rights under GDPR or Korean PIPA.
 
 **Children:** the app is not directed at children under 13.
 
