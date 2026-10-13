@@ -30,7 +30,8 @@ REPO=$(pwd); WORK=$(mktemp -d)    # WORK holds ids.json and ws-android
 
 2. Seed through the HTTP API (dev login users Alex, Maya, Jonas, Priya, Leo), then make the feed times match the
    event times. seed.py uses random ids and the last cent of an uneven split goes by id order, so run it with
-   seeded ids to get the iPhone set's cents (Alex owes 54.70 in Lisbon, is owed 531.15 in Flat 3B):
+   seeded ids so the cents repeat from run to run (Alex owes 54.70 in Lisbon, is owed 531.15 in Flat 3B). The Play set
+   was taken this way; the 1.0 iPhone set came from an unseeded run, so a few of its amounts differ by one cent:
    cd $WORK && python3 -I -c "
    import random, runpy, sys, uuid
    r = random.Random(2)
