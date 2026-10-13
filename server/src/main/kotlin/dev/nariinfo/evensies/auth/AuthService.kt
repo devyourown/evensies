@@ -1,6 +1,7 @@
 package dev.nariinfo.evensies.auth
 
 import dev.nariinfo.evensies.common.ApiException
+import dev.nariinfo.evensies.config.AppProperties
 import dev.nariinfo.evensies.config.JwtService
 import dev.nariinfo.evensies.email.Mailer
 import dev.nariinfo.evensies.friend.FriendRepository
@@ -38,6 +39,7 @@ class AuthService(
     private val jwt: JwtService,
     private val blocks: BlockRepository,
     private val mailer: Mailer,
+    private val props: AppProperties,
 ) {
     private val random = SecureRandom()
 
@@ -60,6 +62,8 @@ class AuthService(
         val userId = refreshTokens.consume(refreshToken) ?: throw ApiException.unauthorized("Invalid or expired refresh token")
         val user = users.find(userId)
         if (user == null || user.deleted) throw ApiException.unauthorized("Account no longer exists")
+        // Review sign-in turned off: its sessions end too (docs/API.md "Review sign-in").
+        if (user.provider == "review" && !props.auth.reviewLogin) throw ApiException.unauthorized("Account no longer exists")
         return issue(userId)
     }
 

@@ -3284,4 +3284,20 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies is al open in een ander tabblad van deze browser. Gebruik dat tabblad, of sluit het en laad dit opnieuw.';
+
+  @override
+  String get loginReview => 'Demo-aanmelding';
+
+  @override
+  String get loginReviewUsername => 'Gebruikersnaam';
+
+  @override
+  String get loginReviewPassword => 'Wachtwoord';
+
+  @override
+  String get loginReviewSubmit => 'Inloggen';
+
+  @override
+  String get loginReviewWrong =>
+      'Onjuiste gebruikersnaam of onjuist wachtwoord';
 }

@@ -853,5 +853,10 @@
   "copyAddress": "Copia indirizzo",
   "copyMessage": "Copia messaggio",
   "browserNoStorage": "Questo browser non può conservare i dati di Evensies. Prova un altro browser o una finestra non privata.",
-  "browserOtherTab": "Evensies è già aperto in un'altra scheda di questo browser. Usa quella scheda, oppure chiudila e ricarica questa."
+  "browserOtherTab": "Evensies è già aperto in un'altra scheda di questo browser. Usa quella scheda, oppure chiudila e ricarica questa.",
+  "loginReview": "Accesso demo",
+  "loginReviewUsername": "Nome utente",
+  "loginReviewPassword": "Password",
+  "loginReviewSubmit": "Accedi",
+  "loginReviewWrong": "Nome utente o password errati"
 }

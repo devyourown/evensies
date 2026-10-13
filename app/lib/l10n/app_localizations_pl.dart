@@ -3306,4 +3306,19 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Aplikacja Evensies jest już otwarta w innej karcie tej przeglądarki. Użyj tamtej karty albo zamknij ją i odśwież tę.';
+
+  @override
+  String get loginReview => 'Logowanie demo';
+
+  @override
+  String get loginReviewUsername => 'Nazwa użytkownika';
+
+  @override
+  String get loginReviewPassword => 'Hasło';
+
+  @override
+  String get loginReviewSubmit => 'Zaloguj się';
+
+  @override
+  String get loginReviewWrong => 'Nieprawidłowa nazwa użytkownika lub hasło';
 }

@@ -103,6 +103,7 @@ The listing text, keywords, privacy labels and review notes are in [store/listin
 - Update the description, "What's New" and the screenshots when features change.
 - Keep the App Store privacy label and the Play data safety form in line with [privacy.md](privacy.md), and update its date when it changes. The published privacy policy is this `docs/` folder on GitHub Pages ([index.md](index.md), [privacy.md](privacy.md)).
 - The server must have `EVENSIES_SUPPORT_EMAIL` set, or the app hides Report…, which App Review expects for apps with user content.
+- The server must have `EVENSIES_REVIEW_LOGIN_USERNAME` / `_PASSWORD` set (the password at least 20 characters, `GET /info` says `"reviewLogin": true`), with the same values in Play Console → App access and App Store Connect → App Review Information ([store/listing.md](store/listing.md#app-access)). Without it Google Play review can't sign in.
 
 ## First release only
 

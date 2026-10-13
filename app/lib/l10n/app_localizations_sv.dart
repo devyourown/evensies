@@ -3273,4 +3273,19 @@ class AppLocalizationsSv extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies är redan öppet i en annan flik i den här webbläsaren. Använd den fliken, eller stäng den och ladda om den här.';
+
+  @override
+  String get loginReview => 'Demoinloggning';
+
+  @override
+  String get loginReviewUsername => 'Användarnamn';
+
+  @override
+  String get loginReviewPassword => 'Lösenord';
+
+  @override
+  String get loginReviewSubmit => 'Logga in';
+
+  @override
+  String get loginReviewWrong => 'Fel användarnamn eller lösenord';
 }

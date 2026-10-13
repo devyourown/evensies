@@ -853,5 +853,10 @@
   "copyAddress": "Salin alamat",
   "copyMessage": "Salin pesan",
   "browserNoStorage": "Browser ini tidak bisa menyimpan data Evensies. Coba browser lain, atau jendela yang bukan mode pribadi.",
-  "browserOtherTab": "Evensies sudah terbuka di tab lain di browser ini. Gunakan tab itu, atau tutup lalu muat ulang tab ini."
+  "browserOtherTab": "Evensies sudah terbuka di tab lain di browser ini. Gunakan tab itu, atau tutup lalu muat ulang tab ini.",
+  "loginReview": "Masuk demo",
+  "loginReviewUsername": "Nama pengguna",
+  "loginReviewPassword": "Kata sandi",
+  "loginReviewSubmit": "Masuk",
+  "loginReviewWrong": "Nama pengguna atau kata sandi salah"
 }

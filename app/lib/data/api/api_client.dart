@@ -113,6 +113,11 @@ class ApiClient {
       () => _dio.post('/auth/google',
           data: {'idToken': idToken, 'displayName': ?displayName}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
+  /// The store reviewers' sign-in (docs/API.md POST /auth/review): 401 for a wrong username or password, 404 when off.
+  Future<AuthResponse> authReview(String username, String password) => _call(
+      () => _dio.post('/auth/review',
+          data: {'username': username, 'password': password}, options: Options(extra: {'noAuth': true})),
+      (d) => AuthResponse.fromJson(_map(d)));
   Future<AuthResponse> authDev(String name) => _call(
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));

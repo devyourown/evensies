@@ -853,5 +853,10 @@
   "copyAddress": "Adres kopiëren",
   "copyMessage": "Bericht kopiëren",
   "browserNoStorage": "Deze browser kan de gegevens van Evensies niet bewaren. Probeer een andere browser of een venster dat niet privé is.",
-  "browserOtherTab": "Evensies is al open in een ander tabblad van deze browser. Gebruik dat tabblad, of sluit het en laad dit opnieuw."
+  "browserOtherTab": "Evensies is al open in een ander tabblad van deze browser. Gebruik dat tabblad, of sluit het en laad dit opnieuw.",
+  "loginReview": "Demo-aanmelding",
+  "loginReviewUsername": "Gebruikersnaam",
+  "loginReviewPassword": "Wachtwoord",
+  "loginReviewSubmit": "Inloggen",
+  "loginReviewWrong": "Onjuiste gebruikersnaam of onjuist wachtwoord"
 }

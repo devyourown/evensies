@@ -42,6 +42,9 @@ class ServerInfo {
   final bool devLogin;
   final bool emailLogin, appleLogin, googleLogin;
 
+  /// The store reviewers' username + password sign-in (`POST /auth/review`); false on servers before it.
+  final bool reviewLogin;
+
   /// The operator's contact address (Help & feedback, Report); null when not set.
   final String? supportEmail;
   const ServerInfo({
@@ -51,6 +54,7 @@ class ServerInfo {
     this.emailLogin = false,
     this.appleLogin = true,
     this.googleLogin = true,
+    this.reviewLogin = false,
     this.supportEmail,
   });
   static const fallback = ServerInfo();
@@ -61,6 +65,7 @@ class ServerInfo {
       emailLogin: j['emailLogin'] == true,
       appleLogin: j['appleLogin'] != false,
       googleLogin: j['googleLogin'] != false,
+      reviewLogin: j['reviewLogin'] == true,
       supportEmail: switch (j['supportEmail']) { final String s when s.isNotEmpty => s, _ => null });
 }
 

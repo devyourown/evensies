@@ -2,7 +2,7 @@ package dev.nariinfo.evensies.auth
 
 import java.util.UUID
 
-/** [provider] "apple", "google", "email" (Phase 10, subject = the address) or "dev"; [email] the verified account address. */
+/** [provider] "apple", "google", "email" (Phase 10, subject = the address), "review" (subject `review:<username>`) or "dev"; [email] the verified account address. */
 data class User(
     val id: UUID, val displayName: String, val deleted: Boolean, val homeCurrency: String? = null, val language: String? = null,
     val email: String? = null, val provider: String = "",

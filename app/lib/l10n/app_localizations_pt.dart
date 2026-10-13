@@ -3269,4 +3269,19 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'O Evensies já está aberto em outra aba deste navegador. Use essa aba, ou feche-a e recarregue esta.';
+
+  @override
+  String get loginReview => 'Acesso de demonstração';
+
+  @override
+  String get loginReviewUsername => 'Usuário';
+
+  @override
+  String get loginReviewPassword => 'Senha';
+
+  @override
+  String get loginReviewSubmit => 'Entrar';
+
+  @override
+  String get loginReviewWrong => 'Usuário ou senha incorretos';
 }

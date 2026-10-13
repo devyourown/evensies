@@ -132,7 +132,7 @@ Derived from `docs/privacy.md`. Everything is used for **App Functionality** onl
 ### Review notes for Apple
 Evensies is a group expense-splitting app. Backend: `https://evensies.nariinfo.dev` (EU, Hetzner). Source code: https://github.com/devyourown/evensies.
 
-Sign-in: "Continue with Apple" with any Apple ID (Hide My Email is fine), or "Continue with Google" with any Google account. No demo account is needed; the first sign-in creates the account and asks for a display name.
+Sign-in: "Continue with Apple" with any Apple ID (Hide My Email is fine), or "Continue with Google" with any Google account; the first sign-in creates the account and asks for a display name. Without your own account: on the first screen tap the small "Demo sign-in" text button below the sign-in buttons (its label follows the device language) and enter the username and password given in App Review Information (a shared demo account; the first time it also asks for a display name).
 
 How to test:
 1. On the Groups screen tap the group icon (top right) → "New group", give it a name, a type and a currency (a cover photo can be added in the group's settings).
@@ -225,6 +225,12 @@ Finance (Tags: expense tracker, travel)
 ### Content rating (IARC questionnaire)
 No violence, sexuality, language, controlled substances or gambling. Users interact: group members see each other's names, photos, expenses and comments, and can block and report each other. No digital purchases. No location sharing. Expected rating: Everyone / PEGI 3, with the "Users Interact" notice.
 
+### App access
+Play Console → App content → App access: "All or some functionality is restricted", with one set of instructions:
+- Name: Demo sign-in
+- Username / password: the server's `EVENSIES_REVIEW_LOGIN_USERNAME` / `EVENSIES_REVIEW_LOGIN_PASSWORD` (set them in `deploy/.env` only, never in this repository)
+- Any other information: On the first screen, tap the small "Demo sign-in" text button below the sign-in buttons (its label follows the device language) and enter the username and password above; no Google account is needed. The first sign-in asks for a display name, then every feature is available (for example: create a group, add placeholder members, add an expense, open Balances → Settle up; Settings → Delete account).
+
 ### Data safety
 - Does the app collect or share user data? **Collects: yes. Shares: no** (sign-in providers and Firebase Cloud Messaging process data on our behalf).
 - Is all user data encrypted in transit? **Yes** (HTTPS).
@@ -253,6 +259,7 @@ Security practices: data encrypted in transit; users can request deletion; no in
 - Set `EVENSIES_SUPPORT_EMAIL=support@nariinfo.dev` on the server, or Report… is hidden (Apple's guideline 1.2 asks for a way to report people).
 - Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server ([docs/API.md, Official server](../API.md#official-server-app-only)).
 - The privacy policy is published at the Privacy Policy URL (GitHub Pages from `docs/`).
+- Set `EVENSIES_REVIEW_LOGIN_USERNAME` and `EVENSIES_REVIEW_LOGIN_PASSWORD` (the password at least 20 characters) on the server and restart; `GET /info` must say `"reviewLogin": true` before the same values go into Play Console (App access) and App Store Connect (App Review Information). Reviewers come back for every update, so leave it on. To rotate: first sign in with Demo sign-in and use Settings → Sign out on all devices (or Delete account), then change the values on the server and in both consoles; a changed password doesn't end old sessions by itself. Turning it off (clearing both and restarting) ends them ([docs/API.md, Review sign-in](../API.md#review-sign-in)).
 - Email is off at launch (no `EVENSIES_SMTP_HOST`): the app hides email sign-in, summaries and email invites. Turning it on later needs no app update; update the review notes and the processors line then.
 
 ## Notes on the screenshots

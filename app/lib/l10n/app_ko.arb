@@ -853,5 +853,10 @@
   "copyAddress": "주소 복사",
   "copyMessage": "내용 복사",
   "browserNoStorage": "이 브라우저에는 Evensies 데이터를 저장할 수 없어요. 다른 브라우저나 시크릿 모드가 아닌 창에서 열어 보세요.",
-  "browserOtherTab": "Evensies가 이 브라우저의 다른 탭에서 이미 열려 있어요. 그 탭을 쓰거나, 그 탭을 닫고 이 탭을 새로 고쳐 주세요."
+  "browserOtherTab": "Evensies가 이 브라우저의 다른 탭에서 이미 열려 있어요. 그 탭을 쓰거나, 그 탭을 닫고 이 탭을 새로 고쳐 주세요.",
+  "loginReview": "데모 로그인",
+  "loginReviewUsername": "아이디",
+  "loginReviewPassword": "비밀번호",
+  "loginReviewSubmit": "로그인",
+  "loginReviewWrong": "아이디 또는 비밀번호가 틀렸어요"
 }

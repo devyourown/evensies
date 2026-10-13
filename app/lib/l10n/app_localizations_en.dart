@@ -3248,4 +3248,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies is already open in another tab of this browser. Use that tab, or close it and reload this one.';
+
+  @override
+  String get loginReview => 'Demo sign-in';
+
+  @override
+  String get loginReviewUsername => 'Username';
+
+  @override
+  String get loginReviewPassword => 'Password';
+
+  @override
+  String get loginReviewSubmit => 'Sign in';
+
+  @override
+  String get loginReviewWrong => 'Wrong username or password';
 }
