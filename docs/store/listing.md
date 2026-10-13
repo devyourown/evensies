@@ -68,13 +68,13 @@ OUR PROMISES
 2. No ads and no tracking.
 3. Export is always available. Your data leaves whenever you do.
 4. No paywall. Every feature is free.
-5. The source code stays public.
+5. Open source (Apache-2.0).
 
 NO ADS, NO TRACKING
 Evensies has no advertising and no analytics SDKs. The server keeps only what the app needs to work, and nothing is sold or shared.
 
-PUBLIC SOURCE
-The source code of the app and the server is public on GitHub, so anyone can check how balances are computed and what is stored.
+OPEN SOURCE
+The app and the server are open source on GitHub, so anyone can check how balances are computed and what is stored.
 
 Evensies is built by one developer who got tired of being nickel-and-dimed for adding a receipt. If something is wrong, open an issue on GitHub and it will be read.
 
@@ -206,13 +206,13 @@ Evensies splits shared costs with friends, roommates, partners and travel compan
 2. No ads and no tracking.
 3. Export is always available. Your data leaves whenever you do.
 4. No paywall. Every feature is free.
-5. The source code stays public.
+5. Open source (Apache-2.0).
 
 <b>No ads, no tracking</b>
 Evensies has no advertising and no analytics SDKs. The server keeps only what the app needs to work, and nothing is sold or shared.
 
-<b>Public source</b>
-The source code of the app and the server is public on GitHub, so anyone can check how balances are computed and what is stored.
+<b>Open source</b>
+The app and the server are open source on GitHub, so anyone can check how balances are computed and what is stored.
 
 Source code and issue tracker: https://github.com/devyourown/evensies
 
@@ -241,7 +241,7 @@ No violence, sexuality, language, controlled substances or gambling. Users inter
 | Messages → Other in-app messages | Yes (comments on expenses and payments) | No | Optional | App functionality |
 | App activity → Other user-generated content | Yes (groups, members, expense descriptions, notes) | No | Required | App functionality |
 | Device or other IDs | Yes (push token) | No | Optional | App functionality (notifications) |
-| App info and performance → Diagnostics | **To confirm (Hyojun)**: the receipt scanner's ML Kit text recognition sends Google anonymous diagnostics about the library (never images or text). Answer from Google's ML Kit data disclosure guidance (https://developers.google.com/ml-kit/android-data-disclosure), not a plain "No" | — | — | — |
+| App info and performance → Diagnostics | **To confirm before submission**: the receipt scanner's ML Kit text recognition sends Google anonymous diagnostics about the library (never images or text). Answer from Google's ML Kit data disclosure guidance (https://developers.google.com/ml-kit/android-data-disclosure), not a plain "No" | — | — | — |
 | Location, contacts, health, calendar, audio, files and docs, web browsing, app interactions, in-app search history, crash logs | No (search runs on the phone; an imported Splitwise CSV becomes expenses and is not kept) | — | — | — |
 
 Security practices: data encrypted in transit; users can request deletion; no independent security review claimed.
@@ -251,7 +251,7 @@ Security practices: data encrypted in transit; users can request deletion; no in
 ## Before submission
 - Retake the screenshots (below) on the current app; the listing describes features the old ones don't show.
 - Set `EVENSIES_SUPPORT_EMAIL` on the server, or Report… is hidden (Apple's guideline 1.2 asks for a way to report people).
-- Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server (`docs/API.md` 공식 서버).
+- Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server ([docs/API.md, Official server](../API.md#official-server-app-only)).
 - Publish `docs/privacy.md` at the Privacy Policy URL.
 
 ## Notes on the screenshots

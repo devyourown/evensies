@@ -10,7 +10,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Invite a placeholder by email (docs/API.md "이메일 초대"): one invite, one reminder after 3 days, gone after 14. */
+/** Invite a placeholder by email (docs/API.md "Email invites"): one invite, one reminder after 3 days, gone after 14. */
 class InviteEmailTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient
@@ -54,7 +54,7 @@ class InviteEmailTest : IntegrationTestBase() {
         assertTrue("Hi Cara,\n\n" in sent.text, sent.text)
         assertTrue("/j/$code?m=$cara" in sent.text, sent.text)
         assertTrue(code.chunked(3).joinToString("-") in sent.text)
-        assertTrue("open source" !in sent.text, "no open-source marketing (FSL)")
+        assertTrue("open source" !in sent.text, "no marketing text in invite emails")
         val unsubscribe = sent.header("List-Unsubscribe")!!
         assertTrue(unsubscribe.startsWith("<http://localhost:8080/email/unsubscribe?t=") && unsubscribe.endsWith(">"), unsubscribe)
         assertEquals("List-Unsubscribe=One-Click", sent.header("List-Unsubscribe-Post"))

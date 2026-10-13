@@ -1,97 +1,118 @@
 # Evensies
 
-Expense splitting for friends, roommates and trips. A Splitwise alternative with **no daily limits, no ads, and no data lock-in**. iOS, Android and web app (Flutter) + a small server (Spring Boot, Kotlin, PostgreSQL). The source is public under the [Functional Source License](LICENSE).
+Split expenses with friends, roommates and travel companions: no daily limits, no ads, no paywall, no data lock-in.
 
-> Status: pre-release. The product name is Evensies.
+[![CI](https://github.com/devyourown/evensies/actions/workflows/ci.yml/badge.svg)](https://github.com/devyourown/evensies/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+An iOS, Android and web app (Flutter) with a small sync server (Spring Boot, Kotlin, PostgreSQL). Status: pre-release, not in the stores yet.
+
+<table>
+  <tr>
+    <td><img src="docs/images/groups.png" width="200" alt="The groups list with a balance for each group"></td>
+    <td><img src="docs/images/group.png" width="200" alt="A group's expenses"></td>
+    <td><img src="docs/images/add-expense.png" width="200" alt="Adding an expense with a split"></td>
+    <td><img src="docs/images/settle-up.png" width="200" alt="Settle up with suggested transfers"></td>
+  </tr>
+</table>
+
+<img src="docs/images/web-desktop.png" width="600" alt="The web app in a desktop browser: groups and friends on the left, a group's expenses in the middle, its balances on the right">
 
 ## Why
-Splitwise caps free users at a few expenses per day — exactly on the first day of a trip. Most alternatives are web apps. Evensies is a native app with offline-first sync, and the same app runs in the browser.
 
-## Promises (sustainability rules)
-These are commitments, written down so they can't quietly change later:
-1. **No input limits, ever.** Not per day, not per group.
+Splitwise's free tier limits how many expenses you can add per day, and you hit that limit on the first day of a trip. Most alternatives are web-only. Evensies is a native app where you can add expenses offline, the same app runs in the browser, and every feature is free.
+
+## Promises
+
+These are written down so they can't quietly change later:
+
+1. **No limits on how many expenses you add, ever.** Not per day, not per group. The only caps are against abuse and far above real use (for example 50 members per group); see [docs/API.md](docs/API.md#daily-budget-and-rate-limits).
 2. **No ads and no tracking.**
 3. **Export is always available** (JSON and CSV). Your data leaves whenever you do.
 4. **No paywall.** Every feature is free.
-5. **The source stays public**, and each version becomes Apache-2.0 two years after its release.
+5. **Open source: Apache-2.0.**
 
 ## Features
-- Groups (trip, home, couple, other) with invite links, codes and QR; placeholder members claimed later; cover photos; delete and restore a group
-- Friends: 1:1 expenses outside groups, balances across everything, reminders, block and report
-- Six ways to split (equal with tick boxes, exact, percent, shares, adjustment, items from a receipt), several payers, refunds, a default split per group
-- 155 currencies with automatic daily exchange rates and a home currency
-- Categories, search, charts, edit history, comments, activity feed and push notifications
-- Settle up with the fewest transfers and pay links (PayPal, Wise, Venmo, Revolut, KakaoPay, UPI, EPC QR / IBAN, Korean bank account); sent → confirmed payments
-- Receipt photos with on-device scanning, repeating expenses, email sign-in codes and a summary email
-- Offline-first sync, 13 languages, web app, home-screen widget, app lock
-- Export a group (JSON, CSV, ZIP with receipts) or everything (JSON); import a Splitwise CSV
+
+- **Groups** for a trip, a home, a couple or anything else: invite by link, code, QR or email; add placeholder members who claim their name later; cover photos; delete and restore a group.
+- **Friends:** expenses between two people outside any group, one balance per person across everything, reminders, block and report.
+- **Six ways to split:** equally (untick who wasn't there), exact amounts, percentages, shares, adjustments, or by item from a receipt. Several payers, refunds and a default split per group.
+- **155 currencies**, a different one per expense if you like, with automatic daily exchange rates and a home currency.
+- **Settle up** with simplified debts (or as they arose, per group), pay links for PayPal, Wise, Venmo, Revolut, KakaoPay and UPI, an EU payment QR code or a copied IBAN or Korean bank account, and "sent" / "received" payments. Evensies never holds or moves money.
+- **Stay in the loop:** activity feed, push notifications, comments, notes, edit history, restoring deleted expenses and payments, and an optional summary email.
+- **Organise:** categories, search across all expenses, charts by month, category and person.
+- **Receipts and repeats:** receipt photos, on-device text scanning (phones only), and repeating expenses for rent and subscriptions.
+- **Your way:** add and edit expenses offline, 13 languages with local money and date formats, a web app, a home-screen widget, app lock, light and dark mode.
+- **Accounts:** sign in with Apple, Google or a code sent by email; sign out everywhere; delete your account in Settings.
+- **Export and import:** a group as JSON, CSV or a ZIP with its receipts, or everything as one JSON file; import a Splitwise CSV.
+
+## How it works
+
+- Every change is an event in an append-only log per group. The app pushes its queued events and pulls what's new; the server gives each event its place (`seq`) under a lock on the group.
+- The app keeps a full local copy (SQLite through drift, IndexedDB on the web) and computes balances itself, so expenses and payments can be added and edited without a connection.
+- Money is an integer in the currency's minor unit, and each expense stores the final amount per member.
+- The Dart app and the Kotlin server implement the same rules, and the parts both sides have pass the same JSON test cases in [`shared/`](shared).
+- The server also serves the web app at `/app/`, sends push notifications (Firebase Cloud Messaging) and, if configured, email.
+
+More in [ARCHITECTURE.md](ARCHITECTURE.md); the API and sync contract is [docs/API.md](docs/API.md).
+
+## Quick start
+
+You need Flutter 3.41, JDK 21, Docker, and Xcode + CocoaPods (iOS), Android Studio (Android) or Chrome (web). Full steps, tests and the Android and web variants are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```sh
+git clone https://github.com/devyourown/evensies.git && cd evensies
+docker compose -f deploy/docker-compose.dev.yml up -d     # Postgres and Mailpit
+
+# terminal 1: the server with the dev profile
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home   # or your JDK 21
+cd server && ./gradlew --no-daemon bootRun --args='--spring.profiles.active=dev'
+
+# terminal 2, from where you cloned: the app on the iOS simulator
+cd evensies/app && flutter pub get
+open -a Simulator
+flutter devices                                            # find the simulator's device id
+flutter run -d <device-id> --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
+```
+
+For the browser, use `flutter run -d chrome --web-port 7357` with the same `--dart-define`s: 7357 is the only origin the dev server allows. The Android emulator needs `http://10.0.2.2:8080` instead of `localhost` (see [CONTRIBUTING.md](CONTRIBUTING.md#3-app-on-a-simulator-or-emulator)).
+
+On the login screen, type a name under "Dev name" and tap "Dev login". No Firebase files are needed; push is simply off without them.
 
 ## Repository layout
+
 ```
-app/      Flutter app (iOS, Android, web)
-server/   Spring Boot (Kotlin) API + sync server
-shared/   JSON test cases both implementations must pass (split, settlement, sync), shared strings
-deploy/   Docker Compose, Caddy, .env.example
-docs/     API contract (docs/API.md), design spec, plans
+app/       Flutter app (iOS, Android, web)
+server/    Spring Boot (Kotlin) API and sync server, also serves the web app
+shared/    JSON test cases both implementations must pass, and the shared tables (currencies, categories, strings)
+deploy/    Docker Compose for development and production, Caddy, .env.example
+docs/      API and sync contract (API.md), privacy policy, store listing, release steps, design history
 ```
+
+## Contributing
+
+Bug reports, translation reviews and code are all welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); issues labelled [good first issue](https://github.com/devyourown/evensies/labels/good%20first%20issue), when there are some, are small and self-contained. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md), and report security problems privately as described in [SECURITY.md](SECURITY.md).
+
+All 12 languages other than English are machine-translated and need native speakers to review them. That is the easiest way to help: see [Translations](CONTRIBUTING.md#translations).
 
 ## Running the server yourself
-The license allows running Evensies for your own internal use, education and research, but not offering it to others as a competing product or service. The App Store and Play Store app connects only to the official server; a build that talks to another server must use its own name and icon (see [TRADEMARKS.md](TRADEMARKS.md)); the build variables and the steps are in [docs/API.md](docs/API.md#빌드-변수-앱---dart-define) (빌드 변수).
-```bash
-git clone https://github.com/devyourown/evensies && cd evensies/deploy
-cp .env.example .env     # set EVENSIES_DOMAIN, EVENSIES_JWT_SECRET, DB password, Apple/Google client ids
-docker compose up -d
+
+Apache-2.0 lets anyone run, change and redistribute the code, for any purpose. Only the name and the icon are restricted: see [TRADEMARKS.md](TRADEMARKS.md).
+
+Store builds (once released) talk only to the official server. Your server serves the web app at `https://<your domain>/app/`, so that works right away. For phone apps that use your server, build them under your own name, icon and bundle id with `--dart-define=EVENSIES_SERVER_URL=https://<your domain>` ([build variables](docs/API.md#build-variables-app---dart-define)).
+
+```sh
+git clone https://github.com/devyourown/evensies.git && cd evensies/deploy
+cp .env.example .env      # set EVENSIES_DOMAIN, EVENSIES_PUBLIC_URL, EVENSIES_JWT_SECRET, POSTGRES_PASSWORD and the sign-in client ids
+docker compose up -d --build
 ```
-Caddy obtains TLS automatically for `EVENSIES_DOMAIN`. The server image also serves the web app at `https://EVENSIES_DOMAIN/app/`; set `EVENSIES_GOOGLE_WEB_CLIENT_ID` and `EVENSIES_APPLE_SERVICES_ID` to show Google and Apple sign-in there. See [server/README.md](server/README.md) and [docs/API.md](docs/API.md) for environment variables.
 
-## Languages
-The app, the activity feed, notifications and invite pages follow each person's language. English is the source and the fallback.
+Caddy gets a TLS certificate for `EVENSIES_DOMAIN` automatically, and a `backup` container writes a daily database dump to `deploy/backups/`. Set `EVENSIES_GOOGLE_WEB_CLIENT_ID` and `EVENSIES_APPLE_SERVICES_ID` to show Google and Apple sign-in in the web app, and `EVENSIES_SMTP_HOST` to turn on email. All variables: [docs/API.md](docs/API.md#environment-variables-server) and [server/README.md](server/README.md). `deploy/bootstrap.sh` prepares a fresh Ubuntu host.
 
-| Language | Code | Status |
-|---|---|---|
-| English | `en` | source |
-| Korean | `ko` | machine-translated, maintainer review pending |
-| Dutch | `nl` | machine-translated — reviews welcome |
-| French | `fr` | machine-translated — reviews welcome |
-| German | `de` | machine-translated — reviews welcome |
-| Indonesian | `id` | machine-translated — reviews welcome |
-| Italian | `it` | machine-translated — reviews welcome |
-| Japanese | `ja` | machine-translated — reviews welcome |
-| Polish | `pl` | machine-translated — reviews welcome |
-| Portuguese (Brazil) | `pt` | machine-translated — reviews welcome |
-| Spanish | `es` | machine-translated — reviews welcome |
-| Swedish | `sv` | machine-translated — reviews welcome |
-| Thai | `th` | machine-translated — reviews welcome |
+## License and trademarks
 
-## Translating
-Corrections are welcome as pull requests. Text lives in two places:
-- **App screens:** `app/lib/l10n/app_<code>.arb`. `app_en.arb` is the source; each key's `@description` says where it appears. Run `flutter gen-l10n` in `app/` and commit the generated `app_localizations*.dart`.
-- **Sentences the server also writes** (activity feed, push notifications, reminders, invite and friend pages, category names, repeat wording, money format): `shared/strings.json`, keyed by language. Copy it byte for byte to `app/assets/strings.json` and `server/src/main/resources/strings.json`.
+Evensies is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 Hyojun ([@devyourown](https://github.com/devyourown)) and contributors.
 
-Rules: whole sentences with every `{placeholder}` kept; plurals only in ARB (ICU `one`/`other`, plus `few`/`many` for Polish); gender-neutral wording around names; informal register for de, es, it, nl, pl, pt, sv and formal for fr (vous), ja (です/ます) and ko (해요체). Names, descriptions, brand names and currency codes and names stay as they are. `cd app && flutter test test/l10n_test.dart` and `cd server && ./gradlew test --tests '*StringsTest'` check that every language has every key and placeholder.
+The name "Evensies", the logo and the app icon are not covered by the license; see the [trademark policy](TRADEMARKS.md).
 
-## Develop
-```bash
-# database
-docker compose -f deploy/docker-compose.dev.yml up -d
-# server (dev profile enables /auth/dev)
-cd server && ./gradlew bootRun --args='--spring.profiles.active=dev'
-# app (iOS simulator)
-cd app && flutter run --dart-define=DEV_LOGIN=true --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
-# web app (Chrome) against the same server
-cd app && flutter run -d chrome --web-port 7357 --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
-```
-Phone debug builds (`flutter run`) have a Settings → Server field; phone release builds always use `EVENSIES_SERVER_URL` (default: the official server) unless built with `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true` ([app/README.md](app/README.md)).
-
-Tests: `cd server && ./gradlew test` · `cd app && flutter test`.
-
-## Design
-- Money is stored as integers in the currency's minor unit; splits are stored as final per-member amounts.
-- Sync is an append-only event log per group with a server-assigned sequence; pushes are idempotent via `(group_id, client_id)`.
-- The app keeps a full local copy (SQLite) and computes balances locally, so it works offline.
-- Contract: [docs/API.md](docs/API.md). Spec: [docs/superpowers/specs](docs/superpowers/specs).
-
-## License
-[Functional Source License 1.1, Apache-2.0 future license](LICENSE) (FSL-1.1-ALv2). You may read, use, modify and redistribute the code for any purpose except a competing product or service; two years after each version is published, that version is also available under Apache-2.0. The name and icon are covered by the [trademark policy](TRADEMARKS.md).
-
-Versions published up to commit `d3ac783` (2026-10-11) were released under AGPL-3.0 and remain available under it.
+Commits up to `3a71a8d` (2026-10-13) carry the license file they were published with: AGPL-3.0 up to `d3ac783`, then FSL-1.1-ALv2.
