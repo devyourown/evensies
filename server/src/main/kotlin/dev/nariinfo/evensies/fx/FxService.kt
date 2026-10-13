@@ -23,7 +23,7 @@ data class FxRates(val date: LocalDate, val rates: Map<String, Double>)
 
 /**
  * Daily EUR-based rates from the source at `evensies.fx.url` (Frankfurter v2 shape), cached one row per asked day in
- * `fx_days` (docs/API.md "환율"). This is the only reader of that table; Phase 8's scheduler reuses [rates].
+ * `fx_days` (docs/API.md "Exchange rates"). This is the only reader of that table; Phase 8's scheduler reuses [rates].
  */
 @Service
 class FxService(private val jdbc: JdbcClient, private val mapper: ObjectMapper, props: AppProperties) {

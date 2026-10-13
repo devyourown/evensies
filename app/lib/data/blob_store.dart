@@ -1,4 +1,4 @@
-/// Where receipt photos live on this device: files on phones, memory in the browser (docs/API.md 웹 앱: an unsent
+/// Where receipt photos live on this device: files on phones, memory in the browser (docs/API.md, Web app: an unsent
 /// photo on the web is gone with the tab).
 library;
 

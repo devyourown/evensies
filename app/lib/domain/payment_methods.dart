@@ -1,4 +1,4 @@
-/// "Ways to get paid" (docs/API.md 결제 수단). Validation returns codes; the screens word them ([methodErrorText]).
+/// "Ways to get paid" (docs/API.md, Payment methods). Validation returns codes; the screens word them ([methodErrorText]).
 library;
 
 import '../core/money.dart';

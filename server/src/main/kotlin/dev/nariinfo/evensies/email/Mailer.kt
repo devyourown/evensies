@@ -65,7 +65,7 @@ class EmailConfig {
 }
 
 /**
- * The only way out for email (docs/API.md "메일러"). [send] gates, in order: suppression (codes skip it), the daily budget,
+ * The only way out for email (docs/API.md "Mailer"). [send] gates, in order: suppression (codes skip it), the daily budget,
  * an `email_log` row (hashed address), then the send. A synchronous 5xx (`SendFailedException.invalidAddresses`) adds a
  * `bounce` suppression and is 400 EMAIL_REJECTED; any other failure is 503 EMAIL_UNAVAILABLE.
  */

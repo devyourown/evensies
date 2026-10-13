@@ -21,7 +21,7 @@ const tokenToDeleteKey = 'pushTokenToDelete';
 /// App-wide messenger: the in-app push banner and SnackBars that outlive a screen (Undo after delete).
 final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-/// FCM (docs/API.md 푸시): group messages carry data {"type":"sync","groupId","seq"} → sync(groupId), or syncAll() for a
+/// FCM (docs/API.md, Push notifications): group messages carry data {"type":"sync","groupId","seq"} → sync(groupId), or syncAll() for a
 /// group not on this device yet (a new friend group); reminders carry {"type":"remind","fromUserId"} (Phase 6).
 /// Visible ones (notification title/body) show an in-app banner in the foreground; tapping one opens the
 /// group's Activity tab (a friend group: the friend's page) or, for a reminder, the sender's friend page. Every

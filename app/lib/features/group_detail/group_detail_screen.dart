@@ -52,14 +52,14 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     final group = async.value;
     if (group == null && async.hasValue) return const _Gone();
     if (group == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    // A friend group is a person (docs/API.md 친구): links and pushes to it land on the friend's page. A deleted one
+    // A friend group is a person (docs/API.md, Friends): links and pushes to it land on the friend's page. A deleted one
     // is on no friend page any more: its banner and Restore only.
     if (group.kind == 'friend') {
       return group.deleted ? _DeletedFriendGroup(group: group) : _FriendGroup(groupId: groupId);
     }
     final l = context.l;
     final cs = Theme.of(context).colorScheme;
-    // The header (docs/API.md 그룹 표지): the cover under a scrim, or the type's band.
+    // The header (docs/API.md, Group types, covers and deletion): the cover under a scrim, or the type's band.
     final photo = group.coverImageId != null &&
         ref.watch(coverProvider((groupId: groupId, coverId: group.coverImageId!))).valueOrNull != null;
     // On the dark scrim: the theme's light surface colour (light mode) or its light text colour (dark mode).
@@ -171,7 +171,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   }
 }
 
-/// "This group is deleted · Restore" on a deleted group's pages (docs/API.md 그룹 삭제).
+/// "This group is deleted · Restore" on a deleted group's pages (docs/API.md, Group types, covers and deletion).
 class DeletedGroupBanner extends ConsumerWidget {
   final String groupId;
   const DeletedGroupBanner({super.key, required this.groupId});
@@ -328,7 +328,7 @@ class _ExpensesTab extends ConsumerWidget {
 }
 
 /// One expense row: category, description, who paid, my part, the amount, a receipt mark and a repeat mark (a live
-/// series, docs/API.md 반복 지출). Search and a friend's page reuse it.
+/// series, docs/API.md, Recurring expenses). Search and a friend's page reuse it.
 class ExpenseTile extends ConsumerWidget {
   final Expense expense;
   final GroupRow group;
@@ -372,7 +372,8 @@ class ExpenseTile extends ConsumerWidget {
       (false, false, true) => l.tilePaidYou(total),
       (false, false, false) => l.tilePaidName(payer, total),
     };
-    // sign × (what I paid − my share); a refund reverses it (docs/API.md 잔액).
+    // sign × (what I paid − my share); a refund reverses it (docs/API.md, Event types and payloads: balances;
+    // same as myDelta in Feed).
     final delta = (e.refund ? -1 : 1) * (myPaid - myShare);
     final involved = (myMemberId != null && e.payers.any((p) => p.memberId == myMemberId)) || myShare != 0;
     String mine;
@@ -457,7 +458,7 @@ class ExpenseTile extends ConsumerWidget {
   }
 }
 
-/// One payment row (the expense list, a friend's page); tapping opens the payment (docs/API.md 송금 상세).
+/// One payment row (the expense list, a friend's page); tapping opens the payment (docs/API.md, Recording and editing payments: payment detail).
 class PaymentTile extends StatelessWidget {
   final String groupId;
   final Payment payment;
@@ -621,7 +622,7 @@ List<MemberRow> _rows(List<MemberRow> members, Map<String, int> b) =>
 
 String _name(AppLocalizations l, MemberRow m) => m.removed ? l.memberRemoved(m.name) : m.name;
 
-/// "Not converted · JPY": one bucket outside the group currency (docs/API.md 통화별 잔액), with Convert.
+/// "Not converted · JPY": one bucket outside the group currency (docs/API.md, Balances per currency), with Convert.
 class _NotConverted extends StatelessWidget {
   final GroupRow group;
   final BalanceResult res;

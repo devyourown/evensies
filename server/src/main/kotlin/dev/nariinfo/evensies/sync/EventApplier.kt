@@ -30,7 +30,7 @@ data class GroupState(
 )
 
 /**
- * Kotlin twin of the Dart applier. Rules (docs/API.md "적용 규칙"):
+ * Kotlin twin of the Dart applier. Rules (docs/API.md "Applier rules"):
  * 1. pure and idempotent; 2. field-level last-write-wins by applying in seq order;
  * 3. delete beats update; 4. unknown targets are ignored; 5. member.removed only flags;
  * 6. payment.confirmed sets status, ignored for unknown or deleted payments; 7. expense.restored / payment.restored are

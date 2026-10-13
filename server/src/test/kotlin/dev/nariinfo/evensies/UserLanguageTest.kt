@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-/** Phase 9 `users.language` (docs/API.md "인증", "사용자 언어"): UserDto.language and PATCH /me's keep / set / clear. */
+/** Phase 9 `users.language` (docs/API.md "Authentication", "User language"): UserDto.language and PATCH /me's keep / set / clear. */
 class UserLanguageTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

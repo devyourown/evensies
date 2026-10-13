@@ -3,7 +3,7 @@ import 'package:evensies/domain/fx.dart';
 
 import '../shared_json.dart';
 
-// 실행: flutter test test/hyojun
+// Run: flutter test test/domain
 void main() {
   for (final c in sharedCases('fx-cases.json')) {
     test(c['name'] as String, () {

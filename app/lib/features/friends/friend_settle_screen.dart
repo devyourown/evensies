@@ -14,7 +14,8 @@ import '../settle/pay_sheet.dart';
 import 'friend_screen.dart' show friendAmountText;
 import 'home_data.dart';
 
-/// Settle up with one person across everything (route `/friends/{key}/settle`, docs/API.md 친구와 한 번에 정산): one
+/// Settle up with one person across everything (route `/friends/{key}/settle`, docs/API.md, Recording and editing
+/// payments: settle up with a friend): one
 /// card per currency with the net and every line behind it; recording writes one payment per line, in its group.
 class FriendSettleScreen extends ConsumerStatefulWidget {
   final String personKey;

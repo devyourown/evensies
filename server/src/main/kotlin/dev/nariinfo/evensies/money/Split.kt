@@ -9,22 +9,22 @@ class SplitException(val code: String) : RuntimeException(code)
 
 object Split {
     /**
-     * 분할 계산. 테스트: shared/split-cases.json (SplitTest).
+     * Split calculation. Tests: shared/split-cases.json (SplitTest).
      *
-     * 입력
-     *  - amount: 최소 단위 정수 (EUR 1234 = €12.34). 음수면 SplitException("NEGATIVE_AMOUNT").
-     *  - members: 멤버 ID 목록. 비어 있으면 SplitException("NO_MEMBERS"). 정렬되어 있지 않을 수 있다.
+     * Input
+     *  - amount: an integer in minor units (EUR 1234 = €12.34). Negative → SplitException("NEGATIVE_AMOUNT").
+     *  - members: member ids. Empty → SplitException("NO_MEMBERS"). May be unsorted.
      *  - mode:
-     *      EQUAL   → input 무시. amount / n 씩, 나머지 r = amount % n 은
-     *                memberId 오름차순으로 앞에서부터 r명에게 1씩 더한다.
-     *      EXACT   → input[memberId] = 확정 금액(정수). 합이 amount와 다르면 SplitException("SUM_MISMATCH").
-     *      PERCENT → input[memberId] = 비율(%). 가중치 w = round(pct × 10^6), W = Σ w. |W − 10^8| >= 1000(±0.001%)이면
-     *                "SUM_MISMATCH". 각 몫 = amount × w / W (BigInteger), 남은 나머지는 percent > 0인 멤버에게
-     *                memberId 오름차순으로 1씩 배분한다.
-     * 출력: 모든 members에 대한 memberId → 금액. 합은 반드시 amount.
-     * 불변식: 결정적(같은 입력 → 같은 출력), 합 == amount, 각 몫 >= 0.
+     *      EQUAL   → input ignored. amount / n each; the remainder r = amount % n adds 1 each
+     *                to the first r members in ascending memberId order.
+     *      EXACT   → input[memberId] = the fixed amount (integer). A sum other than amount → SplitException("SUM_MISMATCH").
+     *      PERCENT → input[memberId] = a percentage. Weight w = round(pct × 10^6), W = Σ w. |W − 10^8| >= 1000 (±0.001%)
+     *                → "SUM_MISMATCH". Each share = amount × w / W (BigInteger); the leftover goes 1 each to members
+     *                with percent > 0 in ascending memberId order.
+     * Output: memberId → amount for every member. Always sums to amount.
+     * Invariants: deterministic (same input → same output), sum == amount, every share >= 0.
      *
-     * Phase 3 (port of Hyojun's Dart computeSplit, app/lib/domain/split.dart):
+     * Phase 3 (port of the Dart computeSplit, app/lib/domain/split.dart):
      *  - PERCENT: leftover minor units go only to members whose percent is > 0 (a 0% member always gets 0).
      *  - SHARES: input = share counts (>= 0, fractional, missing = 0); negative/NaN/infinite → "INVALID_INPUT".
      *    w = round(count * 100), W = Σ w; W == 0 → "NO_MEMBERS". share = amount * w / W (integer math);
@@ -52,7 +52,7 @@ object Split {
             }
             SplitMode.PERCENT -> {
                 // Integer weights (percent × 10^6) divided by their real total, so a total within the ±0.001%
-                // tolerance but above 100 can't push the shares past the amount (port of Hyojun's Dart fix).
+                // tolerance but above 100 can't push the shares past the amount (port of the Dart fix).
                 val weights = sorted.associateWith { Math.round((input?.get(it) ?: 0.0) * 1_000_000).toBigInteger() }
                 val total = weights.values.fold(BigInteger.ZERO, BigInteger::add)
                 if ((total - BigInteger.valueOf(100_000_000)).abs() >= BigInteger.valueOf(1000)) throw SplitException("SUM_MISMATCH")

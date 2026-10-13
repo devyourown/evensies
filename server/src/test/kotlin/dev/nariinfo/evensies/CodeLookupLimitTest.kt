@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * One per-IP bucket for every code lookup (docs/API.md "친구 코드"): group invites and friend codes draw from it
+ * One per-IP bucket for every code lookup (docs/API.md "Groups: friend codes"): group invites and friend codes draw from it
  * together. Its own context with 4 lookups a minute; also the shared code namespace.
  */
 @TestPropertySource(properties = ["evensies.invite-rate-per-minute=4"])

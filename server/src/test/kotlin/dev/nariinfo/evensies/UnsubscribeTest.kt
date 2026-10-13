@@ -14,7 +14,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Unsubscribe links (docs/API.md "수신 거부"): GET only shows the page, POST (button or RFC 8058 one-click) applies it. */
+/** Unsubscribe links (docs/API.md "Unsubscribes and bounces"): GET only shows the page, POST (button or RFC 8058 one-click) applies it. */
 class UnsubscribeTest : IntegrationTestBase() {
     @Autowired
     private lateinit var tokens: EmailTokens

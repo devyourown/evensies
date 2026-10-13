@@ -44,10 +44,10 @@ final homeCurrencyProvider = Provider<String>((ref) =>
 
 final groupsProvider = StreamProvider<List<GroupRow>>((ref) => ref.watch(dbProvider).watchGroups());
 
-/// Groups a member deleted (docs/API.md 그룹 삭제): Settings → Deleted groups, where any member restores them.
+/// Groups a member deleted (docs/API.md, Group types, covers and deletion): Settings → Deleted groups, where any member restores them.
 final deletedGroupsProvider = StreamProvider<List<GroupRow>>((ref) => ref.watch(dbProvider).watchDeletedGroups());
 
-/// The people I blocked (docs/API.md 차단), online only; invalidated after a change.
+/// The people I blocked (docs/API.md, Blocking), online only; invalidated after a change.
 final blocksProvider = FutureProvider.autoDispose<List<({String userId, String displayName})>>(
     (ref) => ref.watch(apiProvider).blocks());
 final groupProvider = StreamProvider.family<GroupRow?, String>((ref, id) => ref.watch(dbProvider).watchGroup(id));
@@ -64,11 +64,11 @@ final commentsProvider = StreamProvider.family<List<CommentRow>, String>((ref, i
   return (db.select(db.comments)..where((c) => c.groupId.equals(id))).watch();
 });
 
-/// expenseId → its receipts that aren't deleted (docs/API.md 영수증); also makes the group state re-read on a change.
+/// expenseId → its receipts that aren't deleted (docs/API.md, Receipts); also makes the group state re-read on a change.
 final attachmentCountsProvider =
     StreamProvider.family<Map<String, int>, String>((ref, id) => ref.watch(dbProvider).watchAttachmentCounts(id));
 
-/// The group's repeating series rows (docs/API.md 반복 지출); also makes the group state re-read on a change.
+/// The group's repeating series rows (docs/API.md, Recurring expenses); also makes the group state re-read on a change.
 final recurrencesProvider =
     StreamProvider.family<List<RecurrenceRow>, String>((ref, id) => ref.watch(dbProvider).watchRecurrences(id));
 
@@ -78,7 +78,7 @@ final activeSeriesProvider = Provider.family<Set<String>, String>((ref, id) => {
         if (!r.deleted) r.id,
     });
 
-/// Whether the expense was deleted by a move (docs/API.md 지출 옮기기): restoring it would count it in both groups, so
+/// Whether the expense was deleted by a move (docs/API.md, Moving expenses): restoring it would count it in both groups, so
 /// the app offers no Restore (and the appliers ignore one, rule 13).
 final movedAwayProvider = StreamProvider.family<bool, ({String groupId, String expenseId})>((ref, k) {
   final db = ref.watch(dbProvider);
@@ -111,7 +111,7 @@ final avatarProvider = FutureProvider.family<Uint8List?, String>((ref, userId) a
   }
 });
 
-/// Unread activity (docs/API.md 읽지 않은 활동); null when unknown or when the server has no such endpoint (badges
+/// Unread activity (docs/API.md, Unread activity); null when unknown or when the server has no such endpoint (badges
 /// hidden). Online only: a failed refresh keeps what is shown.
 class UnreadNotifier extends Notifier<ActivityUnread?> {
   static const _badge = MethodChannel('evensies/badge');

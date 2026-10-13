@@ -20,7 +20,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Receipt photos over real HTTP (docs/API.md "영수증", 적용 규칙 14, "내보내기"): upload, download, the
+ * Receipt photos over real HTTP (docs/API.md "Receipts", rule 14, "Export and import"): upload, download, the
  * `attachment.*` events, file deletion after commit, activity and push, and the ZIP export.
  */
 class ReceiptsTest : IntegrationTestBase() {
@@ -346,7 +346,7 @@ class ReceiptsTest : IntegrationTestBase() {
         assertEquals(200, http.get("/groups/${s.id}/export", s.anna).status, "json stays the default")
     }
 
-    /** Phase 8 daily sweep (docs/API.md "하루 정리"): week-old unattached uploads go, rows and files; deleted rows lose their files. */
+    /** Phase 8 daily sweep (docs/API.md "Recurring expenses", daily clean-up): week-old unattached uploads go, rows and files; deleted rows lose their files. */
     @Test
     fun sweepRemovesStaleUploads() {
         val s = setup()

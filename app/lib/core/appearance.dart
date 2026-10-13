@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'env.dart';
 
-/// Settings → Appearance: System, Light or Dark (prefs `themeMode`; docs/API.md 화면 모양).
+/// Settings → Appearance: System, Light or Dark (prefs `themeMode`; docs/API.md, Appearance and app lock).
 class ThemeModeSetting extends Notifier<ThemeMode> {
   static const key = 'themeMode';
   @override

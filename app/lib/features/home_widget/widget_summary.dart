@@ -10,7 +10,7 @@ import '../../data/fx_rates.dart' show approxIn;
 import '../../domain/overview.dart';
 import '../../l10n/app_localizations.dart';
 
-/// The home-screen widget (docs/API.md 홈 화면 위젯): Dart writes one pre-formatted, pre-translated JSON under `summary`;
+/// The home-screen widget (docs/API.md, Home screen widget): Dart writes one pre-formatted, pre-translated JSON under `summary`;
 /// the native widgets (iOS `EvensiesWidget`, Android `BalanceWidgetProvider`) only draw it.
 const widgetAppGroup = 'group.dev.nariinfo.evensies';
 const widgetKey = 'summary';

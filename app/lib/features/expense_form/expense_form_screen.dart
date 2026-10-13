@@ -59,7 +59,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   /// Guessing stops for good once the user picks (General included).
   bool _catTouched = false;
 
-  /// Only a new expense or one stored without a category is guessed (docs/API.md 카테고리).
+  /// Only a new expense or one stored without a category is guessed (docs/API.md, Categories).
   bool _guessable = true;
   Timer? _guessTimer;
 
@@ -83,11 +83,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   bool _loaded = false;
   bool _busy = false;
 
-  /// Editing only: the friend or group picked under *With* (docs/API.md 지출 옮기기); Save then moves the expense.
+  /// Editing only: the friend or group picked under *With* (docs/API.md, Moving expenses); Save then moves the expense.
   WithChoice? _moveTo;
 
   /// The moved expense's id, its push's clientId and its receipts' new ids and clientIds, made once per [_moveTo]
-  /// (docs/API.md 지출 옮기기).
+  /// (docs/API.md, Moving expenses).
   ({String expenseId, String clientId, Map<String, ({String id, String clientId})> receipts})? _moveIds;
 
   /// A new expense's id, made when the form opens (its receipts are prepared under it).
@@ -106,7 +106,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   ItemizedBill? _scanBill;
   late final ReceiptFiles _files;
 
-  /// Repeat (docs/API.md 반복 지출): the picked schedule, null = Never.
+  /// Repeat (docs/API.md, Recurring expenses): the picked schedule, null = Never.
   String? _repeat;
 
   /// Editing an expense of a live series: that series, its latest repeat (only that one's edits carry forward) and
@@ -208,7 +208,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (e.currency != state.defaultCurrency) _lookupRate(apply: false);
   }
 
-  /// Looks up the automatic rate for the form's currency on [_date] (docs/API.md 환율: server, else this device's
+  /// Looks up the automatic rate for the form's currency on [_date] (docs/API.md, Exchange rates: server, else this device's
   /// cache). With [apply] it goes into the rate field unless the user typed one.
   Future<void> _lookupRate({required bool apply}) async {
     final ask = ++_fxAsk;
@@ -744,7 +744,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           note(const Key('repeat-stop'), Icons.info_outline, l.stopsRepeating),
       ];
     }
-    // No past dates are filled in: the first repeat is on or after today (docs/API.md 반복 지출).
+    // No past dates are filled in: the first repeat is on or after today (docs/API.md, Recurring expenses).
     final next = _restarts
         ? firstOccurrenceOnOrAfter(f, _date, todayIso())
         : firstOccurrenceOnOrAfter(series!.frequency, series.startDate, todayIso(), minN: _lastPosted + 1);
@@ -769,7 +769,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   /// "Email a reminder: Never / 1 day before / 3 days before / 7 days before"; everyone on the expense who has an
-  /// email gets it (docs/API.md 반복 지출 알림).
+  /// email gets it (docs/API.md rule 18).
   Widget _reminderButton(ColorScheme cs, TextTheme text) {
     final l = context.l;
     return Padding(
@@ -1051,7 +1051,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   /// 300 ms after the description changes, guess the category until the user picks one; a blank description clears
-  /// the guess (docs/API.md 카테고리).
+  /// the guess (docs/API.md, Categories).
   void _scheduleGuess() {
     if (!_guessable || _catTouched) return;
     _guessTimer?.cancel();
@@ -1136,7 +1136,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       GroupRow group, List<String> ids, String currency, int amount, List<Share> payers, Map<String, int> split) async {
     final old = _editing;
     final d = group.defaultCurrency;
-    // A stray rate on an expense in the group currency stays as it was (it's ignored, docs/API.md 통화 환산).
+    // A stray rate on an expense in the group currency stays as it was (it's ignored, docs/API.md, Currency conversion).
     double? fx = currency != d
         ? parseDecimal(_fx.text)
         : (old?.currency == d ? old?.fxRateToDefault : null);
@@ -1195,7 +1195,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             e.refund != old.refund;
         final fields = <String, dynamic>{
           if (e.description != old.description) 'description': e.description,
-          // Both or neither: `currency` alone would keep the old currency's rate (rule 9, docs/API.md 통화 환산).
+          // Both or neither: `currency` alone would keep the old currency's rate (rule 9, docs/API.md, Currency conversion).
           if (e.currency != old.currency || e.fxRateToDefault != old.fxRateToDefault) ...{
             'currency': e.currency,
             'fxRateToDefault': e.fxRateToDefault,
@@ -1224,7 +1224,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     }
   }
 
-  /// An edit with Repeat (docs/API.md 반복 지출 앱): on the latest repeat Never stops the series, a new frequency (or
+  /// An edit with Repeat (docs/API.md, Recurring expenses: app): on the latest repeat Never stops the series, a new frequency (or
   /// a new date carried forward) restarts it from here, and a ticked "Also change future repeats" sends the changed
   /// fields but the date to the series too. Repeat on an expense in no live series starts one from it.
   Future<void> _saveSeries(String groupId, Expense e, Map<String, dynamic> fields) async {
@@ -1246,7 +1246,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     }
   }
 
-  /// The photos added here, after the expense's own event (docs/API.md 영수증 로컬 쓰기).
+  /// The photos added here, after the expense's own event (docs/API.md, Receipts: local writes).
   Future<void> _attachNew(String expenseId) async {
     final w = ref.read(localWritesProvider);
     for (final id in [..._newReceipts]) {

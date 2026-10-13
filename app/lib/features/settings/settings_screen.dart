@@ -73,7 +73,7 @@ Future<void> exportAccount(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Help & feedback (docs/API.md 도움말): a GitHub issue, the operator's address when it has one, the privacy policy.
+/// Help & feedback (docs/API.md, `EVENSIES_SUPPORT_EMAIL`): a GitHub issue, the operator's address when it has one, the privacy policy.
 const issuesUrl = 'https://github.com/devyourown/evensies/issues/new';
 const privacyUrl = 'https://devyourown.github.io/evensies/privacy';
 
@@ -101,7 +101,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ('reminders', l.notifReminders, Icons.notifications_active_outlined),
       ];
 
-  /// Take photo / Choose from library / Remove (docs/API.md 프로필 사진), online only.
+  /// Take photo / Choose from library / Remove (docs/API.md, Profile photos), online only.
   Future<void> _photo(String userId) async {
     final hasPhoto = ref.read(avatarProvider(userId)).value != null;
     final choice = await showModalBottomSheet<String>(
@@ -202,7 +202,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  /// Email summary (docs/API.md 이메일 요약): Auto, Daily, Weekly, Monthly or Off.
+  /// Email summary (docs/API.md, Summary emails): Auto, Daily, Weekly, Monthly or Off.
   Future<void> _pickDigest() async {
     final current = _prefs?['emailDigest'] as String? ?? 'auto';
     final picked = await showDialog<String>(
@@ -451,8 +451,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   : ref.read(appLockProvider.notifier).disable(),
             ),
           ],
-          // The web app talks to the server that serves it, a release build to the one it was built for (docs/API.md
-          // 서버 주소, 공식 서버만).
+          // The web app talks to the server that serves it, a release build to the one it was built for (docs/API.md,
+          // Official server only).
           if (!kIsWeb && ref.watch(allowCustomServerProvider)) ...[
             header(l.server),
             Padding(

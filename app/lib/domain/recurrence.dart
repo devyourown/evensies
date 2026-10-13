@@ -1,4 +1,4 @@
-/// Repeating expenses (docs/API.md 반복 지출): the schedule's dates and the series helpers the screens use.
+/// Repeating expenses (docs/API.md, Recurring expenses): the schedule's dates and the series helpers the screens use.
 /// shared/recurrence-cases.json checks the dates against the server's Schedule.kt.
 library;
 
@@ -82,7 +82,7 @@ extension Series on GroupState {
             r,
       ];
 
-  /// Why I can't leave yet (docs/API.md 그룹 나가기), next to `leaveBlocker`: a live series still charging or paying
+  /// Why I can't leave yet (docs/API.md, Groups: leaving a group), next to `leaveBlocker`: a live series still charging or paying
   /// [me] would keep adding my share after I'm gone, a debt nobody can settle with me.
   String? seriesBlocker(AppLocalizations l, String? me) {
     final s = me == null ? const <Recurrence>[] : seriesWith(me);

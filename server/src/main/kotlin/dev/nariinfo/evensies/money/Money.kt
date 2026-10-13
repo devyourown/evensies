@@ -21,7 +21,7 @@ object Money {
         BigDecimal.valueOf(minor).movePointLeft(decimals.getValue(currency)).toPlainString()
 
     /**
-     * M(x), docs/API.md "금액 표기": |minor| grouped by 3 with [lang]'s `group`, its `decimal` and the fraction; the symbol
+     * M(x), docs/API.md "Money notation": |minor| grouped by 3 with [lang]'s `group`, its `decimal` and the fraction; the symbol
      * is [lang]'s `money.symbols`, else currencies.json's, else the ISO code; `{s}{n}` puts U+00A0 after a symbol ending
      * in a Latin letter (`CHF 12.50`); a negative gets a leading U+2212. 1234567 KWD en → "KWD 1,234.567", de EUR 123456 →
      * "1.234,56 €".

@@ -1,5 +1,5 @@
 {
-  "_doc": "검색 테스트 케이스 (docs/API.md '검색', 앱 app/lib/domain/insights.dart searchDocs). items = SearchDoc {id, groupId(생략 가능), date, description, notes, comments(삭제 안 된 댓글 글), category(저장된 값 그대로), amount(지출 통화의 최소 단위, 환불도 양수), currency}. cases: searchDocs(items, query, category?, month?) → expected(id 목록, date 내림차순 다음 id 오름차순). 자릿수는 shared/currencies.json decimals. 지금은 앱(Dart)만 읽는다.",
+  "_doc": "Search test cases (docs/API.md 'Search'; app app/lib/domain/insights.dart searchDocs). items = SearchDoc {id, groupId (optional), date, description, notes, comments (texts of non-deleted comments), category (the stored value as is), amount (minor units of the expense currency, positive for refunds too), currency}. cases: searchDocs(items, query, category?, month?) → expected (ids, date descending, then id ascending). Decimals from shared/currencies.json. Only the app (Dart) reads it for now.",
   "items": [
     {"id": "x1", "date": "2026-10-02", "description": "Café Florian", "notes": null, "comments": [], "category": "food.dining_out", "amount": 1250, "currency": "EUR"},
     {"id": "x2", "date": "2026-10-05", "description": "Taxi", "notes": "to the airport, 4 bags", "comments": ["Anna paid the tip"], "category": "transportation.taxi", "amount": 1200, "currency": "EUR"},

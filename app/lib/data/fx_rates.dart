@@ -20,7 +20,7 @@ double? crossRate(Map<String, double> perEur, String from, String to) {
 
 typedef AmountFn = int Function({required int amount, required int fromDecimals, required int toDecimals, required double rate});
 
-/// "≈ H" (docs/API.md 통화별 잔액): Σ over [amounts] (currency → minor units) of convertAmount into [home] at
+/// "≈ H" (docs/API.md, Balances per currency): Σ over [amounts] (currency → minor units) of convertAmount into [home] at
 /// crossRate(perEur, X, home). Null when it adds nothing (every non-zero amount is already in [home], or all are zero),
 /// or when a rate is missing.
 int? approxIn(String home, Map<String, int> amounts, Map<String, double>? perEur, {AmountFn convert = convertAmount}) {
@@ -42,7 +42,7 @@ int? approxIn(String home, Map<String, int> amounts, Map<String, double>? perEur
   return sum;
 }
 
-/// Rate tables (docs/API.md 환율, app part): the server when online, this device's cache (drift FxDays) otherwise.
+/// Rate tables (docs/API.md, Exchange rates, app part): the server when online, this device's cache (drift FxDays) otherwise.
 /// The app never calls Frankfurter itself.
 class FxRates {
   final AppDatabase db;

@@ -9,7 +9,7 @@ import 'strings.dart';
 import '../data/receipts.dart' show receiptFilesProvider;
 import '../providers.dart';
 
-/// Group cover photos (docs/API.md 그룹 표지): `cover_{coverId}.jpg` in this device's image cache (files on phones,
+/// Group cover photos (docs/API.md, Group types, covers and deletion): `cover_{coverId}.jpg` in this device's image cache (files on phones,
 /// memory in the browser). A cover id never changes its bytes, so a cached file is always right; SyncService deletes
 /// the old file when a group's cover changes or the group leaves this device.
 String coverFileName(String coverId) => 'cover_$coverId.jpg';
@@ -36,7 +36,7 @@ final coverProvider = FutureProvider.family<Uint8List?, ({String groupId, String
   }
 });
 
-/// The group types (docs/API.md 적용 규칙 17), in the order the chips show them; an unknown stored type shows as Other.
+/// The group types (docs/API.md rule 17), in the order the chips show them; an unknown stored type shows as Other.
 const groupTypes = ['trip', 'home', 'couple', 'other'];
 
 String shownGroupType(String? type) => groupTypes.contains(type) ? type! : 'other';

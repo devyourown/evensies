@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'l10n.dart';
 
-/// Server limits (docs/API.md 글자 수) count UTF-16 units, Dart's `String.length`. Flutter's `maxLength` counts
+/// Server limits (docs/API.md, Event types and payloads: text lengths) count UTF-16 units, Dart's `String.length`. Flutter's `maxLength` counts
 /// characters as seen (an emoji is 1), so name fields use [limitedDecoration] instead.
 const maxGroupName = 100;
 const maxMemberName = 100;

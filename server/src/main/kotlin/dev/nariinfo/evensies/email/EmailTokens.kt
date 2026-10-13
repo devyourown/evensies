@@ -8,7 +8,7 @@ import java.util.HexFormat
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-/** docs/API.md "이메일 검증": addresses are trimmed and lower-cased; no SMTPUTF8. */
+/** docs/API.md "Email validation": addresses are trimmed and lower-cased; no SMTPUTF8. */
 object EmailAddress {
     private val shape = Regex("^[^\\s@]{1,64}@[a-z0-9-]+(\\.[a-z0-9-]+)+$")
     const val MAX = 254
@@ -21,7 +21,7 @@ object EmailAddress {
 }
 
 /**
- * Code hashes and unsubscribe tokens (docs/API.md "토큰"), keyed with K = HMAC-SHA256(EVENSIES_JWT_SECRET, "evensies-email"),
+ * Code hashes and unsubscribe tokens (docs/API.md "Tokens"), keyed with K = HMAC-SHA256(EVENSIES_JWT_SECRET, "evensies-email"),
  * so there is no new secret. Tokens never expire; rotating the JWT secret breaks old links.
  */
 @Component

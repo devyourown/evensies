@@ -1,4 +1,4 @@
-/// Overview (docs/API.md 개요): what I owe and am owed per person and in total, summed from each group's Settle up
+/// Overview (docs/API.md, Overview): what I owe and am owed per person and in total, summed from each group's Settle up
 /// transfers. The Friends tab, the overall card, the friend page and the server's reminders all use these rules
 /// (shared/overview-cases.json). There is no second ledger.
 library;
@@ -61,7 +61,7 @@ class Overview {
   static const empty = Overview();
 }
 
-/// docs/API.md 개요 rules 1–5: every member of mine counts as me (removed ones too); a transfer between two of mine or
+/// docs/API.md, Overview, rules 1–5: every member of mine counts as me (removed ones too); a transfer between two of mine or
 /// between two others is ignored; no conversion, no rounding; zeros dropped.
 Overview computeOverview(List<GroupLedger> ledgers) {
   final people = <String, Map<String, int>>{};
@@ -106,7 +106,7 @@ Overview computeOverview(List<GroupLedger> ledgers) {
   return Overview(people: p2, byGroup: g2, owedToMe: owed, iOwe: owe);
 }
 
-/// One person on the Friends tab (docs/API.md 개요 화면).
+/// One person on the Friends tab (docs/API.md, Overview: screens).
 class Person {
   final String key;
   final String name;
@@ -175,7 +175,7 @@ List<Person> peopleOf(List<({String id, String name, GroupState state})> groups,
   ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 }
 
-/// The currency shown for [amounts] (docs/API.md 개요 화면): the largest in EUR at the latest local rates
+/// The currency shown for [amounts] (docs/API.md, Overview: screens): the largest in EUR at the latest local rates
 /// (|amount| / 10^digits / perEur[c], for sorting only); currencies without a rate go last, ties by code.
 String largestCurrency(Map<String, int> amounts, Map<String, double>? perEur) {
   double? size(String c) {
@@ -202,7 +202,7 @@ String personBalanceText(AppLocalizations l, Map<String, int> net, Map<String, d
   return '${v > 0 ? l.personOwesYou(m) : l.personYouOwe(m)}${net.length > 1 ? '*' : ''}';
 }
 
-/// One Settle up transfer between me and a person, in one group and currency (docs/API.md 친구와 한 번에 정산).
+/// One Settle up transfer between me and a person, in one group and currency (docs/API.md, Recording and editing payments: settle up with a friend).
 class FriendLine {
   final String groupId;
   final String currency;

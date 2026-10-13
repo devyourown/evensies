@@ -176,7 +176,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     }
 
     /**
-     * A restored group's live series skip the deleted period (docs/API.md "그룹 삭제"): each moves on to its first
+     * A restored group's live series skip the deleted period (docs/API.md "Group types, covers and deletion"): each moves on to its first
      * occurrence on or after today in its zone (never back), so the days it was deleted are not posted in a burst.
      */
     private fun restartSeries(groupId: UUID) {
@@ -279,7 +279,7 @@ class GroupStateStore(private val jdbc: JdbcClient, private val mapper: ObjectMa
     }
 
     companion object {
-        /** How far back a series' creation time counts (docs/API.md "반복 지출"). */
+        /** How far back a series' creation time counts (docs/API.md "Recurring expenses"). */
         val CATCH_UP: Duration = Duration.ofDays(30)
     }
 

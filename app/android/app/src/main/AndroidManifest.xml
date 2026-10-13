@@ -45,7 +45,7 @@
                 <data android:scheme="https" android:host="evensies.nariinfo.dev" android:pathPrefix="/f/"/>
             </intent-filter>
         </activity>
-        <!-- Home-screen balance (docs/API.md 홈 화면 위젯): drawn from the JSON the app writes, no background refresh. -->
+        <!-- Home-screen balance (docs/API.md, Home screen widget): drawn from the JSON the app writes, no background refresh. -->
         <receiver android:name=".BalanceWidgetProvider" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>

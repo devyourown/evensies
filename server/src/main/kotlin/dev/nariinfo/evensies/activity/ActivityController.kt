@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
 import java.util.UUID
 
-/** docs/API.md "읽지 않은 활동": groups without unread items are left out; [total] is their sum. */
+/** docs/API.md "Unread activity": groups without unread items are left out; [total] is their sum. */
 data class ActivityUnread(val total: Int, val groups: Map<UUID, Int>)
 
 /** Unread items = the overall feed's items (same `me`, same hiding rules) newer than the user's marks, not their own. */

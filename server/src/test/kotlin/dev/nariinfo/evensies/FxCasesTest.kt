@@ -9,7 +9,7 @@ import org.junit.jupiter.api.TestFactory
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-/** shared/fx-cases.json against the Kotlin port in money/Fx.kt (same file as the Dart test/hyojun/fx_test.dart). */
+/** shared/fx-cases.json against the Kotlin port in money/Fx.kt (same file as the Dart test/domain/fx_test.dart). */
 class FxCasesTest {
     @TestFactory
     fun sharedFxCases(): List<DynamicTest> = SharedJson.load("fx-cases.json")["cases"].values().map { case ->

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 SessionRow _session(String name) =>
     SessionRow(id: 1, accessToken: 'a', refreshToken: 'r', userId: 'u', displayName: name);
 
-/// docs/API.md 로그인 뒤 돌아가기: a signed-out link goes through /login (and /name) and lands where it pointed.
+/// docs/API.md, Web app, back after sign-in: a signed-out link goes through /login (and /name) and lands where it pointed.
 void main() {
   String? go(SessionRow? s, String location) {
     final uri = Uri.parse(location);

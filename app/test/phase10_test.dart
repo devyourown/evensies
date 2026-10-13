@@ -33,7 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Phase 10 through the app's router (docs/API.md 그룹 삭제·친구 삭제·차단·화면 배치): deleted groups leave every list
+/// Phase 10 through the app's router (docs/API.md: group and friend deletion, Blocking, web layout): deleted groups leave every list
 /// and come back, delete friend, block, the email features hidden without email, and the wide web layout.
 void main() {
   late AppDatabase db;

@@ -123,7 +123,7 @@ class GroupTest : IntegrationTestBase() {
     }
 
     /**
-     * Leave group = `member.removed` of your own member (docs/API.md "그룹 나가기"): the group leaves `GET /groups`,
+     * Leave group = `member.removed` of your own member (docs/API.md "Groups: leaving a group"): the group leaves `GET /groups`,
      * every group endpoint answers 403, the member stays (removed) with its expenses, others see "Ben left the group".
      * Rejoining makes a new member; leaving again is that new member (not the older removed one).
      */

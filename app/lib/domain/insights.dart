@@ -1,4 +1,4 @@
-/// Insights and search over the local group state (docs/API.md 인사이트, 검색). Pure Dart.
+/// Insights and search over the local group state (docs/API.md, Insights and Search). Pure Dart.
 library;
 
 import '../core/money.dart';
@@ -120,7 +120,7 @@ String? monthOf(String date) => _monthKey.firstMatch(date)?[0];
 
 typedef Bucket = ({List<Expense> expenses, List<Payment> payments});
 
-/// Insights per currency bucket, like Balances (docs/API.md 인사이트): the group currency D first with the converted
+/// Insights per currency bucket, like Balances (docs/API.md, Insights): the group currency D first with the converted
 /// expenses and D payments, then every other currency X with its unconverted X expenses and X payments. Nothing is
 /// dropped: a foreign expense convertExpense can't convert stays in its own bucket.
 Map<String, Bucket> insightBuckets(GroupState s) {
@@ -137,7 +137,7 @@ Map<String, Bucket> insightBuckets(GroupState s) {
   };
 }
 
-/// One expense as search sees it (docs/API.md 검색): [comments] = texts of non-deleted comments, [category] = the
+/// One expense as search sees it (docs/API.md, Search): [comments] = texts of non-deleted comments, [category] = the
 /// stored value, [amount] in the expense's own currency.
 class SearchDoc {
   final String id;
@@ -225,7 +225,7 @@ List<String> _fields(SearchDoc d) {
     ?d.notes,
     ...d.comments,
     ?d.category,
-    // The names as the UI shows them (docs/API.md 카테고리: search reads the UI language's).
+    // The names as the UI shows them (docs/API.md, Categories: search reads the UI language's).
     ?(c == null ? null : Categories.nameOf(c.key)),
     ?(c == null ? null : Categories.nameOf(c.parent)),
   ].map(fold).toList();

@@ -35,7 +35,7 @@ class SyncService {
   String? _listedFor;
   final _inFlight = <String, Future<void>>{};
 
-  /// "Couldn't save the new expense “Hotel”: …" for each event the server refused on its own (docs/API.md 거부된 이벤트).
+  /// "Couldn't save the new expense “Hotel”: …" for each event the server refused on its own (docs/API.md, Rejected events).
   Stream<String> get rejections => _rejections.stream;
   final _rejections = StreamController<String>.broadcast();
 
@@ -150,7 +150,7 @@ class SyncService {
     await db.dropReceipts(ids);
   }
 
-  /// Uploads the group's pending receipts, oldest first (docs/API.md 영수증 sync 1). A missing file, or a refusal of
+  /// Uploads the group's pending receipts, oldest first (docs/API.md, Receipts: sync step 1). A missing file, or a refusal of
   /// the photo itself (400, 409, 413), drops that receipt; a 403/404 checks the membership; anything else (401, 429,
   /// 5xx, offline) stops this round, and the push below then holds back that receipt's `attachment.added`. On the web
   /// a photo missing here may be in another open tab's memory: that tab uploads it, and this one only skips it.
@@ -330,7 +330,7 @@ class SyncService {
     final name = p['description'] as String? ??
         (p['fields'] as Map?)?['description'] as String? ??
         (id == null ? null : (await db.getExpense(id))?.description);
-    // A series is named by its template: the payload's, else the local copy's (docs/API.md 거부된 이벤트).
+    // A series is named by its template: the payload's, else the local copy's (docs/API.md, Rejected events).
     final rid = o.type.startsWith('recurrence.') ? p['recurrenceId'] as String? : null;
     final series = (p['template'] as Map?)?['description'] as String? ??
         (p['fields'] as Map?)?['description'] as String? ??
@@ -417,7 +417,7 @@ class SyncService {
         if (row == null) {
           await adoptFromSnapshot(g.id); // joined on another device
         } else if (row.kind != g.kind) {
-          // A friend group stored before schema v6 reads 'group' (no replay then, docs/API.md 호환 6단계); kind never
+          // A friend group stored before schema v6 reads 'group' (no replay then, docs/API.md, Compatibility (phase 6)); kind never
           // changes afterwards, so the list's is right.
           await db.upsertGroup(row.copyWith(kind: g.kind));
         }
@@ -466,7 +466,7 @@ class _Gone implements Exception {
   const _Gone();
 }
 
-/// {이유} in "Couldn't save {what}: {이유}" (docs/API.md 거부된 이벤트); [type] is the refused event's.
+/// {reason} in "Couldn't save {what}: {reason}" (docs/API.md, Rejected events); [type] is the refused event's.
 String rejectionReason(AppLocalizations l, String code, [String? type]) => switch (code) {
       'LIMIT_EXCEEDED' when type == EventTypes.attachmentAdded => l.reasonReceiptLimit,
       'LIMIT_EXCEEDED' when type == EventTypes.recurrenceCreated => l.reasonSeriesLimit,

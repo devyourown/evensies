@@ -84,7 +84,7 @@ class _CommentThreadState extends ConsumerState<CommentThread> {
             (widget.expenseId != null ? c.expenseId == widget.expenseId : c.paymentId == widget.paymentId) && !c.deleted)
         .toList();
     // One clock for both kinds of row: the server's (a feed item's createdAt is when the server stored the event, in
-    // seq order; docs/API.md 활동 피드). A comment uses its comment_added item when the history has it; one that has
+    // seq order; docs/API.md, Feed). A comment uses its comment_added item when the history has it; one that has
     // none yet (unsent, or older than the loaded pages) falls back to its own time. Oldest first, same time by seq.
     final posted = {
       for (final i in widget.history)

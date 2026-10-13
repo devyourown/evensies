@@ -19,7 +19,7 @@ class FxController(private val fx: FxService) {
     // A miss can cost a call to the rate source, so requests are capped per user (cache hits count too).
     private val limiter = RateLimiter(capacity = 30.0, refillPerSecond = 0.5)
 
-    /** docs/API.md "환율": [date] is optional; a future one means today (UTC). */
+    /** docs/API.md "Exchange rates": [date] is optional; a future one means today (UTC). */
     @GetMapping("/fx")
     fun table(authentication: Authentication, @RequestParam(required = false) date: String?): FxTable {
         if (!limiter.tryConsume(authentication.userId)) throw ApiException.tooManyRequests("Too many exchange-rate requests, try again in a minute")

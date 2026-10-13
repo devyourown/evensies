@@ -32,7 +32,7 @@ Share s(String m, int a) => Share(memberId: m, amount: a);
 Payment pay(String id, String from, String to, int amount, {String cur = 'EUR'}) =>
     Payment(id: id, fromMember: from, toMember: to, amount: amount, currency: cur, date: '2026-10-11');
 
-/// Not Hyojun's rounding: whole-number rates only, so the composition is tested apart from it.
+/// Not the real rounding (domain/fx.dart): whole-number rates only, so the composition is tested apart from it.
 ConvertedExpense times({
   required int amount,
   required Map<String, int> parts,
@@ -86,7 +86,7 @@ void main() {
     expect(r.unconverted, isEmpty);
   });
 
-  test('with Hyojun\'s convertExpense, a rated JPY expense lands in EUR and the bucket sums to 0', () {
+  test('with the real convertExpense, a rated JPY expense lands in EUR and the bucket sums to 0', () {
     final r = balancesOf(trip(expenses: [
       x('ramen', payers: [s('a', 12345)], shares: [s('a', 4115), s('b', 4115), s('c', 4115)], cur: 'JPY', rate: 0.00563349),
     ]));

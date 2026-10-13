@@ -35,7 +35,7 @@ import java.time.YearMonth
 import java.time.ZoneOffset
 import java.util.UUID
 
-/** What an `emailDigest` choice means for a user now (docs/API.md "요약 메일"); also `emailDigestEffective`. */
+/** What an `emailDigest` choice means for a user now (docs/API.md "Summary emails"); also `emailDigestEffective`. */
 @Component
 class DigestMode(private val mailer: Mailer, private val devices: DeviceRepository, private val push: PushSender, private val clock: Clock) {
     /** "off" without an address, with email off on the server or a suppressed address; "auto" is daily without push, else monthly. */
@@ -52,7 +52,7 @@ class DigestMode(private val mailer: Mailer, private val devices: DeviceReposito
 }
 
 /**
- * The hourly email work (docs/API.md "매시 작업"), in this order: purge, invite reminders, recurring-bill reminders,
+ * The hourly email work (docs/API.md "Hourly job"), in this order: purge, invite reminders, recurring-bill reminders,
  * digests. A step's failure is logged and the next step still runs. Does nothing while email is off.
  * ponytail: loads every digest candidate hourly on one instance; page by due time and take `pg_try_advisory_lock`
  * past 10k users or more than one instance.

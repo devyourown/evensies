@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Every user-visible string goes through the ARB files or shared/strings.json (docs/API.md 언어·웹): no English
+/// Every user-visible string goes through the ARB files or shared/strings.json (docs/API.md, Languages and web): no English
 /// literal in a Text, a label or a snackbar, and no `toStringAsFixed` (it writes `.` in every language).
 void main() {
   final patterns = [

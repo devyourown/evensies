@@ -18,7 +18,7 @@ import '../group_detail/balances.dart';
 
 typedef Totals = ({Map<String, PeriodTotals> months, PeriodTotals allTime});
 
-/// Totals per currency bucket of one group (docs/API.md 인사이트), the group currency first.
+/// Totals per currency bucket of one group (docs/API.md, Insights), the group currency first.
 final insightsProvider = FutureProvider.family<Map<String, Totals>, String>((ref, id) async {
   final s = await ref.watch(groupStateProvider(id).future);
   final me = (await ref.watch(groupProvider(id).future))?.myMemberId;

@@ -1,27 +1,29 @@
 import '../../domain/models.dart';
 import 'event_types.dart';
 
-/// 순수 함수: [state]에 [event]를 적용한 새 GroupState를 돌려준다. 입력은 바꾸지 않는다.
+/// Pure function: returns a new GroupState with [event] applied to [state]. The input is never changed.
 ///
-/// docs/API.md 적용 규칙 1~18 (shared/sync-cases.json이 검증). 이벤트는 seq 순서로 적용한다;
-/// 필드 단위 LWW는 그 순서에서 자연히 성립하므로 적용기는 seq를 기억하지 않는다.
-/// 1. 순수·멱등: 같은 이벤트를 두 번 적용해도 한 번 적용과 같다.
-/// 2. 수정 vs 수정: 필드 단위로 seq 큰 쪽이 이긴다 (seq 순서대로 적용하면 자연히 성립. `expense.updated`의
-///    payload.fields에 있는 키만 덮어쓴다. fields에 `shares`가 있으면 shares 전체를 교체).
-/// 3. 삭제 vs 수정: deleted=true인 지출·송금에 오는 `updated`는 무시한다. 되살리는 것은 `expense.restored`뿐이고,
-///    삭제된 동안 무시된 `updated`는 복원 뒤에도 돌아오지 않는다.
-/// 4. 없는 대상에 오는 `updated`·`deleted`·`restored`·`linked`·`removed`·`confirmed`·`comment.deleted`(Phase 8:
-///    `recurrence.updated`·`recurrence.deleted` too)는 무시한다.
-/// 5. `member.removed`는 removed=true만 표시한다(목록에서 빼지 않는다).
-/// 6. `payment.confirmed`는 status를 confirmed로 바꾼다. 없거나 삭제된 송금이면 무시.
-/// 7. `expense.restored`는 deleted=false로 되돌린다(살아 있는 지출이면 그대로). 삭제·복원은 seq 순서상 나중 것이 이긴다.
+/// docs/API.md rules 1–18 (checked by shared/sync-cases.json). Events are applied in seq order; field-level LWW
+/// follows from that order, so the applier doesn't remember seqs.
+/// 1. Pure and idempotent: applying the same event twice equals applying it once.
+/// 2. Edit vs edit: per field the higher seq wins (follows from applying in seq order; `expense.updated` overwrites
+///    only the keys in payload.fields, and `shares` in fields replaces all shares).
+/// 3. Delete vs edit: an `updated` on a deleted=true expense or payment is ignored. Only `expense.restored` brings it
+///    back, and the `updated`s ignored while it was deleted don't come back after the restore.
+/// 4. `updated`, `deleted`, `restored`, `linked`, `removed`, `confirmed` and `comment.deleted` (Phase 8:
+///    `recurrence.updated` and `recurrence.deleted` too) on an unknown target are ignored.
+/// 5. `member.removed` only marks removed=true (the member stays in the list).
+/// 6. `payment.confirmed` sets status to confirmed. Ignored for an unknown or deleted payment.
+/// 7. `expense.restored` sets deleted=false (a live expense stays as it is). Between delete and restore the later one
+///    in seq order wins.
 ///    Phase 7: `payment.restored` does the same for a payment (status kept). `payment.deleted` with a string
 ///    `replacedBy` (an edit) also sets replaced (never cleared), and a replaced payment ignores `payment.restored`.
-/// 8. `comment.added`는 commentId가 처음일 때만 뒤에 추가한다(삭제된 댓글 포함, 있으면 무시).
-///    `comment.deleted`는 deleted=true로 표시하고 text를 ''로 비운다. 지출 존재 여부는 보지 않는다(서버 검증).
+/// 8. `comment.added` appends only when the commentId is new (deleted comments count; otherwise ignored).
+///    `comment.deleted` marks deleted=true and blanks text to ''. It doesn't check that the expense exists (the server
+///    validates that).
 ///    Phase 6: expenseId and paymentId are stored as sent (a payment comment has expenseId null).
-/// 9. `expense.created`에 notes가 없으면 null. `expense.updated`에서 notes·category·fxRateToDefault의 null은 지우기,
-///    나머지 키의 null은 무시. Phase 3: `split` is cleared by null too; a null `payers`/`refund` is ignored.
+/// 9. `expense.created` without notes → null. In `expense.updated` a null notes, category or fxRateToDefault clears
+///    it, a null for any other key is ignored. Phase 3: `split` is cleared by null too; a null `payers`/`refund` is ignored.
 /// 10. Payers are the source of truth; paidBy is always re-derived as the primary payer (largest amount, a tie goes
 ///    to the lowest memberId; Expense.paidBy). created: missing/null payers → [{paidBy, amount}], refund → false,
 ///    split → null. updated payers: (a) fields.payers replaces them, (b) else fields.paidBy → [{paidBy, amount after
@@ -51,16 +53,16 @@ import 'event_types.dart';
 /// 18. Repeating series carry remindDaysBefore (missing = null): recurrence.created reads it, a recurrence.updated with
 ///    the key (a sibling of fields) sets it on a known, live series (null clears).
 ///
-/// 이벤트별 payload(docs/API.md):
+/// Payload per event (docs/API.md):
 ///   group.created {name, defaultCurrency, kind?, type?} → state.name/defaultCurrency/kind/type
-///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?, type?, coverImageId?} → 있는 키만 (11, 12, 17)
+///   group.updated {name?, defaultCurrency?, simplifyDebts?, defaultSplit?, type?, coverImageId?} → present keys only (11, 12, 17)
 ///   group.deleted {}   group.restored {}
-///   member.added {memberId, name, userId|null} → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
+///   member.added {memberId, name, userId|null} → unchanged if already there (idempotent), else appended
 ///   member.linked {memberId, userId}
 ///   member.removed {memberId}
 ///   expense.created {expenseId, description, amount, currency, fxRateToDefault, paidBy, payers?, refund?, split?, date,
 ///     category, notes?, shares}
-///     → 이미 있으면 그대로(멱등), 없으면 뒤에 추가
+///     → unchanged if already there (idempotent), else appended
 ///   expense.updated {expenseId, fields:{...}}   expense.deleted {expenseId, movedTo?}   expense.restored {expenseId}
 ///   comment.added {commentId, expenseId?, paymentId?, authorMemberId, text, createdAt}   comment.deleted {commentId}
 ///   payment.created {paymentId, fromMember, toMember, amount, currency, date, status?}
@@ -68,7 +70,7 @@ import 'event_types.dart';
 ///   attachment.added {attachmentId, expenseId}   attachment.deleted {attachmentId, expenseId?}
 ///   recurrence.created {recurrenceId, frequency, startDate, timeZone, template, remindDaysBefore?}
 ///   recurrence.updated {recurrenceId, fields, remindDaysBefore?}   recurrence.deleted {recurrenceId}
-///   모르는 type → state 그대로.
+///   unknown type → state unchanged.
 /// Created entities always start live: a `deleted` key in the payload is ignored (like Kotlin; the server does not
 /// validate it), and so are `moved` on an expense and `replaced` on a payment (only expense.deleted / payment.deleted
 /// set those).

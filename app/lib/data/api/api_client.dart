@@ -58,7 +58,7 @@ class ApiClient {
 
   /// False if it failed. Signs out only when the server refused [s]'s refresh token and nothing replaced it meanwhile
   /// (not when offline). Replaced meanwhile (another tab of the web app, or a request that refreshed first) is a
-  /// success: the retry goes with the stored access token (docs/API.md 토큰 갱신). Two tabs that refresh at once send
+  /// success: the retry goes with the stored access token (docs/API.md, Authentication: token refresh). Two tabs that refresh at once send
   /// the same token and only one wins; the loser looks again after [otherTabGrace], since the winner's new tokens may
   /// not be saved yet when the refusal arrives.
   Future<bool> _refresh(SessionRow s) async {
@@ -116,7 +116,7 @@ class ApiClient {
   Future<AuthResponse> authDev(String name) => _call(
       () => _dio.post('/auth/dev', data: {'name': name}, options: Options(extra: {'noAuth': true})),
       (d) => AuthResponse.fromJson(_map(d)));
-  // --- email (Phase 10, docs/API.md 이메일): codes, never passwords
+  // --- email (Phase 10, docs/API.md, Email and account): codes, never passwords
   /// Sends a 6-digit sign-in code to [email] (204 whether or not an account exists).
   Future<void> emailStart(String email) => _call(
       () => _dio.post('/auth/email/start', data: {'email': email}, options: Options(extra: {'noAuth': true})), (_) {});
@@ -138,7 +138,7 @@ class ApiClient {
   Future<String> exportAccount() => _call(
       () => _dio.get('/me/export', options: Options(responseType: ResponseType.plain)), (d) => d as String);
 
-  // --- blocks (docs/API.md 차단)
+  // --- blocks (docs/API.md, Blocking)
   Future<List<({String userId, String displayName})>> blocks() => _call(
       () => _dio.get('/me/blocks'),
       (d) => [
@@ -173,7 +173,7 @@ class ApiClient {
       (_) {});
   Future<void> unregisterDevice(String deviceId) => _call(() => _dio.delete('/devices/$deviceId'), (_) {});
 
-  // --- notification prefs (docs/API.md 알림 설정): {"expenses","comments","members","reminders"?} → bool, and since
+  // --- notification prefs (docs/API.md, Notification settings): {"expenses","comments","members","reminders"?} → bool, and since
   // Phase 10 "emailDigest" / "emailDigestEffective" → a string. Nulls are dropped.
   Map<String, Object> _prefs(dynamic d) => {
         for (final e in _map(d).entries)
@@ -200,7 +200,7 @@ class ApiClient {
           queryParameters: {'before': ?before, 'limit': limit, 'expenseId': ?expenseId?.toLowerCase()}),
       _page);
 
-  /// Unread feed items per group (docs/API.md 읽지 않은 활동).
+  /// Unread feed items per group (docs/API.md, Unread activity).
   Future<ActivityUnread> activityUnread() =>
       _call(() => _dio.get('/activity/unread'), (d) => ActivityUnread.fromJson(_map(d)));
 
@@ -209,7 +209,7 @@ class ApiClient {
       () => _dio.post('/activity/seen', data: {'feedId': feedId, 'groupId': ?groupId}),
       (d) => ActivityUnread.fromJson(_map(d)));
 
-  // --- friends (docs/API.md 친구)
+  // --- friends (docs/API.md, Friends)
   FriendCode _friendCode(dynamic d) =>
       (friendCode: _map(d)['friendCode'] as String, link: _map(d)['link'] as String);
   Future<FriendCode> friendCode() => _call(() => _dio.get('/me/friend-code'), _friendCode);
@@ -241,7 +241,7 @@ class ApiClient {
               a['currency'] as String: (a['amount'] as num).toInt(),
           });
 
-  // --- profile photo (docs/API.md 프로필 사진)
+  // --- profile photo (docs/API.md, Profile photos)
   Future<void> putAvatar(Uint8List jpeg) => _call(
         () => _dio.put('/me/avatar', data: FormData.fromMap({'file': MultipartFile.fromBytes(jpeg, filename: 'avatar.jpg')})),
         (_) {},
@@ -329,7 +329,7 @@ class ApiClient {
         );
       });
 
-  // --- receipts (docs/API.md 영수증)
+  // --- receipts (docs/API.md, Receipts)
   /// Uploads a prepared receipt under the id the app made; a retry of a stored one answers 200 and keeps the files.
   Future<void> uploadAttachment(String groupId, String attachmentId, Uint8List image, Uint8List thumb) => _call(
         () => _dio.post('/groups/$groupId/attachments/$attachmentId',

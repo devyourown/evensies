@@ -4,7 +4,7 @@ import dev.nariinfo.evensies.sync.ExpenseDto
 import dev.nariinfo.evensies.sync.GroupState
 
 /**
- * Balances per currency bucket (docs/API.md "통화별 잔액"): [byCurrency] currency → memberId → balance (positive =
+ * Balances per currency bucket (docs/API.md "Balances per currency"): [byCurrency] currency → memberId → balance (positive =
  * gets back); the default currency always, another one only while someone's balance in it isn't zero. [lines] and
  * [payments] are what each bucket was computed from (pairwise debts reuse them).
  */

@@ -12,7 +12,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The account address (docs/API.md "계정 이메일"): add, change by code, remove; never shown to other members. */
+/** The account address (docs/API.md "Account email"): add, change by code, remove; never shown to other members. */
 class AccountEmailTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

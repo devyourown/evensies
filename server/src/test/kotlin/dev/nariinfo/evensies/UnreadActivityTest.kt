@@ -10,7 +10,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** GET /activity/unread, POST /activity/seen and the push badge (docs/API.md "읽지 않은 활동"). */
+/** GET /activity/unread, POST /activity/seen and the push badge (docs/API.md "Unread activity"). */
 class UnreadActivityTest : IntegrationTestBase() {
     @Autowired
     private lateinit var capture: CapturingPushSender

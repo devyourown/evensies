@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import dev.nariinfo.evensies.common.ApiException
 import java.math.BigInteger
 
-/** A way to get paid (docs/API.md "결제 수단"). Fields a type does not use are dropped on save. */
+/** A way to get paid (docs/API.md "Payment methods"). Fields a type does not use are dropped on save. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class PaymentMethod(
     val type: String? = null,

@@ -22,7 +22,7 @@ Future<void> main() async {
   await Money.loadFromAssets();
   await Strings.loadFromAssets();
   Categories.loadFromJson(await rootBundle.loadString('assets/categories.json'));
-  await initializeDateFormatting(); // every locale's date names (docs/API.md 날짜)
+  await initializeDateFormatting(); // every locale's date names (docs/API.md, Languages and web: dates)
   final prefs = await SharedPreferences.getInstance();
   final AppDatabase? db;
   try {

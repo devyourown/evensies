@@ -13,7 +13,7 @@ import '../../domain/models.dart';
 import '../../providers.dart';
 import '../group_detail/balances.dart';
 
-/// Record a payment, or edit [editing] (docs/API.md 송금 기록·편집): any two members, any amount, currency and date.
+/// Record a payment, or edit [editing] (docs/API.md, Recording and editing payments): any two members, any amount, currency and date.
 /// From a transfer card it opens prefilled with [from], [to], [amount] and [currency]. Returns the saved payment's id
 /// (an edit's is new), or null when nothing was saved.
 Future<String?> showPaymentSheet(

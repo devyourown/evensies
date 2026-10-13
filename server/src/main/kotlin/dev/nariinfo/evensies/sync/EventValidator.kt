@@ -309,8 +309,8 @@ class EventValidator {
     }
 
     /**
-     * Raw JSON types of the expense keys present in `expense.created` or `expense.updated.fields` (docs/API.md 적용
-     * 규칙 9). The Kotlin readers coerce a wrong type (a number becomes a string, a string amount null) while the Dart
+     * Raw JSON types of the expense keys present in `expense.created` or `expense.updated.fields` (docs/API.md
+     * rule 9). The Kotlin readers coerce a wrong type (a number becomes a string, a string amount null) while the Dart
      * applier casts and throws, so such an event would stop sync on every app. `null` passes here: it is ignored or
      * clears the value in an update, and [validateExpense] rejects it where a created expense needs a value — except
      * `amount` and `shares`, which the readers would default and so must be present in `expense.created`.

@@ -37,7 +37,7 @@ data class FriendPreviewDto(val displayName: String)
 data class AmountDto(val currency: String, val amount: Long)
 data class RemindResult(val amounts: List<AmountDto>)
 
-/** Friends are hidden two-person groups (docs/API.md "친구"); this builds them and sends reminders ("리마인더"). */
+/** Friends are hidden two-person groups (docs/API.md "Friends"); this builds them and sends reminders ("Reminders"). */
 @Service
 class FriendService(
     private val users: UserRepository,
@@ -139,7 +139,7 @@ class FriendService(
     }
 
     /**
-     * What [them] owes me per currency across every shared group (docs/API.md "개요"), then one reminder push per pair
+     * What [them] owes me per currency across every shared group (docs/API.md "Overview"), then one reminder push per pair
      * per 24 hours. Nothing owed is 409 and doesn't use the day's slot.
      */
     fun remind(me: UUID, them: UUID): RemindResult {

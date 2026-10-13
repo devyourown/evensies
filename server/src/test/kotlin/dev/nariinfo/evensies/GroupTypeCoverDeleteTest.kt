@@ -18,7 +18,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Group type, cover photo and delete/restore (docs/API.md "그룹 유형·표지·삭제", 적용 규칙 17) over real HTTP: validation,
+ * Group type, cover photo and delete/restore (docs/API.md "Group types, covers and deletion", rule 17) over real HTTP: validation,
  * the cover pipeline, members-only access, delete for everyone, the abuse cap, the scheduler and friend groups.
  */
 class GroupTypeCoverDeleteTest : IntegrationTestBase() {

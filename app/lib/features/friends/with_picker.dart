@@ -67,7 +67,7 @@ class _WithPickerState extends ConsumerState<WithPicker> {
             key: Key('with-${p.key}'),
             leading: PersonAvatar(userId: p.userId, name: p.name),
             title: Text(p.name),
-            // No friend group and no group we are both still in: the friend link instead (docs/API.md 개요).
+            // No friend group and no group we are both still in: the friend link instead (docs/API.md, Overview).
             onTap: () => canAddExpenseWith(data, p)
                 ? widget.onPick((person: p, groupId: null))
                 : showNoSharedGroup(context, ref, p),

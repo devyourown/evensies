@@ -1,5 +1,5 @@
 {
-  "_doc": "Email summary goldens (docs/API.md '요약 메일', server only). Each group's full event log is applied in order (meta per event as in shared/activity-cases.json); the window is the events with seq > windowAfterSeq whose actorUserId is not the recipient and not in 'blocked'. The recipient's member is the one linked to recipient.userId. groups are listed in the email's order (the job sorts by the newest event). 'month' (YYYY-MM) is the month a monthly summary is about. expected null = nothing to send. '{unsubscribeUrl}' stands for the link.",
+  "_doc": "Email summary goldens (docs/API.md 'Summary emails', server only). Each group's full event log is applied in order (meta per event as in shared/activity-cases.json); the window is the events with seq > windowAfterSeq whose actorUserId is not the recipient and not in 'blocked'. The recipient's member is the one linked to recipient.userId. groups are listed in the email's order (the job sorts by the newest event). 'month' (YYYY-MM) is the month a monthly summary is about. expected null = nothing to send. '{unsubscribeUrl}' stands for the link.",
   "cases": [
     {
       "name": "daily: others' changes only, add-then-delete dropped, balances footer",

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
 
-/// The text both sides render from one table (shared/strings.json, copied to assets/; docs/API.md 언어·웹): activity
+/// The text both sides render from one table (shared/strings.json, copied to assets/; docs/API.md, Languages and web): activity
 /// sentences, category labels, frequency words and the money notation. `en` is the source and the fallback, leaf by
 /// leaf: a missing language or key renders the `en` one.
 abstract final class Strings {

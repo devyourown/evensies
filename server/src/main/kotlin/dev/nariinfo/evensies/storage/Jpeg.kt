@@ -5,7 +5,7 @@ import java.io.ByteArrayOutputStream
 
 /**
  * Strips metadata from an uploaded JPEG by walking its markers, without decoding pixels (the app has already
- * re-encoded the image; the server never decodes untrusted pixels). docs/API.md "프로필 사진".
+ * re-encoded the image; the server never decodes untrusted pixels). docs/API.md "Profile photos".
  */
 object Jpeg {
     /**

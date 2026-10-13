@@ -65,7 +65,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
     final rate = e.fxRateToDefault ?? 0;
     final date = DateTime.tryParse(e.date);
     final series = state.isActive(e.recurrenceId) ? state.recurrence(e.recurrenceId!) : null;
-    // Its own line, in the form's words (docs/API.md 반복 지출 9단계). The latest repeat says when the next one comes
+    // Its own line, in the form's words (docs/API.md, Recurring expenses, phase 9). The latest repeat says when the next one comes
     // (always within a year, so no year), with its amount when future repeats were changed apart from it.
     String? repeats;
     if (series != null) {
@@ -263,7 +263,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
 }
 
 /// The banner on a deleted expense (detail and form): Restore, or for a moved one only where it went. Restoring a moved
-/// expense would count it here and in its new group (docs/API.md 적용 규칙 13).
+/// expense would count it here and in its new group (docs/API.md rule 13).
 class DeletedExpenseCard extends ConsumerWidget {
   final String groupId;
   final String expenseId;

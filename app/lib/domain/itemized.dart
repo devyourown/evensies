@@ -1,4 +1,4 @@
-/// Itemized split (docs/API.md 항목별 분할, SplitSpec mode `itemized`): receipt lines, each split equally between its
+/// Itemized split (docs/API.md, Itemized split; SplitSpec mode `itemized`): receipt lines, each split equally between its
 /// people, with tax, tip and a discount spread by each person's subtotal. App only: the server never recomputes shares,
 /// so there is no Kotlin twin (app/test/fixtures/itemized-cases.json).
 library;

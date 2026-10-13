@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** POST /friends/{userId}/remind (docs/API.md "리마인더") and the `reminders` notification switch. */
+/** POST /friends/{userId}/remind (docs/API.md "Reminders") and the `reminders` notification switch. */
 class ReminderTest : IntegrationTestBase() {
     @Autowired
     private lateinit var capture: CapturingPushSender

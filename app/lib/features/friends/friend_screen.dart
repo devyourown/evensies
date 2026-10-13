@@ -29,7 +29,7 @@ String friendAmountText(AppLocalizations l, String name, int v, String currency,
 }
 
 /// The group a new expense with [p] goes to: their friend group (the smallest id), a placeholder's own group, or a new
-/// friend group (`POST /friends {userId}`, online only; docs/API.md 친구).
+/// friend group (`POST /friends {userId}`, online only; docs/API.md, Friends).
 Future<String> groupForExpenseWith(WidgetRef ref, Person p) async {
   if (p.friendGroups.isNotEmpty) return p.friendGroups.first;
   if (p.groupId != null) return p.groupId!;
@@ -40,7 +40,7 @@ Future<String> groupForExpenseWith(WidgetRef ref, Person p) async {
   return dto.id;
 }
 
-/// Whether a new expense with [p] can be added (docs/API.md 개요 Add expense): always with a friend group; for a
+/// Whether a new expense with [p] can be added (docs/API.md, Overview: Add expense): always with a friend group; for a
 /// linked person without one, only while a normal group on this device has both of us as active, linked members (what
 /// `POST /friends {userId}` needs). A placeholder in a normal group (`m:`) gets expenses in that group.
 bool canAddExpenseWith(HomeData data, Person p) {
@@ -79,13 +79,13 @@ Future<void> addExpenseWith(BuildContext context, WidgetRef ref, Person p, {bool
     replace ? context.pushReplacement('/groups/$gid/expenses/new') : context.push('/groups/$gid/expenses/new');
   } on ApiException catch (e) {
     if (!context.mounted) return;
-    // This device still thought we share a group: the same message as when it knows (docs/API.md 개요).
+    // This device still thought we share a group: the same message as when it knows (docs/API.md, Overview).
     if (e.status == 403 && e.code != 'NETWORK') return showNoSharedGroup(context, ref, p);
     showError(context, e.code == 'NETWORK' ? context.l.firstExpenseNeedsConnection(p.name) : e);
   }
 }
 
-/// A person (route `/friends/{key}`, docs/API.md 개요 화면): photo and net per currency, the balance per group, the
+/// A person (route `/friends/{key}`, docs/API.md, Overview: screens): photo and net per currency, the balance per group, the
 /// non-group expenses, and Settle up, Remind or Request, Invite.
 class FriendScreen extends ConsumerStatefulWidget {
   final String personKey;
@@ -101,7 +101,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
   final _marking = <String>{};
 
   /// A friend group has no Activity tab: its unread items (a friend_added push opens this page) are seen here, up to
-  /// its newest feed item (docs/API.md 읽지 않은 활동).
+  /// its newest feed item (docs/API.md, Unread activity).
   Future<void> _markSeen(String groupId) async {
     try {
       final page = await ref.read(apiProvider).activity(groupId: groupId, limit: 1);
@@ -153,8 +153,9 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     await shareText(context, msg);
   }
 
-  /// Delete friend (docs/API.md 친구 삭제): `group.deleted` on every friend group with [p], offline too; their
-  /// non-group expenses go for both of us, and come back with Undo, Settings → Deleted groups or adding them again.
+  /// Delete friend (docs/API.md, Group types, covers and deletion: deleting a friend): `group.deleted` on every
+  /// friend group with [p], offline too; their non-group expenses go for both of us, and come back with Undo,
+  /// Settings → Deleted groups or adding them again.
   /// Shared groups stay. Like Splitwise, only once our non-group balance ([nonGroup], per currency) is settled: deleting
   /// would wipe that debt for both of us, so the dialog shows it and offers Settle up instead.
   Future<void> _deleteFriend(Person p, Map<String, int> nonGroup) async {
@@ -187,7 +188,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     });
   }
 
-  /// Block or unblock (docs/API.md 차단), online only: they can't add me or remind me, and their changes stop
+  /// Block or unblock (docs/API.md, Blocking), online only: they can't add me or remind me, and their changes stop
   /// notifying me; shared groups and balances stay.
   Future<void> _block(Person p, {required bool block}) async {
     final l = context.l;
@@ -255,8 +256,8 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
     final byGroup = data.overview.byGroup[p.key] ?? const <String, Map<String, int>>{};
     final lines = friendLines(data.ledgers.values, p.key);
     final owesMe = p.owesMe;
-    // Everything between the two of us in every shared group, by group, like Splitwise's friend page (docs/API.md
-    // 함께한 기록): all of a friend group, and in another group what both of us paid or share, or a payment between us.
+    // Everything between the two of us in every shared group, by group, like Splitwise's friend page (docs/API.md,
+    // Overview: shared history): all of a friend group, and in another group what both of us paid or share, or a payment between us.
     final sections = <String, List<({String date, int order, Widget tile})>>{}; // '' = Non-group (friend groups)
     for (final g in data.groups) {
       final keyOf = {for (final m in g.state.members) m.id: personKey(g.row.id, g.state, m)};
@@ -293,7 +294,7 @@ class _FriendScreenState extends ConsumerState<FriendScreen> {
         return d != 0 ? d : data.label(a, l).toLowerCase().compareTo(data.label(b, l).toLowerCase());
       });
     final canAdd = canAddExpenseWith(data, p);
-    // Two friend groups of one person (a claimed placeholder friend, docs/API.md 친구) are one Non-group line.
+    // Two friend groups of one person (a claimed placeholder friend, docs/API.md, Friends) are one Non-group line.
     final nonGroup = <String, int>{};
     final groupLines = <String, Map<String, int>>{};
     for (final MapEntry(key: gid, value: amounts) in byGroup.entries) {

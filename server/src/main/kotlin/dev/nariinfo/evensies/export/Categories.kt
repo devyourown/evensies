@@ -2,7 +2,7 @@ package dev.nariinfo.evensies.export
 
 import tools.jackson.databind.json.JsonMapper
 
-/** Expense categories from resources/categories.json (a copy of shared/categories.json, docs/API.md "카테고리"). */
+/** Expense categories from resources/categories.json (a copy of shared/categories.json, docs/API.md "Categories"). */
 object Categories {
     private val json = Categories::class.java.getResourceAsStream("/categories.json")!!.use { JsonMapper.shared().readTree(it) }
     private val parents = json["parents"].values().associate { it["key"].asString() to it["label"].asString() }

@@ -23,7 +23,7 @@ class _FakeAuth implements Authenticator {
 
 final _messenger = GlobalKey<ScaffoldMessengerState>();
 
-/// docs/API.md 화면 모양·앱 잠금: locked at a cold start, a cover in the background, locked again after 60 s.
+/// docs/API.md, Appearance and app lock: locked at a cold start, a cover in the background, locked again after 60 s.
 void main() {
   test('back after 59 s stays open; after 61 s it locks; covered while away', () {
     var t = DateTime(2026, 10, 11, 10);

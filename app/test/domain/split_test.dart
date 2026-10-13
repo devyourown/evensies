@@ -6,11 +6,11 @@ import 'package:evensies/domain/split.dart';
 
 import '../shared_json.dart';
 
-// 실행: flutter test test/hyojun
+// Run: flutter test test/domain
 void main() {
   for (final c in sharedCases('split-cases.json')) {
-    // "pending": "hyojun" = needs the TODO(효준) fix in computeSplit; reported as skipped until it lands.
-    test(c['name'] as String, skip: c['pending'] == null ? null : 'TODO(효준): pending fixture case', () {
+    // "pending": "<reason>" marks a case the code doesn't pass yet; it is reported as skipped until then.
+    test(c['name'] as String, skip: c['pending'] == null ? null : 'pending fixture case: ${c['pending']}', () {
       final mode = SplitMode.values.byName(c['mode'] as String);
       final members = (c['members'] as List).cast<String>();
       final input = (c['input'] as Map?)?.map((k, v) => MapEntry(k as String, (v as num).toDouble()));

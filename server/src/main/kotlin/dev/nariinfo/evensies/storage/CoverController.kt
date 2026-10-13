@@ -25,7 +25,7 @@ import java.util.UUID
 data class CoverDto(val coverImageId: UUID, val latestSeq: Long)
 
 /**
- * Group cover photos (docs/API.md "그룹 표지"), visible to members only. An upload is cleaned like every image (Phase 6
+ * Group cover photos (docs/API.md "Group types, covers and deletion"), visible to members only. An upload is cleaned like every image (Phase 6
  * [Jpeg.clean]), stored under a new id and set by a `group.updated {coverImageId}` from the uploader; the replaced file
  * goes after commit ([EventService.pushValidated]) and the daily [Sweep] removes any file that isn't the current one.
  */

@@ -40,7 +40,7 @@ class SplitEditorController extends ChangeNotifier {
   SplitMode _mode;
   SplitEditorController([this._mode = SplitMode.equal]);
 
-  /// Items (docs/API.md 항목별 분할): the bill from the Itemize screen. [mode] waits underneath while it is on.
+  /// Items (docs/API.md, Itemized split): the bill from the Itemize screen. [mode] waits underneath while it is on.
   ItemizedBill? _bill;
   bool _items = false;
   bool get items => _items;
@@ -412,7 +412,7 @@ class SplitEditor extends StatelessWidget {
   }
 }
 
-/// "4 items · Anna €18.40 · Ben €22.80 · Edit" (docs/API.md 항목별 분할).
+/// "4 items · Anna €18.40 · Ben €22.80 · Edit" (docs/API.md, Itemized split).
 class _ItemsSummary extends StatelessWidget {
   final ItemizedBill? bill;
   final Map<String, int>? shares;

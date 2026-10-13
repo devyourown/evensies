@@ -10,7 +10,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Sign out everywhere, export everything and the Phase 10 parts of account deletion (docs/API.md "계정"). */
+/** Sign out everywhere, export everything and the Phase 10 parts of account deletion (docs/API.md "Email and account"). */
 class AccountTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

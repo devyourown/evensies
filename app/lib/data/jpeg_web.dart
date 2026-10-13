@@ -32,7 +32,7 @@ extension type _BlobOptions._(JSObject _) implements JSObject {
 }
 
 /// [bytes] (any image the browser reads) as a JPEG with its long edge at most [maxEdge]: drawn on a canvas, which
-/// applies the EXIF orientation and drops the metadata (docs/API.md 사진(웹)).
+/// applies the EXIF orientation and drops the metadata (docs/API.md, Web app: photos).
 Future<Uint8List> resizeJpeg(Uint8List bytes, {required int maxEdge, required int quality}) async {
   final bitmap = await _createImageBitmap(_Blob([bytes.toJS].toJS)).toDart;
   final long = bitmap.width > bitmap.height ? bitmap.width : bitmap.height;

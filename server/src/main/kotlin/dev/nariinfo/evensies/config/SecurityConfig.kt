@@ -62,7 +62,7 @@ class SecurityConfig {
 
     companion object {
         /**
-         * On every response (docs/API.md "웹 앱"): tokens live in the web app's IndexedDB, so no third-party script but
+         * On every response (docs/API.md "Web app"): tokens live in the web app's IndexedDB, so no third-party script but
          * the Google and Apple sign-in ones may run on this origin. `connect-src blob:`: a picked photo or file is read
          * from its blob: URL (only this origin can mint one), which `'self'` doesn't cover.
          */

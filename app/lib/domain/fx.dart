@@ -12,7 +12,7 @@ class ConvertedExpense {
   const ConvertedExpense({required this.amount, required this.parts});
 }
 
-/// Converts a signed amount in minor units (shared/fx-cases.json, fn "amount"; docs/API.md 통화 환산).
+/// Converts a signed amount in minor units (shared/fx-cases.json, fn "amount"; docs/API.md, Currency conversion).
 /// - [rate] = major units of the target per 1 major unit of the source (1 JPY = 0.00616 EUR → 0.00616).
 ///   Not finite, or <= 0 → FxException('BAD_RATE').
 /// - Exact value = amount × R × 10^(toDecimals − fromDecimals), where R is the decimal number that

@@ -14,7 +14,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** GET /groups/{id}/activity and GET /activity (docs/API.md "피드"), plus the startup backfill of old events. */
+/** GET /groups/{id}/activity and GET /activity (docs/API.md "Feed"), plus the startup backfill of old events. */
 class ActivityFeedTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

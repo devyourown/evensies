@@ -41,7 +41,7 @@ class Share {
 /// How an expense was split, so the editor reopens it the same way (docs/API.md "SplitSpec").
 /// A hint only: `Expense.shares` holds the amounts. An exact split has no SplitSpec.
 class SplitSpec {
-  /// Null for itemized: computeSplit has no such mode, the [bill] holds the items instead (docs/API.md 항목별 분할).
+  /// Null for itemized: computeSplit has no such mode, the [bill] holds the items instead (docs/API.md, Itemized split).
   final SplitMode? mode;
 
   /// percent: percent, shares: share count, adjustment: minor units. Null for equal and itemized.
@@ -98,7 +98,7 @@ class SplitSpec {
       };
 }
 
-/// Primary payer (docs/API.md 적용 규칙 10): the largest amount; on a tie the lowest memberId.
+/// Primary payer (docs/API.md rule 10): the largest amount; on a tie the lowest memberId.
 String primaryPayer(List<Share> payers) => payers
     .reduce((a, b) => b.amount > a.amount || (b.amount == a.amount && b.memberId.compareTo(a.memberId) < 0) ? b : a)
     .memberId;
@@ -126,7 +126,7 @@ class Expense {
   final bool moved;
 
   /// The repeating series this expense belongs to and its number in it (0 = the first, added by a person; 1, 2, …
-  /// added by the server). Both null outside a series (docs/API.md 반복 지출, rule 16).
+  /// added by the server). Both null outside a series (docs/API.md, Recurring expenses; rule 16).
   final String? recurrenceId;
   final int? occurrence;
 
@@ -350,7 +350,7 @@ class Comment {
       };
 }
 
-/// A receipt photo on an expense (docs/API.md 영수증, rule 14); the files live on the server and in this device's cache.
+/// A receipt photo on an expense (docs/API.md, Receipts; rule 14); the files live on the server and in this device's cache.
 class Attachment {
   final String id;
   final String expenseId;
@@ -361,7 +361,7 @@ class Attachment {
   Map<String, dynamic> toJson() => {'id': id, 'expenseId': expenseId, 'deleted': deleted};
 }
 
-/// A repeating expense (docs/API.md 반복 지출, rule 15): the server adds [template] as a new expense on each date of
+/// A repeating expense (docs/API.md, Recurring expenses; rule 15): the server adds [template] as a new expense on each date of
 /// the schedule. [template] is the `expense.created` payload without expenseId, date, recurrenceId and occurrence.
 class Recurrence {
   final String id;
@@ -429,7 +429,7 @@ class GroupState {
   /// `group` or `friend` (a hidden two-person group, Phase 6). Set by group.created only (rule 13).
   final String kind;
 
-  /// Group settings (docs/API.md 적용 규칙 11).
+  /// Group settings (docs/API.md rule 11).
   final bool simplifyDebts;
   final SplitSpec? defaultSplit;
 
@@ -587,7 +587,7 @@ class SyncEvent {
       );
 }
 
-/// [e] for another group (docs/API.md 지출 옮기기), or null when it can't move: every member with a payer or share
+/// [e] for another group (docs/API.md, Moving expenses), or null when it can't move: every member with a payer or share
 /// amount above 0 must be linked to a user who has an active member in [target]. Zero payers and shares are dropped,
 /// and `split.input` keeps only the keys that map. An itemized bill's line people map like shares; if one can't, the
 /// split is dropped (the shares open as Exact). paidBy follows from the payers (rule 10). The rate stays only when

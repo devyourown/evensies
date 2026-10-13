@@ -24,7 +24,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 /**
- * Invite a placeholder by email (docs/API.md "이메일 초대"): one invite plus one reminder after 3 days ([EmailJobs]),
+ * Invite a placeholder by email (docs/API.md "Email invites"): one invite plus one reminder after 3 days ([EmailJobs]),
  * the address deleted after 14 days. Existing users are never linked automatically; the link preselects the placeholder.
  */
 @Service
@@ -75,7 +75,7 @@ class InviteEmails(
     }
 
     companion object {
-        /** Abuse caps (docs/API.md "속도 제한"). */
+        /** Abuse caps (docs/API.md "Daily budget and rate limits"). */
         const val PER_INVITER = 20
         const val PER_ADDRESS = 3
     }

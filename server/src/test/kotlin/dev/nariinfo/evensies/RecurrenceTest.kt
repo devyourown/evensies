@@ -25,7 +25,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Repeating expenses over real HTTP (docs/API.md "반복 지출", "반복 지출 검증", 적용 규칙 15·16): the `recurrence.*` events,
+ * Repeating expenses over real HTTP (docs/API.md "Recurring expenses", "Recurring expense validation", rules 15 and 16): the `recurrence.*` events,
  * the scheduler ([RecurrenceScheduler.runDue] called with chosen instants; series dates are in 2031 or later so the real
  * tick never reaches them), activity and push. Every test stops all series afterwards so a later `runDue` sees only its own.
  */

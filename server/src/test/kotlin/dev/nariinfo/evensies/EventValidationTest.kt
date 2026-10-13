@@ -56,7 +56,7 @@ class EventValidationTest : IntegrationTestBase() {
         assertEquals(403, res.status)
     }
 
-    /** The Dart applier casts payload values, so every type Kotlin would coerce is rejected up front (docs/API.md 적용 규칙 9). */
+    /** The Dart applier casts payload values, so every type Kotlin would coerce is rejected up front (docs/API.md rule 9). */
     @Test
     fun wrongJsonTypesAreRejected() {
         val token = login("Val4")
@@ -153,7 +153,7 @@ class EventValidationTest : IntegrationTestBase() {
         assertEquals(placeholder, res.body["myMemberId"].asString())
     }
 
-    /** Phase 3 (docs/API.md "결제자·분할·그룹 설정 검증"): one assertion per code, the whole batch is refused, nothing stored. */
+    /** Phase 3 (docs/API.md "Payer, split and group settings validation"): one assertion per code, the whole batch is refused, nothing stored. */
     @Test
     fun payersSplitAndGroupSettingsAreValidated() {
         val token = login("Val6")
@@ -269,7 +269,7 @@ class EventValidationTest : IntegrationTestBase() {
     }
 
     /**
-     * Amounts are capped (docs/API.md "금액 상한"), so Σ payers or Σ shares can't wrap around in Long arithmetic and
+     * Amounts are capped (docs/API.md "Event types and payloads: amount cap"), so Σ payers or Σ shares can't wrap around in Long arithmetic and
      * match the amount; group and member names are at most 100 UTF-16 units, in events and POST /groups.
      */
     @Test

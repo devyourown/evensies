@@ -5,7 +5,7 @@ import '../../core/l10n.dart';
 import 'auth_service.dart';
 import 'email_code_form.dart';
 
-/// Sign in with an emailed code (route `/login/email`, docs/API.md 이메일 로그인). Success stores the session, and the
+/// Sign in with an emailed code (route `/login/email`, docs/API.md, Email sign-in). Success stores the session, and the
 /// router moves on (the name screen for a new account).
 class EmailLoginScreen extends ConsumerWidget {
   const EmailLoginScreen({super.key});

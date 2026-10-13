@@ -9,7 +9,7 @@ import '../../data/api/dto.dart';
 import '../../providers.dart';
 import '../auth/email_code_form.dart';
 
-/// Settings → Email (route `/settings/email`, docs/API.md 계정 이메일): add or change the account address with a code
+/// Settings → Email (route `/settings/email`, docs/API.md, Account email): add or change the account address with a code
 /// sent to it, or remove it. Other members never see it. Online only.
 class AccountEmailScreen extends ConsumerStatefulWidget {
   const AccountEmailScreen({super.key});

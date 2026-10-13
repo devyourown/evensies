@@ -9,7 +9,7 @@ import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Server side of docs/API.md "카테고리": the resource copy and `Categories.keyForLabel` / `label`. */
+/** Server side of docs/API.md "Categories": the resource copy and `Categories.keyForLabel` / `label`. */
 class CategoriesTest {
     @Test
     fun categoriesResourceMatchesShared() {

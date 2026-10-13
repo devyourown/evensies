@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** Phase 6 friends (docs/API.md "친구"): friend codes, POST /friends, friend group rules, placeholder claims. */
+/** Phase 6 friends (docs/API.md "Friends"): friend codes, POST /friends, friend group rules, placeholder claims. */
 class FriendTest : IntegrationTestBase() {
     @Autowired
     private lateinit var capture: CapturingPushSender

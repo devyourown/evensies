@@ -9,7 +9,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 /**
- * Plain-text emails per kind (docs/API.md "이메일 문구"), from strings.json `email.*` in the reader's language (one
+ * Plain-text emails per kind (docs/API.md "Email text"), from strings.json `email.*` in the reader's language (one
  * strings.json lacks is English, leaf by leaf). Pure: the caller passes links and names. User text loses CR/LF; names
  * are cut to 40 characters and comments to 80 ([clean]).
  */

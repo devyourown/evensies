@@ -33,7 +33,7 @@ class LocalWrites {
             createdAt: createdAt ?? nowIsoUtc(),
           ));
 
-  /// [repeat] (a frequency) also starts a series with [e] as its first expense (docs/API.md 반복 지출): the series row
+  /// [repeat] (a frequency) also starts a series with [e] as its first expense (docs/API.md, Recurring expenses): the series row
   /// and `recurrence.created` go before the expense and its `expense.created`, in one local transaction.
   /// [remindDaysBefore] (1–7, Phase 10) asks the server to email a reminder before each repeat.
   Future<void> createExpense(String groupId, Expense e, {String? repeat, int? remindDaysBefore}) async {
@@ -167,7 +167,7 @@ class LocalWrites {
     });
   }
 
-  /// [movedTo] marks a move (docs/API.md 지출 옮기기): the expense also becomes moved, which no restore undoes.
+  /// [movedTo] marks a move (docs/API.md, Moving expenses): the expense also becomes moved, which no restore undoes.
   /// [stopRecurrence] also stops that series in the same transaction ("Delete and stop repeating").
   Future<void> deleteExpense(String groupId, String expenseId,
       {({String groupId, String expenseId})? movedTo, String? stopRecurrence}) async {
@@ -183,7 +183,7 @@ class LocalWrites {
     sync.syncLater(groupId);
   }
 
-  /// Moves [e] from [fromGroup] to [toGroup] as [moved] (remapForMove), online only (docs/API.md 지출 옮기기): the new
+  /// Moves [e] from [fromGroup] to [toGroup] as [moved] (remapForMove), online only (docs/API.md, Moving expenses): the new
   /// expense is pushed to [toGroup] directly, and only then the source's delete with movedTo goes into the outbox.
   /// If the push fails nothing has changed ([MoveException]). Pass the same [clientId] (and [moved] id) on a retry, so a
   /// push that reached the server before its answer was lost isn't stored twice; a [retry] also carries an
@@ -269,7 +269,7 @@ class LocalWrites {
     );
   }
 
-  /// Blanks the text like the applier (docs/API.md 적용 규칙 8).
+  /// Blanks the text like the applier (docs/API.md rule 8).
   Future<void> deleteComment(String groupId, String commentId) async {
     await (db.update(db.comments)..where((c) => c.id.equals(commentId)))
         .write(const CommentsCompanion(deleted: Value(true), body: Value('')));
@@ -282,7 +282,7 @@ class LocalWrites {
     sync.syncLater(groupId);
   }
 
-  /// An edit (docs/API.md 송금 기록·편집): `payment.deleted` of [oldId] with `replacedBy` plus `payment.created` of [p]
+  /// An edit (docs/API.md, Recording and editing payments): `payment.deleted` of [oldId] with `replacedBy` plus `payment.created` of [p]
   /// (a new id) in one local transaction, so they usually go in one push. The old one can't be restored (rule 7), and
   /// its comments stay on it.
   Future<void> editPayment(String groupId, String oldId, Payment p) async {
@@ -329,7 +329,7 @@ class LocalWrites {
     await _enqueue(groupId, EventTypes.paymentDeleted, {'paymentId': paymentId});
   }
 
-  /// Undo of a delete (docs/API.md 삭제한 송금 되살리기): live again with the status it had; an edited (replaced) one
+  /// Undo of a delete (docs/API.md, Recording and editing payments: restoring a deleted payment): live again with the status it had; an edited (replaced) one
   /// stays deleted, like on the server.
   Future<void> restorePayment(String groupId, String paymentId) async {
     await (db.update(db.payments)..where((p) => p.id.equals(paymentId) & p.replaced.equals(false)))
@@ -337,7 +337,7 @@ class LocalWrites {
     await _enqueue(groupId, EventTypes.paymentRestored, {'paymentId': paymentId});
   }
 
-  /// A prepared receipt photo ([ReceiptFiles.prepare], id [attachmentId]) on [expenseId] (docs/API.md 영수증): the local
+  /// A prepared receipt photo ([ReceiptFiles.prepare], id [attachmentId]) on [expenseId] (docs/API.md, Receipts): the local
   /// row, its pending upload and `attachment.added` (after the expense's `expense.created` when that is still queued),
   /// in one transaction. Sync uploads the photo before it pushes the event.
   Future<void> attachReceipt(String groupId, String expenseId, String attachmentId) async {
@@ -385,7 +385,7 @@ class LocalWrites {
     await _enqueue(groupId, EventTypes.memberRemoved, {'memberId': memberId});
   }
 
-  /// Convert (docs/API.md 통화 환산): every non-deleted expense in [currency] (not the group's) whose rate is null or 0
+  /// Convert (docs/API.md, Currency conversion): every non-deleted expense in [currency] (not the group's) whose rate is null or 0
   /// gets [rate] (> 0), in one local transaction so it usually goes in one push. Returns each changed expense's previous
   /// rate (null or 0), which [setRates] puts back (Undo).
   Future<Map<String, double?>> convertCurrency(String groupId, String currency, double rate) async {
@@ -465,7 +465,7 @@ class LocalWrites {
     });
   }
 
-  /// Deletes the group for everyone (docs/API.md 그룹 삭제, rule 17), offline too: it leaves every list here at once,
+  /// Deletes the group for everyone (docs/API.md, Group types, covers and deletion; rule 17), offline too: it leaves every list here at once,
   /// and any member restores it with [restoreGroup]. Nothing in it changes, and edits made meanwhile still arrive.
   Future<void> deleteGroup(String groupId) => _setDeleted(groupId, true);
   Future<void> restoreGroup(String groupId) => _setDeleted(groupId, false);
@@ -475,7 +475,7 @@ class LocalWrites {
     await _enqueue(groupId, deleted ? EventTypes.groupDeleted : EventTypes.groupRestored, const {});
   }
 
-  /// Leave the group (docs/API.md 그룹 나가기): online only, not through the outbox. Throws when offline, when
+  /// Leave the group (docs/API.md, Groups: leaving a group): online only, not through the outbox. Throws when offline, when
   /// changes are still waiting to sync, or when my balance isn't zero after the sync (it may have pulled new expenses),
   /// or a live repeating expense still has me in it.
   Future<void> leaveGroup(String groupId) async {
@@ -521,7 +521,7 @@ Map<String, dynamic> expenseCreatedPayload(Expense e) => {
       'occurrence': e.occurrence,
     };
 
-/// What a series made from [e] repeats (docs/API.md 반복 지출 template): its `expense.created` payload without the
+/// What a series made from [e] repeats (docs/API.md, Recurring expenses: template): its `expense.created` payload without the
 /// id, the date and the series keys. Receipts never repeat.
 Map<String, dynamic> templateOf(Expense e) => expenseCreatedPayload(e)
   ..remove('expenseId')
@@ -529,7 +529,7 @@ Map<String, dynamic> templateOf(Expense e) => expenseCreatedPayload(e)
   ..remove('recurrenceId')
   ..remove('occurrence');
 
-/// Status of a payment recorded with "Record a payment" (docs/API.md 송금 기록·편집): `sent` when I pay ([from] is
+/// Status of a payment recorded with "Record a payment" (docs/API.md, Recording and editing payments): `sent` when I pay ([from] is
 /// mine) someone linked to another user, so they confirm; else `confirmed`.
 String recordedStatus(Member? from, Member? to, String? myUserId) =>
     from?.userId != null && from?.userId == myUserId && to?.userId != null && to?.userId != myUserId

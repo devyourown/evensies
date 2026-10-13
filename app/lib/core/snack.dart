@@ -11,7 +11,7 @@ import '../domain/split.dart';
 import 'l10n.dart';
 
 /// [e] as the user reads it: a String as given (already worded), an error code by its message; never a server
-/// `message` or a raw error (docs/API.md 9단계).
+/// `message` or a raw error (docs/API.md, Rejected events, Phase 9).
 void showError(BuildContext context, Object e) => showInfo(context, errorText(context.l, e));
 
 void showInfo(BuildContext context, String msg) =>
@@ -25,7 +25,7 @@ void showUndo(ScaffoldMessengerState messenger, String msg, VoidCallback undo) =
       action: SnackBarAction(label: messenger.context.l.undo, onPressed: undo),
     ));
 
-/// The share sheet on phones; the browser copies [text] to the clipboard and says so (docs/API.md 웹 앱).
+/// The share sheet on phones; the browser copies [text] to the clipboard and says so (docs/API.md, Web app).
 Future<void> shareText(BuildContext context, String text) async {
   if (!kIsWeb) {
     await SharePlus.instance.share(ShareParams(text: text));

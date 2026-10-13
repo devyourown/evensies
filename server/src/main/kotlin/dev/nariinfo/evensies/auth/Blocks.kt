@@ -17,7 +17,7 @@ import java.util.UUID
 data class BlockedUserDto(val userId: UUID, val displayName: String)
 
 /**
- * `user_blocks` (docs/API.md "차단"): a block mutes the blocked person for the blocker (no friend adds, reminders, visible
+ * `user_blocks` (docs/API.md "Blocking"): a block mutes the blocked person for the blocker (no friend adds, reminders, visible
  * pushes, digest lines or recurring reminders from them). Money stays visible: shared groups and balances don't change.
  */
 @Repository

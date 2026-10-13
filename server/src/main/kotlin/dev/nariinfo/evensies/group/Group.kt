@@ -14,7 +14,7 @@ data class Group(
     val latestSeq: Long,
     val simplifyDebts: Boolean = true,
     val defaultSplit: JsonNode? = null,
-    /** "group" or "friend" (docs/API.md "친구"); fixed at creation. */
+    /** "group" or "friend" (docs/API.md "Friends"); fixed at creation. */
     val kind: String = "group",
     /** Phase 10 (rule 17): trip, home, couple or other; the current cover; deleted for everyone (restorable). */
     val type: String = "other",
@@ -33,7 +33,7 @@ data class GroupDto(
     val createdAt: Instant,
     val latestSeq: Long,
     val myMemberId: UUID?,
-    /** Group settings (docs/API.md "그룹"), changed by `group.updated`. */
+    /** Group settings (docs/API.md "Groups"), changed by `group.updated`. */
     val simplifyDebts: Boolean,
     val defaultSplit: JsonNode?,
     val kind: String,

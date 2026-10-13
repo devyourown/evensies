@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** GET /fx and its `fx_days` cache (docs/API.md "환율") against [FxStub] as the rate source. */
+/** GET /fx and its `fx_days` cache (docs/API.md "Exchange rates") against [FxStub] as the rate source. */
 class FxTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

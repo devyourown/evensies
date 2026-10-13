@@ -5,7 +5,7 @@ import 'package:evensies/features/itemize/itemize_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The Itemize screen (docs/API.md 항목별 분할): lines and people, "All", Done only once every line has a person,
+/// The Itemize screen (docs/API.md, Itemized split): lines and people, "All", Done only once every line has a person,
 /// tax/tip/discount as an amount or a %, live totals and the printed-total warning.
 void main() {
   setUpAll(() => Money.loadFromJson('{"decimals":{"EUR":2},"symbols":{"EUR":"€"}}'));

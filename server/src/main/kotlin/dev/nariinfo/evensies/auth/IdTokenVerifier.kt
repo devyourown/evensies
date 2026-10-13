@@ -53,7 +53,7 @@ class IdTokenVerifierConfig {
     private fun provider(url: String): JwkProvider =
         JwkProviderBuilder(URI(url).toURL()).cached(10, 24, TimeUnit.HOURS).build()
 
-    /** The iOS bundle id and the web Services ID (docs/API.md "받는 `aud`"). */
+    /** The iOS bundle id and the web Services ID (docs/API.md "Authentication: accepted `aud`"). */
     @Bean
     fun appleVerifier(props: AppProperties) = IdTokenVerifier(
         provider("https://appleid.apple.com/auth/keys"),

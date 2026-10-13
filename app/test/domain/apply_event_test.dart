@@ -8,7 +8,7 @@ import 'package:evensies/domain/models.dart';
 
 import '../shared_json.dart';
 
-// 실행: flutter test test/hyojun
+// Run: flutter test test/domain
 void main() {
   for (final c in sharedCases('sync-cases.json')) {
     final events = (c['events'] as List).cast<Map<String, dynamic>>().map(SyncEvent.fromJson).toList();

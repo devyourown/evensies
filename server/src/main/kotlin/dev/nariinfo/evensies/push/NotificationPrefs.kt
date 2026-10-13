@@ -18,7 +18,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 /**
- * Which visible pushes a user wants (docs/API.md "알림 설정"); sync data messages are always sent. [reminders] (Phase 6)
+ * Which visible pushes a user wants (docs/API.md "Notification settings"); sync data messages are always sent. [reminders] (Phase 6)
  * is for reminders other people send, which are not feed items.
  */
 data class NotificationPrefs(

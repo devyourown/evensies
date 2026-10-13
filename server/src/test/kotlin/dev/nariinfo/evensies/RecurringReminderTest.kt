@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The reminder email before a repeating bill posts (docs/API.md "반복 지출 알림", 적용 규칙 18): `remindDaysBefore` on the
+ * The reminder email before a repeating bill posts (docs/API.md rule 18): `remindDaysBefore` on the
  * series events, and [EmailJobs.recurringReminders] once per occurrence for each involved member with an address.
  */
 class RecurringReminderTest : IntegrationTestBase() {

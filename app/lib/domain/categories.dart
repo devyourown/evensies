@@ -1,4 +1,4 @@
-/// Expense categories (docs/API.md 카테고리): the taxonomy from shared/categories.json (copied to assets/),
+/// Expense categories (docs/API.md, Categories): the taxonomy from shared/categories.json (copied to assets/),
 /// folding, resolving a stored value to a key, and guessing a key from a description. Names per language come from
 /// shared/strings.json; matching stays on the English labels.
 library;
@@ -107,7 +107,7 @@ abstract final class Categories {
   }
 }
 
-/// A stored value → a key of `categories[]` (docs/API.md 카테고리 규칙): the key itself, a label that appears once
+/// A stored value → a key of `categories[]` (docs/API.md, Category rules): the key itself, a label that appears once
 /// (case-insensitive, "Entertainment - Other" for the six "Other"), anything else General.
 String resolveCategory(String? raw) {
   final t = raw?.trim() ?? '';
@@ -145,7 +145,7 @@ final _spaces = RegExp(r'\s+');
 List<String> _tokens(String folded) => folded.split(_split).where((t) => t.isNotEmpty).toList();
 int _len(String s) => s.runes.length;
 
-/// A key for [description], or null (docs/API.md 카테고리 규칙 `guessCategory`): the last [history] entry (oldest
+/// A key for [description], or null (docs/API.md, Category rules, `guessCategory`): the last [history] entry (oldest
 /// first) with the same normalized description and a known key; otherwise the best keyword match.
 /// ponytail: scans every keyword per call (~400); fine behind the form's 300 ms debounce.
 String? guessCategory(String description, {List<({String description, String? category})> history = const []}) {

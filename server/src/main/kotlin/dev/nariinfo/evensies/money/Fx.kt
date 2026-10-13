@@ -9,7 +9,7 @@ class FxException(val code: String) : RuntimeException(code)
 data class ConvertedExpense(val amount: Long, val parts: Map<String, Long>)
 
 /**
- * Currency conversion (docs/API.md "환산 규칙"; tests: shared/fx-cases.json, FxCasesTest). Port of Hyojun's
+ * Currency conversion (docs/API.md "Conversion rules"; tests: shared/fx-cases.json, FxCasesTest). Port of
  * app/lib/domain/fx.dart.
  * Port note: R = `BigDecimal(rate.toString())`. JDK 19+ `Double.toString` is shortest round-trip, so R is the same
  * decimal number as Dart's `rate.toString()` (`7.0E-7` here, `7e-7` there).

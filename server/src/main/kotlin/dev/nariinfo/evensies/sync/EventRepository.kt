@@ -38,7 +38,7 @@ class EventRepository(private val jdbc: JdbcClient, private val mapper: ObjectMa
     }
 
     /**
-     * The one in-place change to the log (docs/API.md 적용 규칙 8): a deleted comment's text leaves its stored
+     * The one in-place change to the log (docs/API.md rule 8): a deleted comment's text leaves its stored
      * `comment.added` events, so pulls, exports and replays never hand it out again.
      */
     fun blankCommentText(groupId: UUID, commentId: String) {
@@ -88,7 +88,7 @@ class EventRepository(private val jdbc: JdbcClient, private val mapper: ObjectMa
         .query { rs, i -> rowMapper(rs, i) to rs.getString("my_member_id") }.list()
 
     /**
-     * Unread candidates (docs/API.md "읽지 않은 활동"): the overall feed's events and `me` (same member choice as
+     * Unread candidates (docs/API.md "Unread activity"): the overall feed's events and `me` (same member choice as
      * [findBeforeForUser]) newer than the user's mark in that group, not by the user, stored since that member row
      * was created. Hiding rules are applied by the caller. Per group it reads only the events past the mark
      * (index `events_group_feed_id`), so a user who has read everything costs one index probe per group.

@@ -9,11 +9,11 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-// A FragmentActivity: local_auth's biometric prompt needs one (App lock, docs/API.md 앱 잠금).
+// A FragmentActivity: local_auth's biometric prompt needs one (App lock, docs/API.md, Appearance and app lock).
 class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        // Receipt scan (docs/API.md 영수증): the photo's text lines, read on the phone with ML Kit (Latin). `recognize`
+        // Receipt scan (docs/API.md, Receipts): the photo's text lines, read on the phone with ML Kit (Latin). `recognize`
         // {path} → [{text, left, top, right, bottom}] in pixels of the upright image, origin top left.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "evensies/ocr").setMethodCallHandler { call, result ->
             val path = call.argument<String>("path")

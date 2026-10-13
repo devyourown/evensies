@@ -65,7 +65,7 @@ class AuthController(
         return auth.updateMe(authentication.userId, text("displayName"), text("homeCurrency"), body.has("language"), text("language"))
     }
 
-    /** Public (docs/API.md "인증"): which sign-in buttons a prebuilt web app shows on this server. */
+    /** Public (docs/API.md "Authentication"): which sign-in buttons a prebuilt web app shows on this server. */
     @GetMapping("/info")
     fun info() = ServerInfo(
         props.auth.appleServicesId.trim().ifEmpty { null }, props.auth.googleWebClientId.trim().ifEmpty { null }, props.auth.devLogin,

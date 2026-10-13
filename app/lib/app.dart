@@ -69,7 +69,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
       ref.read(syncProvider).syncAll();
       ref.read(unreadProvider.notifier).refresh();
       ref.read(authServiceProvider).syncLanguage(ref.read(languageProvider));
-      // The latest rate table once per app start, for the "≈" lines and offline expenses (docs/API.md 환율).
+      // The latest rate table once per app start, for the "≈" lines and offline expenses (docs/API.md, Exchange rates).
       if (!_fxFetched) {
         _fxFetched = true;
         ref.read(fxRatesProvider).lookup();
@@ -79,7 +79,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
       ref.listenManual(homeDataProvider, (_, _) => _updateWidget());
       ref.listenManual(latestFxProvider, (_, _) => _updateWidget());
     }
-    // No web push: the tab syncs when it comes to the front and every 60 s while it is visible (docs/API.md 새로 고침).
+    // No web push: the tab syncs when it comes to the front and every 60 s while it is visible (docs/API.md, Web app: refresh).
     // A visible tab without focus (DevTools, another window, the Google sign-in frame) is `inactive` and still polls.
     if (kIsWeb) {
       _poll = Timer.periodic(const Duration(seconds: 60), (_) {
@@ -89,7 +89,7 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
     }
   }
 
-  /// The home-screen widget's payload, 1 s after things settle (docs/API.md 홈 화면 위젯).
+  /// The home-screen widget's payload, 1 s after things settle (docs/API.md, Home screen widget).
   void _updateWidget() {
     if (kIsWeb) return;
     _widgetLater(() {
@@ -189,8 +189,8 @@ class _EvensiesAppState extends ConsumerState<EvensiesApp> with WidgetsBindingOb
       routerConfig: ref.watch(routerProvider),
       builder: (context, child) {
         final app = loading ? ColoredBox(color: Theme.of(context).colorScheme.surface) : child ?? const SizedBox.shrink();
-        // The web: one 640 px column in the middle of the window, or the three columns of a wide window (docs/API.md
-        // 화면 배치); phones: the lock on top.
+        // The web: one 640 px column in the middle of the window, or the three columns of a wide window (docs/API.md,
+        // Web app: layout); phones: the lock on top.
         if (!kIsWeb) return LockGate(child: app);
         return WebColumn(wide: isWide(context), child: app);
       },

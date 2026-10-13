@@ -196,7 +196,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('All settled'), findsNothing);
     expect(find.text('Nothing owed in EUR'), findsOneWidget);
-    // Not hidden any more: its own section, in its own currency (docs/API.md 통화별 잔액).
+    // Not hidden any more: its own section, in its own currency (docs/API.md, Balances per currency).
     expect(find.text('Not converted · USD'), findsOneWidget);
     expect(find.text('1 expense without a rate to EUR'), findsOneWidget);
     expect(find.text('gets back'), findsOneWidget);

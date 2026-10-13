@@ -338,10 +338,10 @@ class GroupRow extends DataClass implements Insertable<GroupRow> {
   /// SplitSpec JSON (docs/API.md), percent or shares only.
   final String? defaultSplitJson;
 
-  /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
+  /// `group` or `friend` (docs/API.md, Friends): a friend group shows as a person, not in the Groups tab.
   final String kind;
 
-  /// Phase 10 (docs/API.md 적용 규칙 17): the group type as sent, the cover photo id, and deleted for everyone.
+  /// Phase 10 (docs/API.md rule 17): the group type as sent, the cover photo id, and deleted for everyone.
   final String type;
   final String? coverImageId;
   final bool deleted;
@@ -1514,10 +1514,10 @@ class ExpenseRow extends DataClass implements Insertable<ExpenseRow> {
   /// SplitSpec JSON (docs/API.md); null for an exact split.
   final String? splitJson;
 
-  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
+  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md rule 13).
   final bool moved;
 
-  /// The repeating series and the number in it (docs/API.md 반복 지출); both null outside a series.
+  /// The repeating series and the number in it (docs/API.md, Recurring expenses); both null outside a series.
   final String? recurrenceId;
   final int? occurrence;
   const ExpenseRow({
@@ -2822,7 +2822,7 @@ class PaymentRow extends DataClass implements Insertable<PaymentRow> {
   final bool deleted;
   final String status;
 
-  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md 적용 규칙 7).
+  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md rule 7).
   final bool replaced;
   const PaymentRow({
     required this.id,
@@ -5346,7 +5346,7 @@ class OutboxRow extends DataClass implements Insertable<OutboxRow> {
   final String createdAt;
   final String? sentAt;
 
-  /// The server's error code once the event was refused on its own (docs/API.md 거부된 이벤트): never pushed or
+  /// The server's error code once the event was refused on its own (docs/API.md, Rejected events): never pushed or
   /// applied again; the row is deleted after the user was told.
   final String? rejected;
   const OutboxRow({

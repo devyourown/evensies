@@ -9,7 +9,7 @@ import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-/// docs/API.md 홈 화면 위젯: the payload Dart writes for the native widgets.
+/// docs/API.md, Home screen widget: the payload Dart writes for the native widgets.
 void main() {
   final en = lookupAppLocalizations(const Locale('en'));
   final de = lookupAppLocalizations(const Locale('de'));

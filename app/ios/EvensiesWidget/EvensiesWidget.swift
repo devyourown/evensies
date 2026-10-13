@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-/// The home-screen balance (docs/API.md 홈 화면 위젯). The app writes one pre-formatted, pre-translated JSON under
+/// The home-screen balance (docs/API.md, Home screen widget). The app writes one pre-formatted, pre-translated JSON under
 /// `summary` in the App Group (home_widget); this only draws it. No background refresh: timeline `.never`, the app
 /// reloads it after a change.
 struct Summary: Decodable {

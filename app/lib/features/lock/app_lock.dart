@@ -7,7 +7,7 @@ import '../../core/env.dart';
 import '../../core/l10n.dart';
 import '../auth/auth_service.dart';
 
-/// App lock (docs/API.md 앱 잠금, phones only): Face ID, Touch ID or a fingerprint, the device passcode as fallback.
+/// App lock (docs/API.md, Appearance and app lock; phones only): Face ID, Touch ID or a fingerprint, the device passcode as fallback.
 
 /// The device's own check; tests pass a fake.
 abstract class Authenticator {

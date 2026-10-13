@@ -12,13 +12,13 @@ import '../../domain/models.dart';
 import '../../providers.dart';
 import 'balances.dart';
 
-/// Expenses in [currency] that count as not converted: not deleted, rate null or 0 (docs/API.md 통화 환산).
+/// Expenses in [currency] that count as not converted: not deleted, rate null or 0 (docs/API.md, Currency conversion).
 List<Expense> unconvertedIn(GroupState s, String currency) => [
       for (final e in s.expenses)
         if (!e.deleted && e.currency == currency && !((e.fxRateToDefault ?? 0) > 0)) e,
     ];
 
-/// Convert to the group currency (docs/API.md 통화 환산 Convert): per currency the count, the total, a rate prefilled
+/// Convert to the group currency (docs/API.md, Currency conversion: Convert): per currency the count, the total, a rate prefilled
 /// from `GET /fx` (or the cache) and a preview. Convert writes the rate into every one of those expenses.
 Future<void> showConvertSheet(BuildContext context, {required String groupId, required List<String> currencies}) =>
     showModalBottomSheet<void>(

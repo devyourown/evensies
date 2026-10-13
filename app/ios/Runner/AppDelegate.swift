@@ -14,7 +14,7 @@ import Vision
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    // App icon badge = unread activity (docs/API.md 읽지 않은 활동): `set` with the count, 0 clears it.
+    // App icon badge = unread activity (docs/API.md, Unread activity): `set` with the count, 0 clears it.
     let badge = FlutterMethodChannel(
       name: "evensies/badge", binaryMessenger: engineBridge.applicationRegistrar.messenger())
     badge.setMethodCallHandler { call, result in
@@ -29,7 +29,7 @@ import Vision
         result(nil)
       }
     }
-    // Receipt scan (docs/API.md 영수증): the photo's text lines, read on the phone with Apple Vision. `recognize`
+    // Receipt scan (docs/API.md, Receipts): the photo's text lines, read on the phone with Apple Vision. `recognize`
     // {path} → [{text, left, top, right, bottom}] in pixels of the upright image, origin top left.
     let ocr = FlutterMethodChannel(
       name: "evensies/ocr", binaryMessenger: engineBridge.applicationRegistrar.messenger())

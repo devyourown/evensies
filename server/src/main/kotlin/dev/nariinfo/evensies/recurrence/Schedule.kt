@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
-/** Date rules of a repeating series (docs/API.md "반복 지출"; shared/recurrence-cases.json, app domain/recurrence.dart). */
+/** Date rules of a repeating series (docs/API.md "Recurring expenses"; shared/recurrence-cases.json, app domain/recurrence.dart). */
 object Schedule {
     /**
      * Occurrence [n] (0 = [startDate]), always computed from [startDate] so a clamped month end never sticks

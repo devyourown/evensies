@@ -98,7 +98,7 @@ class ExportImportTest : IntegrationTestBase() {
 
     /**
      * Splitwise rows with several positive nets: everyone positive pays their net, the largest also pays the slack and
-     * owes Cost − what the others owe (docs/API.md "가져오기"). The design's example imports with exact balances; a row
+     * owes Cost − what the others owe (docs/API.md "Export and import"). The design's example imports with exact balances; a row
      * whose positive nets exceed the cost, or whose negative nets exceed it, is refused.
      */
     @Test

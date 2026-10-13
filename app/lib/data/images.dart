@@ -12,7 +12,7 @@ import '../l10n/app_localizations.dart';
 import 'jpeg_stub.dart' if (dart.library.js_interop) 'jpeg_web.dart' as web;
 
 /// The one image pipeline (profile photos, receipts; group covers in Phase 10). The server never decodes pixels it
-/// gets: the app re-encodes every image, and the server only strips metadata segments (docs/API.md 프로필 사진).
+/// gets: the app re-encodes every image, and the server only strips metadata segments (docs/API.md, Profile photos).
 
 /// The edge flutter_image_compress scales to: it keeps both edges at least `minWidth`/`minHeight`, so the same value
 /// for both bounds the short edge. For a long edge of [maxEdge], the short edge goes to short × maxEdge / long. An image

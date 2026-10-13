@@ -22,7 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Move an expense between groups and friends (docs/API.md 지출 옮기기).
+/// Move an expense between groups and friends (docs/API.md, Moving expenses).
 void main() {
   Share s(String m, int a) => Share(memberId: m, amount: a);
   const source = [

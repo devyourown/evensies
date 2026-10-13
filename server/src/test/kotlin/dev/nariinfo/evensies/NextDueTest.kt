@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 import kotlin.test.assertEquals
 
-/** When the next email summary is due (docs/API.md "요약 메일"): UTC, strictly after the last one. */
+/** When the next email summary is due (docs/API.md "Summary emails"): UTC, strictly after the last one. */
 class NextDueTest {
     private fun due(last: String, mode: String) = DigestBuilder.nextDue(Instant.parse(last), mode).toString()
 

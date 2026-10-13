@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Phase 4 over real HTTP (docs/API.md "통화 환산"): the 155-code list, fxRateToDefault stored exactly as sent (0 kept,
+ * Phase 4 over real HTTP (docs/API.md "Currency conversion"): the 155-code list, fxRateToDefault stored exactly as sent (0 kept,
  * null clears, a missing key keeps), and the Convert push (one expense.updated per unconverted expense).
  */
 class CurrenciesSyncTest : IntegrationTestBase() {

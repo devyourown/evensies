@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Push fan-out through the captured [CapturingPushSender] (docs/API.md "푸시", "알림 설정").
+ * Push fan-out through the captured [CapturingPushSender] (docs/API.md "Push notifications", "Notification settings").
  * Tests run with `evensies.push.batch-seconds=1`.
  */
 class PushNotificationTest : IntegrationTestBase() {

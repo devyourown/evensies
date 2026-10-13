@@ -269,7 +269,7 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) {
-          final ok = fitsLimit(ctl.text, maxGroupName); // the server refuses longer names (docs/API.md 글자 수)
+          final ok = fitsLimit(ctl.text, maxGroupName); // the server refuses longer names (docs/API.md, text lengths)
           return AlertDialog(
             title: Text(ctx.l.renameGroup),
             content: TextField(

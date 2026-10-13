@@ -22,7 +22,7 @@ T? tryFx<T>(T Function() f) {
   }
 }
 
-/// Balances per currency (docs/API.md 통화별 잔액). D = [currency], the group's default currency.
+/// Balances per currency (docs/API.md, Balances per currency). D = [currency], the group's default currency.
 class BalanceResult {
   final String currency;
 
@@ -115,7 +115,7 @@ Expense? _convert(Expense e, String d, ConvertFn convert) {
   );
 }
 
-/// computeBalances per bucket (rules in docs/API.md 통화별 잔액). Payments go to the bucket of their own currency
+/// computeBalances per bucket (rules in docs/API.md, Balances per currency). Payments go to the bucket of their own currency
 /// (Settle up records each bucket's payments in that bucket's currency since Phase 6).
 BalanceResult balancesOf(GroupState s, {BalanceFn compute = computeBalances, ConvertFn convert = convertExpense}) {
   final d = s.defaultCurrency ?? '';
@@ -164,8 +164,8 @@ BalanceResult balancesOf(GroupState s, {BalanceFn compute = computeBalances, Con
 /// payments). Settle up, the Phase 6 overview and the Phase 9 widget all read this one function.
 Map<String, List<Transfer>> groupTransfers(GroupState s) => balancesOf(s).transfers(simplify: s.simplifyDebts);
 
-/// Why [me] can't leave yet, or null when my balance is zero in every bucket. Only the app checks it (docs/API.md
-/// 그룹 나가기): the settings screen before the tap, LocalWrites.leaveGroup after its sync. Unconverted expenses alone
+/// Why [me] can't leave yet, or null when my balance is zero in every bucket. Only the app checks it (docs/API.md,
+/// Groups: leaving a group): the settings screen before the tap, LocalWrites.leaveGroup after its sync. Unconverted expenses alone
 /// don't block leaving.
 String? leaveBlocker(AppLocalizations l, BalanceResult res, String? me) {
   for (final MapEntry(key: cur, value: mine) in res.mine(me).entries) {
@@ -179,7 +179,7 @@ String? leaveBlocker(AppLocalizations l, BalanceResult res, String? me) {
   return null;
 }
 
-/// Who should pay next (docs/API.md 인사이트): the active member with the most negative balance in [defaultBucket],
+/// Who should pay next (docs/API.md, Insights): the active member with the most negative balance in [defaultBucket],
 /// the lowest memberId on a tie; null when nobody owes.
 String? whoPaysNext(Map<String, int> defaultBucket, Set<String> activeMemberIds) {
   String? who;

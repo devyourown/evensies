@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * `EVENSIES_EMAIL_DAILY_LIMIT` and the per-IP sign-in limit (docs/API.md "속도 제한"), in their own server so the counts are
+ * `EVENSIES_EMAIL_DAILY_LIMIT` and the per-IP sign-in limit (docs/API.md "Daily budget and rate limits"), in their own server so the counts are
  * this class's alone: digests and recurring reminders stop at 80%, invites at 100% (429), codes always go.
  */
 @TestPropertySource(properties = ["evensies.email.daily-limit=10", "evensies.email.auth-rate-per-minute=3"])

@@ -15,7 +15,7 @@ void main() {
     expect(needsDisplayName(_session('')), isTrue);
     expect(needsDisplayName(_session('   ')), isTrue);
     expect(needsDisplayName(_session('abc@privaterelay.appleid.com')), isTrue);
-    expect(needsDisplayName(_session('Hyojun')), isFalse);
+    expect(needsDisplayName(_session('Anna')), isFalse);
   });
 
   test('default currency follows the device locale', () {

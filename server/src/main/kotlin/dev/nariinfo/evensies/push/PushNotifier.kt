@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Push fan-out after a committed push (docs/API.md "푸시"): every linked, active member except the actor gets either a
+ * Push fan-out after a committed push (docs/API.md "Push notifications"): every linked, active member except the actor gets either a
  * visible notification (title = group name, or in a friend group the other member's name; body = [ActivityText.body] in
  * the recipient's `users.language`, read when the message goes out; badge = the recipient's unread total) or a data-only
  * sync message. Visible items are filtered by the recipient's
@@ -94,7 +94,7 @@ class PushNotifier(
         return Visible(ActivityText.title(title), ActivityText.body(items, names, me.id.toString(), lang, friend = group.kind == "friend"), unread.of(me.userId).total)
     }
 
-    /** A reminder (docs/API.md "리마인더") to every device of [toUser]; no badge, data `{type: remind, fromUserId}`. */
+    /** A reminder (docs/API.md "Reminders") to every device of [toUser]; no badge, data `{type: remind, fromUserId}`. */
     fun remind(toUser: UUID, fromUser: UUID, title: String, body: String) {
         worker.execute {
             guarded(toUser) {
@@ -148,7 +148,7 @@ class PushNotifier(
     private fun data(group: Group) = mapOf("type" to "sync", "groupId" to group.id.toString(), "seq" to group.latestSeq.toString())
 
     companion object {
-        /** What a deleted group still shows (docs/API.md "그룹 삭제"). */
+        /** What a deleted group still shows (docs/API.md "Group types, covers and deletion"). */
         val DELETION_KINDS = setOf("group_deleted", "group_restored")
     }
 

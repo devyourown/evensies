@@ -1,5 +1,5 @@
 {
-  "_doc": "인사이트 합계 테스트 케이스 (docs/API.md '인사이트', 앱 app/lib/domain/insights.dart computeTotals). 지출은 snapshot 모양이고 이미 한 통화다(칸 하나): payers 없으면 [{memberId: paidBy, amount}], refund 없으면 false, deleted 없으면 false. 송금: {id, fromMember, toMember, amount, currency, date, status?, deleted?}, status 없으면 confirmed. expected = computeTotals(expenses, payments, me: me) → {months: {YYYY-MM: PeriodTotals}, allTime}. byCategory·byMember에는 0인 항목이 없다(합한 뒤 빼므로 allTime에서 사라질 수 있다). 모든 케이스에서 allTime.netChange == computeBalances(...)[me]도 확인한다. 지금은 앱(Dart)만 읽는다.",
+  "_doc": "Insights totals test cases (docs/API.md 'Insights'; app app/lib/domain/insights.dart computeTotals). Expenses are in snapshot shape and already in one currency (one bucket): no payers means [{memberId: paidBy, amount}], no refund means false, no deleted means false. Payments: {id, fromMember, toMember, amount, currency, date, status?, deleted?}; no status means confirmed. expected = computeTotals(expenses, payments, me: me) → {months: {YYYY-MM: PeriodTotals}, allTime}. byCategory and byMember have no zero entries (they are dropped after summing, so an entry can vanish from allTime). Every case also checks allTime.netChange == computeBalances(...)[me]. Only the app (Dart) reads it for now.",
   "cases": [
     {"name": "two months, settle in between", "me": "a",
      "expenses": [

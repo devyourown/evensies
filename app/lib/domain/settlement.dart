@@ -34,15 +34,16 @@ class Transfer {
   String toString() => 'Transfer($from -> $to: $amount)';
 }
 
-/// 멤버별 잔액. 양수 = 받을 돈(채권자), 음수 = 줄 돈(채무자).
+/// Balance per member. Positive = is owed money (creditor), negative = owes money (debtor).
 ///
-/// 규칙(shared/settlement-cases.json이 검증):
-/// - 지출마다 sign = refund ? −1 : +1. 낸 사람마다 +sign × 낸 금액, 부담하는 사람마다 −sign × 몫.
-///   (환불은 받은 사람이 모두의 돈을 대신 받은 것이라 지출과 정반대로 움직인다.)
-/// - 송금: 보낸 사람 +amount, 받은 사람 −amount
-///   (송금은 from이 낸 돈을 to가 전부 부담한 지출과 같다. 받으면 받을 돈이 줄고, 보내면 줄 돈이 준다.)
-/// - 결과 맵은 [members] 전부를 키로 가진다(활동 없으면 0). 입력은 검증된 값(Σ payers == Σ shares == amount,
-///   id는 members 안)이라 여기서 다시 검사하지 않는다. 합계는 항상 0.
+/// Rules (checked by shared/settlement-cases.json):
+/// - Per expense sign = refund ? −1 : +1. Each payer gets +sign × what they paid, each sharer −sign × their share.
+///   (A refund moves the opposite way to an expense: the receiver got everyone's money back on their behalf.)
+/// - Payment: sender +amount, receiver −amount
+///   (a payment is an expense paid by from and owed entirely by to. Receiving lowers what you're owed, sending lowers
+///   what you owe.)
+/// - The result map has every one of [members] as a key (0 with no activity). The input is already validated
+///   (Σ payers == Σ shares == amount, ids within members), so it isn't checked again here. The total is always 0.
 Map<String, int> computeBalances(
   List<String> members,
   List<ExpenseLine> expenses,
@@ -63,14 +64,14 @@ Map<String, int> computeBalances(
   return balances;
 }
 
-/// 잔액을 0으로 만드는 송금 목록(탐욕법).
+/// The transfers that bring every balance to 0 (greedy).
 ///
-/// 규칙:
-/// - 채권자(>0)와 채무자(<0)를 각각 절댓값 큰 순으로 정렬. 동률이면 memberId 오름차순.
-/// - 가장 큰 채권자 c와 가장 큰 채무자 d를 맞붙여 min(c.balance, -d.balance)만큼 Transfer(from: d, to: c).
-///   0이 된 쪽을 빼고 반복(남은 쪽은 재정렬 후 다시 최대값 선택).
-/// - 잔액 0인 멤버는 송금에 등장하지 않는다. 결과 수 ≤ n−1.
-/// - 같은 입력 → 같은 출력(결정적). 결과 송금을 모두 적용하면 모든 잔액이 0.
+/// Rules:
+/// - Sort creditors (>0) and debtors (<0) each by absolute value, largest first. On a tie, memberId ascending.
+/// - Pair the largest creditor c with the largest debtor d: Transfer(from: d, to: c) of min(c.balance, -d.balance).
+///   Drop whichever reached 0 and repeat (the other one is re-sorted, then the largest is picked again).
+/// - Members with a 0 balance never appear in a transfer. At most n−1 transfers.
+/// - Same input → same output (deterministic). Applying every transfer brings every balance to 0.
 List<Transfer> simplifyDebts(Map<String, int> balances) {
   // (memberId, amount) with a positive amount: what a creditor is owed / what a debtor owes.
   final creditors = [for (final MapEntry(:key, :value) in balances.entries) if (value > 0) (key, value)];

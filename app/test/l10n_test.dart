@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// docs/API.md 언어·웹: 13 languages, English the source; the ARB files and the shared text table agree.
+/// docs/API.md, Languages and web: 13 languages, English the source; the ARB files and the shared text table agree.
 void main() {
   Map<String, dynamic> arb(String lang) =>
       jsonDecode(File('lib/l10n/app_$lang.arb').readAsStringSync()) as Map<String, dynamic>;

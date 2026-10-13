@@ -14,7 +14,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * A server with web sign-in and a development CORS origin (docs/API.md "웹 앱"): exact-origin CORS, GET /info, and the
+ * A server with web sign-in and a development CORS origin (docs/API.md "Web app"): exact-origin CORS, GET /info, and the
  * accepted `aud` lists. WebHostingTest covers the same without these settings.
  */
 @TestPropertySource(
@@ -99,7 +99,7 @@ class CorsAndInfoTest : IntegrationTestBase() {
         assertEquals("help@evensies.test", info.body["supportEmail"].asString())
     }
 
-    /** docs/API.md "받는 `aud`": Apple = bundle id + Services ID, Google = the phone ids ∪ the web id (no duplicate). */
+    /** docs/API.md "Authentication: accepted `aud`": Apple = bundle id + Services ID, Google = the phone ids ∪ the web id (no duplicate). */
     @Test
     fun theVerifiersAcceptTheWebAudiences() {
         assertEquals(listOf("dev.nariinfo.evensies", "dev.nariinfo.evensies.web"), apple.audiences)

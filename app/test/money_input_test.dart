@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:evensies/core/money.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// docs/API.md 금액 입력: what a person types in each language → minor units, or null.
+/// docs/API.md, Amount input: what a person types in each language → minor units, or null.
 void main() {
   setUpAll(() => Money.loadFromJson(File('../shared/currencies.json').readAsStringSync()));
 

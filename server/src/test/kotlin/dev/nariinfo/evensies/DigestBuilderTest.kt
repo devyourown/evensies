@@ -79,7 +79,7 @@ class DigestBuilderTest {
         assertTrue("a".repeat(79) + "…" in one.text && "a".repeat(80) !in one.text, "comments are cut to 80")
     }
 
-    /** A Hyojun function whose port hasn't landed (null balances) leaves the section out; the lines still go, a quiet month doesn't. */
+    /** A money function whose Kotlin port hasn't landed (null balances) leaves the section out; the lines still go, a quiet month doesn't. */
     @Test
     fun missingBalancesLeaveTheSectionOut() {
         val groups = listOf(DigestGroup("G", listOf(item(1)), mapOf("m2" to "Ben"), "m1", balances = null))

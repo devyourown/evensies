@@ -51,7 +51,7 @@ String friendError(AppLocalizations l, ApiException e) => switch (e) {
       _ => errorForCode(l, e.code),
     };
 
-/// Add a friend (route `/friends/add`, docs/API.md 친구): my QR code, link and code to share (and rotate), a friend's
+/// Add a friend (route `/friends/add`, docs/API.md, Friends): my QR code, link and code to share (and rotate), a friend's
 /// code with a preview, or someone not on Evensies yet by name. [code] prefills the code field (a `/f/` link).
 class AddFriendScreen extends ConsumerStatefulWidget {
   final String? code;

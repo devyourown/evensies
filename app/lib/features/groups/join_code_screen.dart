@@ -166,7 +166,7 @@ class _JoinCodeScreenState extends ConsumerState<JoinCodeScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  // A placeholder friend's code: the friend group's name is internal (docs/API.md 친구), say who added me.
+                  // A placeholder friend's code: the friend group's name is internal (docs/API.md, Friends), say who added me.
                   Text(
                       p.kind == 'friend'
                           ? switch (p.members.where((m) => m.linked).firstOrNull?.name) {

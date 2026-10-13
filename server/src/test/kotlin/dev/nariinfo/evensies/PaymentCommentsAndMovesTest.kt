@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 
 /**
  * Phase 6 event changes over real HTTP: comments on payments, `expense.deleted.movedTo`, `fromMember == toMember`,
- * payments in any currency (docs/API.md "이벤트 종류와 payload", "송금 기록·편집", "지출 옮기기").
+ * payments in any currency (docs/API.md "Event types and payloads", "Recording and editing payments", "Moving expenses").
  */
 class PaymentCommentsAndMovesTest : IntegrationTestBase() {
     @Autowired
@@ -147,7 +147,7 @@ class PaymentCommentsAndMovesTest : IntegrationTestBase() {
     }
 
     /**
-     * The app's move retry (docs/API.md "지출 옮기기"): the first try's `expense.created` again (same clientId, deduped)
+     * The app's move retry (docs/API.md "Moving expenses"): the first try's `expense.created` again (same clientId, deduped)
      * plus an `expense.updated` with all of today's values. Landed first try → the edit made in between arrives; lost
      * first try → the create lands and the update changes nothing (hidden in Activity).
      */

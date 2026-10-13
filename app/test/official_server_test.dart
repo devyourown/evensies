@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Phase 11 (docs/API.md 공식 서버만): a release build talks only to the official server.
+/// Phase 11 (docs/API.md, Official server only): a release build talks only to the official server.
 void main() {
   testWidgets('a release build has no Server field; debug (or the dart-define) has it', (t) async {
     t.view.physicalSize = const Size(800, 4000); // the whole Settings list is built

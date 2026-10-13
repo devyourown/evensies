@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The hourly digest (docs/API.md "요약 메일") on the real database: who gets it and when ([EmailJobs.digests] called
+ * The hourly digest (docs/API.md "Summary emails") on the real database: who gets it and when ([EmailJobs.digests] called
  * directly), what it says, and when the window moves. Every candidate in the shared database is processed, so each test
  * only looks at its own addresses.
  */

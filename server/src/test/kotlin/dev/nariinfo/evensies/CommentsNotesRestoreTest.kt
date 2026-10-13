@@ -7,7 +7,7 @@ import tools.jackson.databind.JsonNode
 import java.util.UUID
 import kotlin.test.assertEquals
 
-/** Phase 2 events over real HTTP: comment.*, expense.restored, notes (docs/API.md "이벤트 종류와 payload"). */
+/** Phase 2 events over real HTTP: comment.*, expense.restored, notes (docs/API.md "Event types and payloads"). */
 class CommentsNotesRestoreTest : IntegrationTestBase() {
     private class Setup(val id: String, val anna: String, val ben: String, val annaMember: String, val benMember: String, val expense: String)
 

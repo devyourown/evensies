@@ -40,7 +40,7 @@ data class AppProperties(
     data class Fx(val url: String = "https://api.frankfurter.dev/v2")
 
     /**
-     * Phase 10 (docs/API.md "이메일"): [smtpHost] empty turns every email feature off. [smtpTls] `starttls` (required),
+     * Phase 10 (docs/API.md "Email and account"): [smtpHost] empty turns every email feature off. [smtpTls] `starttls` (required),
      * `ssl` (465) or `none` (Mailpit only). [dailyLimit]: rolling 24 h cap, 0 = none. [webhookSecret]: Resend's `whsec_…`,
      * empty turns POST /webhooks/email off. [authRatePerMinute]: email sign-in requests (start, verify) per client IP.
      */

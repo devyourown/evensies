@@ -44,7 +44,7 @@ data class EventMeta(
 
 data class Change(val field: String, val from: Any?, val to: Any?)
 
-/** docs/API.md "피드": every key is always present; unused ones are null, [changes] is []. */
+/** docs/API.md "Feed": every key is always present; unused ones are null, [changes] is []. */
 data class ActivityItem(
     val groupId: UUID? = null,
     val feedId: Long? = null,

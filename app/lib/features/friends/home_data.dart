@@ -11,7 +11,7 @@ import '../group_detail/balances.dart' show groupStateProvider;
 /// One local group with its state and balances.
 typedef HomeGroup = ({GroupRow row, GroupState state, BalanceResult res});
 
-/// Everything the Home tabs, the friend pages and the With picker read (docs/API.md 개요 화면).
+/// Everything the Home tabs, the friend pages and the With picker read (docs/API.md, Overview: screens).
 class HomeData {
   final List<HomeGroup> groups;
   final Overview overview;

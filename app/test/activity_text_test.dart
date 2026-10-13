@@ -51,7 +51,7 @@ void main() {
     for (final e in symbols.entries) {
       final f = formatMoney(123456, e.key);
       expect(f.startsWith(e.value), isTrue, reason: '${e.key}: $f');
-      // A symbol ending in a Latin letter is followed by a no-break space (docs/API.md 금액 표기).
+      // A symbol ending in a Latin letter is followed by a no-break space (docs/API.md, Money notation).
       expect(RegExp('^\u00a0?\\d').hasMatch(f.substring(e.value.length)), isTrue, reason: '${e.key}: $f');
     }
   });

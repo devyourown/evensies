@@ -11,8 +11,8 @@ String nowIsoUtc([DateTime? now]) {
   return s.length == 24 ? '${s.substring(0, 23)}000Z' : s;
 }
 
-/// This device's UTC offset now as `±HH:MM` (`+00:00` for UTC), the time zone of a new repeating series (docs/API.md
-/// 반복 지출). No IANA name without a plugin: across a DST change only the posting hour moves, never the date.
+/// This device's UTC offset now as `±HH:MM` (`+00:00` for UTC), the time zone of a new repeating series (docs/API.md,
+/// Recurring expenses). No IANA name without a plugin: across a DST change only the posting hour moves, never the date.
 String deviceTimeZone([Duration? offset]) {
   final o = offset ?? DateTime.now().timeZoneOffset;
   final m = o.inMinutes.abs();

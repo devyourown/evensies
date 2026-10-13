@@ -15,14 +15,15 @@ data class Transfer(val from: String, val to: String, val amount: Long)
 
 object Settlement {
     /**
-     * 멤버별 잔액. 테스트: shared/settlement-cases.json (SettlementTest).
+     * Balance per member. Tests: shared/settlement-cases.json (SettlementTest).
      *
-     * 잔액 = 낸 돈(paidBy로 낸 expense.amount 합) − 부담 몫(shares[me] 합)
-     *        + 보낸 송금(from == me) − 받은 송금(to == me)
-     * 모든 members가 결과에 들어간다(활동 없으면 0). shares에만 등장하고 members에 없는 ID는 없다고 가정한다.
-     * 불변식: 결과 값의 합 == 0.
+     * balance = what I paid (Σ expense.amount paid by me) − what I owe (Σ shares[me])
+     *         + payments sent (from == me) − payments received (to == me)
+     * Every member is in the result (0 with no activity). An id that appears in shares but not in members is assumed
+     * not to exist.
+     * Invariant: the values sum to 0.
      *
-     * Phase 3 (port of Hyojun's Dart computeBalances, app/lib/domain/settlement.dart):
+     * Phase 3 (port of the Dart computeBalances, app/lib/domain/settlement.dart):
      * per line sign = refund ? −1 : +1, balance[m] += sign × payers[m], balance[m] −= sign × shares[m].
      */
     fun balances(members: List<String>, expenses: List<ExpenseLine>, payments: List<PaymentLine>): Map<String, Long> {
@@ -42,13 +43,15 @@ object Settlement {
     }
 
     /**
-     * 부채 단순화(탐욕법).
+     * Debt simplification (greedy).
      *
-     * 1. 양수(채권자)와 음수(채무자)를 각각 절댓값 큰 순으로 정렬. 절댓값이 같으면 memberId 오름차순.
-     * 2. 가장 큰 채권자 c와 가장 큰 채무자 d를 맞붙여 min(c.amount, |d.amount|)만큼 Transfer(from=d, to=c)를 만든다.
-     * 3. 0이 된 쪽을 빼고(둘 다 0이면 둘 다) 다시 1부터 반복. 잔액 0인 멤버는 처음부터 제외.
-     * 결과 순서 = 생성 순서.
-     * 불변식: transfers.size <= 멤버 수 − 1, 모든 transfer를 적용하면 모든 잔액이 0, 결정적.
+     * 1. Sort positives (creditors) and negatives (debtors) each by absolute value, largest first; on a tie, memberId
+     *    ascending.
+     * 2. Pair the largest creditor c with the largest debtor d: Transfer(from=d, to=c) of min(c.amount, |d.amount|).
+     * 3. Drop whichever reached 0 (both if both did) and repeat from 1. Members with a 0 balance are left out from the
+     *    start.
+     * Result order = creation order.
+     * Invariants: transfers.size <= members − 1, applying every transfer brings every balance to 0, deterministic.
      */
     fun simplify(balances: Map<String, Long>): List<Transfer> {
         val result = ArrayList<Transfer>()

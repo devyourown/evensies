@@ -11,7 +11,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** `/j/{code}` and `/f/{code}` in the Accept-Language language (docs/API.md "랜딩 페이지"). */
+/** `/j/{code}` and `/f/{code}` in the Accept-Language language (docs/API.md "Landing pages"). */
 class InviteLandingTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

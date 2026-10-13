@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/l10n.dart';
 import '../../core/snack.dart';
 
-/// An address as the server stores it: trimmed and lower-cased (docs/API.md 이메일 검증).
+/// An address as the server stores it: trimmed and lower-cased (docs/API.md, Email validation).
 String normalizeEmail(String s) => s.trim().toLowerCase();
 
 final _emailShape = RegExp(r'^[^\s@]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)+$');
@@ -17,7 +17,7 @@ bool emailValid(String s) {
   return e.length <= 254 && _emailShape.hasMatch(e);
 }
 
-/// Email, then a 6-digit code (docs/API.md 이메일 로그인), for signing in and for Settings → Email: [onSend] emails
+/// Email, then a 6-digit code (docs/API.md, Email sign-in), for signing in and for Settings → Email: [onSend] emails
 /// a code to the address, [onVerify] checks it. Both throw what the server answered; the form words it. Resend unlocks
 /// 30 s after each code; "Use a different email" goes back to the first step.
 class EmailCodeForm extends StatefulWidget {

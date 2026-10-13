@@ -1,5 +1,5 @@
-# 빌드: docker compose build (context는 저장소 루트, deploy/docker-compose.yml 참고)
-# 1) 웹 앱(9단계): /app/에서 같은 origin으로 서비스된다. 버전은 CI의 subosito/flutter-action과 같게 둔다.
+# Build: docker compose build (the context is the repo root, see deploy/docker-compose.yml)
+# 1) Web app (Phase 9): served at /app/ on the same origin. Keep the version the same as CI's subosito/flutter-action.
 FROM ghcr.io/cirruslabs/flutter:3.41.4 AS web
 WORKDIR /src/app
 COPY app/pubspec.yaml app/pubspec.lock app/l10n.yaml app/analysis_options.yaml ./
@@ -8,7 +8,7 @@ COPY app/web ./web
 COPY app/assets ./assets
 RUN flutter build web --release --base-href /app/ --no-web-resources-cdn --csp
 
-# 2) 서버: 웹 빌드를 static/app/(gitignore)에 넣고 jar 하나로 만든다.
+# 2) Server: puts the web build in static/app/ (git-ignored) and builds one jar.
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /src
 COPY server/ ./server/

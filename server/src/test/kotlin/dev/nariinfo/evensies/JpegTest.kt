@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
-/** storage/Jpeg.clean: metadata out, coding segments untouched, nothing decoded (docs/API.md "프로필 사진"). */
+/** storage/Jpeg.clean: metadata out, coding segments untouched, nothing decoded (docs/API.md "Profile photos"). */
 class JpegTest {
     companion object {
         /** A real JPEG from the JDK encoder: SOI, APP0 (JFIF), DQT, SOF, DHT, SOS…, EOI, no other metadata. */

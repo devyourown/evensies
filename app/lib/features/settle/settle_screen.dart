@@ -69,7 +69,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
     if (group == null || res == null || state == null) {
       body = const Center(child: CircularProgressIndicator());
     } else {
-      // Every bucket settles in its own currency (docs/API.md 통화별 잔액, Phase 6): the group currency first, then
+      // Every bucket settles in its own currency (docs/API.md, Balances per currency; Phase 6): the group currency first, then
       // the others by code.
       final all = res.transfers(simplify: group.simplifyDebts);
       final d = group.defaultCurrency;

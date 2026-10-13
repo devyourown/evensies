@@ -13,7 +13,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** A server without SMTP settings (docs/API.md "이메일"): every email feature is off and says so; nothing else changes. */
+/** A server without SMTP settings (docs/API.md "Email and account"): every email feature is off and says so; nothing else changes. */
 @TestPropertySource(properties = ["evensies.email.smtp-host=", "evensies.email.webhook-secret=", "evensies.support-email="])
 class EmailOffTest : IntegrationTestBase() {
     @Autowired

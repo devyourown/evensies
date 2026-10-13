@@ -15,7 +15,7 @@ import '../expense_form/comment_thread.dart';
 import '../group_detail/balances.dart';
 import 'payment_sheet.dart';
 
-/// One payment (route `/groups/{id}/payments/{pid}`, docs/API.md 송금 기록·편집): who paid whom, the status with
+/// One payment (route `/groups/{id}/payments/{pid}`, docs/API.md, Recording and editing payments): who paid whom, the status with
 /// Phase 1's Confirm received / Not received, Edit and Delete for the payer's or receiver's user, and comments.
 class PaymentDetailScreen extends ConsumerWidget {
   final String groupId;
@@ -67,7 +67,7 @@ class PaymentDetailScreen extends ConsumerWidget {
               tooltip: l.edit,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () async {
-                // An edit is a new payment (docs/API.md 송금 기록·편집): show it, not the old one, now deleted.
+                // An edit is a new payment (docs/API.md, Recording and editing payments): show it, not the old one, now deleted.
                 final id = await showPaymentSheet(context, groupId: groupId, editing: p);
                 if (id != null && context.mounted) context.replace('/groups/$groupId/payments/$id');
               },
@@ -89,7 +89,7 @@ class PaymentDetailScreen extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                // An edited payment was replaced by the new one, so it can't come back (docs/API.md 적용 규칙 7).
+                // An edited payment was replaced by the new one, so it can't come back (docs/API.md rule 7).
                 if (p.deleted && p.replaced)
                   Card(
                     key: const Key('payment-edited'),

@@ -9,7 +9,7 @@ import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 import org.json.JSONObject
 
-/** The 2×2 home-screen balance (docs/API.md 홈 화면 위젯): the app writes a pre-formatted, pre-translated JSON under
+/** The 2×2 home-screen balance (docs/API.md, Home screen widget): the app writes a pre-formatted, pre-translated JSON under
  * `summary`; this only draws it. Never written: only the title. */
 class BalanceWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(

@@ -1,4 +1,4 @@
-/// Activity feed items (docs/API.md 활동·알림) and their sentences in each language (shared/strings.json).
+/// Activity feed items (docs/API.md, Activity and notifications) and their sentences in each language (shared/strings.json).
 /// The server renders the same sentences for push (shared/activity-cases.json checks both).
 library;
 
@@ -72,7 +72,7 @@ String? myDeltaText(ActivityItem item, {String? lang}) {
   return Strings.fill(Strings.text(l, ['suffix', key]), {'amount': formatMoney(d.abs(), item.currency ?? '', lang: l)});
 }
 
-/// Template key per kind (docs/API.md 문장 만들기 1): refunds, payment comments, several receipts and a friend group's
+/// Template key per kind (docs/API.md, Building sentences 1): refunds, payment comments, several receipts and a friend group's
 /// delete/restore ([friend]: `friend_deleted`, `friend_restored`, its name is internal) have their own.
 String _templateKey(ActivityItem item, int count, bool friend) {
   final k = switch (item.kind) {
@@ -85,7 +85,7 @@ String _templateKey(ActivityItem item, int count, bool friend) {
   return Strings.lookup('en', ['activity', k, 'other']) == null ? 'unknown' : k;
 }
 
-/// The sentence for [item] as seen by member [me] in [lang] (docs/API.md 문장 만들기), from shared/strings.json.
+/// The sentence for [item] as seen by member [me] in [lang] (docs/API.md, Building sentences), from shared/strings.json.
 /// [names] maps memberId → name. [withDelta] false leaves out the trailing [myDeltaText] (the feed shows it as its own
 /// colored line). [count]: the receipts one feed row stands for (app only: "added 3 receipts to …"). [friend]: the item's
 /// group is a friend group.

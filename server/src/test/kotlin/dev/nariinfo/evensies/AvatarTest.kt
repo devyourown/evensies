@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PUT/DELETE /me/avatar and GET /users/{id}/avatar (docs/API.md "프로필 사진"). */
+/** PUT/DELETE /me/avatar and GET /users/{id}/avatar (docs/API.md "Profile photos"). */
 class AvatarTest : IntegrationTestBase() {
     private fun upload(token: String, bytes: ByteArray, field: String = "file") =
         http.upload("/me/avatar", field, "me.jpg", bytes, token, HttpMethod.PUT)

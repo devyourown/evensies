@@ -28,7 +28,7 @@ class MemberRepository(private val jdbc: JdbcClient) {
         jdbc.sql("SELECT * FROM members WHERE group_id = :g ORDER BY created_at, id").param("g", groupId).query(mapper).list()
 
     /**
-     * The abuse cap counts normal groups only: friend groups are unlimited (docs/API.md "그룹" 상한), and so are deleted
+     * The abuse cap counts normal groups only: friend groups are unlimited (docs/API.md "Groups" limits), and so are deleted
      * ones (Phase 10), so a restore is never blocked by the cap.
      */
     fun countGroupsOfUser(userId: UUID): Int = jdbc.sql(
@@ -39,7 +39,7 @@ class MemberRepository(private val jdbc: JdbcClient) {
     ).param("u", userId).query(Int::class.java).single()
 
     /**
-     * Shared groups (docs/API.md "공유 그룹"): both users have a linked member row there, removed ones included, any
+     * Shared groups (docs/API.md "Friends: shared groups"): both users have a linked member row there, removed ones included, any
      * kind. The one definition behind avatars and reminders. [activeOnly]: both rows not removed, which adding a friend
      * by userId needs (a friend group can't be left, and it shows each one's payment methods to the other).
      */
@@ -49,7 +49,7 @@ class MemberRepository(private val jdbc: JdbcClient) {
     ).param("a", a).param("b", b).query(UUID::class.java).list().filterNotNull()
 
     /**
-     * Placeholder friends of [userId] (docs/API.md "POST /friends" 상한): friend groups where they are an active member
+     * Placeholder friends of [userId] (docs/API.md "POST /friends" limits): friend groups where they are an active member
      * and the other member has no user (not yet claimed, or the friend deleted their account).
      */
     fun countPlaceholderFriends(userId: UUID): Int = jdbc.sql(

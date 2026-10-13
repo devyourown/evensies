@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Resend's bounce and complaint webhook (docs/API.md "반송"), signed the Svix way with the test secret from IntegrationTestBase. */
+/** Resend's bounce and complaint webhook (docs/API.md "Unsubscribes and bounces"), signed the Svix way with the test secret from IntegrationTestBase. */
 class EmailWebhookTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

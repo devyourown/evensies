@@ -23,7 +23,7 @@ final searchIndexProvider = FutureProvider<List<({GroupRow group, GroupState sta
   return [for (final g in groups) (group: g, state: await ref.watch(groupStateProvider(g.id).future))];
 });
 
-/// Search expenses (route `/search?group=&category=&month=`, docs/API.md 검색): descriptions, notes, comments,
+/// Search expenses (route `/search?group=&category=&month=`, docs/API.md, Search): descriptions, notes, comments,
 /// categories and amounts, across all groups or within one. [all] (`&all=1`, the web sidebar's All expenses): with
 /// nothing typed, every expense, newest first.
 class SearchScreen extends ConsumerStatefulWidget {

@@ -15,7 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Email sign-in and the account email (docs/API.md 이메일 로그인, 계정 이메일): codes, never passwords.
+/// Email sign-in and the account email (docs/API.md, Email sign-in and Account email): codes, never passwords.
 void main() {
   test('addresses are checked like the server: trimmed, lower-cased, ASCII domain, 254 at most', () {
     expect(normalizeEmail('  Anna@Example.COM '), 'anna@example.com');

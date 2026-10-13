@@ -11,7 +11,7 @@ import '../../data/images.dart';
 import '../../data/receipts.dart';
 import '../../providers.dart';
 
-/// At most this many receipts on one expense (docs/API.md 영수증, an abuse cap on the server).
+/// At most this many receipts on one expense (docs/API.md, Receipts; an abuse cap on the server).
 const maxReceipts = 10;
 
 /// Camera or library; null when dismissed. The browser has one choice, a file (a phone's browser offers its camera

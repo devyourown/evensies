@@ -23,7 +23,7 @@ import java.util.Locale
 
 /**
  * Codes are short, so every lookup of a group invite or friend code shares one bucket per client IP to make guessing
- * impractical (docs/API.md "초대 코드", "친구 코드").
+ * impractical (docs/API.md "Groups: invite codes", "Groups: friend codes").
  */
 @Component
 class CodeLookupLimiter(props: AppProperties) {
@@ -50,7 +50,7 @@ class InviteController(private val groups: GroupService, private val limiter: Co
 
     /**
      * Invite landing page for people without the app. A friend group's name ("Anna & Ben") is for exports only, so a
-     * placeholder friend's link names the person who added them (docs/API.md "친구 그룹 규칙"). [m] (Phase 10, an
+     * placeholder friend's link names the person who added them (docs/API.md "Friends: friend group rules"). [m] (Phase 10, an
      * email invite's placeholder) is passed on to both links when it is UUID-shaped, else dropped.
      */
     @GetMapping("/j/{code}")
@@ -69,7 +69,7 @@ class InviteController(private val groups: GroupService, private val limiter: Co
 }
 
 /**
- * The one landing template (`/j/` group invites, `/f/` friend codes, docs/API.md "랜딩 페이지"), in the first
+ * The one landing template (`/j/` group invites, `/f/` friend codes, docs/API.md "Landing pages"), in the first
  * `Accept-Language` language strings.json has, else English. [appLink] opens the app, [webLink] the web app.
  */
 class LandingPage(request: HttpServletRequest, private val code: String, private val appLink: String, private val webLink: String) {

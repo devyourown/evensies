@@ -20,7 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'fakes.dart';
 
 /// Home (Groups / Friends tabs), the overall card, filters and settled sections, a friend's page and settling with a
-/// friend across groups (docs/API.md 개요 화면, 친구와 한 번에 정산), through the app's router.
+/// friend across groups (docs/API.md, Overview: screens; settle up with a friend), through the app's router.
 void main() {
   late AppDatabase db;
   late FakeApi6 api;
@@ -221,7 +221,7 @@ void main() {
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     await t.runAsync(() async {
-      // A claimed placeholder friend: a second friend group with Ben (docs/API.md 친구).
+      // A claimed placeholder friend: a second friend group with Ben (docs/API.md, Friends).
       await group('g-ben-old', 'Anna & Ben P.', 'friend', 'o1', const [
         Member(id: 'o1', name: 'Anna', userId: 'u-anna'),
         Member(id: 'o2', name: 'Ben P.', userId: 'u-ben'),

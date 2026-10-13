@@ -20,9 +20,9 @@ class Groups extends Table {
   BoolColumn get simplifyDebts => boolean().withDefault(const Constant(true))();
   /// SplitSpec JSON (docs/API.md), percent or shares only.
   TextColumn get defaultSplitJson => text().nullable()();
-  /// `group` or `friend` (docs/API.md 친구): a friend group shows as a person, not in the Groups tab.
+  /// `group` or `friend` (docs/API.md, Friends): a friend group shows as a person, not in the Groups tab.
   TextColumn get kind => text().withDefault(const Constant('group'))();
-  /// Phase 10 (docs/API.md 적용 규칙 17): the group type as sent, the cover photo id, and deleted for everyone.
+  /// Phase 10 (docs/API.md rule 17): the group type as sent, the cover photo id, and deleted for everyone.
   TextColumn get type => text().withDefault(const Constant('other'))();
   TextColumn get coverImageId => text().nullable()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
@@ -57,9 +57,9 @@ class Expenses extends Table {
   BoolColumn get refund => boolean().withDefault(const Constant(false))();
   /// SplitSpec JSON (docs/API.md); null for an exact split.
   TextColumn get splitJson => text().nullable()();
-  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md 적용 규칙 13).
+  /// Deleted by a move: it counts in the other group now, so it can't be restored (docs/API.md rule 13).
   BoolColumn get moved => boolean().withDefault(const Constant(false))();
-  /// The repeating series and the number in it (docs/API.md 반복 지출); both null outside a series.
+  /// The repeating series and the number in it (docs/API.md, Recurring expenses); both null outside a series.
   TextColumn get recurrenceId => text().nullable()();
   IntColumn get occurrence => integer().nullable()();
   @override
@@ -96,7 +96,7 @@ class Payments extends Table {
   TextColumn get date => text()();
   BoolColumn get deleted => boolean().withDefault(const Constant(false))();
   TextColumn get status => text().withDefault(const Constant('confirmed'))();
-  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md 적용 규칙 7).
+  /// Deleted by an edit (`replacedBy`): never restored (docs/API.md rule 7).
   BoolColumn get replaced => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
@@ -117,7 +117,7 @@ class Comments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Receipt photos on expenses (docs/API.md 영수증, rule 14), in attach order (rowid). The files are in ReceiptFiles.
+/// Receipt photos on expenses (docs/API.md, Receipts; rule 14), in attach order (rowid). The files are in ReceiptFiles.
 @DataClassName('AttachmentRow')
 class Attachments extends Table {
   TextColumn get id => text()();
@@ -128,7 +128,7 @@ class Attachments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Repeating series (docs/API.md 반복 지출, rule 15), in creation order (rowid), stopped ones included.
+/// Repeating series (docs/API.md, Recurring expenses; rule 15), in creation order (rowid), stopped ones included.
 @DataClassName('RecurrenceRow')
 class Recurrences extends Table {
   TextColumn get id => text()();
@@ -155,7 +155,7 @@ class PendingUploads extends Table {
   Set<Column> get primaryKey => {attachmentId};
 }
 
-/// Offline cache of server activity items (docs/API.md 활동·알림); [json] is the ActivityItem as received.
+/// Offline cache of server activity items (docs/API.md, Activity and notifications); [json] is the ActivityItem as received.
 @DataClassName('ActivityRow')
 class Activity extends Table {
   TextColumn get groupId => text()();
@@ -175,7 +175,7 @@ class Outbox extends Table {
   TextColumn get payloadJson => text()();
   TextColumn get createdAt => text()();
   TextColumn get sentAt => text().nullable()();
-  /// The server's error code once the event was refused on its own (docs/API.md 거부된 이벤트): never pushed or
+  /// The server's error code once the event was refused on its own (docs/API.md, Rejected events): never pushed or
   /// applied again; the row is deleted after the user was told.
   TextColumn get rejected => text().nullable()();
   @override
@@ -207,7 +207,7 @@ class Session extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Rate tables from `GET /fx` (docs/API.md 환율), keyed by the response's `date`. [ratesJson]: units per 1 EUR.
+/// Rate tables from `GET /fx` (docs/API.md, Exchange rates), keyed by the response's `date`. [ratesJson]: units per 1 EUR.
 @DataClassName('FxDayRow')
 class FxDays extends Table {
   TextColumn get day => text()();
@@ -244,7 +244,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open()
       : super(driftDatabase(
           name: 'evensies',
-          // The browser (docs/API.md 웹 앱 데이터): both files are in app/web/, their versions match pubspec.lock
+          // The browser (docs/API.md, Web app: data): both files are in app/web/, their versions match pubspec.lock
           // (web_assets_test.dart). No COOP/COEP, so IndexedDB in a shared worker: every tab shares one database.
           // ponytail: OPFS needs cross-origin isolation, which breaks the sign-in popups.
           web: DriftWebOptions(
@@ -312,12 +312,12 @@ class AppDatabase extends _$AppDatabase {
             await delete(syncState).go();
           }
           if (from < 5) {
-            // Event shapes are unchanged (docs/API.md 호환 4단계): no replay.
+            // Event shapes are unchanged (docs/API.md, Compatibility (phase 4)): no replay.
             await m.createTable(fxDays);
             await m.addColumn(session, session.homeCurrency);
           }
           if (from < 6) {
-            // Old events carry no kind, paymentId or movedTo, and their defaults are right (docs/API.md 호환 6단계):
+            // Old events carry no kind, paymentId or movedTo, and their defaults are right (docs/API.md, Compatibility (phase 6)):
             // no replay.
             await m.addColumn(groups, groups.kind);
             // Rebuilds the table: expense_id becomes nullable. A database from before v3 got today's table above.
@@ -325,7 +325,7 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 7) {
             await m.addColumn(expenses, expenses.moved);
-            // Moves pulled by schema 6 left no flag: replay every group (docs/API.md 호환 6단계).
+            // Moves pulled by schema 6 left no flag: replay every group (docs/API.md, Compatibility (phase 6)).
             await delete(syncState).go();
           }
           if (from < 8) {
@@ -333,7 +333,7 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(pendingUploads);
             await m.addColumn(payments, payments.replaced);
             // Older code skipped attachment.* and payment.restored and read itemized splits as none: replay every
-            // group (docs/API.md 호환 7단계).
+            // group (docs/API.md, Compatibility (phase 7)).
             await delete(syncState).go();
           }
           if (from < 9) {
@@ -341,7 +341,7 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(expenses, expenses.recurrenceId);
             await m.addColumn(expenses, expenses.occurrence);
             // Older code skipped recurrence.* and dropped the series keys of expenses: replay every group
-            // (docs/API.md 호환 8단계).
+            // (docs/API.md, Compatibility (phase 8)).
             await delete(syncState).go();
           }
           if (from < 10) {
@@ -353,7 +353,7 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(session, session.email);
             await m.addColumn(session, session.emailBounced);
             // Older code skipped group.deleted / group.restored, the group type and cover, and remindDaysBefore:
-            // replay every group (docs/API.md 호환 10단계).
+            // replay every group (docs/API.md, Compatibility (phase 10)).
             await delete(syncState).go();
           }
         },
@@ -426,7 +426,7 @@ class AppDatabase extends _$AppDatabase {
   /// Pushed events belong to the server log now. Keeping them would keep a deleted comment's text on this device.
   Future<void> dropSent(List<String> clientIds) => (delete(outbox)..where((o) => o.clientId.isIn(clientIds))).go();
 
-  /// Cached feed rows of comments deleted since (docs/API.md 적용 규칙 8): their text must not stay on this device.
+  /// Cached feed rows of comments deleted since (docs/API.md rule 8): their text must not stay on this device.
   Future<void> dropDeletedCommentActivity(String groupId) => customStatement(
       "DELETE FROM activity WHERE group_id = ? AND json_extract(json, '\$.commentId') IN "
       '(SELECT id FROM comments WHERE group_id = ? AND deleted = 1)',

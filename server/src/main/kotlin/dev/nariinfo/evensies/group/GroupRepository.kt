@@ -72,7 +72,7 @@ class GroupRepository(private val jdbc: JdbcClient, private val json: ObjectMapp
         )
     }.list()
 
-    /** Group invite codes and friend codes share one namespace (docs/API.md "친구 코드"). */
+    /** Group invite codes and friend codes share one namespace (docs/API.md "Groups: friend codes"). */
     fun codeTaken(code: String): Boolean = jdbc.sql(
         "SELECT EXISTS (SELECT 1 FROM groups WHERE invite_code = :c) OR EXISTS (SELECT 1 FROM users WHERE friend_code = :c)"
     ).param("c", code).query(Boolean::class.java).single()

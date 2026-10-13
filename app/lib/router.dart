@@ -34,7 +34,7 @@ import 'providers.dart';
 /// A `next` that stays in the app: a path (`/join/K7P4QX`), never another origin (`//evil.example`, `https:`).
 String? safeNext(String? next) => next != null && next.startsWith('/') && !next.startsWith('//') ? next : null;
 
-/// Where a location goes before and after sign-in (docs/API.md 로그인 뒤 돌아가기): signed out → `/login?next=<it>`
+/// Where a location goes before and after sign-in (docs/API.md, Web app: return after sign-in): signed out → `/login?next=<it>`
 /// (a landing page's `/app/#/join/K7P4QX` too), then the name screen if needed (keeping `next`), then `next`.
 String? authRedirect(SessionRow? s, String loc, Uri uri) {
   Uri withNext(String path, String? next) =>
@@ -50,7 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Re-run redirects on any session change (sign-in, sign-out, name saved).
   final refresh = ValueNotifier<int>(0);
   ref.listen(sessionProvider, (_, _) => refresh.value++);
-  // A friend group has exactly two members, no Leave and no settings (docs/API.md 친구): an activity row or a link to
+  // A friend group has exactly two members, no Leave and no settings (docs/API.md, Friends): an activity row or a link to
   // its members or settings lands on the friend's page instead.
   Future<String?> friendPage(BuildContext _, GoRouterState s) async {
     final id = s.pathParameters['id']!;
@@ -74,7 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [GoRoute(path: 'email', builder: (_, _) => const WebColumn(child: EmailLoginScreen()))],
       ),
       GoRoute(path: '/name', builder: (_, _) => const WebColumn(child: NameScreen())),
-      // The web: wide windows put groups, friends and balances beside every page (docs/API.md 화면 배치).
+      // The web: wide windows put groups, friends and balances beside every page (docs/API.md, Web app: layout).
       if (wideLayoutPlatform)
         ShellRoute(builder: (_, state, child) => WideShell(location: state.uri, child: child), routes: [home])
       else
@@ -88,7 +88,7 @@ GoRoute _home(Future<String?> Function(BuildContext, GoRouterState) friendPage) 
         path: '/',
         builder: (_, s) => GroupsScreen(key: ValueKey(s.uri.queryParameters['tab']), tab: s.uri.queryParameters['tab']),
         routes: [
-          // Friends (docs/API.md 친구): the tab, adding one, a person's page (key = userId, g:<groupId>, m:<memberId>).
+          // Friends (docs/API.md, Friends): the tab, adding one, a person's page (key = userId, g:<groupId>, m:<memberId>).
           GoRoute(path: 'friends', redirect: (_, _) => '/?tab=friends'),
           GoRoute(path: 'friends/add', builder: (_, s) => AddFriendScreen(code: s.uri.queryParameters['code'])),
           GoRoute(

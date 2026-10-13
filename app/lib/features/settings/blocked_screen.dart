@@ -7,7 +7,7 @@ import '../../core/snack.dart';
 import '../../data/api/dto.dart';
 import '../../providers.dart';
 
-/// Settings → Blocked people (route `/settings/blocked`, docs/API.md 차단), online only: each with Unblock.
+/// Settings → Blocked people (route `/settings/blocked`, docs/API.md, Blocking), online only: each with Unblock.
 class BlockedScreen extends ConsumerStatefulWidget {
   const BlockedScreen({super.key});
   @override

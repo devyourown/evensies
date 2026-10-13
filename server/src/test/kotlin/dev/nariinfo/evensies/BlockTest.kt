@@ -7,7 +7,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Blocking someone mutes them (docs/API.md "차단"); money stays visible. */
+/** Blocking someone mutes them (docs/API.md "Blocking"); money stays visible. */
 class BlockTest : IntegrationTestBase() {
     @Autowired
     private lateinit var capture: CapturingPushSender

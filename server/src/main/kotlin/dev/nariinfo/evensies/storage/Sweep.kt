@@ -10,7 +10,7 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Daily clean-up of receipt files (docs/API.md "반복 지출" → "하루 정리", Phase 7 leftovers): uploads never attached to an
+ * Daily clean-up of receipt files (docs/API.md "Recurring expenses", daily clean-up; Phase 7 leftovers): uploads never attached to an
  * expense within 7 days go (rows first, so nothing can attach them meanwhile), and the files of deleted receipts are
  * removed again in case a crash came between the commit and the file deletion.
  * ponytail: reads every deleted row daily; limit to the last 7 days past a few hundred thousand rows.

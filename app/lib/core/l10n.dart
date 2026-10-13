@@ -19,7 +19,7 @@ extension L10nContext on BuildContext {
   AppLocalizations get l => Localizations.of<AppLocalizations>(this, AppLocalizations) ?? _en;
 }
 
-/// Each language's own name, for Settings → Language (docs/API.md 앱의 언어). Not translated.
+/// Each language's own name, for Settings → Language (docs/API.md, App language). Not translated.
 const endonyms = {
   'en': 'English',
   'ko': '한국어',
@@ -70,7 +70,7 @@ final languageProvider =
     Provider<String>((ref) => ref.watch(languageSettingProvider) ?? ref.watch(deviceLanguageProvider));
 
 /// [text] as Korean readers expect it to wrap, at spaces only (CSS `word-break: keep-all`): Flutter breaks between any
-/// two Hangul syllables ("설정|했어요"), so for `ko` a U+2060 WORD JOINER goes between a syllable and the character
+/// two Hangul syllables, even inside a word, so for `ko` a U+2060 WORD JOINER goes between a syllable and the character
 /// next to it within a word. Display only: never in text that is shared or sent. A word too long for a line still
 /// breaks. ponytail: the feed, dialogs, snackbars, the lock screen and Settings; other ARB text wraps per syllable
 /// until Flutter has keep-all.
@@ -91,7 +91,7 @@ String keepAll(String text, String lang) {
 }
 
 /// Money and dates follow [lang]: amounts in its notation; dates in the phone's region when it speaks the same language
-/// (`de_AT`), else in [lang] (docs/API.md 날짜).
+/// (`de_AT`), else in [lang] (docs/API.md, Languages and web: dates).
 void applyLanguage(String lang, List<Locale> device) {
   Money.lang = lang;
   final same = device.where((l) => l.languageCode == lang).firstOrNull;

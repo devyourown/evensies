@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile
 import java.nio.file.Files
 import java.util.UUID
 
-/** Profile photos (docs/API.md "프로필 사진"): visible to the user and to anyone sharing a group with them. */
+/** Profile photos (docs/API.md "Profile photos"): visible to the user and to anyone sharing a group with them. */
 @RestController
 class AvatarController(private val files: FileStore, private val members: MemberRepository, private val auth: AuthService) {
     /** Failed attempts count too, so a client can't probe the parser in a loop. */

@@ -1,5 +1,5 @@
 {
-  "_doc": "카테고리 규칙 테스트 케이스 (docs/API.md '카테고리', 앱 app/lib/domain/categories.dart, 분류표 shared/categories.json). fold: in → out. resolve: resolveCategory(raw) → expected(언제나 categories[]의 key). guess: guessCategory(description, history: [{description, category}] 오래된 것부터) → expected(key 또는 null). resolve는 서버도 읽는다: Categories.keyForLabel은 같은 규칙에서 마지막 'uncategorized.general' 대신 null이다. '{부모 label} - Other'(CSV의 *.other label)는 양쪽 다 그 *.other key다.",
+  "_doc": "Category rule test cases (docs/API.md 'Categories'; app app/lib/domain/categories.dart, taxonomy shared/categories.json). fold: in → out. resolve: resolveCategory(raw) → expected (always a key of categories[]). guess: guessCategory(description, history: [{description, category}] oldest first) → expected (a key or null). The server reads resolve too: Categories.keyForLabel follows the same rules but gives null instead of the final 'uncategorized.general'. '{parent label} - Other' (the CSV label of a *.other) is that *.other key on both sides.",
   "fold": [
     {"in": "Café Crème", "out": "cafe creme"},
     {"in": "Straße", "out": "strasse"},

@@ -17,7 +17,7 @@ import 'create_group_dialog.dart';
 import 'wide_layout.dart';
 
 /// Home (route `/`, `/?tab=friends`): Groups and Friends tabs, each with the overall card, the filter chips and a
-/// closed "Settled up (n)" section (docs/API.md 개요 화면).
+/// closed "Settled up (n)" section (docs/API.md, Overview: screens).
 class GroupsScreen extends ConsumerStatefulWidget {
   /// `friends` opens the Friends tab.
   final String? tab;

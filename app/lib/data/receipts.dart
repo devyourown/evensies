@@ -12,7 +12,7 @@ import 'api/api_client.dart';
 import 'blob_store.dart';
 import 'images.dart';
 
-/// Receipt photos (docs/API.md 영수증): `pending` (prepared, not uploaded yet) and `cache` (uploaded or downloaded),
+/// Receipt photos (docs/API.md, Receipts): `pending` (prepared, not uploaded yet) and `cache` (uploaded or downloaded),
 /// as `{id}.jpg` and `{id}_thumb.jpg` in a [BlobStore] (files on phones, memory in the browser). Both are this device's
 /// copies; the server keeps the photo for the group.
 class ReceiptFiles {

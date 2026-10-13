@@ -7,7 +7,7 @@ import 'package:evensies/domain/split.dart';
 
 import '../shared_json.dart';
 
-// 실행: flutter test test/hyojun
+// Run: flutter test test/domain
 void main() {
   for (final c in sharedCases('settlement-cases.json')) {
     final members = (c['members'] as List).cast<String>();
@@ -43,7 +43,7 @@ void main() {
   }
 
   group('properties', () {
-    // 무작위 멤버 3~8명, 지출 0~20개, 송금 0~20개. Random(seed) 고정이라 실패가 재현된다.
+    // Random 3–8 members, 0–20 expenses, 0–20 payments. Random(seed) is fixed, so a failure reproduces.
     final rnd = Random(42);
     (List<String>, List<ExpenseLine>, List<PaymentLine>) randomCase() {
       final n = 3 + rnd.nextInt(6);

@@ -17,8 +17,8 @@ class SplitTest {
     @TestFactory
     fun sharedSplitCases(): List<DynamicTest> = SharedJson.load("split-cases.json")["cases"].values().map { case ->
         dynamicTest(case["name"].asString()) {
-            // "pending": "hyojun" = waits for Hyojun's Dart fix (TODO(효준) in app/lib/domain/split.dart); the Kotlin port follows it.
-            assumeTrue(case["pending"] == null) { "pending: hyojun (Dart fix first, then the Kotlin port)" }
+            // "pending": "<reason>" marks a case the code doesn't pass yet; it is reported as skipped until then.
+            assumeTrue(case["pending"] == null) { "pending fixture case: ${case["pending"]?.asString()}" }
             val amount = case["amount"].asLong()
             val mode = SplitMode.valueOf(case["mode"].asString().uppercase())
             val members = case["members"].values().map { it.asString() }

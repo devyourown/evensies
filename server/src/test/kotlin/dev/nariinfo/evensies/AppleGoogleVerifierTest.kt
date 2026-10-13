@@ -36,7 +36,7 @@ class AppleGoogleVerifierTest {
     private fun token(
         iss: String = "https://accounts.google.com", aud: String = "my-client",
         exp: Instant = Instant.now().plusSeconds(600), key: RSAPrivateKey = priv, name: String? = "Anna",
-        verified: Any? = null, email: String = "a@x.io",
+        verified: Any? = null, email: String = "a@example.com",
     ): String = JWT.create().withKeyId("k1").withIssuer(iss).withAudience(aud).withSubject("sub-1")
         .withExpiresAt(exp).apply { name?.let { withClaim("name", it) } }.withClaim("email", email)
         .apply {
@@ -53,8 +53,8 @@ class AppleGoogleVerifierTest {
         assertEquals(null, verifier.verify(token()).email, "no email_verified claim")
         assertEquals(null, verifier.verify(token(verified = false)).email)
         assertEquals(null, verifier.verify(token(verified = "false")).email)
-        assertEquals("a@x.io", verifier.verify(token(verified = true)).email)
-        assertEquals("anna@icloud.com", verifier.verify(token(verified = "true", email = " Anna@iCloud.com")).email)
+        assertEquals("a@example.com", verifier.verify(token(verified = true)).email)
+        assertEquals("anna@example.com", verifier.verify(token(verified = "true", email = " Anna@Example.com")).email)
         assertEquals(null, verifier.verify(token(verified = true, email = "not-an-address")).email)
     }
 

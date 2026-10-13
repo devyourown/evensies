@@ -35,7 +35,7 @@ class _OtherTab extends ReceiptFiles {
   Future<bool> inAnotherTab(String id) async => otherTabOpen;
 }
 
-/// Receipts end to end on this device (docs/API.md 영수증): local writes, the upload before the push, the hold-back, the
+/// Receipts end to end on this device (docs/API.md, Receipts): local writes, the upload before the push, the hold-back, the
 /// files, and what a refusal removes.
 void main() {
   late AppDatabase db;

@@ -157,7 +157,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _remove(MemberRow m) async {
-    // A removed member is still a member: repeats keep their share until the latest one is edited (docs/API.md 반복 지출).
+    // A removed member is still a member: repeats keep their share until the latest one is edited (docs/API.md, Recurring expenses).
     final series = (await GroupStateStore(ref.read(dbProvider)).load(widget.groupId)).seriesWith(m.id);
     if (!mounted) return;
     final l = context.l;

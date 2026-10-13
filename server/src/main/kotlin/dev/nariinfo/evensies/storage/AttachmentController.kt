@@ -21,7 +21,7 @@ import java.nio.file.Files
 import java.util.UUID
 
 /**
- * Receipt photos (docs/API.md "영수증"): uploaded first, then attached by an `attachment.added` event. Only members
+ * Receipt photos (docs/API.md "Receipts"): uploaded first, then attached by an `attachment.added` event. Only members
  * of the group can download them. The app makes the id, so a retried upload is safe (the first write wins).
  */
 @RestController

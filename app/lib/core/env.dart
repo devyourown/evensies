@@ -14,7 +14,7 @@ abstract final class Env {
   static const devLogin = bool.fromEnvironment('DEV_LOGIN', defaultValue: false);
 
   /// Phase 11: the store app talks only to the official server; the Settings → Server field is for debug builds and
-  /// builds made with `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true` (docs/API.md 공식 서버만).
+  /// builds made with `--dart-define=EVENSIES_ALLOW_CUSTOM_SERVER=true` (docs/API.md, Official server only).
   static const allowCustomServer = kDebugMode || bool.fromEnvironment('EVENSIES_ALLOW_CUSTOM_SERVER');
 }
 

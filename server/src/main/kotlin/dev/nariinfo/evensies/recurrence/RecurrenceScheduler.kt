@@ -28,7 +28,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Adds the repeats of every series as they fall due (docs/API.md "반복 지출"): each one is an ordinary `expense.created`
+ * Adds the repeats of every series as they fall due (docs/API.md "Recurring expenses"): each one is an ordinary `expense.created`
  * by Evensies (null actor) with a derived id, so a crash, a retry or a second instance stores it once.
  */
 @Component

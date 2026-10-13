@@ -88,7 +88,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
       final page = await ref.read(apiProvider).activity(groupId: widget.groupId, limit: _pageSize);
       await _cache(page.items);
       if (!mounted || gen != _generation) return;
-      // Seen up to the newest item shown (docs/API.md 읽지 않은 활동); an empty page sends nothing.
+      // Seen up to the newest item shown (docs/API.md, Unread activity); an empty page sends nothing.
       final newest = page.items.map((i) => i.feedId ?? 0).fold(0, (a, b) => a > b ? a : b);
       if (newest > 0) ref.read(unreadProvider.notifier).seen(newest, groupId: widget.groupId);
       final cut = page.nextBefore;
@@ -200,7 +200,7 @@ class _ActivityListState extends ConsumerState<ActivityList> {
           groupId: i.groupId ?? widget.groupId!,
           showGroup: widget.groupId == null,
           // Newest first, so this is the expense's (or payment's) latest delete: the only row that offers Restore. A
-          // move counts as a delete with no Restore (it would count in both groups, docs/API.md 적용 규칙 13).
+          // move counts as a delete with no Restore (it would count in both groups, docs/API.md rule 13).
           offerRestore: switch (i.kind) {
             'expense_deleted' || 'expense_moved' =>
               i.expenseId != null && restoreOffered.add(i.expenseId!) && i.kind == 'expense_deleted',
@@ -329,7 +329,7 @@ class ActivityTile extends ConsumerWidget {
       for (final m in state?.members ?? const <Member>[])
         m.id: friend != null && m.id != group?.myMemberId && m.userId != home?.myUserId ? friend : m.name,
     };
-    // A series' row opens its latest repeat (none here: nothing to open, docs/API.md 푸시 앱).
+    // A series' row opens its latest repeat (none here: nothing to open, docs/API.md, Push notifications: app).
     final expense = item.expenseId != null
         ? state?.expense(item.expenseId!)
         : item.kind.startsWith('recurrence_') && item.recurrenceId != null
@@ -338,7 +338,7 @@ class ActivityTile extends ConsumerWidget {
     final payment = item.paymentId == null ? null : state?.payment(item.paymentId!);
     final restorable = offerRestore && item.kind == 'expense_deleted' && expense != null && expense.deleted;
     final restorableGroup = offerRestore && item.kind == 'group_deleted' && group != null && group.deleted;
-    // A deleted payment: not an edited one, and only for the payer's or receiver's user (docs/API.md 송금 되살리기).
+    // A deleted payment: not an edited one, and only for the payer's or receiver's user (docs/API.md, Recording and editing payments: restoring a deleted payment).
     final me = ref.watch(sessionProvider).value?.userId;
     final restorablePayment = offerRestore &&
         item.kind == 'payment_deleted' &&

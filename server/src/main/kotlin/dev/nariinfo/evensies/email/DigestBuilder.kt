@@ -18,7 +18,7 @@ import java.util.Locale
 /**
  * One group in a digest, in the order the email lists it. [items]: the window's feed items for the recipient (member
  * [me]), newest first, already without the recipient's own and blocked people's events. [balances]: the recipient's
- * balance per currency (empty for a deleted group); null when it can't be computed (a Hyojun function not ported yet).
+ * balance per currency (empty for a deleted group); null when it can't be computed (a money function not ported to Kotlin yet).
  */
 data class DigestGroup(
     val name: String,
@@ -30,11 +30,11 @@ data class DigestGroup(
     val friend: Boolean = false,
 )
 
-/** The email summary (docs/API.md "요약 메일"): pure, checked by server/src/test/resources/digest-cases.json. */
+/** The email summary (docs/API.md "Summary emails"): pure, checked by server/src/test/resources/digest-cases.json. */
 object DigestBuilder {
     /**
      * A group's section from its state after the whole log and the window's [items] (newest first) for member [me].
-     * Balances per currency bucket (Phase 6 port); a `NotImplementedError` (a Hyojun function whose Kotlin port hasn't
+     * Balances per currency bucket (Phase 6 port); a `NotImplementedError` (a money function whose Kotlin port hasn't
      * landed) leaves them null, so the section is left out and the lines still go.
      */
     fun group(state: GroupState, items: List<ActivityItem>, me: String): DigestGroup {

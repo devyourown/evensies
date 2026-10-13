@@ -7,7 +7,7 @@ import '../../core/snack.dart';
 import '../../data/db/database.dart';
 import '../../providers.dart';
 
-/// Settings → Deleted groups (route `/settings/deleted`, docs/API.md 그룹 삭제): groups and deleted friends (their
+/// Settings → Deleted groups (route `/settings/deleted`, docs/API.md, Group types, covers and deletion): groups and deleted friends (their
 /// non-group expenses) that any member can bring back with everything in them. Offline too.
 class DeletedGroupsScreen extends ConsumerWidget {
   const DeletedGroupsScreen({super.key});

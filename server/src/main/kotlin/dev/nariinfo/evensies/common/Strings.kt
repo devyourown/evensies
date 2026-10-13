@@ -5,7 +5,7 @@ import tools.jackson.databind.json.JsonMapper
 
 /**
  * Text the server renders per language (push, reminders, landing pages, money), from resources/strings.json, a copy of
- * shared/strings.json (docs/API.md "언어·웹"). A language without strings is English, and so is every key a language
+ * shared/strings.json (docs/API.md "Languages and web"). A language without strings is English, and so is every key a language
  * lacks (leaf by leaf).
  */
 object Strings {

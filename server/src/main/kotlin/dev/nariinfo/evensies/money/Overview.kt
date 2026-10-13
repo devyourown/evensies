@@ -3,7 +3,7 @@ package dev.nariinfo.evensies.money
 import dev.nariinfo.evensies.sync.GroupState
 
 /**
- * One group's Settle up seen by a user (docs/API.md "개요"). [personOf]: every member → person key (userId if linked;
+ * One group's Settle up seen by a user (docs/API.md "Overview"). [personOf]: every member → person key (userId if linked;
  * "g:<groupId>" for a friend group's placeholder; "m:<memberId>" otherwise). [transfers]: [Balances.transfers].
  */
 data class GroupLedger(val groupId: String, val personOf: Map<String, String>, val transfers: Map<String, List<Transfer>>) {

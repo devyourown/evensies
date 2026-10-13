@@ -14,7 +14,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Sign in with an emailed code (docs/API.md "이메일 로그인") over real HTTP; mail goes to [CapturingMailSender]. */
+/** Sign in with an emailed code (docs/API.md "Email sign-in") over real HTTP; mail goes to [CapturingMailSender]. */
 class EmailLoginTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbc: JdbcClient

@@ -20,7 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Adding friends (docs/API.md 친구): my code, a friend's code, someone not on Evensies; the code box's fallback.
+/// Adding friends (docs/API.md, Friends): my code, a friend's code, someone not on Evensies; the code box's fallback.
 void main() {
   late AppDatabase db;
   late FakeApi6 api;

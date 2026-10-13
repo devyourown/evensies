@@ -8,24 +8,28 @@ class SplitException implements Exception {
   String toString() => 'SplitException($code)';
 }
 
-/// 지출 [amount](최소 단위 정수)를 [members]에게 나눈다. 결과는 memberId → 몫.
+/// Splits the expense [amount] (an integer in minor units) between [members]. The result is memberId → share.
 ///
-/// 규칙(shared/split-cases.json이 검증):
-/// - amount < 0 → SplitException('NEGATIVE_AMOUNT'), members 비어 있음 → 'NO_MEMBERS'.
-/// - equal: amount ~/ n 씩 주고, 나머지(amount % n)는 memberId **오름차순**으로 앞에서부터 1씩 더한다
-///   (members 입력 순서가 아님: ["c","a","b"], 1001 → a 334, b 334, c 333).
-/// - exact: input[memberId]를 정수 몫으로 그대로 쓴다. 합이 amount와 다르면 'SUM_MISMATCH'.
-/// - percent: input[memberId]는 퍼센트(double). 가중치 w = (pct × 10⁶).round(), W = Σ w.
-///   |W − 10⁸| >= 1000(±0.001%)이면 'SUM_MISMATCH'. 각 몫 = amount × w ~/ W (BigInt, 실제 합으로 나누므로
-///   허용 오차 안에서 100을 넘어도 합이 금액을 넘지 않음), 남는 최소 단위는 percent > 0인 멤버에게만 memberId 오름차순 +1씩
-///   (0% 멤버는 항상 0). (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
-/// - shares: input[memberId]는 몫 개수(>= 0, 소수 가능, 없으면 0). 음수·NaN·무한 → 'INVALID_INPUT'.
-///   가중치 w = (개수 × 100).round(), W = Σ w. W == 0 → 'NO_MEMBERS'. 각 몫 = amount × w ~/ W (정수 계산),
-///   남는 최소 단위는 w > 0인 멤버에게 memberId 오름차순 +1씩. (1000, {a:2, b:1, c:0} → a 667, b 333, c 0)
-/// - adjustment: input[memberId]는 최소 단위 조정액(음수 가능, 없으면 0). 정수가 아니거나 NaN·무한 → 'INVALID_INPUT'.
-///   base = amount − Σ 조정액. base < 0 → 'NEGATIVE_SHARE'. base를 equal처럼 나눈 뒤 각자 조정액을 더하고,
-///   결과가 음수인 멤버가 있으면 'NEGATIVE_SHARE'. (1000, {b:-100} → a 367, b 267, c 366)
-/// - [members]에 없는 input 키는 무시한다. 결과의 합은 항상 amount, 결과 맵은 모든 member를 키로 가진다(0 포함).
+/// Rules (checked by shared/split-cases.json):
+/// - amount < 0 → SplitException('NEGATIVE_AMOUNT'), empty members → 'NO_MEMBERS'.
+/// - equal: amount ~/ n each, and the remainder (amount % n) adds 1 each from the front in **ascending** memberId
+///   order (not the order of members: ["c","a","b"], 1001 → a 334, b 334, c 333).
+/// - exact: input[memberId] is used as the integer share as is. A sum other than amount → 'SUM_MISMATCH'.
+/// - percent: input[memberId] is a percentage (double). Weight w = (pct × 10⁶).round(), W = Σ w.
+///   |W − 10⁸| >= 1000 (±0.001%) → 'SUM_MISMATCH'. Each share = amount × w ~/ W (BigInt; dividing by the actual sum
+///   means a total above 100 within the tolerance can't push the shares past the amount), and leftover minor units
+///   go +1 each only to members with percent > 0, memberId ascending (a 0% member always gets 0).
+///   (100, {a:33.33,b:33.33,c:33.34} → a 34, b 33, c 33)
+/// - shares: input[memberId] is a share count (>= 0, may be fractional, missing = 0). Negative, NaN or infinite →
+///   'INVALID_INPUT'. Weight w = (count × 100).round(), W = Σ w. W == 0 → 'NO_MEMBERS'. Each share = amount × w ~/ W
+///   (integer math), leftover minor units +1 each to members with w > 0, memberId ascending.
+///   (1000, {a:2, b:1, c:0} → a 667, b 333, c 0)
+/// - adjustment: input[memberId] is an adjustment in minor units (may be negative, missing = 0). Not a whole number,
+///   NaN or infinite → 'INVALID_INPUT'. base = amount − Σ adjustments. base < 0 → 'NEGATIVE_SHARE'. base is split like
+///   equal, then each member's adjustment is added; any member left negative → 'NEGATIVE_SHARE'.
+///   (1000, {b:-100} → a 367, b 267, c 366)
+/// - input keys not in [members] are ignored. The result always sums to amount and has every member as a key
+///   (0 included).
 Map<String, int> computeSplit({
   required int amount,
   required SplitMode mode,

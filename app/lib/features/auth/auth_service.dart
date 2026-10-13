@@ -31,12 +31,12 @@ class AuthService {
 
   Future<void> dev(String name) async => _store(await ref.read(apiProvider).authDev(name));
 
-  /// Sends a sign-in code to [email] (docs/API.md 이메일 로그인); [emailVerify] signs in with it.
+  /// Sends a sign-in code to [email] (docs/API.md, Email sign-in); [emailVerify] signs in with it.
   Future<void> emailStart(String email) => ref.read(apiProvider).emailStart(email);
   Future<void> emailVerify(String email, String code) async =>
       _store(await ref.read(apiProvider).emailVerify(email, code));
 
-  /// GET /me into the saved session (docs/API.md 새로 고침), at launch and on resume: a name or home currency changed
+  /// GET /me into the saved session (docs/API.md, Authentication: refresh), at launch and on resume: a name or home currency changed
   /// on another phone shows without signing in again. Offline, 5xx and 429 keep the saved values; a 401 the refresh
   /// can't fix signs out in ApiClient, as everywhere.
   Future<void> refreshMe() async {
@@ -107,7 +107,7 @@ class AuthService {
     }, onError: (Object x) => onError(x));
   }
 
-  /// prefs: the language this device last sent with `PATCH /me` (docs/API.md 앱의 언어); cleared on sign-out.
+  /// prefs: the language this device last sent with `PATCH /me` (docs/API.md, App language); cleared on sign-out.
   static const sentLanguageKey = 'sentLanguage';
 
   /// Tells the server [lang] (push and reminders are written in it) unless this device already did. Failures (offline,
@@ -163,7 +163,7 @@ class AuthService {
       kIsWeb || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS;
 }
 
-/// `GET /info` (docs/API.md 9·10단계): which sign-in buttons the login screen shows, whether this server sends email
+/// `GET /info` (docs/API.md, Authentication and Endpoints): which sign-in buttons the login screen shows, whether this server sends email
 /// (the app hides every email feature otherwise) and its support address. The last answer per server is kept, so an
 /// offline launch shows what the server had; with none (or a server before Phase 9: 401) [ServerInfo.fallback]. Read
 /// again at every resume (`invalidate`).

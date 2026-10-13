@@ -40,7 +40,7 @@ Future<ItemizedBill?> showItemize(
     ));
 
 /// Lines with prices and the people on each; tax, tip and a discount spread by subtotal; live per-person totals
-/// (docs/API.md 항목별 분할).
+/// (docs/API.md, Itemized split).
 class ItemizeScreen extends StatefulWidget {
   final List<MemberRow> members;
   final String currency;

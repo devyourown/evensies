@@ -7,8 +7,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Phase 7 event changes over real HTTP besides receipts: `payment.restored` and `payment.deleted.replacedBy` (적용 규칙
- * 7, parity #110) and SplitSpec mode `itemized` (docs/API.md "SplitSpec", "결제자·분할·그룹 설정 검증").
+ * Phase 7 event changes over real HTTP besides receipts: `payment.restored` and `payment.deleted.replacedBy` (rule
+ * 7, parity #110) and SplitSpec mode `itemized` (docs/API.md "SplitSpec", "Payer, split and group settings validation").
  */
 class PaymentRestoreAndItemizedTest : IntegrationTestBase() {
     /** Anna's group with Ben and Carla. */

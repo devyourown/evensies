@@ -66,7 +66,7 @@ void main() {
   });
 
   group('approxIn', () {
-    // Not Hyojun's rounding: a stand-in so the sum and the hiding rules are tested apart from convertAmount.
+    // Not the real rounding (domain/fx.dart): a stand-in so the sum and the hiding rules are tested apart from convertAmount.
     int conv({required int amount, required int fromDecimals, required int toDecimals, required double rate}) =>
         (amount * rate * [1, 10, 100][toDecimals] / [1, 10, 100][fromDecimals]).round();
     const perEur = {'EUR': 1.0, 'USD': 1.25, 'JPY': 125.0};

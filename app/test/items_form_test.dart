@@ -25,7 +25,7 @@ import 'fakes.dart';
 /// A 1×1 PNG: what the receipt photo files hold here (Image.file must be able to read them).
 final _png = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
 
-/// The expense form's Items mode and receipts (docs/API.md 항목별 분할, 영수증).
+/// The expense form's Items mode and receipts (docs/API.md, Itemized split and Receipts).
 void main() {
   late AppDatabase db;
   late SharedPreferences prefs;

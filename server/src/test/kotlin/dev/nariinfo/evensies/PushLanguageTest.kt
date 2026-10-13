@@ -7,8 +7,8 @@ import java.util.UUID
 import kotlin.test.assertEquals
 
 /**
- * Phase 9: visible push bodies, batch sentences and reminders in each recipient's `users.language` (docs/API.md "푸시",
- * "리마인더"); null and languages strings.json lacks are English. Tests run with `evensies.push.batch-seconds=1`.
+ * Phase 9: visible push bodies, batch sentences and reminders in each recipient's `users.language` (docs/API.md "Push notifications",
+ * "Reminders"); null and languages strings.json lacks are English. Tests run with `evensies.push.batch-seconds=1`.
  */
 class PushLanguageTest : IntegrationTestBase() {
     @Autowired

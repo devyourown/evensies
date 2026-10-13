@@ -110,7 +110,7 @@ class ActivityCasesTest {
         }
     }
 
-    /** Push title/body clipping (docs/API.md "푸시"): "…" counts toward the limit and a surrogate pair is never split. */
+    /** Push title/body clipping (docs/API.md "Push notifications"): "…" counts toward the limit and a surrogate pair is never split. */
     @Test
     fun clip() {
         assertEquals("abc", "abc".clip(3))

@@ -9,7 +9,7 @@ import 'strings.dart';
 abstract final class Money {
   static Map<String, int> decimals = const {};
 
-  /// Codes with their own symbol (docs/API.md 금액 표기); a code without one shows the ISO code.
+  /// Codes with their own symbol (docs/API.md, Money notation); a code without one shows the ISO code.
   static Map<String, String>? symbols;
 
   /// English names (`names` in the JSON, e.g. JPY → Japanese yen) for the picker's search; null when it has none.
@@ -25,7 +25,7 @@ abstract final class Money {
     names = (j['names'] as Map?)?.cast<String, String>();
   }
 
-  /// The language amounts are written in (the UI language; docs/API.md 금액 표기).
+  /// The language amounts are written in (the UI language; docs/API.md, Money notation).
   static String lang = 'en';
 
   static int digits(String currency) => decimals[currency] ?? 2;
@@ -41,7 +41,7 @@ abstract final class Money {
   }
 }
 
-/// M(x) (docs/API.md 금액 표기): |minor| split at the currency's decimals and grouped by 3, with the language's group
+/// M(x) (docs/API.md, Money notation): |minor| split at the currency's decimals and grouped by 3, with the language's group
 /// and decimal characters, placed in its pattern with the symbol (language's, else the shared table's, else the ISO
 /// code): `€1,234.56` (en), `1.234,56 €` (de), `CHF 12.50` (U+00A0 after a symbol ending in a Latin letter). A
 /// negative amount (a refund in Insights) starts with a minus sign `−€48.00`, as the rest of the app writes one.
@@ -78,7 +78,7 @@ bool _endsLatin(String s) {
 /// The language's decimal character (`.` in en, `,` in de).
 String decimalMark([String? lang]) => Strings.lookup(lang ?? Money.lang, const ['money', 'decimal']) as String? ?? '.';
 
-/// What a person typed → minor units, or null (docs/API.md 금액 입력): `12,50` is €12.50 in de, `1,234` is ₩1,234,
+/// What a person typed → minor units, or null (docs/API.md, Amount input): `12,50` is €12.50 in de, `1,234` is ₩1,234,
 /// `12.345` is €12,345.00 in de but null in en. The last separator is the decimal mark when it is the language's or
 /// isn't followed by exactly 3 digits; otherwise it groups.
 int? parseMoney(String text, String currency, {String? lang}) {

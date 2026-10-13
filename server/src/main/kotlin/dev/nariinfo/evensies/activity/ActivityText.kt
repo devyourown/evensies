@@ -5,7 +5,7 @@ import dev.nariinfo.evensies.export.Categories
 import dev.nariinfo.evensies.money.Money
 
 /**
- * Feed sentences and push batch text (docs/API.md "문장", "문장 만들기"), rendered per language from strings.json, the
+ * Feed sentences and push batch text (docs/API.md "Activity sentences", "Building sentences"), rendered per language from strings.json, the
  * only place the server renders activity words. [names] maps member id → name; [me] is the viewer's member id; [lang]
  * a language code (one strings.json lacks renders English).
  */
@@ -34,7 +34,7 @@ object ActivityText {
         fun groupType(type: String?) = type?.let { Strings.get(lang, "words", "groupType", it) } ?: s("words", "groupType", "other")
     }
 
-    /** The member a kind is about (`self` variant) and the one it is done to (`you` variant), docs/API.md "문장 만들기" 2. */
+    /** The member a kind is about (`self` variant) and the one it is done to (`you` variant), docs/API.md "Building sentences" 2. */
     private fun subject(i: ActivityItem) = when (i.kind) {
         "member_joined", "member_left" -> i.memberId
         "payment_added" -> i.fromMember
@@ -145,7 +145,7 @@ object ActivityText {
     }
 
     /**
-     * Reminder push (docs/API.md "리마인더") in the recipient's [lang]: [amounts] currency → minor units, sorted by
+     * Reminder push (docs/API.md "Reminders") in the recipient's [lang]: [amounts] currency → minor units, sorted by
      * currency; [from] the sender's name (blank: `words.someone`, upper-cased only at the start).
      */
     fun reminder(from: String, amounts: List<Pair<String, Long>>, lang: String = "en"): Pair<String, String> {

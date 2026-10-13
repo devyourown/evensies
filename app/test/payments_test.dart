@@ -21,7 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fakes.dart';
 
-/// Record any payment, edit it (delete + create), its detail with comments (docs/API.md 송금 기록·편집).
+/// Record any payment, edit it (delete + create), its detail with comments (docs/API.md, Recording and editing payments).
 void main() {
   late AppDatabase db;
   late NoSync sync;

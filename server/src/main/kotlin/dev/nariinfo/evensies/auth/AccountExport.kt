@@ -31,7 +31,7 @@ data class AccountExport(
 )
 
 /**
- * "Export everything" (docs/API.md "계정 내보내기"): one JSON with the profile, payment methods, settings and a snapshot of
+ * "Export everything" (docs/API.md "Endpoints", `GET /me/export`): one JSON with the profile, payment methods, settings and a snapshot of
  * every group the user is an active member of, deleted ones included. Receipt images come with the per-group ZIP.
  */
 @RestController

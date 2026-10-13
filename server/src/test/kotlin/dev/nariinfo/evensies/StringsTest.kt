@@ -61,7 +61,7 @@ class StringsTest {
         }
     }
 
-    /** docs/API.md "카테고리": the `en` names are categories.json's labels (parents and categories). */
+    /** docs/API.md "Categories": the `en` names are categories.json's labels (parents and categories). */
     @Test
     fun englishCategoriesAreTheLabels() {
         val json = SharedJson.load("categories.json")

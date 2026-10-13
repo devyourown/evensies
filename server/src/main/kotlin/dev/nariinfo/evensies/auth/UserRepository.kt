@@ -69,7 +69,7 @@ class UserRepository(private val jdbc: JdbcClient) {
         jdbc.sql("SELECT * FROM users WHERE email = :e AND deleted_at IS NULL").param("e", email).query(mapper).optional().orElse(null)
 
     /**
-     * An Apple/Google address (docs/API.md "계정 이메일"): stored only while the account has none, never had one removed
+     * An Apple/Google address (docs/API.md "Account email"): stored only while the account has none, never had one removed
      * (DELETE /me/email), and no other active account holds it; a unique-index race is ignored, so accounts are never
      * merged. Returns the user after.
      */

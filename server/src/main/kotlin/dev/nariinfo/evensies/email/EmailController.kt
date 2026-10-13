@@ -29,7 +29,7 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Unsubscribe links and Resend's bounce webhook (docs/API.md "수신 거부", "반송"), both public. GET only shows a page
+ * Unsubscribe links and Resend's bounce webhook (docs/API.md "Unsubscribes and bounces"), both public. GET only shows a page
  * with one button, because link scanners prefetch; POST (the button, or a mail app's RFC 8058 one-click) applies it.
  */
 @RestController

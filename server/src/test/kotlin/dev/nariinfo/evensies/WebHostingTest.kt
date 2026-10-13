@@ -13,7 +13,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The web app at /app/ (docs/API.md "웹 앱"), served from static/app/ (here the test stand-ins in src/test/resources),
+ * The web app at /app/ (docs/API.md "Web app"), served from static/app/ (here the test stand-ins in src/test/resources),
  * the CSP on every response, and GET /info without sign-in settings. No CORS origins are configured in this context.
  */
 class WebHostingTest : IntegrationTestBase() {

@@ -16,7 +16,7 @@ import '../group_detail/balances.dart';
 import 'create_group_dialog.dart';
 import 'groups_screen.dart' show OverallCard;
 
-/// Wide windows of the web app get Splitwise's three columns (docs/API.md 화면 배치): groups and friends on the left,
+/// Wide windows of the web app get Splitwise's three columns (docs/API.md, Web app: layout): groups and friends on the left,
 /// the page in the middle, the balances of the group or friend on the right. Phones and windows under 1024 px keep
 /// the one column.
 const wideBreakpoint = 1024.0;
@@ -428,7 +428,7 @@ class WideDashboard extends ConsumerWidget {
   }
 }
 
-/// The web app's one 640 px column with `surfaceContainerLow` around it (docs/API.md 화면 배치): the sign-in pages
+/// The web app's one 640 px column with `surfaceContainerLow` around it (docs/API.md, Web app: layout): the sign-in pages
 /// always, every page in windows under [wideBreakpoint] ([wide] false). Phones: [child] as is. The same widgets in
 /// both cases, so crossing the breakpoint keeps the pages' state.
 class WebColumn extends StatelessWidget {

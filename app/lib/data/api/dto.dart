@@ -35,7 +35,7 @@ class UserDto {
       emailBounced: j['emailBounced'] == true);
 }
 
-/// `GET /info` (docs/API.md 9단계, 10단계): the sign-in buttons and whether this server sends email. Offline or a
+/// `GET /info` (docs/API.md, Authentication and Endpoints): the sign-in buttons and whether this server sends email. Offline or a
 /// server before Phase 10: [fallback] (no email, Apple and Google as built in).
 class ServerInfo {
   final String? appleServicesId, googleWebClientId;
@@ -64,7 +64,7 @@ class ServerInfo {
       supportEmail: switch (j['supportEmail']) { final String s when s.isNotEmpty => s, _ => null });
 }
 
-/// `GET /fx` (docs/API.md 환율): [rates] = units per 1 EUR; [date] = the latest quote date in it.
+/// `GET /fx` (docs/API.md, Exchange rates): [rates] = units per 1 EUR; [date] = the latest quote date in it.
 class FxTable {
   final String date;
   final Map<String, double> rates;
@@ -227,10 +227,10 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// `GET /me/friend-code` (docs/API.md 친구).
+/// `GET /me/friend-code` (docs/API.md, Friends).
 typedef FriendCode = ({String friendCode, String link});
 
-/// `GET /activity/unread` (docs/API.md 읽지 않은 활동): groupId → count, zeros left out.
+/// `GET /activity/unread` (docs/API.md, Unread activity): groupId → count, zeros left out.
 class ActivityUnread {
   final int total;
   final Map<String, int> groups;

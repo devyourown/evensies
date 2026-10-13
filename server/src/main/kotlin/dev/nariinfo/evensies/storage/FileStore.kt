@@ -8,7 +8,7 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 
 /**
- * Uploaded files under `EVENSIES_STORAGE_DIR` (docs/API.md "프로필 사진"). Keys are built only from UUIDs Spring has
+ * Uploaded files under `EVENSIES_STORAGE_DIR` (docs/API.md "Profile photos"). Keys are built only from UUIDs Spring has
  * already parsed (`avatars/{userId}.jpg`; Phase 7 `attachments/…`, Phase 10 `covers/…`), so no path traversal.
  * ponytail: local disk only; move to S3-compatible storage (proposed with its cost) when the disk passes about 70%.
  */

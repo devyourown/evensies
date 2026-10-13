@@ -29,7 +29,7 @@ data class EmailRequest(val email: String? = null)
 data class EmailCodeRequest(val email: String? = null, val code: String? = null)
 
 /**
- * Sign in with an emailed code and the account address (docs/API.md "이메일 로그인", "계정 이메일"). There are no
+ * Sign in with an emailed code and the account address (docs/API.md "Email sign-in", "Account email"). There are no
  * passwords. A code: 6 digits from SecureRandom, 10 minutes, 5 attempts, single use; a new one replaces the old.
  */
 @Service
