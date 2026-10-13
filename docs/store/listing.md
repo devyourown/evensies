@@ -35,7 +35,7 @@ ANY CURRENCY
 
 GROUPS AND FRIENDS
 • Groups for a trip, a home, a couple or anything else, with a cover photo
-• Invite by link, code, QR code or email; add friends who haven't installed the app yet as placeholders, and they claim their name later
+• Invite by link, code or QR code; add friends who haven't installed the app yet as placeholders, and they claim their name later
 • Friends: expenses between two people outside any group, and one balance per person across everything you share
 • Remind a friend to pay; block or report someone if you need to
 • Delete a group and restore it later, with everything in it
@@ -52,7 +52,6 @@ STAY IN THE LOOP
 • Comments on expenses and payments, notes and the full edit history
 • Restore a deleted expense or payment
 • Categories with icons, guessed from the description; search across all expenses; charts by month, category and person
-• An email summary (daily, weekly or monthly) if you'd rather not get push
 
 YOUR WAY
 • Works offline: add expenses without signal; they sync when you are back and conflicts are resolved field by field
@@ -60,7 +59,7 @@ YOUR WAY
 • A home-screen widget with your overall balance
 • App lock with Face ID or Touch ID
 • The same account in your browser with the web app
-• Sign in with Apple, Google or a code sent to your email; sign out on all devices; delete your account in Settings
+• Sign in with Apple or Google; sign out on all devices; delete your account in Settings
 • Export a group as JSON, CSV or a ZIP with its receipts, or everything as one JSON file; import a Splitwise CSV
 
 OUR PROMISES
@@ -89,12 +88,12 @@ App Store Connect shows this field only from the second version; Google Play use
 First release.
 • Six ways to split, several payers, refunds
 • Any currency with daily exchange rates
-• Groups, friends, invites by link, code, QR or email
+• Groups, friends, invites by link, code or QR
 • Settle up with PayPal, Wise, Venmo, Revolut, KakaoPay, UPI or bank transfer
 • Receipt photos and scanning, repeating expenses
 • Activity, push, comments, categories, search, charts
 • Offline, 13 languages, web app, widget, app lock
-• Sign in with Apple, Google or email; export everything
+• Sign in with Apple or Google; export everything
 
 ### URLs
 - Support URL: https://devyourown.github.io/evensies/ (support email and GitHub issues)
@@ -173,7 +172,7 @@ Evensies splits shared costs with friends, roommates, partners and travel compan
 
 <b>Groups and friends</b>
 • Groups for a trip, a home, a couple or anything else, with a cover photo
-• Invite by link, code, QR code or email; add friends who haven't installed the app yet as placeholders, and they claim their name later
+• Invite by link, code or QR code; add friends who haven't installed the app yet as placeholders, and they claim their name later
 • Friends: expenses between two people outside any group, and one balance per person across everything you share
 • Remind a friend to pay; block or report someone if you need to
 • Delete a group and restore it later, with everything in it
@@ -190,7 +189,6 @@ Evensies splits shared costs with friends, roommates, partners and travel compan
 • Comments on expenses and payments, notes and the full edit history
 • Restore a deleted expense or payment
 • Categories with icons, guessed from the description; search across all expenses; charts by month, category and person
-• An email summary (daily, weekly or monthly) if you'd rather not get push
 
 <b>Your way</b>
 • Works offline: add expenses without signal; they sync when you are back and conflicts are resolved field by field
@@ -198,7 +196,7 @@ Evensies splits shared costs with friends, roommates, partners and travel compan
 • A home-screen widget with your overall balance
 • App lock with your fingerprint, face or device passcode
 • The same account in your browser with the web app
-• Sign in with Google, Apple or a code sent to your email; sign out on all devices; delete your account in Settings
+• Sign in with Google or Apple; sign out on all devices; delete your account in Settings
 • Export a group as JSON, CSV or a ZIP with its receipts, or everything as one JSON file; import a Splitwise CSV
 
 <b>Our promises</b>
@@ -260,7 +258,7 @@ Security practices: data encrypted in transit; users can request deletion; no in
 - Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server ([docs/API.md, Official server](../API.md#official-server-app-only)).
 - The privacy policy is published at the Privacy Policy URL (GitHub Pages from `docs/`).
 - Set `EVENSIES_REVIEW_LOGIN_USERNAME` and `EVENSIES_REVIEW_LOGIN_PASSWORD` (the password at least 20 characters) on the server and restart; `GET /info` must say `"reviewLogin": true` before the same values go into Play Console (App access) and App Store Connect (App Review Information). Reviewers come back for every update, so leave it on. To rotate: first sign in with Demo sign-in and use Settings → Sign out on all devices (or Delete account), then change the values on the server and in both consoles; a changed password doesn't end old sessions by itself. Turning it off (clearing both and restarting) ends them ([docs/API.md, Review sign-in](../API.md#review-sign-in)).
-- Email is off at launch (no `EVENSIES_SMTP_HOST`): the app hides email sign-in, summaries and email invites. Turning it on later needs no app update; update the review notes and the processors line then.
+- Email is off at launch (no `EVENSIES_SMTP_HOST`): the app hides email sign-in, summaries and email invites, so the descriptions and What's New don't mention them. Turning it on later needs no app update; add them back to the descriptions and update the review notes and the processors line then.
 
 ## Notes on the screenshots
 Captured 2026-10-11 from a debug build of release 1 (before Phases 1–11); retake at release, adding at least receipt scanning or Items, pay links on Settle up and the Friends tab.
