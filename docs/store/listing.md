@@ -97,9 +97,9 @@ First release.
 • Sign in with Apple, Google or email; export everything
 
 ### URLs
-- Support URL: https://github.com/devyourown/evensies/issues
+- Support URL: https://devyourown.github.io/evensies/ (support email and GitHub issues)
 - Marketing URL: https://github.com/devyourown/evensies
-- Privacy Policy URL: https://devyourown.github.io/evensies/privacy (placeholder — publish `docs/privacy.md` here before submission)
+- Privacy Policy URL: https://devyourown.github.io/evensies/privacy
 
 ### Category
 - Primary: Finance
@@ -126,13 +126,13 @@ Derived from `docs/privacy.md`. Everything is used for **App Functionality** onl
 | Diagnostics | No | No crash reporting or analytics SDK; Apple Vision reads receipts on the phone. Server logs (IP address, path, timestamp) are kept 14 days for abuse prevention only |
 
 - Tracking: **No** — no advertising, no analytics SDKs, no data brokers.
-- Processors: Apple and Google (sign-in), Firebase Cloud Messaging (push delivery), Resend (email delivery), Hetzner (server, Germany).
+- Processors: Apple and Google (sign-in), Firebase Cloud Messaging (push delivery), Hetzner (server, Germany). An email provider joins only when the official server turns email on (it is off at launch; the label already covers email addresses).
 - Data deletion: Settings → Delete account, in the app or the web app (name, email, ways to get paid, profile photo, settings and blocks removed; expenses stay as a placeholder so other members' balances remain correct).
 
 ### Review notes for Apple
 Evensies is a group expense-splitting app. Backend: `https://evensies.nariinfo.dev` (EU, Hetzner). Source code: https://github.com/devyourown/evensies.
 
-Sign-in: "Continue with Apple" with any Apple ID (Hide My Email is fine), or "Continue with email" with any inbox you can read (a 6-digit code arrives; no password). No demo account is needed; the first sign-in creates the account and asks for a display name.
+Sign-in: "Continue with Apple" with any Apple ID (Hide My Email is fine), or "Continue with Google" with any Google account. No demo account is needed; the first sign-in creates the account and asks for a display name.
 
 How to test:
 1. On the Groups screen tap the group icon (top right) → "New group", give it a name, a type and a currency (a cover photo can be added in the group's settings).
@@ -226,7 +226,7 @@ Finance (Tags: expense tracker, travel)
 No violence, sexuality, language, controlled substances or gambling. Users interact: group members see each other's names, photos, expenses and comments, and can block and report each other. No digital purchases. No location sharing. Expected rating: Everyone / PEGI 3, with the "Users Interact" notice.
 
 ### Data safety
-- Does the app collect or share user data? **Collects: yes. Shares: no** (sign-in providers, Firebase Cloud Messaging and Resend process data on our behalf).
+- Does the app collect or share user data? **Collects: yes. Shares: no** (sign-in providers and Firebase Cloud Messaging process data on our behalf).
 - Is all user data encrypted in transit? **Yes** (HTTPS).
 - Can users request deletion? **Yes** — Settings → Delete account in the app or in the web app (`https://evensies.nariinfo.dev/app/`), or by email (privacy policy). Use the web app for Play's "delete account" URL.
 
@@ -252,7 +252,8 @@ Security practices: data encrypted in transit; users can request deletion; no in
 - Retake the screenshots (below) on the current app; the listing describes features the old ones don't show.
 - Set `EVENSIES_SUPPORT_EMAIL=support@nariinfo.dev` on the server, or Report… is hidden (Apple's guideline 1.2 asks for a way to report people).
 - Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server ([docs/API.md, Official server](../API.md#official-server-app-only)).
-- Publish `docs/privacy.md` at the Privacy Policy URL.
+- The privacy policy is published at the Privacy Policy URL (GitHub Pages from `docs/`).
+- Email is off at launch (no `EVENSIES_SMTP_HOST`): the app hides email sign-in, summaries and email invites. Turning it on later needs no app update; update the review notes and the processors line then.
 
 ## Notes on the screenshots
 Captured 2026-10-11 from a debug build of release 1 (before Phases 1–11); retake at release, adding at least receipt scanning or Items, pay links on Settle up and the Friends tab.
