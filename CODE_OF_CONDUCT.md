@@ -6,7 +6,7 @@ In short: be kind and patient, assume good intent, welcome people of every backg
 
 ## Reporting
 
-If someone's behaviour worries you, report it privately to the maintainer, [@devyourown](https://github.com/devyourown): open an issue that says only that you'd like to make a private report (no details), and the maintainer will get in touch to arrange a private channel.
+If someone's behaviour worries you, report it privately to the maintainer, [@devyourown](https://github.com/devyourown), by email at [support@nariinfo.dev](mailto:support@nariinfo.dev).
 
 Reports are kept confidential. For content that breaks GitHub's own rules you can also use GitHub's "Report content" option.
 

@@ -4,7 +4,7 @@ permalink: /privacy
 ---
 # Privacy Policy (draft — review before store submission)
 
-**Who:** Nari Information (Hyojun Lee), Republic of Korea. Contact: the support address shown in the app under Settings → Help & feedback → Email support, or [@devyourown on GitHub](https://github.com/devyourown).
+**Who:** Nari Information (Hyojun Lee), Republic of Korea. Contact: [support@nariinfo.dev](mailto:support@nariinfo.dev) (also in the app under Settings → Help & feedback → Email support), or [@devyourown on GitHub](https://github.com/devyourown).
 
 **What we store:** your display name and the identifier your sign-in provider (Apple or Google) gives us; the groups, members, expenses and payments you and your group enter; the app language you use, so notifications arrive in it; a push-notification token for your device if you allow notifications; server logs (IP address, request path, timestamp) kept for 14 days for abuse prevention.
 

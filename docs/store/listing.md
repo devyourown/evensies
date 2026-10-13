@@ -250,7 +250,7 @@ Security practices: data encrypted in transit; users can request deletion; no in
 
 ## Before submission
 - Retake the screenshots (below) on the current app; the listing describes features the old ones don't show.
-- Set `EVENSIES_SUPPORT_EMAIL` on the server, or Report… is hidden (Apple's guideline 1.2 asks for a way to report people).
+- Set `EVENSIES_SUPPORT_EMAIL=support@nariinfo.dev` on the server, or Report… is hidden (Apple's guideline 1.2 asks for a way to report people).
 - Store builds pass no `--dart-define`, so they have no Server field and talk only to the official server ([docs/API.md, Official server](../API.md#official-server-app-only)).
 - Publish `docs/privacy.md` at the Privacy Policy URL.
 

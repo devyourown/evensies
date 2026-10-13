@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Ask a question
+    url: https://github.com/devyourown/evensies/discussions
+    about: Questions and ideas go to Discussions.
   - name: Report a security vulnerability
     url: https://github.com/devyourown/evensies/security/advisories/new
     about: Please report security problems privately, not in a public issue.

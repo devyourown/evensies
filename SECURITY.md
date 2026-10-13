@@ -6,6 +6,8 @@ Please report security problems privately, not in a public issue, pull request o
 
 **[Report a vulnerability](https://github.com/devyourown/evensies/security/advisories/new)** (GitHub private vulnerability reporting)
 
+If you can't use GitHub, email [support@nariinfo.dev](mailto:support@nariinfo.dev) with "Security" in the subject.
+
 Only you and the maintainer can see the report. Please include:
 
 - what is affected: the server, the iOS, Android or web app, or the deployment files;
