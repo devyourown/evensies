@@ -38,7 +38,9 @@ class ReceiptDraft {
 
 /// Words on receipts in EN, IT, DE, FR, ES, NL, PT, SV, PL, ID, KO, JA and TH, folded (lowercase, no accents). Latin
 /// ones match whole words of the folded row; Hangul, kana, kanji and Thai ones anywhere in the row with its spaces
-/// removed (those scripts don't space words, and receipts space letters out: "합 계").
+/// removed (Japanese and Thai don't space words, and receipts space letters out: "합 계", "부 가 세").
+/// ponytail: so they also match inside item names ("포토카드", "모카 드립" → 카드; "라면 소 계란추가" → 소계), which drop
+/// out and show as a difference on the Itemize screen; join only runs of one-letter tokens if that bites.
 const _keywords = <String, List<String>>{
   'subtotal': [
     'subtotal', 'sub total', 'sub-total', 'subtotale', 'zwischensumme', 'sous-total', 'sous total', 'subtotaal',
@@ -49,8 +51,10 @@ const _keywords = <String, List<String>>{
     'total', 'totale', 'grand total', 'amount due', 'balance due', 'gesamt', 'summe', 'zu zahlen', 'gesamtbetrag',
     'total ttc', 'a payer', 'net a payer', 'importe', 'a pagar', 'totaal', 'te betalen', 'totalt', 'att betala',
     'summa', 'suma', 'razem', 'do zaplaty', 'jumlah', 'total bayar', '합계', '총액', '총금액', '결제금액', '받을금액',
-    '청구금액', '合計', '総計', 'お会計', 'ご請求額',
-    'รวม', // ponytail: also in dish names ("รวมมิตร", mixed), which then drop out; whole Thai total words if that bites
+    '청구금액', '合計', '総計', 'お会計', 'ご請求額', 'สุทธิ',
+    // ponytail: also in dish names ("รวมมิตร", mixed), which drop out, or are the total when the real total row has no
+    // word listed here; whole Thai total words if that bites.
+    'รวม',
   ],
   'tax': [
     'tax', 'sales tax', 'vat', 'iva', 'imposta', 'mwst', 'ust', 'steuer', 'tva', 'impuesto', 'imposto', 'btw', 'moms',
@@ -87,23 +91,23 @@ String _words(String s) => ' ${fold(s).replaceAll(RegExp(r'[^\p{L}\p{M}]+', unic
 /// space, only with a fraction: "1 234,50"; without one "2 450" is a quantity and a price), a fraction of exactly
 /// [decimals] digits (required when there are decimals, never present otherwise; the separator before it is the
 /// decimal mark), an optional `-` (negative), then an optional VAT letter, `*` or currency (`원`, `円`), then an optional
-/// Japanese reduced-rate mark (`※`, `軽`).
+/// Japanese mark (`※`, `軽` reduced rate; `外`, `内` tax excluded or included). A leading `▲` or `△` is a minus too.
 RegExp _priceRe(int decimals) {
-  const cur = r"(?:(?<![A-Za-z])(?:[A-Z]{3}|Rp|kr|zł)|[€$£¥￥₩₹₺¢])";
+  const cur = r"(?:(?<![A-Za-z])(?:[A-Z]{3}|Rp|kr|zł)|[€$£¥￥₩￦₹₺¢])";
   final group = decimals > 0 ? "[.,' ]" : "[.,']";
   final frac = decimals > 0 ? '[.,](\\d{$decimals})' : '';
   // Not inside a word or another number ("03-1234-5678", "14:32", "2026/10/11").
   return RegExp(
-    '(?<![\\w.,\'/:-])(?:(-)\\s?)?(?:$cur\\s?)?(\\d{1,3}(?:$group\\d{3})+|\\d+)$frac(-)?'
-    r"(?:\s?(?:[A-Z]{3}|[€$£¥₩円원*]|[A-Z]))?(?:\s?[※軽]{1,2})?\s*$",
+    '(?<![\\w.,\'/:-])(?:([-▲△])\\s?)?(?:$cur\\s?)?(\\d{1,3}(?:$group\\d{3})+|\\d+)$frac(-)?'
+    r"(?:\s?(?:[A-Z]{3}|[€$£¥₩円원*]|[A-Z]))?(?:\s?[※軽外内]{1,2})?\s*$",
     unicode: true,
   );
 }
 
 /// Signs that name one currency ($ and kr are several; ¥ is read as JPY, the one travellers meet most).
 const _signs = {
-  '€': 'EUR', '£': 'GBP', '¥': 'JPY', '￥': 'JPY', '円': 'JPY', '₩': 'KRW', '원': 'KRW', '₹': 'INR', '₺': 'TRY',
-  'zł': 'PLN', 'Rp': 'IDR',
+  '€': 'EUR', '£': 'GBP', '¥': 'JPY', '￥': 'JPY', '円': 'JPY', '₩': 'KRW', '￦': 'KRW', '원': 'KRW', '₹': 'INR',
+  '₺': 'TRY', 'zł': 'PLN', 'Rp': 'IDR',
 };
 
 /// The currency the receipt's text names most often: a sign from [_signs], or a code in [known] next to a number
@@ -138,8 +142,8 @@ class _Row {
 /// 1. Rows: lines sorted by vertical centre; a line joins the row when its centre is within half the median line
 ///    height of the row's. Text joins left to right. A text-only row followed by a price-only row is one row.
 /// 2. The price is at the end of a row ([_priceRe]).
-/// 3. Total: the largest price on a row with a total word (not a subtotal one), else the largest price; the first
-///    such row. Rows below it are ignored.
+/// 3. Total: the largest price on a row with a total word (not a subtotal one, nor a payment one: "お預り合計"), else on
+///    a row with a total word and a payment one, else the largest price; the first such row. Rows below it are ignored.
 /// 4. Rows above it, first match wins: subtotal → ignored; tax → tax; tip/service → tip; a discount word or a negative
 ///    price → discount (its size); another total word → ignored; payment words → ignored; any other priced row → an
 ///    item ("2x" stays in its name; a name ending in a unit price and quantity that multiply to the price, as column
@@ -193,10 +197,11 @@ ReceiptDraft parseReceipt(List<OcrLine> lines, {required int decimals}) {
   final priced = [for (final t in texts) (text: t, words: _words(t), price: price(t))];
 
   int? totalAt;
-  for (final pass in [true, false]) {
+  for (final pass in [2, 1, 0]) {
     for (final (i, r) in priced.indexed) {
       final p = r.price;
-      if (p == null || (pass && (!_has(r.words, 'total') || _has(r.words, 'subtotal')))) continue;
+      if (p == null || (pass > 0 && (!_has(r.words, 'total') || _has(r.words, 'subtotal')))) continue;
+      if (pass > 1 && _has(r.words, 'payment')) continue;
       if (totalAt == null || p.amount > priced[totalAt].price!.amount) totalAt = i;
     }
     if (totalAt != null) break;
@@ -205,8 +210,11 @@ ReceiptDraft parseReceipt(List<OcrLine> lines, {required int decimals}) {
   var tax = 0, tip = 0, discount = 0;
   for (final r in priced.take(totalAt ?? priced.length)) {
     final p = r.price;
-    // A quantity detail under an item ("2 x 0,99", "2コ X 単128") is not an item of its own.
-    if (p == null || RegExp(r'^\d+\s*[コ個点]?\s*[xX×✕*]\s*[単@]?$').hasMatch(p.name)) continue;
+    // A quantity detail under an item ("2 x 0,99", "2コ X 単128", "@128 x 2") is not an item of its own.
+    if (p == null ||
+        RegExp(r'^(?:\d+\s*[コ個点]?\s*[xX×✕*]\s*[単@]?|[@単]\s*\d[\d,]*\s*[xX×✕*])$').hasMatch(p.name)) {
+      continue;
+    }
     final w = r.words;
     if (_has(w, 'subtotal')) continue;
     if (_has(w, 'tax')) {
