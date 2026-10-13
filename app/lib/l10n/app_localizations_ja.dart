@@ -3161,4 +3161,19 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies はこのブラウザの別のタブですでに開いています。そのタブを使うか、閉じてからこのタブを再読み込みしてください。';
+
+  @override
+  String get loginReview => 'デモ用サインイン';
+
+  @override
+  String get loginReviewUsername => 'ユーザー名';
+
+  @override
+  String get loginReviewPassword => 'パスワード';
+
+  @override
+  String get loginReviewSubmit => 'サインイン';
+
+  @override
+  String get loginReviewWrong => 'ユーザー名またはパスワードが違います';
 }

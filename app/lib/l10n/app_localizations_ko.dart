@@ -3164,4 +3164,19 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies가 이 브라우저의 다른 탭에서 이미 열려 있어요. 그 탭을 쓰거나, 그 탭을 닫고 이 탭을 새로 고쳐 주세요.';
+
+  @override
+  String get loginReview => '데모 로그인';
+
+  @override
+  String get loginReviewUsername => '아이디';
+
+  @override
+  String get loginReviewPassword => '비밀번호';
+
+  @override
+  String get loginReviewSubmit => '로그인';
+
+  @override
+  String get loginReviewWrong => '아이디 또는 비밀번호가 틀렸어요';
 }

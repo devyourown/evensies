@@ -853,5 +853,10 @@
   "copyAddress": "Kopiera adress",
   "copyMessage": "Kopiera meddelande",
   "browserNoStorage": "Den här webbläsaren kan inte spara Evensies data. Prova en annan webbläsare eller ett fönster som inte är privat.",
-  "browserOtherTab": "Evensies är redan öppet i en annan flik i den här webbläsaren. Använd den fliken, eller stäng den och ladda om den här."
+  "browserOtherTab": "Evensies är redan öppet i en annan flik i den här webbläsaren. Använd den fliken, eller stäng den och ladda om den här.",
+  "loginReview": "Demoinloggning",
+  "loginReviewUsername": "Användarnamn",
+  "loginReviewPassword": "Lösenord",
+  "loginReviewSubmit": "Logga in",
+  "loginReviewWrong": "Fel användarnamn eller lösenord"
 }

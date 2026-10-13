@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../core/env.dart';
 import '../../core/l10n.dart';
 import '../../core/snack.dart';
+import '../../data/api/dto.dart' show ApiException;
 import 'auth_service.dart';
 import 'sign_in_web_stub.dart' if (dart.library.js_interop) 'sign_in_web.dart';
 
@@ -52,6 +53,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (kIsWeb && apple) loadAppleSignIn().ignore();
     final google = server.googleLogin && (!kIsWeb || web?.googleWebClientId != null);
     final email = server.emailLogin;
+    final review = server.reviewLogin;
     final dev = Env.devLogin || (web?.devLogin ?? false);
     return Scaffold(
       body: SafeArea(
@@ -111,7 +113,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       label: Text(l.loginEmail),
                     ),
                   ],
-                  if (kIsWeb && !info.isLoading && !apple && !google && !dev && !email)
+                  if (review) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      key: const Key('login-review'),
+                      onPressed: _busy
+                          ? null
+                          : () => showDialog<void>(context: context, builder: (_) => const _ReviewSignIn()),
+                      child: Text(l.loginReview),
+                    ),
+                  ],
+                  if (kIsWeb && !info.isLoading && !apple && !google && !dev && !email && !review)
                     Text(l.loginWebUnavailable, textAlign: TextAlign.center, style: TextStyle(color: cs.onSurfaceVariant)),
                   if (dev) ...[
                     const SizedBox(height: 32),
@@ -152,5 +164,94 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _devLogin(AuthService auth) {
     final n = _devName.text.trim();
     _run(() => auth.dev(n.isEmpty ? 'Dev' : n));
+  }
+}
+
+/// The store reviewers' sign-in (docs/API.md POST /auth/review) with the username and password from the store consoles.
+/// No autofill hints, so the password manager doesn't offer to save it. On success the router goes on like after
+/// Apple or Google (the name screen, or home).
+class _ReviewSignIn extends ConsumerStatefulWidget {
+  const _ReviewSignIn();
+  @override
+  ConsumerState<_ReviewSignIn> createState() => _ReviewSignInState();
+}
+
+class _ReviewSignInState extends ConsumerState<_ReviewSignIn> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  bool get _ready => !_busy && _username.text.trim().isNotEmpty && _password.text.isNotEmpty;
+
+  Future<void> _submit() async {
+    if (!_ready) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).review(_username.text.trim(), _password.text);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      // One message for either part (the server doesn't say which); 429 and offline as everywhere. 404: the server
+      // turned it off since /info was read, so read /info again (the button goes) and say only that it failed.
+      if (!mounted) return;
+      final l = context.l;
+      final status = e is ApiException ? e.status : null;
+      if (status == 404) ref.invalidate(serverInfoProvider);
+      setState(() => _error = switch (status) { 401 => l.loginReviewWrong, 404 => l.errorUnexpected, _ => errorText(l, e) });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    return AlertDialog(
+      title: Text(l.loginReview),
+      // A fixed width: AlertDialog would otherwise grow with the typed text on wide screens.
+      content: SizedBox(width: 320, child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(
+          key: const Key('review-username'),
+          controller: _username,
+          autofocus: true,
+          autofillHints: null,
+          autocorrect: false,
+          enableSuggestions: false,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(labelText: l.loginReviewUsername),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(), // Enter: the password field next, or sign in when both are typed
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('review-password'),
+          controller: _password,
+          obscureText: true,
+          autofillHints: null,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+              labelText: l.loginReviewPassword,
+              errorText: _error == null ? null : keepAll(_error!, l.localeName),
+              errorMaxLines: 3),
+          onChanged: (_) => setState(() {}),
+          onEditingComplete: () {}, // keep the focus, so Enter works again after a wrong password
+          onSubmitted: (_) => _submit(),
+        ),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l.cancel)),
+        FilledButton(key: const Key('review-submit'), onPressed: _ready ? _submit : null, child: Text(l.loginReviewSubmit)),
+      ],
+    );
   }
 }

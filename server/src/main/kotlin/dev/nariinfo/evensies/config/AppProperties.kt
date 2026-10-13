@@ -29,7 +29,18 @@ data class AppProperties(
         val googleClientIds: List<String> = emptyList(),
         /** Phase 9: the Google web OAuth client id, also accepted as `aud` and shown by GET /info. */
         val googleWebClientId: String = "",
-    )
+        /** Store review sign-in (docs/API.md "Review sign-in"): `EVENSIES_REVIEW_LOGIN_USERNAME` / `_PASSWORD`. */
+        val reviewUsername: String = "",
+        val reviewPassword: String = "",
+    ) {
+        /** POST /auth/review exists only with a username and a password of at least [REVIEW_PASSWORD_MIN] characters. */
+        val reviewLogin: Boolean
+            get() = reviewUsername.isNotBlank() && reviewPassword.codePointCount(0, reviewPassword.length) >= REVIEW_PASSWORD_MIN
+
+        companion object {
+            const val REVIEW_PASSWORD_MIN = 20
+        }
+    }
 
     data class Fcm(val credentialsFile: String = "")
 

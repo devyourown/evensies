@@ -3247,4 +3247,19 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies sudah terbuka di tab lain di browser ini. Gunakan tab itu, atau tutup lalu muat ulang tab ini.';
+
+  @override
+  String get loginReview => 'Masuk demo';
+
+  @override
+  String get loginReviewUsername => 'Nama pengguna';
+
+  @override
+  String get loginReviewPassword => 'Kata sandi';
+
+  @override
+  String get loginReviewSubmit => 'Masuk';
+
+  @override
+  String get loginReviewWrong => 'Nama pengguna atau kata sandi salah';
 }

@@ -31,6 +31,10 @@ class AuthService {
 
   Future<void> dev(String name) async => _store(await ref.read(apiProvider).authDev(name));
 
+  /// The store reviewers' username + password (docs/API.md POST /auth/review), shown when `GET /info` says reviewLogin.
+  Future<void> review(String username, String password) async =>
+      _store(await ref.read(apiProvider).authReview(username, password));
+
   /// Sends a sign-in code to [email] (docs/API.md, Email sign-in); [emailVerify] signs in with it.
   Future<void> emailStart(String email) => ref.read(apiProvider).emailStart(email);
   Future<void> emailVerify(String email, String code) async =>

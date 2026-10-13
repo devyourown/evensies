@@ -23,6 +23,15 @@ class AuthTest : IntegrationTestBase() {
         assertEquals(200, http.get("/actuator/health").status)
     }
 
+    /** Review sign-in (ReviewLoginTest) is off unless configured: no endpoint, `reviewLogin: false`. */
+    @Test
+    fun reviewLoginIsOffByDefault() {
+        assertEquals(false, http.get("/info").body["reviewLogin"].asBoolean())
+        val res = http.post("/auth/review", mapOf("username" to "app-reviewer", "password" to "test-review-password-0123456789"))
+        assertEquals(404, res.status, res.text)
+        assertEquals("NOT_FOUND", res.code())
+    }
+
     @Test
     fun refreshRotates() {
         val login = http.post("/auth/dev", mapOf("name" to "Rot")).body

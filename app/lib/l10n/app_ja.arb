@@ -853,5 +853,10 @@
   "copyAddress": "アドレスをコピー",
   "copyMessage": "本文をコピー",
   "browserNoStorage": "このブラウザでは Evensies のデータを保存できません。別のブラウザか、プライベートではないウィンドウでお試しください。",
-  "browserOtherTab": "Evensies はこのブラウザの別のタブですでに開いています。そのタブを使うか、閉じてからこのタブを再読み込みしてください。"
+  "browserOtherTab": "Evensies はこのブラウザの別のタブですでに開いています。そのタブを使うか、閉じてからこのタブを再読み込みしてください。",
+  "loginReview": "デモ用サインイン",
+  "loginReviewUsername": "ユーザー名",
+  "loginReviewPassword": "パスワード",
+  "loginReviewSubmit": "サインイン",
+  "loginReviewWrong": "ユーザー名またはパスワードが違います"
 }

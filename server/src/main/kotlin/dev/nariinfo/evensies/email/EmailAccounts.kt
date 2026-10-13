@@ -73,6 +73,8 @@ class EmailAccounts(
     fun startChange(userId: UUID, raw: String?) {
         val user = auth.user(userId)
         mailer.requireEnabled()
+        // Reviewers share it (docs/API.md "Review sign-in"): one reviewer's address would show to the next.
+        if (user.provider == "review") throw ApiException.forbidden("The demo account can't have an address")
         sendCode(address(raw), "change", userId, userId, user.language)
     }
 

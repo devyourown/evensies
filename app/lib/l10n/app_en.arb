@@ -4765,5 +4765,25 @@
   "browserOtherTab": "Evensies is already open in another tab of this browser. Use that tab, or close it and reload this one.",
   "@browserOtherTab": {
     "description": "Whole-page message in a browser that keeps a database copy per tab, when another tab already has it."
+  },
+  "loginReview": "Demo sign-in",
+  "@loginReview": {
+    "description": "Small login-screen button (only when the server enables it) and the title of its dialog: a username and password the store reviewers get."
+  },
+  "loginReviewUsername": "Username",
+  "@loginReviewUsername": {
+    "description": "Username field in the demo sign-in dialog."
+  },
+  "loginReviewPassword": "Password",
+  "@loginReviewPassword": {
+    "description": "Password field in the demo sign-in dialog."
+  },
+  "loginReviewSubmit": "Sign in",
+  "@loginReviewSubmit": {
+    "description": "Button of the demo sign-in dialog."
+  },
+  "loginReviewWrong": "Wrong username or password",
+  "@loginReviewWrong": {
+    "description": "Demo sign-in error when the username or the password is wrong (it never says which)."
   }
 }

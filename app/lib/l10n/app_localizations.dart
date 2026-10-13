@@ -5249,6 +5249,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Evensies is already open in another tab of this browser. Use that tab, or close it and reload this one.'**
   String get browserOtherTab;
+
+  /// Small login-screen button (only when the server enables it) and the title of its dialog: a username and password the store reviewers get.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo sign-in'**
+  String get loginReview;
+
+  /// Username field in the demo sign-in dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get loginReviewUsername;
+
+  /// Password field in the demo sign-in dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get loginReviewPassword;
+
+  /// Button of the demo sign-in dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get loginReviewSubmit;
+
+  /// Demo sign-in error when the username or the password is wrong (it never says which).
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong username or password'**
+  String get loginReviewWrong;
 }
 
 class _AppLocalizationsDelegate

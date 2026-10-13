@@ -23,10 +23,11 @@ data class RefreshRequest(val refreshToken: String)
 /** [notificationsAllowed] (Phase 10): whether the OS lets this device show notifications; missing = true. */
 data class DeviceRequest(val deviceId: String, val fcmToken: String, val notificationsAllowed: Boolean = true)
 
-/** Phase 10 adds which sign-ins this server offers and the operator's contact address (null = none). */
+/** Phase 10 adds which sign-ins this server offers and the operator's contact address (null = none); [reviewLogin]: POST /auth/review. */
 data class ServerInfo(
     val appleServicesId: String?, val googleWebClientId: String?, val devLogin: Boolean,
     val emailLogin: Boolean, val appleLogin: Boolean, val googleLogin: Boolean, val supportEmail: String?,
+    val reviewLogin: Boolean,
 )
 
 @RestController
@@ -70,7 +71,7 @@ class AuthController(
     fun info() = ServerInfo(
         props.auth.appleServicesId.trim().ifEmpty { null }, props.auth.googleWebClientId.trim().ifEmpty { null }, props.auth.devLogin,
         emailLogin = mailer.enabled, appleLogin = apple.audiences.isNotEmpty(), googleLogin = google.audiences.isNotEmpty(),
-        supportEmail = props.supportEmail.trim().ifEmpty { null },
+        supportEmail = props.supportEmail.trim().ifEmpty { null }, reviewLogin = props.auth.reviewLogin,
     )
 
     @DeleteMapping("/me")

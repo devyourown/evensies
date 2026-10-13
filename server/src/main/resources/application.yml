@@ -45,6 +45,9 @@ evensies:
     apple-services-id: ${EVENSIES_APPLE_SERVICES_ID:}
     google-client-ids: ${EVENSIES_GOOGLE_CLIENT_IDS:}
     google-web-client-id: ${EVENSIES_GOOGLE_WEB_CLIENT_ID:}
+    # Store review sign-in (POST /auth/review): on only with a username and a password of at least 20 characters.
+    review-username: ${EVENSIES_REVIEW_LOGIN_USERNAME:}
+    review-password: ${EVENSIES_REVIEW_LOGIN_PASSWORD:}
   fcm:
     credentials-file: ${EVENSIES_FCM_CREDENTIALS_FILE:}
   push:

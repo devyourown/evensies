@@ -14,6 +14,7 @@ The contract shared by the server (Spring Boot) and the app (Flutter). Both impl
 | POST | `/auth/apple` | `{"idToken": "...", "displayName"?: "..."}`. Apple does not put the name in the token and gives it to the app only on the first sign-in, so the app sends it along | `{"accessToken","refreshToken","user": UserDto}` |
 | POST | `/auth/google` | `{"idToken": "..."}` | Same as above |
 | POST | `/auth/dev` | `{"name": "Anna"}`. Exists **only when `evensies.auth.dev-login=true`**. The same name means the same user | Same as above |
+| POST | `/auth/review` | `{"username": "...", "password": "..."}`. For store reviewers; exists only when the server sets a username and a password of at least 20 characters (see "Review sign-in" below) | Same as above |
 | POST | `/auth/refresh` | `{"refreshToken"}` | `{"accessToken","refreshToken"}` (refresh rotation) |
 | GET | `/me` | | `UserDto`. If `displayName` is an empty string, the app shows the name entry screen (the email is not used as a name) |
 | PATCH | `/me` | `{"displayName"?: string, "homeCurrency"?: string, "language"?: string\|null}`. At least one is required. `displayName` is 1–30 characters after trimming whitespace (emoji allowed). `homeCurrency` is a code from `shared/currencies.json` (uppercase, as is). `language` (phase 9) is `^[a-z]{2,3}$` or `null` (clears it) | `UserDto` (after the change). Rules below |
@@ -24,18 +25,32 @@ The contract shared by the server (Spring Boot) and the app (Flutter). Both impl
 
 ```
 UserDto {"id","displayName","homeCurrency": string|null,"language": string|null,"email": string|null,"emailBounced": bool}
-ServerInfo {"appleServicesId": string|null, "googleWebClientId": string|null, "devLogin": bool, "emailLogin": bool, "appleLogin": bool, "googleLogin": bool, "supportEmail": string|null}
+ServerInfo {"appleServicesId": string|null, "googleWebClientId": string|null, "devLogin": bool, "emailLogin": bool, "appleLogin": bool, "googleLogin": bool, "supportEmail": string|null, "reviewLogin": bool}
 ```
 - `homeCurrency` (phase 4): the user's display currency ("≈ $13.46"). It is `null` if never saved, and the app then uses the device region's currency (`Money.currencyForLocale`). The sign-in response's `user`, `GET /me` and `PATCH /me` all return the same `UserDto`. The app reads a response without the key (older server) as `null`.
 - Refresh (phase 5): when the app starts with a saved session and each time it comes back to the foreground (resume, together with `syncAll`), it calls `GET /me` and overwrites the session with the received `displayName` and `homeCurrency`. A name or home currency changed on another phone shows up without signing in again. If offline, 5xx or 429, the saved values stay. 401 works as now (sign out if the token refresh fails). Right after sign-in, the app uses the sign-in response's `user`. If the received `displayName` is an empty string, the app shows the name entry screen (above).
 - `language` (phase 9, "Languages and web"): the language of text the server makes for this user (push, reminders, phase 10 emails). `null` = never set = English. The sign-in response's `user`, `GET /me` and `PATCH /me` all return the same `UserDto`. The app reads a response without the key (older server) as `null`. The UI language comes from the device language (or Settings → Language), not from this value (see "App language" below).
 - `PATCH /me` checks (all checks run first, then everything is saved at once): `displayName` and `homeCurrency` count as absent when `null`. Only `language` differs: a missing key leaves it as is, `null` clears it (English), and a string must match `^[a-z]{2,3}$` (uppercase, regions `de_AT` and `de-AT`, one letter, `deutsch` and `<b>` get 400 `VALIDATION`). Any other JSON type gets 400 `VALIDATION`. A well-formed language that is not in `strings.json` (`xx`) is still saved, and text is made in English. If all three keys are absent (including `{}` and `{"displayName": null}`; `{"language": null}` has the key, so it clears), 400 `VALIDATION`. If `displayName` is out of range, 400 `VALIDATION`. If `homeCurrency` is not a string, 400 `VALIDATION`; a code not in the list (including `"usd"`) gets 400 `UNKNOWN_CURRENCY`. The home currency cannot be cleared (only changed). The old body `{"displayName"}` still works. The app sends it only when online (no offline queue). A deleted account gets 401 (same as now).
 
-- `GET /info` (phase 9): `appleServicesId` = `EVENSIES_APPLE_SERVICES_ID`, `googleWebClientId` = `EVENSIES_GOOGLE_WEB_CLIENT_ID` (`null` if empty), `devLogin` = `evensies.auth.dev-login`. No rate limit. The app calls it only on the web (phone apps use the values built into the build). Phase 10: `emailLogin`, `appleLogin`, `googleLogin` and `supportEmail` (see "Email and account" below). `email` and `emailBounced` (`UserDto`, phase 10) are described there too.
+- `GET /info` (phase 9): `appleServicesId` = `EVENSIES_APPLE_SERVICES_ID`, `googleWebClientId` = `EVENSIES_GOOGLE_WEB_CLIENT_ID` (`null` if empty), `devLogin` = `evensies.auth.dev-login`. No rate limit. The web uses the two ids; phones use the ids built into the build but read the rest (which buttons to show) too. Phase 10: `emailLogin`, `appleLogin`, `googleLogin` and `supportEmail` (see "Email and account" below). `email` and `emailBounced` (`UserDto`, phase 10) are described there too.
 - Accepted `aud` (phase 9): for `/auth/apple`, the non-empty values among {`EVENSIES_APPLE_CLIENT_ID` (iOS bundle ID), `EVENSIES_APPLE_SERVICES_ID` (web Services ID)}; for `/auth/google`, `EVENSIES_GOOGLE_CLIENT_IDS` ∪ {`EVENSIES_GOOGLE_WEB_CLIENT_ID`} (empty values left out). If both are empty, 400 `AUTH_NOT_CONFIGURED` as now. Any other `aud` gets 401. Apple groups the Services ID under the primary App ID, so web and iOS get the same `sub` (the same user). On phones, `google_sign_in` already uses the web client id as `serverClientId` and gets tokens with that `aud`, so `EVENSIES_GOOGLE_WEB_CLIENT_ID` is usually a value already in `EVENSIES_GOOGLE_CLIENT_IDS` (it is a union, so overlap is fine). Google's `sub` is one per account, so web and phone get the same one.
 - Token refresh (app, set in phase 9): concurrent 401s wait on one shared refresh `Future` (same as now). If the refresh fails with 401 but the saved refresh token changed in the meantime (another tab or another request refreshed first), the app does not clear the session. It resends that request once with the saved access token. If the saved token did not change, `clearSession()` as now. Two web tabs share one drift DB, so this rule keeps them from signing each other out.
 
 Access 15 minutes, refresh 30 days. JWT HS256, the secret is `EVENSIES_JWT_SECRET`.
+
+### Review sign-in
+App store reviewers (Google Play in particular) don't create accounts or use their own Google or Apple account, and the official server has no email sign-in at launch. So the operator can give reviewers one username and password, entered in the store console (Play Console → App access, App Store Connect → App Review Information). Added after phase 11 ([Official server](#official-server-app-only)).
+- Config: `EVENSIES_REVIEW_LOGIN_USERNAME` and `EVENSIES_REVIEW_LOGIN_PASSWORD` (`evensies.auth.review-username` / `review-password`, empty by default). **On only when the username is not blank and the password has at least 20 characters** (code points). The username is trimmed (a stray space in `.env` doesn't lock reviewers out). A username with a shorter password keeps it off, and the server logs one `WARN` at startup that says so (never the values). Turning it off again = clearing the variables and restarting; `POST /auth/refresh` then refuses the review account's sessions (401 "Account no longer exists"), so nobody keeps it. Changing the password or the username does **not** end its sessions (a new username is a new account, the old one stays signed in): before the change, sign in with Demo sign-in and use Settings → Sign out on all devices (`POST /me/logout-all`) or Delete account.
+- `GET /info` → `"reviewLogin": true` exactly when it is on. The app shows a small "Demo sign-in" text button on the sign-in screen only then. Offline, the app uses the last saved `/info` answer for that server; a response without the key (older server), or no saved answer, means `false`. If the server answers 404 because it was turned off since, the dialog shows the generic error and the app reads `/info` again (the button goes).
+- `POST /auth/review`, public (no token, like `/auth/apple`). The checks, in order:
+  1. Off → 404 `NOT_FOUND` "No such endpoint", the same answer as an unknown path, whatever the body (POST only: other methods get 405, as on any existing path).
+  2. `Content-Type` not `application/json` → 400 `VALIDATION`, not counted (a cross-site form post has no CORS preflight and must not use up the limits).
+  3. Rate (abuse cap, in-memory `RateLimiter`s): per client IP (IPv6: per /64) 10 per minute and 20 per hour, then 100 per hour across all IPs. Every attempt counts, right or wrong, malformed included; an attempt refused by its IP's limit doesn't use the shared one. The hourly per-IP cap keeps one IP to a fifth of the shared budget, but a few IPs together can still use it up and lock reviewers out with 429 until it refills; the source is public and `/info` says it is on, so turn it off between reviews if that happens. Over → 429 `RATE_LIMITED`.
+  4. The body (at most the first 4 KB is read) is not a JSON object, or `username` or `password` is missing, `null` or not a string → 400 `VALIDATION`.
+  5. Wrong username or wrong password → 401 `UNAUTHORIZED` "Wrong username or password", the same body for both (the app shows "Wrong username or password"). Compared in constant time: the SHA-256 of each given value against the SHA-256 of the configured one with `MessageDigest.isEqual`, both before deciding. Case matters; spaces around the username are ignored (the server trims both sides, the app trims what is typed), the password must match exactly.
+  6. → 200 `{"accessToken","refreshToken","user": UserDto}`, the same as `/auth/apple`.
+- The account: one user with provider `review` and subject `review:<username>` (a new username is a new account). It is an ordinary account: the first sign-in has an empty `displayName` (the app asks for a name), `DELETE /me` works as for anyone, and signing in again after that reopens the same id, empty (no name, no groups). Reviewers share it, so it may hold what an earlier review left. For the same reason it can't hold an email address: `POST /me/email` → 403 `FORBIDDEN` (checked after `EMAIL_NOT_CONFIGURED`).
+- No new error codes. The `dev` profile and `/auth/dev` are unchanged.
 
 ## Groups
 | Method | Path | Request | Response |
@@ -873,11 +888,11 @@ Phase 10. Email is optional. If `EVENSIES_SMTP_HOST` is empty, the server runs e
 ### Endpoints
 | Method | Path | Auth | Request | Response / errors |
 |---|---|---|---|---|
-| GET | `/info` | Public | | The phase 9 keys + `"emailLogin","appleLogin","googleLogin","supportEmail"` (below) |
+| GET | `/info` | Public | | The phase 9 keys + `"emailLogin","appleLogin","googleLogin","supportEmail"` (below), and `"reviewLogin"` ("Review sign-in") |
 | POST | `/groups` | ✓ | Adds `"type"?` | Same as now. A `type` that is not one of the four values → 400 `VALIDATION` |
 | POST | `/auth/email/start` | Public | `{"email"}` | 204 (whether or not an account exists). 400 `VALIDATION`, `EMAIL_NOT_CONFIGURED` or `EMAIL_REJECTED`, 429, 503 `EMAIL_UNAVAILABLE` |
 | POST | `/auth/email/verify` | Public | `{"email","code"}` | `AuthResponse`. 400 `CODE_INVALID` (wrong, expired, used, too many attempts), 400 `VALIDATION` (the code is not 6 digits), 429 |
-| POST | `/me/email` | ✓ | `{"email"}` | 204 (a code goes to the new address). Errors are the same as for `start` |
+| POST | `/me/email` | ✓ | `{"email"}` | 204 (a code goes to the new address). Errors are the same as for `start`, plus 403 `FORBIDDEN` for the shared review account ("Review sign-in") |
 | POST | `/me/email/verify` | ✓ | `{"email","code"}` | `UserDto`. 400 `CODE_INVALID`, 409 `EMAIL_TAKEN` |
 | DELETE | `/me/email` | ✓ | | 204. 409 `EMAIL_REQUIRED` (an account that signs in only with email codes) |
 | GET / PUT | `/me/notifications` | ✓ | `NotificationPrefs` | Adds `emailDigest` and `emailDigestEffective` (see "Summary emails" below). Invalid values → 400 `VALIDATION`. A deleted account gets 401, even for GET |
@@ -894,7 +909,7 @@ Phase 10. Email is optional. If `EVENSIES_SMTP_HOST` is empty, the server runs e
 | POST | `/dev/jobs/email` | ✓ (exists only with dev-login) | | 204 |
 
 ```
-ServerInfo        {"appleServicesId","googleWebClientId","devLogin","emailLogin": bool,"appleLogin": bool,"googleLogin": bool,"supportEmail": string|null}
+ServerInfo        {"appleServicesId","googleWebClientId","devLogin","emailLogin": bool,"appleLogin": bool,"googleLogin": bool,"supportEmail": string|null,"reviewLogin": bool}
 UserDto           {"id","displayName","homeCurrency","language","email": string|null,"emailBounced": bool}
 GroupDto          {..., "kind","type","coverImageId": string|null,"deleted": bool}
 GroupSummaryDto   {"id","name","defaultCurrency","latestSeq","memberCount","kind","type","coverImageId","deleted"}   (GET /groups also returns deleted groups)
@@ -902,7 +917,7 @@ NotificationPrefs {"expenses","comments","members","reminders","emailDigest": "a
 AccountExport     {"exportedAt","user":{"id","displayName","email","homeCurrency","language"},"paymentMethods":[PaymentMethod],
                    "notifications": NotificationPrefs,"groups":[SnapshotDto, …]}
 ```
-- `ServerInfo`: `emailLogin` = SMTP is configured (the mailer is on), `appleLogin` = `/auth/apple` accepts at least one `aud` (`EVENSIES_APPLE_CLIENT_ID`, `EVENSIES_APPLE_SERVICES_ID`), `googleLogin` = the same for Google, `supportEmail` = `EVENSIES_SUPPORT_EMAIL` (`null` if empty). If offline or on an older server, the app reads `{emailLogin: false, appleLogin: true, googleLogin: true}`, and the sign-in screen hides the buttons the server cannot handle.
+- `ServerInfo`: `emailLogin` = SMTP is configured (the mailer is on), `appleLogin` = `/auth/apple` accepts at least one `aud` (`EVENSIES_APPLE_CLIENT_ID`, `EVENSIES_APPLE_SERVICES_ID`), `googleLogin` = the same for Google, `supportEmail` = `EVENSIES_SUPPORT_EMAIL` (`null` if empty). With no saved answer and no server, or on an older server, the app reads `{emailLogin: false, appleLogin: true, googleLogin: true, reviewLogin: false}`, and the sign-in screen hides the buttons the server cannot handle.
 - `UserDto.email`: the verified account address (never shown to other members anywhere). `emailBounced`: that address is blocked because of a `bounce` (app: "Emails to this address bounce — change it or verify it again"). The app reads a response without the keys as `null` and `false`.
 - `GroupDto`, `GroupSummaryDto` and the snapshot's `group`: `type` (default `"other"`), `coverImageId` (default `null`), `deleted` (default `false`). The app reads a response without the keys as the defaults.
 - `AccountExport`: snapshots of every group where the caller is a current (not removed) member (deleted groups and friend groups included). `notifications` is the same as `GET /me/notifications`. Receipt images come only in the per-group ZIP (phase 7). 3 per hour per user (abuse cap; 429 beyond that).
@@ -1049,7 +1064,7 @@ App `payLink`: `upi://pay?pa={vpa}&pn={holder}&tn={note, at most 50 characters}`
 The maintainer does this at launch. A Resend account (EU) → SPF, DKIM and DMARC `p=none` on the domain `evensies.nariinfo.dev` → the API key in `deploy/.env` → the webhook pointed at `/webhooks/email` → register `no-reply@evensies.nariinfo.dev` with Apple (Sign in with Apple → Email Communication) (so mail also reaches `@privaterelay.appleid.com` addresses) → `EVENSIES_SUPPORT_EMAIL`. Resend is only an SMTP endpoint; any other SMTP server works by changing the environment variables. Locally: Mailpit in `deploy/docker-compose.dev.yml` (SMTP 1025, inbox http://localhost:8025, the defaults of the `dev` profile).
 
 ## Official server (app only)
-Phase 11. The Evensies app from the stores talks only to the official server. **The server does not change**: no new event types, fields, applier rules (rules up to 18 unchanged; the next number is 19), snapshot, pull, endpoints, error codes or server environment variables. Flyway **stays at V13** (next is V14), and drift `schemaVersion` **stays at 10** (next is 11). `shared/*.json` is unchanged too. No functions are written by the maintainer in this phase.
+Phase 11. The Evensies app from the stores talks only to the official server. **The server does not change**: no new event types, fields, applier rules (rules up to 18 unchanged; the next number is 19), snapshot, pull, endpoints, error codes or server environment variables. Flyway **stays at V13** (next is V14), and drift `schemaVersion` **stays at 10** (next is 11). `shared/*.json` is unchanged too. No functions are written by the maintainer in this phase. Store review sign-in was added afterwards: `POST /auth/review`, `GET /info` `reviewLogin`, `EVENSIES_REVIEW_LOGIN_USERNAME` / `_PASSWORD` (see [Review sign-in](#review-sign-in)).
 
 ### Official server only (server URL)
 - `Env.allowCustomServer = kDebugMode || bool.fromEnvironment('EVENSIES_ALLOW_CUSTOM_SERVER')` (const). `allowCustomServerProvider = Provider<bool>((_) => Env.allowCustomServer)`: `flutter test` always runs in debug mode, so tests override this provider to `false`.
@@ -1065,7 +1080,7 @@ Phase 11. The Evensies app from the stores talks only to the official server. **
 - From the first release build on, the phone's Server field is gone (see "Official server only" above).
 
 ### Phase 11 error codes
-None (the server does not change).
+None (the server does not change). Review sign-in, added later, has none either.
 
 ### Operations at launch (phase 11)
 The maintainer does this at launch. Store builds are made without dart-defines (above).
@@ -1242,6 +1257,8 @@ NotificationPrefs {"expenses": bool, "comments": bool, "members": bool, "reminde
 | `EVENSIES_DB_USER` / `EVENSIES_DB_PASSWORD` | `evensies` / `evensies` | |
 | `EVENSIES_JWT_SECRET` | (required, at least 32 characters) | |
 | `EVENSIES_AUTH_DEV_LOGIN` | `false` | If `true`, `/auth/dev` is enabled (development only) |
+| `EVENSIES_REVIEW_LOGIN_USERNAME` | (empty) | The store reviewers' username for `POST /auth/review` ("Review sign-in"), trimmed. Empty = off |
+| `EVENSIES_REVIEW_LOGIN_PASSWORD` | (empty) | Their password (a secret, only in `.env`). Under 20 characters = off, with a startup `WARN` if the username is set |
 | `EVENSIES_APPLE_CLIENT_ID` | | The iOS app's bundle ID (`dev.nariinfo.evensies`), the `aud` that `/auth/apple` accepts |
 | `EVENSIES_APPLE_SERVICES_ID` | | Phase 9: the Apple Services ID for web sign-in (`dev.nariinfo.evensies.web`). Added to the accepted `aud` values, and returned as `appleServicesId` in `GET /info`. If empty, the web has no Apple button |
 | `EVENSIES_GOOGLE_CLIENT_IDS` | | Comma-separated |

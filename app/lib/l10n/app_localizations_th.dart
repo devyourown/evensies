@@ -3223,4 +3223,19 @@ class AppLocalizationsTh extends AppLocalizations {
   @override
   String get browserOtherTab =>
       'Evensies เปิดอยู่แล้วในอีกแท็บของเบราว์เซอร์นี้ ใช้แท็บนั้น หรือปิดแท็บนั้นแล้วโหลดแท็บนี้ใหม่';
+
+  @override
+  String get loginReview => 'ลงชื่อเข้าใช้สำหรับเดโม';
+
+  @override
+  String get loginReviewUsername => 'ชื่อผู้ใช้';
+
+  @override
+  String get loginReviewPassword => 'รหัสผ่าน';
+
+  @override
+  String get loginReviewSubmit => 'ลงชื่อเข้าใช้';
+
+  @override
+  String get loginReviewWrong => 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
 }

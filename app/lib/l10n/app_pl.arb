@@ -853,5 +853,10 @@
   "copyAddress": "Kopiuj adres",
   "copyMessage": "Kopiuj wiadomość",
   "browserNoStorage": "Ta przeglądarka nie może przechowywać danych Evensies. Spróbuj innej przeglądarki lub okna, które nie jest prywatne.",
-  "browserOtherTab": "Aplikacja Evensies jest już otwarta w innej karcie tej przeglądarki. Użyj tamtej karty albo zamknij ją i odśwież tę."
+  "browserOtherTab": "Aplikacja Evensies jest już otwarta w innej karcie tej przeglądarki. Użyj tamtej karty albo zamknij ją i odśwież tę.",
+  "loginReview": "Logowanie demo",
+  "loginReviewUsername": "Nazwa użytkownika",
+  "loginReviewPassword": "Hasło",
+  "loginReviewSubmit": "Zaloguj się",
+  "loginReviewWrong": "Nieprawidłowa nazwa użytkownika lub hasło"
 }
