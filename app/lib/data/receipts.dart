@@ -127,6 +127,22 @@ String ocrScript(String currency, String language) => switch (currency) {
       _ => switch (language) { 'ko' => 'korean', 'ja' => 'japanese', _ => 'latin' },
     };
 
+/// Android reads with one ML Kit model, so a Korean or Japanese receipt read as 'latin' comes back without its words:
+/// the photo [id]'s lines under the Korean, then the Japanese model, when they hold Hangul or kana; else null.
+Future<List<OcrLine>?> recognizeCjk(ReceiptFiles files, String id) async {
+  try {
+    final path = await files.pendingPath(id);
+    for (final (script, letters) in [
+      ('korean', RegExp(r'\p{Script=Hangul}', unicode: true)),
+      ('japanese', RegExp(r'[\p{Script=Hiragana}\p{Script=Katakana}]', unicode: true)),
+    ]) {
+      final lines = await recognizeLines(path, script: script);
+      if (lines.any((l) => letters.hasMatch(l.text))) return lines;
+    }
+  } catch (_) {}
+  return null;
+}
+
 /// A photo taken or picked for an expense, prepared under [id]; [lines] when it was scanned (empty if nothing could be
 /// read).
 typedef ReceiptPhoto = ({String id, List<OcrLine>? lines});

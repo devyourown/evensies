@@ -44,14 +44,15 @@ void main() {
       line('아메리카노 4,500 2 9,000원', 40),
       line('카페라떼 5,000 1 5,000원', 80),
       line('케이크 6,800 2 6,800원', 120), // 6,800 × 2 is not 6,800: the numbers stay
+      line('치즈케이크 6,800 6,800', 140), // the quantity 1 not read
       line('김밥 ￦3,000', 160),
       line('부 가 세 2,164원', 200),
-      line('합   계 23,800원', 240),
+      line('합   계 30,600원', 240),
       line('현금합계 50,000원', 280), // a total word, but cash handed over
     ], decimals: 0);
     expect(d.lines.map((l) => (l.name, l.amount)),
-        [('2x 아메리카노', 9000), ('카페라떼', 5000), ('케이크 6,800 2', 6800), ('김밥', 3000)]);
-    expect((d.tax, d.total, d.merchant), (0, 23800, '카페 온새미로')); // VAT included
+        [('2x 아메리카노', 9000), ('카페라떼', 5000), ('케이크 6,800 2', 6800), ('치즈케이크', 6800), ('김밥', 3000)]);
+    expect((d.tax, d.total, d.merchant), (0, 30600, '카페 온새미로')); // VAT included
   });
 
   test('Japanese: ￥ and 円, ※ 軽 外 after the price, ▲ minus, fullwidth digits, quantity lines, 外税, お預り合計', () {
@@ -107,5 +108,10 @@ void main() {
     expect(receiptCurrency([line('おにぎり ￥160', 0), line('合計 ￥160', 40)], known: known), 'JPY');
     expect(receiptCurrency([line('김밥 3,500원', 0)], known: known), 'KRW');
     expect(receiptCurrency([line('김밥 ￦3,500', 0)], known: known), 'KRW');
+    // No sign or code: the script (most Korean and Japanese receipts print none); a sign still wins.
+    expect(receiptCurrency([line('아메리카노 4,500', 0), line('합계 4,500', 40)], known: known), 'KRW');
+    expect(receiptCurrency([line('おにぎり 160', 0), line('合計 160', 40)], known: known), 'JPY');
+    expect(receiptCurrency([line('아메리카노 £4.50', 0)], known: known), 'GBP');
+    expect(receiptCurrency([line('合計 160', 0)], known: known), isNull); // kanji only: could be Chinese
   });
 }

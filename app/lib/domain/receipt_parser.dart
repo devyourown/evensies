@@ -111,8 +111,9 @@ const _signs = {
 };
 
 /// The currency the receipt's text names most often: a sign from [_signs], or a code in [known] next to a number
-/// ("JPY 1,200", "12.50 EUR"); null when it names none. Used to offer a switch when nothing could be read in the
-/// form's currency (a ¥ receipt in a EUR group: other decimals).
+/// ("JPY 1,200", "12.50 EUR"); else KRW for Hangul and JPY for kana (most Korean and Japanese receipts print no sign);
+/// null when it names none. Used to offer a switch when nothing could be read in the form's currency (a ¥ receipt in a
+/// EUR group: other decimals).
 String? receiptCurrency(List<OcrLine> lines, {required Set<String> known}) {
   final counts = <String, int>{};
   final code = RegExp(r'(?<![A-Za-z])([A-Z]{3})\s?\d|\d\s?([A-Z]{3})(?![A-Za-z])');
@@ -125,7 +126,12 @@ String? receiptCurrency(List<OcrLine> lines, {required Set<String> known}) {
       if (known.contains(c)) counts[c] = (counts[c] ?? 0) + 1;
     }
   }
-  return counts.entries.fold<MapEntry<String, int>?>(null, (a, e) => a == null || e.value > a.value ? e : a)?.key;
+  final named = counts.entries.fold<MapEntry<String, int>?>(null, (a, e) => a == null || e.value > a.value ? e : a);
+  if (named != null) return named.key;
+  final text = lines.map((l) => l.text).join(' ');
+  if (RegExp(r'\p{Script=Hangul}', unicode: true).hasMatch(text)) return 'KRW';
+  if (RegExp(r'[\p{Script=Hiragana}\p{Script=Katakana}]', unicode: true).hasMatch(text)) return 'JPY';
+  return null;
 }
 
 class _Row {
@@ -180,6 +186,8 @@ ReceiptDraft parseReceipt(List<OcrLine> lines, {required int decimals}) {
         return n == 1 ? unit.name : '${n}x ${unit.name}';
       }
     }
+    // The quantity 1 not read (Vision drops lone digits): "치즈케이크 6,800" priced 6,800.
+    if (price(name) case final unit? when unit.name.isNotEmpty && unit.amount == amount) return unit.name;
     return name.isEmpty ? 'Item' : name;
   }
 

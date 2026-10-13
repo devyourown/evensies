@@ -335,6 +335,26 @@ void main() {
     expect((lines.single.text, lines.single.top, lines.single.right), ('Burger', 40.5, 100.0));
   });
 
+  test('recognizeCjk: the Korean, then the Japanese model, whichever finds its letters; else null', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('evensies/ocr');
+    final asked = <String>[];
+    var japanese = 'おにぎり 160';
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (c) async {
+      final script = (c.arguments as Map)['script'] as String;
+      asked.add(script);
+      final text = switch (script) { 'korean' => 'TOTAL 160', _ => japanese };
+      return [
+        {'text': text, 'left': 0, 'top': 0, 'right': 10, 'bottom': 10},
+      ];
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+    expect((await recognizeCjk(files, 'r1'))!.single.text, 'おにぎり 160');
+    expect(asked, ['korean', 'japanese']);
+    japanese = 'TOTAL 160';
+    expect(await recognizeCjk(files, 'r1'), isNull); // a Latin receipt read badly stays as it was
+  });
+
   test("the script hint: the expense's currency (KRW, JPY) first, else the app's language", () {
     expect([ocrScript('KRW', 'en'), ocrScript('JPY', 'ko'), ocrScript('EUR', 'ko'), ocrScript('USD', 'ja')],
         ['korean', 'japanese', 'korean', 'japanese']);
