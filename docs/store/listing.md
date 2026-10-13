@@ -2,7 +2,7 @@
 
 Version 1.0.0 (the first store release) with everything from Phases 1–11. English only; the app itself has 13 languages.
 
-Screenshots: `ios-6.9/` (iPhone 16 Pro Max, 1320×2868, light) and `ios-6.9-dark/` (same device, dark) were captured on 2026-10-11 **before Phases 1–11** and must be retaken at release (see the notes at the bottom).
+Screenshots: `ios-6.9/` (iPhone 6.9", 1320×2868), light, retaken on 2026-10-13 from current main (see the notes at the bottom). 1.0 is iPhone-only, so there is no iPad set.
 
 ---
 
@@ -261,14 +261,18 @@ Security practices: data encrypted in transit; users can request deletion; no in
 - Email is off at launch (no `EVENSIES_SMTP_HOST`): the app hides email sign-in, summaries and email invites, so the descriptions and What's New don't mention them. Turning it on later needs no app update; add them back to the descriptions and update the review notes and the processors line then.
 
 ## Notes on the screenshots
-Captured 2026-10-11 from a debug build of release 1 (before Phases 1–11); retake at release, adding at least receipt scanning or Items, pay links on Settle up and the Friends tab.
-- `ios-6.9/01-groups.png` — Groups list (Flat 12 "You are owed €978.60", Rome trip "You owe €60.13")
-- `ios-6.9/02-expenses.png` — Rome trip → Expenses tab, date-grouped with lent/borrowed lines
-- `ios-6.9/03-balances.png` — Balances tab with bars and Settle up button
-- `ios-6.9/04-settle-up.png` — Settle up: three transfer cards
-- `ios-6.9/05-expense-form.png` — New expense, Exact split with "Adds up" helper
-- `ios-6.9/06-members-invite.png` — Members & invite with the production invite link
-- `ios-6.9-dark/01-groups.png`, `ios-6.9-dark/03-balances.png` — same screens in dark mode
-- Status bar overridden to 9:41 / full battery / full signal (`xcrun simctl status_bar`).
-- The group is named "Rome trip" (the flag emoji could not be typed through the simulator's HID input).
-- `lib/app.dart` now sets `debugShowCheckedModeBanner: false`, so a debug build captures without the banner.
+Captured 2026-10-13 from a debug build of current main (`05c61be`, Phases 1–11) against a local server with made-up demo data (Alex with Maya, Jonas, Priya and Leo). Light mode, English (en_US), status bar 9:41 / full battery, not charging / full signal, no debug banner and no dev-only UI in any frame. How to redo them: `ios-6.9/README.txt` and the scripts in `ios-shots/`.
+
+`ios-6.9/` (iPhone 17 Pro Max, 1320×2868) has eight screens, in this order:
+1. `01-groups.png` — Groups: total card (You are owed €585.76, You owe €41.10), Berlin weekend, Flat 3B and Lisbon trip with each group's balance, one group under Settled up
+2. `02-expenses.png` — Lisbon trip → Expenses: date-grouped, category icons, lent/borrowed lines and a recorded payment
+3. `03-balances.png` — Lisbon trip → Balances: bars per person and "Priya should pay next"
+4. `04-settle-up.png` — Settle up: four transfers; on yours, "I've sent it" and the PayPal and Wise pay buttons
+5. `05-add-expense.png` — New expense from the top: amount, description, payer, and the split by Shares (Leo has 2 shares); category guessed from the description
+6. `06-friends.png` — Friends tab: one balance per person across groups and non-group expenses
+7. `07-activity.png` — Activity across all groups and friends
+8. `08-items.png` — Items split of a restaurant bill, from the top: the octopus is Alex's, the bacalhau Maya's, the sardines Jonas and Priya's, the clams Leo's, the wine everyone's (the totals and each person's share are further down and don't fit with whole cards)
+
+- Receipt scanning itself is not shown: the system photo picker can't be driven in the simulator without taps. The Items screen in frame 8 is the one a scan opens.
+- No dark-mode set any more (the old `ios-6.9-dark/` was removed).
+- No iPad screenshots: 1.0 ships iPhone-only. They come back with a tablet layout.
