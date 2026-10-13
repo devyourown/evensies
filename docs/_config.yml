@@ -1,4 +1,5 @@
 title: Evensies
 description: Expense splitting for friends, roommates and trips
 theme: jekyll-theme-minimal
-exclude: [superpowers, store, brand, API.md]
+# Only index.md and privacy.md are published; everything else here is for the repository.
+exclude: [superpowers, store, brand, images, API.md, README.md, RELEASING.md]

@@ -1,11 +1,11 @@
 # Evensies app (Flutter)
 
-Offline-first expense splitting client for the Evensies server. Contract: `../docs/API.md`.
+Offline-first expense splitting client for the Evensies server, for iOS, Android and the web. Contract: `../docs/API.md`; how it fits together: `../ARCHITECTURE.md`; setup from scratch: `../CONTRIBUTING.md`.
 
-## Run (iOS simulator, local server, dev login)
+## Run (simulator or emulator, local server, dev login)
 
 ```sh
-/Users/hyojun/flutter/bin/flutter run -d <simulator-id> \
+flutter run -d <device-id> \
   --dart-define=DEV_LOGIN=true \
   --dart-define=EVENSIES_SERVER_URL=http://localhost:8080
 ```
@@ -19,7 +19,10 @@ Offline-first expense splitting client for the Evensies server. Contract: `../do
 
 Store builds pass none of these. A release build without them always talks to the official server (`Env.allowCustomServer`).
 To build an app for another server, give it its own name, icon and bundle id (`../TRADEMARKS.md`) and follow the
-빌드 변수 table in `../docs/API.md`.
+[build variables](../docs/API.md#build-variables-app---dart-define) section of `../docs/API.md`.
+
+Without `ios/Runner/GoogleService-Info.plist` and `android/app/google-services.json` (git-ignored) the app runs and
+logs "Firebase not configured, push disabled".
 
 ## Web (`/app/` on the server, same origin)
 
@@ -39,25 +42,29 @@ UI text lives in `lib/l10n/app_<lang>.arb` (English `app_en.arb` is the source, 
 `flutter gen-l10n` after editing and commit the generated `app_localizations*.dart`. Activity sentences, category
 names, frequency words and the money notation come from `assets/strings.json`, a byte-equal copy of
 `../shared/strings.json`. `test/l10n_test.dart` checks keys and placeholders, `test/hardcoded_strings_test.dart`
-fails on new English literals in widgets.
+fails on new English literals in widgets. The translation rules are in `../CONTRIBUTING.md`.
 
 ## Tests
 
 ```sh
-flutter test                         # all suites, including test/hyojun (split, settlement, event applier)
-dart run build_runner build --delete-conflicting-outputs   # after changing lib/data/db/database.dart
+flutter analyze
+flutter test                                               # all suites, including test/domain (split, settlement, fx, event applier)
+dart run build_runner build                                # after changing lib/data/db/database.dart
 ```
 
 Tests read `../shared/*.json` relative to this `app/` directory, so run them from here.
 
 ## Core logic
 
-The domain logic lives in three small, pure files, each checked against the JSON fixtures shared with the server:
+The domain logic lives in small, pure files, each checked against the JSON cases shared with the server:
 
-| file | what | fixture |
+| file | what | cases |
 |---|---|---|
-| `lib/domain/split.dart` | equal / exact / percent split, remainder by memberId ascending | `shared/split-cases.json` |
-| `lib/domain/settlement.dart` | balances and greedy debt simplification | `shared/settlement-cases.json` |
+| `lib/domain/split.dart` | equal / exact / percent / shares / adjustment split, remainder by memberId ascending | `shared/split-cases.json` |
+| `lib/domain/settlement.dart` | balances (several payers, refunds, payments), greedy debt simplification, pairwise debts | `shared/settlement-cases.json` |
+| `lib/domain/fx.dart` | exact currency conversion of amounts and expenses (largest remainder) | `shared/fx-cases.json` |
+| `lib/domain/balances.dart` | balances per currency bucket, conversion into the group currency | `shared/settlement-cases.json`, `shared/overview-cases.json` |
+| `lib/domain/itemized.dart` | itemized split from receipt lines (app only) | `test/fixtures/itemized-cases.json` |
 | `lib/data/sync/apply_event.dart` | event applier (API.md applier rules) | `shared/sync-cases.json` |
 
 ## Layout
@@ -70,15 +77,12 @@ lib/data/api/    api_client.dart dto.dart        every endpoint in API.md, 401 �
 lib/data/sync/   sync_service.dart               push outbox → pull after lastSeq → applyEvent → save
                  group_state_store.dart          GroupState ⇄ drift
 lib/data/local_writes.dart                       every local change = drift rows + outbox event
-lib/domain/      models.dart split.dart settlement.dart
+lib/domain/      models.dart split.dart settlement.dart fx.dart balances.dart overview.dart activity.dart …
 lib/features/    auth groups group_detail expense_form settle members settings lock home_widget …
 ```
 
-## Platform setup still needed (before TestFlight / Play)
+## Release builds
 
-- **Bundle id / application id**: currently `dev.nariinfo.evensies` (ios `PRODUCT_BUNDLE_IDENTIFIER`, android `applicationId`).
-- **Sign in with Apple**: enable the capability on the App ID and in Xcode (Runner → Signing & Capabilities). Server env `EVENSIES_APPLE_CLIENT_ID` = bundle id.
-- **Google Sign-In**: create iOS + Android OAuth clients; add the iOS client's reversed id as a URL scheme in `Info.plist` (`GIDClientID` key too); server env `EVENSIES_GOOGLE_CLIENT_IDS`.
-- **Firebase (push)**: add `ios/Runner/GoogleService-Info.plist` and `android/app/google-services.json` (+ the google-services Gradle plugin). Without them the app runs and just logs "Firebase not configured, push disabled".
-- **Deep links**: iOS Associated Domains `applinks:<host>` + `/.well-known/apple-app-site-association` on the server; Android replace `YOUR_HOST` in `AndroidManifest.xml` + `/.well-known/assetlinks.json`. The custom scheme `evensies://j/<code>` already works on both.
-- **Release networking**: `NSAllowsLocalNetworking` (iOS) and `usesCleartextTraffic` (Android) are for `http://localhost`; drop them if the production server is HTTPS-only.
+Version bump, `flutter clean`, the iOS archive and upload, the Android app bundle and the first-release platform
+setup (Apple capabilities, Google sign-in, Firebase, Universal Links and App Links) are in `../docs/RELEASING.md`.
+The custom scheme `evensies://j/<code>` and `evensies://f/<code>` works on both platforms without any setup.

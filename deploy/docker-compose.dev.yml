@@ -1,6 +1,8 @@
-# 개발용: PostgreSQL과 Mailpit(메일 받는 가짜 SMTP)을 띄운다. 서버는 IDE나 ./gradlew bootRun 으로 로컬에서 실행.
+# Development: starts PostgreSQL and Mailpit (a fake SMTP server that catches mail). Run the server locally from an IDE or with ./gradlew bootRun.
+# Its own project name, so the production docker-compose.yml in this folder never replaces these containers.
+name: evensies-dev
 services:
-  # dev 프로필의 기본 SMTP(localhost:1025, TLS 없음). 받은 메일은 http://localhost:8025
+  # The dev profile's default SMTP (localhost:1025, no TLS). Caught mail is at http://localhost:8025
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
@@ -18,3 +20,4 @@ services:
       - evensies-pg-dev:/var/lib/postgresql/data
 volumes:
   evensies-pg-dev:
+    name: deploy_evensies-pg-dev   # the name from before the project had its own name, so existing dev data stays

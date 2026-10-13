@@ -1,0 +1,66 @@
+name: Bug report
+description: Something doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Security problems go to a [private report](https://github.com/devyourown/evensies/security/advisories/new) instead.
+        Please leave out personal data such as email addresses, bank details or other people's names.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you see? Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a group with three people
+        2. Add an expense of 10.00 split equally
+        3. Open Settle up
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - iOS app
+        - Android app
+        - Web app
+        - Server or self-hosting
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version on the App Store or Google Play page, or the commit you built from.
+      placeholder: 1.0.0 (4), or commit abc1234
+  - type: input
+    id: device
+    attributes:
+      label: Device, OS and browser
+      placeholder: iPhone 16 Pro, iOS 18.1 / Pixel 8, Android 15 / Chrome 140 on macOS
+  - type: input
+    id: language
+    attributes:
+      label: App language and currency, if relevant
+      placeholder: German, EUR
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server or console output, if you have it. It is shown as code.
+      render: text

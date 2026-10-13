@@ -1,0 +1,60 @@
+name: Translation
+description: Report wrong, awkward or missing text in a language, or offer to review one.
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        All languages except English were machine-translated, so reviews by native speakers are very welcome.
+        You can also send the fix as a pull request: see [Translations](https://github.com/devyourown/evensies/blob/main/CONTRIBUTING.md#translations).
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - Dutch (nl)
+        - French (fr)
+        - German (de)
+        - Indonesian (id)
+        - Italian (it)
+        - Japanese (ja)
+        - Korean (ko)
+        - Polish (pl)
+        - Portuguese, Brazil (pt)
+        - Spanish (es)
+        - Swedish (sv)
+        - Thai (th)
+        - English (en)
+        - A new language
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of report is this?
+      options:
+        - Wrong or awkward wording
+        - Text still in English
+        - Wrong number, money or date format
+        - Text cut off or overlapping
+        - I'd like to review this language
+        - Request for a new language
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where does it appear?
+      description: The screen or the notification, and a screenshot if you can. The ARB key (from app/lib/l10n/app_en.arb) helps but isn't needed.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+      render: text
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested text
+      render: text

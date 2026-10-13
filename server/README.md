@@ -13,8 +13,10 @@ Tests load the fixtures shared with the app from `../shared/*.json`, so run Grad
 
 ## Run locally
 
+Full steps: [CONTRIBUTING.md](../CONTRIBUTING.md#development-setup).
+
 ```sh
-docker run -d --name evensies-pg -e POSTGRES_USER=evensies -e POSTGRES_PASSWORD=evensies -e POSTGRES_DB=evensies -p 5432:5432 postgres:16-alpine
+docker compose -f ../deploy/docker-compose.dev.yml up -d   # Postgres and Mailpit
 ./gradlew --no-daemon bootRun --args='--spring.profiles.active=dev'
 ```
 
@@ -60,7 +62,7 @@ config/   AppProperties, JwtService, SecurityConfig (stateless bearer filter, CS
 auth/     dev/apple/google/refresh login, /me, /devices, IdTokenVerifier (JWKS, RS256)
 group/    groups, members, invites (/invites/{code}, /j/{code} HTML page in the Accept-Language language)
 sync/     events push/pull/snapshot, EventApplier (pure, mirrors the Dart one), EventValidator, GroupStateStore
-money/    Money (currency decimals), Split, Settlement, Fx (conversion, Hyojun's port pending)
+money/    Money (currency decimals), Split, Settlement, Fx (currency conversion)
 fx/       GET /fx: daily EUR rates from EVENSIES_FX_URL, cached per day in fx_days
 payment/  "ways to get paid": GET/PUT /me/payment-methods, GET /groups/{id}/payment-methods (validation incl. IBAN mod-97)
 export/   JSON/CSV export, Splitwise CSV import (goes through the normal push path)
