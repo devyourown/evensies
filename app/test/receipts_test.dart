@@ -329,9 +329,15 @@ void main() {
       ];
     });
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
-    final lines = await recognizeLines('/tmp/r.jpg');
+    final lines = await recognizeLines('/tmp/r.jpg', script: 'korean');
     expect(asked.single.method, 'recognize');
-    expect(asked.single.arguments, {'path': '/tmp/r.jpg'});
+    expect(asked.single.arguments, {'path': '/tmp/r.jpg', 'script': 'korean'});
     expect((lines.single.text, lines.single.top, lines.single.right), ('Burger', 40.5, 100.0));
+  });
+
+  test("the script hint: the expense's currency (KRW, JPY) first, else the app's language", () {
+    expect([ocrScript('KRW', 'en'), ocrScript('JPY', 'ko'), ocrScript('EUR', 'ko'), ocrScript('USD', 'ja')],
+        ['korean', 'japanese', 'korean', 'japanese']);
+    expect([ocrScript('EUR', 'en'), ocrScript('', 'th')], ['latin', 'latin']);
   });
 }

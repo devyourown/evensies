@@ -109,25 +109,35 @@ final receiptFileProvider = FutureProvider.autoDispose.family<Uint8List?, ({Stri
   },
 );
 
-/// Text lines in the photo at [imagePath], read on the phone: Apple Vision on iOS, ML Kit (Latin) on Android, both
-/// behind `MethodChannel('evensies/ocr')` (AppDelegate.swift, MainActivity.kt). Neither the photo nor the text leaves
-/// the device for this. ML Kit's iOS pods don't build for the arm64 simulator, hence Vision there (docs Phase 7).
-Future<List<OcrLine>> recognizeLines(String imagePath) async {
-  final lines = await const MethodChannel('evensies/ocr').invokeListMethod<Map>('recognize', {'path': imagePath});
+/// Text lines in the photo at [imagePath], read on the phone: Apple Vision on iOS, ML Kit on Android, both behind
+/// `MethodChannel('evensies/ocr')` (AppDelegate.swift, MainActivity.kt). [script] ([ocrScript]) picks ML Kit's model
+/// and Vision's first language. Neither the photo nor the text leaves the device for this. ML Kit's iOS pods don't
+/// build for the arm64 simulator, hence Vision there (docs Phase 7).
+Future<List<OcrLine>> recognizeLines(String imagePath, {String script = 'latin'}) async {
+  final lines = await const MethodChannel('evensies/ocr')
+      .invokeListMethod<Map>('recognize', {'path': imagePath, 'script': script});
   return [for (final l in lines ?? const <Map>[]) OcrLine.fromJson(l.cast<String, dynamic>())];
 }
+
+/// The script a receipt is likely in: from the expense's [currency] (KRW, JPY), else the app's [language] (ko, ja);
+/// 'korean', 'japanese' or 'latin'. Both CJK models read Latin too.
+String ocrScript(String currency, String language) => switch (currency) {
+      'KRW' => 'korean',
+      'JPY' => 'japanese',
+      _ => switch (language) { 'ko' => 'korean', 'ja' => 'japanese', _ => 'latin' },
+    };
 
 /// A photo taken or picked for an expense, prepared under [id]; [lines] when it was scanned (empty if nothing could be
 /// read).
 typedef ReceiptPhoto = ({String id, List<OcrLine>? lines});
-typedef PickReceipt = Future<ReceiptPhoto?> Function(ImageSource source, {required bool scan});
+typedef PickReceipt = Future<ReceiptPhoto?> Function(ImageSource source, {required bool scan, String script});
 
 /// Scan is hidden on the web (no on-device recognition there, docs Phase 9).
 bool get canScanReceipts => !kIsWeb;
 
 /// Camera or library → [ReceiptFiles.prepare] → (scan: text recognition on the prepared 2048 px photo, not the
 /// original, which can be 50 MP and more: too big to decode at once on Android); null when cancelled. Tests override it.
-final pickReceiptProvider = Provider<PickReceipt>((ref) => (source, {required scan}) async {
+final pickReceiptProvider = Provider<PickReceipt>((ref) => (source, {required scan, script = 'latin'}) async {
       // The browser resizes while picking (a canvas); phones keep the original for flutter_image_compress.
       final x = await ImagePicker().pickImage(
           source: source, maxWidth: kIsWeb ? 2048 : null, maxHeight: kIsWeb ? 2048 : null);
@@ -138,7 +148,7 @@ final pickReceiptProvider = Provider<PickReceipt>((ref) => (source, {required sc
       List<OcrLine>? lines;
       if (scan) {
         try {
-          lines = await recognizeLines(await files.pendingPath(id));
+          lines = await recognizeLines(await files.pendingPath(id), script: script);
         } catch (_) {
           lines = const []; // unreadable: the items are typed by hand
         }

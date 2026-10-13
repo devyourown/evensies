@@ -880,10 +880,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Future<void> _scan() async {
     final source = await pickImageSource(context, title: context.l.scanAReceipt);
     if (source == null || !mounted) return;
+    final d = ref.read(groupProvider(widget.groupId)).value?.defaultCurrency ?? '';
+    var currency = _currency ?? d;
+    final script = ocrScript(currency, Localizations.localeOf(context).languageCode);
     setState(() => _scanning = true);
     ReceiptPhoto? photo;
     try {
-      photo = await ref.read(pickReceiptProvider)(source, scan: true);
+      photo = await ref.read(pickReceiptProvider)(source, scan: true, script: script);
     } catch (e) {
       if (mounted) showError(context, photoErrorText(context.l, e, source));
     } finally {
@@ -895,8 +898,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _newReceipts.add(scanned.id);
       _scanId = scanned.id;
     });
-    final d = ref.read(groupProvider(widget.groupId)).value?.defaultCurrency ?? '';
-    var currency = _currency ?? d;
     final lines = scanned.lines ?? const <OcrLine>[];
     var draft = parseReceipt(lines, decimals: Money.digits(currency));
     final other = draft.lines.isEmpty ? receiptCurrency(lines, known: Money.decimals.keys.toSet()) : null;

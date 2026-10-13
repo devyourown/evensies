@@ -1,0 +1,267 @@
+{
+  "_doc" : "Recognized by Apple Vision (accurate, ja-JP first) from vision/jp_supermarket.png, a made-up receipt drawn by vision/ocr.swift, for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels.",
+  "decimals" : 0,
+  "expected" : {
+    "discount" : 0,
+    "lines" : [
+      {
+        "amount" : 238,
+        "name" : "牛乳 1000ml"
+      },
+      {
+        "amount" : 168,
+        "name" : "食パン6枚切"
+      },
+      {
+        "amount" : 198,
+        "name" : "バナナ"
+      },
+      {
+        "amount" : 256,
+        "name" : "ヨーグルト"
+      },
+      {
+        "amount" : 298,
+        "name" : "台所用洗剤"
+      }
+    ],
+    "merchant" : "スーパーさくら 中野店",
+    "tax" : 97,
+    "tip" : 0,
+    "total" : 1255
+  },
+  "lines" : [
+    {
+      "bottom" : 101,
+      "left" : 293,
+      "right" : 597,
+      "text" : "スーパーさくら 中野店",
+      "top" : 68
+    },
+    {
+      "bottom" : 156,
+      "left" : 271,
+      "right" : 618,
+      "text" : "東京都中野区中野5-12-3",
+      "top" : 121
+    },
+    {
+      "bottom" : 209,
+      "left" : 297,
+      "right" : 593,
+      "text" : "電話 03-3381-0000",
+      "top" : 172
+    },
+    {
+      "bottom" : 257,
+      "left" : 245,
+      "right" : 648,
+      "text" : "2026年10月12日（月）18:42",
+      "top" : 224
+    },
+    {
+      "bottom" : 312,
+      "left" : 239,
+      "right" : 654,
+      "text" : "登録番号 T1234567890123",
+      "top" : 277
+    },
+    {
+      "bottom" : 415,
+      "left" : 56,
+      "right" : 247,
+      "text" : "牛乳 1000ml",
+      "top" : 385
+    },
+    {
+      "bottom" : 470,
+      "left" : 56,
+      "right" : 239,
+      "text" : "食パン6枚切",
+      "top" : 435
+    },
+    {
+      "bottom" : 521,
+      "left" : 56,
+      "right" : 147,
+      "text" : "バナナ",
+      "top" : 488
+    },
+    {
+      "bottom" : 570,
+      "left" : 60,
+      "right" : 204,
+      "text" : "ヨーグルト",
+      "top" : 539
+    },
+    {
+      "bottom" : 625,
+      "left" : 97,
+      "right" : 285,
+      "text" : "2コ✕ 単128",
+      "top" : 592
+    },
+    {
+      "bottom" : 677,
+      "left" : 58,
+      "right" : 210,
+      "text" : "台所用洗剤",
+      "top" : 643
+    },
+    {
+      "bottom" : 783,
+      "left" : 56,
+      "right" : 121,
+      "text" : "小計",
+      "top" : 748
+    },
+    {
+      "bottom" : 837,
+      "left" : 60,
+      "right" : 259,
+      "text" : "外税8％対象額",
+      "top" : 797
+    },
+    {
+      "bottom" : 886,
+      "left" : 60,
+      "right" : 170,
+      "text" : "外税8%",
+      "top" : 851
+    },
+    {
+      "bottom" : 941,
+      "left" : 60,
+      "right" : 280,
+      "text" : "外税10%対象額",
+      "top" : 900
+    },
+    {
+      "bottom" : 990,
+      "left" : 60,
+      "right" : 192,
+      "text" : "外税10%",
+      "top" : 955
+    },
+    {
+      "bottom" : 1043,
+      "left" : 60,
+      "right" : 123,
+      "text" : "合計",
+      "top" : 1008
+    },
+    {
+      "bottom" : 1095,
+      "left" : 62,
+      "right" : 152,
+      "text" : "お預り",
+      "top" : 1058
+    },
+    {
+      "bottom" : 1146,
+      "left" : 62,
+      "right" : 152,
+      "text" : "お釣り",
+      "top" : 1111
+    },
+    {
+      "bottom" : 1248,
+      "left" : 273,
+      "right" : 634,
+      "text" : "軽は軽減税率対象商品です",
+      "top" : 1213
+    },
+    {
+      "bottom" : 414,
+      "left" : 715,
+      "right" : 837,
+      "text" : "¥238軽",
+      "top" : 377
+    },
+    {
+      "bottom" : 468,
+      "left" : 715,
+      "right" : 837,
+      "text" : "¥168軽",
+      "top" : 428
+    },
+    {
+      "bottom" : 516,
+      "left" : 717,
+      "right" : 839,
+      "text" : "¥198軽",
+      "top" : 481
+    },
+    {
+      "bottom" : 568,
+      "left" : 717,
+      "right" : 839,
+      "text" : "¥256軽",
+      "top" : 532
+    },
+    {
+      "bottom" : 673,
+      "left" : 747,
+      "right" : 843,
+      "text" : "·298",
+      "top" : 635
+    },
+    {
+      "bottom" : 783,
+      "left" : 721,
+      "right" : 841,
+      "text" : "·1,158",
+      "top" : 741
+    },
+    {
+      "bottom" : 829,
+      "left" : 749,
+      "right" : 841,
+      "text" : "·860",
+      "top" : 795
+    },
+    {
+      "bottom" : 880,
+      "left" : 770,
+      "right" : 841,
+      "text" : "·68",
+      "top" : 846
+    },
+    {
+      "bottom" : 942,
+      "left" : 743,
+      "right" : 847,
+      "text" : "¥298",
+      "top" : 889
+    },
+    {
+      "bottom" : 986,
+      "left" : 772,
+      "right" : 843,
+      "text" : "·29",
+      "top" : 951
+    },
+    {
+      "bottom" : 1041,
+      "left" : 723,
+      "right" : 843,
+      "text" : "·1,255",
+      "top" : 1002
+    },
+    {
+      "bottom" : 1096,
+      "left" : 723,
+      "right" : 847,
+      "text" : "·2,000",
+      "top" : 1052
+    },
+    {
+      "bottom" : 1140,
+      "left" : 751,
+      "right" : 845,
+      "text" : "·745",
+      "top" : 1107
+    }
+  ],
+  "name" : "JPY supermarket (real Vision OCR): ￥ prices with 軽, a 2コ X 単 line, 外税 at two rates"
+}
