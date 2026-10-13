@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- Google Play feature graphic, 1024x500. Regenerate (from the repository root):
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+    --window-size=1024,500 --screenshot=docs/store/play-feature-graphic.png "file://$PWD/docs/store/feature-graphic.html"
+  sips -g pixelWidth -g pixelHeight -g hasAlpha docs/store/play-feature-graphic.png   # 1024x500, hasAlpha: no
+  Colours and mark: docs/brand/icon.svg.
+  Everything stays inside the middle 70% (Play may crop the edges). -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Evensies feature graphic</title>
+<style>
+  html, body { margin: 0; width: 1024px; height: 500px; overflow: hidden; }
+  body {
+    background: linear-gradient(135deg, #FF7A59 0%, #E8453C 100%);
+    display: flex; align-items: center; justify-content: center; gap: 40px;
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; color: #fff;
+  }
+  svg { width: 230px; height: 230px; flex: none; }
+  h1 { margin: 0; font-size: 92px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+  p { margin: 18px 0 0 4px; font-size: 34px; font-weight: 500; opacity: .93; }
+</style>
+</head>
+<body>
+  <svg viewBox="112 112 800 800" aria-hidden="true">
+    <defs>
+      <linearGradient id="coin" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFFFFF"/>
+        <stop offset="1" stop-color="#FFE9E2"/>
+      </linearGradient>
+      <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#8A1F14" flood-opacity="0.35"/>
+      </filter>
+    </defs>
+    <g transform="rotate(-18 512 512)" filter="url(#sh)">
+      <path d="M512 192 A320 320 0 0 0 512 832 L512 192 Z" transform="translate(-34 0)" fill="url(#coin)"/>
+      <path d="M512 192 A320 320 0 0 1 512 832 L512 192 Z" transform="translate(34 0)" fill="url(#coin)"/>
+    </g>
+  </svg>
+  <div>
+    <h1>Evensies</h1>
+    <p>Split expenses. Settle up.</p>
+  </div>
+</body>
+</html>
