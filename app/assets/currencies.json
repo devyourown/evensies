@@ -11,7 +11,7 @@
     "SSP": 2, "STN": 2, "SVC": 2, "SYP": 2, "SZL": 2, "TJS": 2, "TMT": 2, "TND": 3, "TOP": 2, "TTD": 2, "TZS": 2, "UAH": 2, "UGX": 0, "UYU": 2, "UZS": 2, "VES": 2,
     "VUV": 0, "WST": 2, "XAF": 0, "XCD": 2, "XCG": 2, "XOF": 0, "XPF": 0, "YER": 2, "ZAR": 2, "ZMW": 2, "ZWG": 2
   },
-  "symbols": {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "CAD": "CA$", "AUD": "A$", "SGD": "S$", "HKD": "HK$", "CNY": "CN¥", "TWD": "NT$", "THB": "฿", "PHP": "₱", "MYR": "RM", "INR": "₹", "BRL": "R$", "MXN": "MX$", "PLN": "zł", "CZK": "Kč", "TRY": "₺", "KRW": "₩", "JPY": "¥", "VND": "₫", "IDR": "Rp", "HUF": "Ft"},
+  "symbols": {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "CAD": "CA$", "AUD": "A$", "SGD": "S$", "HKD": "HK$", "CNY": "CN¥", "TWD": "NT$", "THB": "฿", "PHP": "₱", "MYR": "RM", "INR": "₹", "BRL": "R$", "MXN": "MX$", "PLN": "zł", "CZK": "Kč", "TRY": "₺", "KRW": "₩", "JPY": "¥", "VND": "₫", "IDR": "Rp", "HUF": "Ft", "ILS": "₪", "UAH": "₴", "NGN": "₦", "KZT": "₸", "GEL": "₾", "AZN": "₼"},
   "names": {
     "EUR": "Euro", "USD": "US dollar", "GBP": "British pound", "CHF": "Swiss franc", "CAD": "Canadian dollar", "AUD": "Australian dollar", "SGD": "Singapore dollar", "HKD": "Hong Kong dollar",
     "CNY": "Chinese yuan", "TWD": "New Taiwan dollar", "THB": "Thai baht", "PHP": "Philippine peso", "MYR": "Malaysian ringgit", "INR": "Indian rupee", "BRL": "Brazilian real", "MXN": "Mexican peso",
