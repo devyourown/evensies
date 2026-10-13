@@ -25,7 +25,7 @@ jobs:
       - working-directory: app
         run: |
           flutter pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           flutter analyze
           flutter test
           flutter build web --release --base-href /app/ --no-web-resources-cdn --csp
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate shared JSON
-        run: for f in shared/*.json; do python3 -m json.tool "$f" > /dev/null && echo "ok $f"; done
+        run: for f in shared/*.json; do python3 -m json.tool "$f" > /dev/null || { echo "invalid $f"; exit 1; }; echo "ok $f"; done
 
   secrets-scan:
     runs-on: ubuntu-latest

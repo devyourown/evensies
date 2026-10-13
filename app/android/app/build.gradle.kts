@@ -2,11 +2,13 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Firebase config is git-ignored: without google-services.json the app builds with push off (lib/push.dart).
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 // Release signing: android/key.properties + android/upload-keystore.jks (both git-ignored).
 val keyProps = Properties().apply {
