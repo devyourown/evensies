@@ -335,23 +335,27 @@ void main() {
     expect((lines.single.text, lines.single.top, lines.single.right), ('Burger', 40.5, 100.0));
   });
 
-  test('recognizeCjk: the Korean, then the Japanese model, whichever finds its letters; else null', () async {
+  test('recognizeCjk: of the Korean and the Japanese reading, the one that adds up to its total; null if no items',
+      () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     const channel = MethodChannel('evensies/ocr');
     final asked = <String>[];
-    var japanese = 'おにぎり 160';
+    // The Korean model reads a Japanese receipt as Hangul noise: items, but not adding up to the "total".
+    var readings = {
+      'korean': ['카페 100', '하하 200', '합계 999'],
+      'japanese': ['バナナ 198', 'ヨーグルト 256', '合計 454'],
+    };
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (c) async {
       final script = (c.arguments as Map)['script'] as String;
       asked.add(script);
-      final text = switch (script) { 'korean' => 'TOTAL 160', _ => japanese };
       return [
-        {'text': text, 'left': 0, 'top': 0, 'right': 10, 'bottom': 10},
+        for (final (i, t) in readings[script]!.indexed) {'text': t, 'left': 0, 'top': i * 40, 'right': 300, 'bottom': i * 40 + 30},
       ];
     });
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
-    expect((await recognizeCjk(files, 'r1'))!.single.text, 'おにぎり 160');
+    expect((await recognizeCjk(files, 'r1'))!.map((l) => l.text), readings['japanese']);
     expect(asked, ['korean', 'japanese']);
-    japanese = 'TOTAL 160';
+    readings = {'korean': ['TOTAL'], 'japanese': ['TOTAL']};
     expect(await recognizeCjk(files, 'r1'), isNull); // a Latin receipt read badly stays as it was
   });
 

@@ -128,19 +128,27 @@ String ocrScript(String currency, String language) => switch (currency) {
     };
 
 /// Android reads with one ML Kit model, so a Korean or Japanese receipt read as 'latin' comes back without its words:
-/// the photo [id]'s lines under the Korean, then the Japanese model, when they hold Hangul or kana; else null.
+/// the photo [id] read with the Korean and with the Japanese model, and the reading whose draft adds up to its printed
+/// total (else the one with more items); null when neither finds an item. Not "the first with Hangul": the Korean
+/// model reads a Japanese receipt as Hangul noise.
 Future<List<OcrLine>?> recognizeCjk(ReceiptFiles files, String id) async {
   try {
     final path = await files.pendingPath(id);
-    for (final (script, letters) in [
-      ('korean', RegExp(r'\p{Script=Hangul}', unicode: true)),
-      ('japanese', RegExp(r'[\p{Script=Hiragana}\p{Script=Katakana}]', unicode: true)),
-    ]) {
-      final lines = await recognizeLines(path, script: script);
-      if (lines.any((l) => letters.hasMatch(l.text))) return lines;
+    final readings = [
+      for (final script in ['korean', 'japanese']) await recognizeLines(path, script: script),
+    ];
+    // KRW and JPY both have no decimals.
+    final drafts = [for (final lines in readings) parseReceipt(lines, decimals: 0)];
+    int score(ReceiptDraft d) {
+      final sum = d.lines.fold(0, (a, l) => a + l.amount) + d.tip - d.discount;
+      final addsUp = d.total != null && (sum == d.total || sum + d.tax == d.total);
+      return d.lines.isEmpty ? -1 : (addsUp ? 1000 : 0) + d.lines.length;
     }
-  } catch (_) {}
-  return null;
+    final best = score(drafts[1]) > score(drafts[0]) ? 1 : 0;
+    return score(drafts[best]) < 0 ? null : readings[best];
+  } catch (_) {
+    return null;
+  }
 }
 
 /// A photo taken or picked for an expense, prepared under [id]; [lines] when it was scanned (empty if nothing could be
