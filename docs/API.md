@@ -800,7 +800,7 @@ App `formatMoney`, server `Money.display`, cases `money` in `activity-cases.json
 | fr | `{n}␣{s}` | U+202F | `,` | `1 234,56 €` |
 | pl, sv | `{n}␣{s}` | U+00A0 | `,` | `1 234,56 €` |
 
-␣ = U+00A0. The only per-language `symbols` entry is sv's `{"SEK": "kr"}`. Symbols that several currencies used to share were taken out of `symbols` in `currencies.json`: CAD `CA$`, AUD `A$`, SGD `S$`, HKD `HK$`, MXN `MX$`, CNY `CN¥`; SEK, NOK, DKK, ISK, KWD, BHD, AED and CLP were dropped from the table and use the ISO code (USD `$` and JPY `¥` stay). Examples: en `CA$12.34`, `CHF 12.50`, `RM 12.50`, `PYG 1,234`, `KWD 1,234.567`; sv `999,00 kr`, `12,50 NOK`; pt `R$ 1.234,56`; id `Rp 123.456`; ko `₩15,000`.
+␣ = U+00A0. The only per-language `symbols` entry is sv's `{"SEK": "kr"}`. Symbols that several currencies used to share were taken out of `symbols` in `currencies.json`: CAD `CA$`, AUD `A$`, SGD `S$`, HKD `HK$`, MXN `MX$`, CNY `CN¥`; SEK, NOK, DKK, ISK, KWD, BHD, AED and CLP were dropped from the table and use the ISO code (USD `$` and JPY `¥` stay). ILS `₪`, UAH `₴`, NGN `₦`, KZT `₸`, GEL `₾` and AZN `₼` are in the table because no other currency uses those symbols. Examples: en `CA$12.34`, `₪12.50`, `CHF 12.50`, `RM 12.50`, `PYG 1,234`, `KWD 1,234.567`; sv `999,00 kr`, `12,50 NOK`; pt `R$ 1.234,56`; id `Rp 123.456`; ko `₩15,000`.
 - The app no longer uses intl `NumberFormat.simpleCurrency`. `formatMoney(minor, currency, {String? lang})` (default `Money.lang`). Screens, activity, widgets and pushes all use the same notation. `plainAmount` (amounts in URLs, EPC QR) always uses `.` and no grouping (unchanged from phase 1).
 
 ### Amount input (app only)

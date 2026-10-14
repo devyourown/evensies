@@ -87,6 +87,36 @@
       "text": "PYG\u00a01,234"
     },
     {
+      "minor": 1250,
+      "currency": "ILS",
+      "text": "\u20aa12.50"
+    },
+    {
+      "minor": 123456,
+      "currency": "UAH",
+      "text": "\u20b41,234.56"
+    },
+    {
+      "minor": 500000,
+      "currency": "NGN",
+      "text": "\u20a65,000.00"
+    },
+    {
+      "minor": 1234567,
+      "currency": "KZT",
+      "text": "\u20b812,345.67"
+    },
+    {
+      "minor": 4590,
+      "currency": "GEL",
+      "text": "\u20be45.90"
+    },
+    {
+      "minor": 2000,
+      "currency": "AZN",
+      "text": "\u20bc20.00"
+    },
+    {
       "minor": 123456,
       "currency": "EUR",
       "lang": "de",
