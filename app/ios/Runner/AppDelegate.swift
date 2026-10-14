@@ -30,16 +30,19 @@ import Vision
       }
     }
     // Receipt scan (docs/API.md, Receipts): the photo's text lines, read on the phone with Apple Vision. `recognize`
-    // {path} → [{text, left, top, right, bottom}] in pixels of the upright image, origin top left.
+    // {path, script} → [{text, left, top, right, bottom}] in pixels of the upright image, origin top left.
     let ocr = FlutterMethodChannel(
       name: "evensies/ocr", binaryMessenger: engineBridge.applicationRegistrar.messenger())
     ocr.setMethodCallHandler { call, result in
-      guard call.method == "recognize", let path = (call.arguments as? [String: Any])?["path"] as? String else {
+      let args = call.arguments as? [String: Any]
+      guard call.method == "recognize", let path = args?["path"] as? String else {
         result(FlutterMethodNotImplemented)
         return
       }
       DispatchQueue.global(qos: .userInitiated).async {
-        let lines = Result { try AppDelegate.recognizeLines(URL(fileURLWithPath: path)) }
+        let lines = Result {
+          try AppDelegate.recognizeLines(URL(fileURLWithPath: path), script: args?["script"] as? String)
+        }
         DispatchQueue.main.async {
           switch lines {
           case .success(let l): result(l)
@@ -50,7 +53,7 @@ import Vision
     }
   }
 
-  private static func recognizeLines(_ url: URL) throws -> [[String: Any]] {
+  private static func recognizeLines(_ url: URL, script: String?) throws -> [[String: Any]] {
     guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
       let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
     else { throw CocoaError(.fileReadCorruptFile) }
@@ -61,6 +64,13 @@ import Vision
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
     request.usesLanguageCorrection = false  // prices and codes, not words
+    // Korean and Japanese came with iOS 16 (VNRecognizeTextRequestRevision3); iOS 15 keeps its default languages.
+    if #available(iOS 16.0, *) {
+      request.automaticallyDetectsLanguage = true
+      if let first = ["korean": "ko-KR", "japanese": "ja-JP"][script ?? ""] {
+        request.recognitionLanguages = [first, "en-US"]
+      }
+    }
     try VNImageRequestHandler(url: url, orientation: CGImagePropertyOrientation(rawValue: raw) ?? .up)
       .perform([request])
     return (request.results ?? []).compactMap { o in

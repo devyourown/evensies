@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show mapEquals;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, mapEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -880,10 +880,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Future<void> _scan() async {
     final source = await pickImageSource(context, title: context.l.scanAReceipt);
     if (source == null || !mounted) return;
+    final d = ref.read(groupProvider(widget.groupId)).value?.defaultCurrency ?? '';
+    var currency = _currency ?? d;
+    final script = ocrScript(currency, Localizations.localeOf(context).languageCode);
     setState(() => _scanning = true);
     ReceiptPhoto? photo;
     try {
-      photo = await ref.read(pickReceiptProvider)(source, scan: true);
+      photo = await ref.read(pickReceiptProvider)(source, scan: true, script: script);
     } catch (e) {
       if (mounted) showError(context, photoErrorText(context.l, e, source));
     } finally {
@@ -895,10 +898,18 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       _newReceipts.add(scanned.id);
       _scanId = scanned.id;
     });
-    final d = ref.read(groupProvider(widget.groupId)).value?.defaultCurrency ?? '';
-    var currency = _currency ?? d;
-    final lines = scanned.lines ?? const <OcrLine>[];
+    var lines = scanned.lines ?? const <OcrLine>[];
     var draft = parseReceipt(lines, decimals: Money.digits(currency));
+    if (draft.lines.isEmpty && script == 'latin' && defaultTargetPlatform == TargetPlatform.android) {
+      setState(() => _scanning = true);
+      final cjk = await recognizeCjk(ref.read(receiptFilesProvider), scanned.id);
+      if (!mounted) return;
+      setState(() => _scanning = false);
+      if (cjk != null) {
+        lines = cjk;
+        draft = parseReceipt(lines, decimals: Money.digits(currency));
+      }
+    }
     final other = draft.lines.isEmpty ? receiptCurrency(lines, known: Money.decimals.keys.toSet()) : null;
     if (other != null && other != currency) {
       final again = parseReceipt(lines, decimals: Money.digits(other));
@@ -928,7 +939,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     });
     final done = await _openItems(start: bill);
     if (!mounted) return;
-    if (draft.merchant case final merchant? when _description.text.trim().isEmpty) {
+    // Nothing read: the "merchant" is likely OCR noise (a Korean header under the Latin model).
+    if (draft.merchant case final merchant? when draft.lines.isNotEmpty && _description.text.trim().isEmpty) {
       setState(() => _description.text = merchant);
       _scheduleGuess();
     }

@@ -329,9 +329,39 @@ void main() {
       ];
     });
     addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
-    final lines = await recognizeLines('/tmp/r.jpg');
+    final lines = await recognizeLines('/tmp/r.jpg', script: 'korean');
     expect(asked.single.method, 'recognize');
-    expect(asked.single.arguments, {'path': '/tmp/r.jpg'});
+    expect(asked.single.arguments, {'path': '/tmp/r.jpg', 'script': 'korean'});
     expect((lines.single.text, lines.single.top, lines.single.right), ('Burger', 40.5, 100.0));
+  });
+
+  test('recognizeCjk: of the Korean and the Japanese reading, the one that adds up to its total; null if no items',
+      () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('evensies/ocr');
+    final asked = <String>[];
+    // The Korean model reads a Japanese receipt as Hangul noise: items, but not adding up to the "total".
+    var readings = {
+      'korean': ['카페 100', '하하 200', '합계 999'],
+      'japanese': ['バナナ 198', 'ヨーグルト 256', '合計 454'],
+    };
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (c) async {
+      final script = (c.arguments as Map)['script'] as String;
+      asked.add(script);
+      return [
+        for (final (i, t) in readings[script]!.indexed) {'text': t, 'left': 0, 'top': i * 40, 'right': 300, 'bottom': i * 40 + 30},
+      ];
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+    expect((await recognizeCjk(files, 'r1'))!.map((l) => l.text), readings['japanese']);
+    expect(asked, ['korean', 'japanese']);
+    readings = {'korean': ['TOTAL'], 'japanese': ['TOTAL']};
+    expect(await recognizeCjk(files, 'r1'), isNull); // a Latin receipt read badly stays as it was
+  });
+
+  test("the script hint: the expense's currency (KRW, JPY) first, else the app's language", () {
+    expect([ocrScript('KRW', 'en'), ocrScript('JPY', 'ko'), ocrScript('EUR', 'ko'), ocrScript('USD', 'ja')],
+        ['korean', 'japanese', 'korean', 'japanese']);
+    expect([ocrScript('EUR', 'en'), ocrScript('', 'th')], ['latin', 'latin']);
   });
 }

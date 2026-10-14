@@ -31,7 +31,7 @@ void main() {
   late SharedPreferences prefs;
   late Directory tmp;
   late ReceiptFiles files;
-  final picks = <bool>[]; // scan flag of each pick
+  final picks = <String?>[]; // each pick's script hint when scanned, else null
   Object? pickError; // thrown by the next pick (the camera refused)
   List<OcrLine>? scanned; // what the phone reads on a scanned photo; null = the diner below
 
@@ -78,9 +78,9 @@ void main() {
           sharedPreferencesProvider.overrideWithValue(prefs),
           receiptFilesProvider.overrideWithValue(files),
           receiptFileProvider.overrideWith((ref, k) async => null), // thumbnails: "Available when online"
-          pickReceiptProvider.overrideWithValue((source, {required scan}) async {
+          pickReceiptProvider.overrideWithValue((source, {required scan, script = 'latin'}) async {
             if (pickError case final e?) throw e;
-            picks.add(scan);
+            picks.add(scan ? script : null);
             final id = 'r${picks.length}';
             for (final thumb in [false, true]) {
               // sync: no real async IO inside the test's fake time
@@ -240,7 +240,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('Choose from library'));
     await settle(t);
-    expect(picks, [true]);
+    expect(picks, ['latin']); // EUR, English
     expect(find.text('Items'), findsWidgets);
     expect(t.widget<Text>(find.byKey(const Key('itemize-total'))).data, '€27.77');
     expect(find.byKey(const Key('itemize-mismatch')), findsNothing); // the items add up to the printed total
@@ -328,7 +328,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('Take photo'));
     await settle(t);
-    expect(picks, [false]);
+    expect(picks, [null]);
     expect(find.byKey(const Key('new-receipt-r1')), findsOneWidget);
     await unmount(t);
     await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));

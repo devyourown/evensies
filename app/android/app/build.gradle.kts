@@ -62,6 +62,9 @@ flutter {
 }
 
 dependencies {
-    // Receipt scan on the phone (MainActivity, channel evensies/ocr): the Latin model only, bundled in the app.
+    // Receipt scan on the phone (MainActivity, channel evensies/ocr): Latin, Korean and Japanese models, bundled in the
+    // app (offline, no Play services download). The Korean and Japanese ones read Latin too.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 }

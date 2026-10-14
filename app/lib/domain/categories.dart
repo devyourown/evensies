@@ -138,7 +138,8 @@ String fold(String s) {
 }
 
 final _split = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
-final _noSpace = RegExp(r'[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]',
+/// Scripts written without spaces between words: their keywords match anywhere in the text.
+final noSpaceScript = RegExp(r'[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]',
     unicode: true);
 final _spaces = RegExp(r'\s+');
 
@@ -167,7 +168,7 @@ String? guessCategory(String description, {List<({String description, String? ca
     for (final k in c.keywords) {
       int score;
       bool exact;
-      if (_noSpace.hasMatch(k)) {
+      if (noSpaceScript.hasMatch(k)) {
         if (!folded.contains(k)) continue;
         score = _len(k);
         exact = true;

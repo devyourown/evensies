@@ -1,0 +1,351 @@
+{
+  "_doc" : "Recognized by Apple Vision (accurate, ko-KR first) from vision/kr_cafe_card.png, a made-up receipt drawn by vision/ocr.swift, for parseReceipt (app/lib/domain/receipt_parser.dart). Boxes in pixels.",
+  "decimals" : 0,
+  "expected" : {
+    "discount" : 0,
+    "lines" : [
+      {
+        "amount" : 9000,
+        "name" : "2x 아메리카노"
+      },
+      {
+        "amount" : 5000,
+        "name" : "카페라떼"
+      },
+      {
+        "amount" : 5500,
+        "name" : "바닐라라떼"
+      },
+      {
+        "amount" : 6800,
+        "name" : "치즈케이크"
+      },
+      {
+        "amount" : 3900,
+        "name" : "크루아상"
+      }
+    ],
+    "merchant" : "카페 온새미로 역삼점",
+    "tax" : 0,
+    "tip" : 0,
+    "total" : 30200
+  },
+  "lines" : [
+    {
+      "bottom" : 100,
+      "left" : 315,
+      "right" : 568,
+      "text" : "카페 온새미로 역삼점",
+      "top" : 65
+    },
+    {
+      "bottom" : 150,
+      "left" : 207,
+      "right" : 682,
+      "text" : "사업자번호 214-86-12345 대표 김하늘",
+      "top" : 115
+    },
+    {
+      "bottom" : 205,
+      "left" : 268,
+      "right" : 621,
+      "text" : "서울 강남구 테헤란로 152, 1층",
+      "top" : 167
+    },
+    {
+      "bottom" : 251,
+      "left" : 331,
+      "right" : 560,
+      "text" : "TEL 02-555-0142",
+      "top" : 222
+    },
+    {
+      "bottom" : 307,
+      "left" : 254,
+      "right" : 634,
+      "text" : "[영수증] 2026-10-12 13:45:21",
+      "top" : 272
+    },
+    {
+      "bottom" : 412,
+      "left" : 461,
+      "right" : 527,
+      "text" : "단가",
+      "top" : 376
+    },
+    {
+      "bottom" : 409,
+      "left" : 581,
+      "right" : 638,
+      "text" : "수량",
+      "top" : 376
+    },
+    {
+      "bottom" : 516,
+      "left" : 438,
+      "right" : 527,
+      "text" : "4,500",
+      "top" : 481
+    },
+    {
+      "bottom" : 571,
+      "left" : 435,
+      "right" : 518,
+      "text" : "5,000",
+      "top" : 533
+    },
+    {
+      "bottom" : 624,
+      "left" : 437,
+      "right" : 521,
+      "text" : "5,500",
+      "top" : 585
+    },
+    {
+      "bottom" : 674,
+      "left" : 435,
+      "right" : 521,
+      "text" : "6,800",
+      "top" : 636
+    },
+    {
+      "bottom" : 728,
+      "left" : 437,
+      "right" : 520,
+      "text" : "3,900",
+      "top" : 686
+    },
+    {
+      "bottom" : 507,
+      "left" : 618,
+      "right" : 642,
+      "text" : "2",
+      "top" : 481
+    },
+    {
+      "bottom" : 560,
+      "left" : 623,
+      "right" : 638,
+      "text" : "1",
+      "top" : 534
+    },
+    {
+      "bottom" : 612,
+      "left" : 623,
+      "right" : 640,
+      "text" : "1",
+      "top" : 584
+    },
+    {
+      "bottom" : 664,
+      "left" : 623,
+      "right" : 640,
+      "text" : "1",
+      "top" : 636
+    },
+    {
+      "bottom" : 715,
+      "left" : 623,
+      "right" : 640,
+      "text" : "1",
+      "top" : 691
+    },
+    {
+      "bottom" : 414,
+      "left" : 54,
+      "right" : 135,
+      "text" : "상품명",
+      "top" : 378
+    },
+    {
+      "bottom" : 519,
+      "left" : 54,
+      "right" : 189,
+      "text" : "아메리카노",
+      "top" : 483
+    },
+    {
+      "bottom" : 571,
+      "left" : 54,
+      "right" : 163,
+      "text" : "카페라떼",
+      "top" : 536
+    },
+    {
+      "bottom" : 623,
+      "left" : 56,
+      "right" : 191,
+      "text" : "바닐라라떼",
+      "top" : 588
+    },
+    {
+      "bottom" : 671,
+      "left" : 58,
+      "right" : 191,
+      "text" : "치즈케이크",
+      "top" : 638
+    },
+    {
+      "bottom" : 726,
+      "left" : 56,
+      "right" : 165,
+      "text" : "크루아상",
+      "top" : 690
+    },
+    {
+      "bottom" : 830,
+      "left" : 56,
+      "right" : 165,
+      "text" : "공급가액",
+      "top" : 795
+    },
+    {
+      "bottom" : 880,
+      "left" : 61,
+      "right" : 172,
+      "text" : "부가세",
+      "top" : 847
+    },
+    {
+      "bottom" : 933,
+      "left" : 61,
+      "right" : 89,
+      "text" : "합",
+      "top" : 900
+    },
+    {
+      "bottom" : 933,
+      "left" : 122,
+      "right" : 161,
+      "text" : "계",
+      "top" : 900
+    },
+    {
+      "bottom" : 1038,
+      "left" : 58,
+      "right" : 167,
+      "text" : "받을금액",
+      "top" : 1002
+    },
+    {
+      "bottom" : 1090,
+      "left" : 58,
+      "right" : 167,
+      "text" : "신용카드",
+      "top" : 1054
+    },
+    {
+      "bottom" : 1142,
+      "left" : 62,
+      "right" : 438,
+      "text" : "카드번호 9410-61**_****-123*",
+      "top" : 1100
+    },
+    {
+      "bottom" : 1192,
+      "left" : 63,
+      "right" : 313,
+      "text" : "승인번호 30012345",
+      "top" : 1159
+    },
+    {
+      "bottom" : 1190,
+      "left" : 333,
+      "right" : 416,
+      "text" : "일시불",
+      "top" : 1155
+    },
+    {
+      "bottom" : 1243,
+      "left" : 63,
+      "right" : 444,
+      "text" : "승인일시 2026-10-12 13:45:21",
+      "top" : 1210
+    },
+    {
+      "bottom" : 1347,
+      "left" : 302,
+      "right" : 607,
+      "text" : "이용해 주셔서 감사합니다",
+      "top" : 1312
+    },
+    {
+      "bottom" : 410,
+      "left" : 780,
+      "right" : 836,
+      "text" : "금액",
+      "top" : 375
+    },
+    {
+      "bottom" : 518,
+      "left" : 751,
+      "right" : 839,
+      "text" : "9,000",
+      "top" : 476
+    },
+    {
+      "bottom" : 567,
+      "left" : 756,
+      "right" : 839,
+      "text" : "5,000",
+      "top" : 529
+    },
+    {
+      "bottom" : 619,
+      "left" : 758,
+      "right" : 838,
+      "text" : "5,500",
+      "top" : 582
+    },
+    {
+      "bottom" : 669,
+      "left" : 758,
+      "right" : 838,
+      "text" : "6,800",
+      "top" : 634
+    },
+    {
+      "bottom" : 723,
+      "left" : 758,
+      "right" : 841,
+      "text" : "3,900",
+      "top" : 684
+    },
+    {
+      "bottom" : 826,
+      "left" : 756,
+      "right" : 843,
+      "text" : "27,455",
+      "top" : 787
+    },
+    {
+      "bottom" : 880,
+      "left" : 769,
+      "right" : 843,
+      "text" : "2,745",
+      "top" : 841
+    },
+    {
+      "bottom" : 933,
+      "left" : 740,
+      "right" : 843,
+      "text" : "30,200",
+      "top" : 893
+    },
+    {
+      "bottom" : 1035,
+      "left" : 740,
+      "right" : 843,
+      "text" : "30,200",
+      "top" : 996
+    },
+    {
+      "bottom" : 1087,
+      "left" : 743,
+      "right" : 845,
+      "text" : "30,200",
+      "top" : 1046
+    }
+  ],
+  "name" : "KRW café, card terminal (real Vision OCR): name, unit price, qty, amount columns; spaced 합 계"
+}
