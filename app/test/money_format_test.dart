@@ -6,6 +6,10 @@ import 'package:evensies/core/money.dart';
 void main() {
   setUpAll(() => Money.loadFromJson(File('../shared/currencies.json').readAsStringSync()));
 
+  test('the app asset is a byte-equal copy of shared/currencies.json', () {
+    expect(File('assets/currencies.json').readAsBytesSync(), File('../shared/currencies.json').readAsBytesSync());
+  });
+
   String digitsOf(String s) => s.replaceAll(RegExp(r'[^\d.]'), '');
 
   test('EUR 1234 formats with two decimals', () => expect(digitsOf(formatMoney(1234, 'EUR')), '12.34'));
