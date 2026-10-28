@@ -201,7 +201,7 @@ class _ItemizeScreenState extends State<ItemizeScreen> {
         title: Text(l.items),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsetsDirectional.only(end: 8),
             child: FilledButton(
               key: const Key('itemize-done'),
               onPressed: problem == null ? () => Navigator.pop(context, bill) : null,
@@ -368,8 +368,8 @@ class _LineCard extends StatelessWidget {
       key: l.key,
       direction: DismissDirection.endToStart,
       background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
+        alignment: AlignmentDirectional.centerEnd,
+        padding: const EdgeInsetsDirectional.only(end: 24),
         color: cs.errorContainer,
         child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
       ),
