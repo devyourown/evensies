@@ -520,7 +520,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   ),
                   if (!_fxLoading && autoRate != null && fxValue != autoRate)
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: TextButton.icon(
                         key: const Key('fx-auto'),
                         onPressed: () => setState(() {
@@ -806,7 +806,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           child: ListView(scrollDirection: Axis.horizontal, children: [
             for (final (i, id) in stored.indexed)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsetsDirectional.only(end: 8),
                 child: ReceiptThumb(
                   key: Key('receipt-$id'),
                   groupId: groupId,
@@ -816,12 +816,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               ),
             for (final id in _newReceipts)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsetsDirectional.only(end: 8),
                 child: Stack(clipBehavior: Clip.none, children: [
                   ReceiptThumb(key: Key('new-receipt-$id'), groupId: groupId, attachmentId: id),
-                  Positioned(
+                  PositionedDirectional(
                     top: -6,
-                    right: -6,
+                    end: -6,
                     child: IconButton.filledTonal(
                       key: Key('new-receipt-remove-$id'),
                       tooltip: context.l.photoRemove,
