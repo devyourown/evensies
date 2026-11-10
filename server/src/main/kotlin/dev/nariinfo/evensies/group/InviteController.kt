@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.util.HtmlUtils
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 
@@ -58,7 +59,7 @@ class InviteController(private val groups: GroupService, private val limiter: Co
         limiter.throttle(request)
         val p = groups.preview(code)
         val member = m?.takeIf { UUID_SHAPE.matches(it) }?.let { "?m=$it" } ?: ""
-        val page = LandingPage(request, code, "evensies://join/$code$member", "/app/#/join/${InviteCodes.normalize(code)}$member")
+        val page = LandingPage(request, code, "evensies://j/$code$member", "/app/#/join/${InviteCodes.normalize(code)}$member")
         if (p.kind == "friend") return page.person(p.members.firstOrNull { it.linked }?.name, "friendAdded")
         return page.render(page.text("title", "group" to p.name), p.name, page.text("invited"), page.text("members", "count" to p.memberCount.toString()))
     }
@@ -73,6 +74,10 @@ class InviteController(private val groups: GroupService, private val limiter: Co
  * `Accept-Language` language strings.json has, else English. [appLink] opens the app, [webLink] the web app.
  */
 class LandingPage(request: HttpServletRequest, private val code: String, private val appLink: String, private val webLink: String) {
+    /** Chrome on Android follows an `intent:` link to the app, or to Play when the app is not installed. */
+    private val android = request.getHeader(HttpHeaders.USER_AGENT)?.contains("Android") == true
+
+
     val lang: String = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE)?.let {
         try {
             Locale.lookupTag(Locale.LanguageRange.parse(it), Strings.languages)
@@ -100,6 +105,7 @@ class LandingPage(request: HttpServletRequest, private val code: String, private
         val html = """
             <!doctype html>
             <html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta name="apple-itunes-app" content="app-id=$APP_STORE_ID">
             <title>${esc(title)}</title>
             <style>body{font-family:system-ui,sans-serif;max-width:28rem;margin:4rem auto;padding:0 1rem;line-height:1.5}
             a.btn{display:block;margin:.75rem 0;padding:.75rem;text-align:center;border-radius:.5rem;background:#1a73e8;color:#fff;text-decoration:none}
@@ -109,14 +115,24 @@ class LandingPage(request: HttpServletRequest, private val code: String, private
             <h1>${esc(heading)}</h1>
             ${paragraphs.joinToString("") { "<p>${esc(it)}</p>" }}
             <p>${esc(text("code"))}<br><strong class="code">${esc(shown)}</strong></p>
-            <a class="btn" href="${esc(appLink)}">${esc(text("openApp"))}</a>
+            <a class="btn" href="${esc(if (android) intentLink() else appLink)}">${esc(text("openApp"))}</a>
             <a class="btn web" href="${esc(webLink)}">${esc(text("openWeb"))}</a>
-            <a class="btn store" href="#">${esc(text("appStore"))}</a>
-            <a class="btn store" href="#">${esc(text("googlePlay"))}</a>
+            <a class="btn store" href="${esc(APP_STORE)}">${esc(text("appStore"))}</a>
+            <a class="btn store" href="${esc(PLAY)}">${esc(text("googlePlay"))}</a>
             <p><small>${esc(text("hint", "code" to shown))}</small></p>
             </body></html>
         """.trimIndent()
         return ResponseEntity.ok().contentType(MediaType("text", "html", StandardCharsets.UTF_8))
-            .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE).body(html)
+            .header(HttpHeaders.VARY, "${HttpHeaders.ACCEPT_LANGUAGE}, ${HttpHeaders.USER_AGENT}").body(html)
+    }
+
+    /** [appLink] (`evensies://j/CODE`) as `intent://j/CODE#Intent;…`, falling back to Play. */
+    private fun intentLink() = "intent://" + appLink.removePrefix("evensies://") +
+        "#Intent;scheme=evensies;package=dev.nariinfo.evensies;S.browser_fallback_url=" + URLEncoder.encode(PLAY, StandardCharsets.UTF_8) + ";end"
+
+    private companion object {
+        const val APP_STORE_ID = "6821392602"
+        const val APP_STORE = "https://apps.apple.com/app/id$APP_STORE_ID"
+        const val PLAY = "https://play.google.com/store/apps/details?id=dev.nariinfo.evensies"
     }
 }

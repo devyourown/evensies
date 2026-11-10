@@ -222,8 +222,8 @@
       "openApp": "Open in the app",
       "openWeb": "Continue in the browser",
       "hint": "Have the app? Open it, tap “Join with a code” and enter {code}.",
-      "appStore": "App Store (coming soon)",
-      "googlePlay": "Google Play (coming soon)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Hi {name},",
@@ -548,8 +548,8 @@
       "openApp": "앱에서 열기",
       "openWeb": "브라우저에서 계속하기",
       "hint": "앱이 있나요? 앱을 열고 이 코드를 입력하세요: {code}",
-      "appStore": "App Store (출시 예정)",
-      "googlePlay": "Google Play (출시 예정)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "{name}님, 안녕하세요.",
@@ -874,8 +874,8 @@
       "openApp": "Openen in de app",
       "openWeb": "Doorgaan in de browser",
       "hint": "Heb je de app? Open hem en doe mee met de code {code}.",
-      "appStore": "App Store (binnenkort)",
-      "googlePlay": "Google Play (binnenkort)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Hoi {name},",
@@ -1200,8 +1200,8 @@
       "openApp": "Ouvrir dans l’app",
       "openWeb": "Continuer dans le navigateur",
       "hint": "Vous avez l’app\u00a0? Ouvrez-la et rejoignez le groupe avec le code {code}.",
-      "appStore": "App Store (bientôt disponible)",
-      "googlePlay": "Google Play (bientôt disponible)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Bonjour {name},",
@@ -1526,8 +1526,8 @@
       "openApp": "In der App öffnen",
       "openWeb": "Im Browser fortfahren",
       "hint": "Du hast die App? Öffne sie und tritt mit dem Code {code} bei.",
-      "appStore": "App Store (bald verfügbar)",
-      "googlePlay": "Google Play (bald verfügbar)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Hallo {name},",
@@ -1852,8 +1852,8 @@
       "openApp": "Buka di aplikasi",
       "openWeb": "Lanjutkan di browser",
       "hint": "Sudah punya aplikasinya? Buka aplikasi dan gabung dengan kode {code}.",
-      "appStore": "App Store (segera hadir)",
-      "googlePlay": "Google Play (segera hadir)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Halo {name},",
@@ -2178,8 +2178,8 @@
       "openApp": "Apri nell’app",
       "openWeb": "Continua nel browser",
       "hint": "Hai l’app? Aprila e unisciti con il codice {code}.",
-      "appStore": "App Store (in arrivo)",
-      "googlePlay": "Google Play (in arrivo)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Ciao {name},",
@@ -2504,8 +2504,8 @@
       "openApp": "アプリで開く",
       "openWeb": "ブラウザで続ける",
       "hint": "アプリをお持ちですか？アプリを開いて、コード {code} で参加してください。",
-      "appStore": "App Store（近日公開）",
-      "googlePlay": "Google Play（近日公開）"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "{name}さん、こんにちは。",
@@ -2830,8 +2830,8 @@
       "openApp": "Otwórz w aplikacji",
       "openWeb": "Kontynuuj w przeglądarce",
       "hint": "Masz aplikację? Otwórz ją i dołącz za pomocą kodu {code}.",
-      "appStore": "App Store (wkrótce)",
-      "googlePlay": "Google Play (wkrótce)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Cześć {name},",
@@ -3156,8 +3156,8 @@
       "openApp": "Abrir no app",
       "openWeb": "Continuar no navegador",
       "hint": "Já tem o app? Abra e entre com o código {code}.",
-      "appStore": "App Store (em breve)",
-      "googlePlay": "Google Play (em breve)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Olá {name},",
@@ -3482,8 +3482,8 @@
       "openApp": "Abrir en la app",
       "openWeb": "Continuar en el navegador",
       "hint": "¿Tienes la app? Ábrela y únete con el código {code}.",
-      "appStore": "App Store (próximamente)",
-      "googlePlay": "Google Play (próximamente)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Hola, {name}:",
@@ -3810,8 +3810,8 @@
       "openApp": "Öppna i appen",
       "openWeb": "Fortsätt i webbläsaren",
       "hint": "Har du appen? Öppna den och ange koden {code}.",
-      "appStore": "App Store (kommer snart)",
-      "googlePlay": "Google Play (kommer snart)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "Hej {name}!",
@@ -4136,8 +4136,8 @@
       "openApp": "เปิดในแอป",
       "openWeb": "ดำเนินการต่อในเบราว์เซอร์",
       "hint": "มีแอปแล้วใช่ไหม เปิดแอปแล้วเข้าร่วมด้วยรหัส {code}",
-      "appStore": "App Store (เร็วๆ นี้)",
-      "googlePlay": "Google Play (เร็วๆ นี้)"
+      "appStore": "App Store",
+      "googlePlay": "Google Play"
     },
     "email": {
       "hi": "สวัสดี {name}",
