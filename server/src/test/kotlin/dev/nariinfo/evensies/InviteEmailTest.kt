@@ -74,9 +74,9 @@ class InviteEmailTest : IntegrationTestBase() {
 
         // The landing page passes the placeholder on; a non-UUID is dropped.
         val page = http.get("/j/$code?m=$cara").text
-        assertTrue("evensies://join/$code?m=$cara" in page && "/app/#/join/$code?m=$cara" in page, page)
+        assertTrue("evensies://j/$code?m=$cara" in page && "/app/#/join/$code?m=$cara" in page, page)
         val bad = http.get("/j/$code?m=..%2F..%2Fx").text
-        assertTrue("evensies://join/$code\"" in bad && "?m=" !in bad, bad)
+        assertTrue("evensies://j/$code\"" in bad && "?m=" !in bad, bad)
     }
 
     @Test

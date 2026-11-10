@@ -37,12 +37,12 @@ class InviteLandingTest : IntegrationTestBase() {
         for ((header, expected) in cases) {
             val res = page("/j/$code", header)
             assertEquals(expected, lang(res), "$header")
-            assertEquals("Accept-Language", res.headers["vary"], "$header")
+            assertEquals("Accept-Language, User-Agent", res.headers["vary"], "$header")
             assertTrue(res.headers["content-type"]!!.startsWith("text/html") && res.headers["content-type"]!!.contains("UTF-8", ignoreCase = true))
         }
 
         val ko = page("/j/$code", "ko-KR").text
-        for (key in listOf("invited", "openApp", "openWeb", "code", "appStore", "googlePlay")) {
+        for (key in listOf("invited", "openApp", "openWeb", "code")) {
             assertNotEquals(landing("en", key), landing("ko", key), "ko $key is translated")
             assertTrue(ko.contains(HtmlUtils.htmlEscape(landing("ko", key), "UTF-8")), "ko $key")
         }
@@ -65,7 +65,7 @@ class InviteLandingTest : IntegrationTestBase() {
         val typed = code.lowercase().chunked(3).joinToString("-")
         val group = page("/j/$typed").text
         assertTrue(group.contains("href=\"/app/#/join/$code\""), group)
-        assertTrue(group.contains("href=\"evensies://join/$typed\""), "the app link keeps the code as typed")
+        assertTrue(group.contains("href=\"evensies://j/$typed\""), "the app link keeps the code as typed")
 
         val friendCode = http.get("/me/friend-code", token).body["friendCode"].asString()
         val friend = page("/f/${friendCode.lowercase()}", "de-AT").text
@@ -73,6 +73,31 @@ class InviteLandingTest : IntegrationTestBase() {
         assertTrue(friend.contains("href=\"evensies://f/${friendCode.lowercase()}\""), friend)
         assertEquals("de", lang(page("/f/$friendCode", "de-AT")))
         assertEquals(404, http.get("/f/ZZZZZZ", headers = mapOf("Accept-Language" to "ko")).status)
+    }
+
+    @Test
+    fun theStoreLinksAndTheAppLinkWithoutTheApp() {
+        val token = login("Land-store")
+        val code = createGroup(token)["inviteCode"].asString()
+        val play = "https://play.google.com/store/apps/details?id=dev.nariinfo.evensies"
+        val appStore = "https://apps.apple.com/app/id6821392602"
+
+        val iphone = http.get("/j/$code", headers = mapOf("User-Agent" to IPHONE)).text
+        assertTrue(iphone.contains("href=\"$appStore\"") && iphone.contains("href=\"${HtmlUtils.htmlEscape(play)}\""), iphone)
+        assertFalse(iphone.contains("href=\"#\""), "no placeholder links")
+        assertFalse(iphone.contains("coming soon"), iphone)
+        assertTrue(iphone.contains("<meta name=\"apple-itunes-app\" content=\"app-id=6821392602\">"), "Safari offers Open or Get")
+        assertTrue(iphone.contains("href=\"evensies://j/$code\""), iphone)
+
+        // Chrome on Android opens the app through an intent and goes to Play when the app is missing.
+        val android = http.get("/j/$code", headers = mapOf("User-Agent" to ANDROID)).text
+        val fallback = java.net.URLEncoder.encode(play, Charsets.UTF_8)
+        val intent = "intent://j/$code#Intent;scheme=evensies;package=dev.nariinfo.evensies;S.browser_fallback_url=$fallback;end"
+        assertTrue(android.contains("href=\"${HtmlUtils.htmlEscape(intent)}\""), android)
+
+        val friendCode = http.get("/me/friend-code", token).body["friendCode"].asString()
+        val friend = http.get("/f/$friendCode", headers = mapOf("User-Agent" to ANDROID)).text
+        assertTrue(friend.contains(HtmlUtils.htmlEscape("intent://f/$friendCode#Intent;scheme=evensies;")), friend)
     }
 
     @Test
@@ -95,5 +120,10 @@ class InviteLandingTest : IntegrationTestBase() {
         assertTrue(someone.contains("Someone wants to split expenses with you."), someone)
         val de = page("/f/$friendCode", "de").text
         assertTrue(de.contains("<h1>${Strings.get("de", "words", "someone")!!.replaceFirstChar { it.uppercase() }}</h1>"), de)
+    }
+
+    private companion object {
+        const val IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        const val ANDROID = "Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
     }
 }
